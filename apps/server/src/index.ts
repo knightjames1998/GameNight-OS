@@ -1,15 +1,23 @@
 import express from "express";
+import cookieParser from "cookie-parser";
 import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer, WebSocket } from "ws";
 import type { WsMessage } from "@gamenight/shared";
+import { authRouter, attachUser } from "./auth.js";
+import { groupsRouter, joinRouter } from "./groups.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 3000);
 
 const app = express();
+// Replit sits behind a proxy; trust it so req.protocol reports https
+// and magic link URLs come out correct.
+app.set("trust proxy", 1);
 app.use(express.json());
+app.use(cookieParser());
+app.use(attachUser);
 
 // ---------- API ----------
 
@@ -17,9 +25,9 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "gamenight-os", time: new Date().toISOString() });
 });
 
-// Feature routes get mounted here in future sessions:
-// app.use("/api/groups", groupsRouter);
-// app.use("/api/events", eventsRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/groups", groupsRouter);
+app.use("/api/join", joinRouter);
 
 // ---------- Static frontend (production) ----------
 // In dev, Vite serves the web app on its own port and proxies /api here.

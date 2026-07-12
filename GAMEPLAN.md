@@ -32,6 +32,11 @@ Done when: the card looks good enough that someone actually posts it.
 
 ## Phase 6: MVP night
 Run a real game night end to end. Fix what breaks. Celebrate.
+Pre-night checklist (email goes live here):
+- Buy a cheap domain (~$10/yr, Porkbun/Cloudflare/Namecheap). App stays on replit.dev; domain is only for email.
+- Verify the domain in Resend (add the DNS records they give you).
+- Switch the from-address in apps/server/src/email.ts from onboarding@resend.dev to the new domain.
+- Test: send a magic link to an email that is NOT the Resend account email. Until domain verification, Resend free tier only delivers to your own address.
 
 ## After MVP
 Pull from BACKLOG.md NEXT section: seasons, availability polling, Mario Kart pack, predictions ticker. Reassess order based on what the group actually asks for after the first night.

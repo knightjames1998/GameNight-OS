@@ -30,6 +30,20 @@ export const magicLinkTokens = pgTable("magic_link_tokens", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+
+// A successful magic link verification creates a session; the session id
+// lives in an httpOnly cookie. Logout or expiry kills the row.
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    expiresAt: timestamp("expires_at").notNull(),
+  },
+  (t) => [index("sessions_user_idx").on(t.userId)],
+);
+
 // ---------- Crew ----------
 
 export const groups = pgTable("groups", {

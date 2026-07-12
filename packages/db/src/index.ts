@@ -3,6 +3,10 @@ import pg from "pg";
 import * as schema from "./schema.js";
 
 export * from "./schema.js";
+// Query operators re-exported so consumers never import drizzle-orm directly;
+// everything database flows through this package.
+export { eq, and, or, not, gt, gte, lt, lte, isNull, isNotNull, inArray, desc, asc, sql } from "drizzle-orm";
+
 export { schema };
 
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;

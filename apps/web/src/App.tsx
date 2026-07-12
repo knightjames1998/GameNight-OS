@@ -1,27 +1,54 @@
 import { useEffect, useState } from "react";
-
-// Placeholder shell. Real design pass comes in its own session.
-// Job for now: prove the full pipeline works (web -> API -> deploy).
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { api, ApiError, type Me } from "./api";
+import Home from "./pages/Home";
+import GroupPage from "./pages/GroupPage";
+import JoinPage from "./pages/JoinPage";
 
 export default function App() {
-  const [serverTime, setServerTime] = useState<string | null>(null);
+  const [me, setMe] = useState<Me | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/health")
-      .then((r) => r.json())
-      .then((d) => setServerTime(d.time))
-      .catch(() => setServerTime(null));
+    api<Me>("/api/auth/me")
+      .then(setMe)
+      .catch((e) => {
+        // 401 just means logged out; anything else is a real problem
+        // but the login screen is still the right place to land.
+        if (!(e instanceof ApiError && e.status === 401)) console.error(e);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
+  async function logout() {
+    await api("/api/auth/logout", { method: "POST" });
+    setMe(null);
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-dvh bg-neutral-950 text-neutral-100 flex items-center justify-center">
+        <p className="text-neutral-600">Loading...</p>
+      </main>
+    );
+  }
+
   return (
-    <main className="min-h-dvh bg-neutral-950 text-neutral-100 flex flex-col items-center justify-center gap-4 p-6">
-      <h1 className="text-3xl font-bold tracking-tight">GameNight OS</h1>
-      <p className="text-neutral-400 text-center">
-        Scaffold is live. Crew module is up next.
-      </p>
-      <p className="text-xs text-neutral-600">
-        {serverTime ? `API connected: ${serverTime}` : "API not reachable"}
-      </p>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <Home
+              me={me}
+              onLogout={logout}
+              onNameChange={(displayName) => me && setMe({ ...me, displayName })}
+            />
+          }
+        />
+        <Route path="/g/:id" element={<GroupPage />} />
+        <Route path="/join/:code" element={<JoinPage me={me} />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
