@@ -1,0 +1,18 @@
+{
+  "name": "gamenight-os",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Friend-group game night OS: schedule, play, broadcast, legacy.",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @gamenight/server --filter @gamenight/web dev",
+    "build": "pnpm --filter @gamenight/shared build && pnpm --filter @gamenight/db build && pnpm --filter @gamenight/web build && pnpm --filter @gamenight/server build",
+    "start": "pnpm --filter @gamenight/server start",
+    "typecheck": "pnpm -r typecheck",
+    "db:push": "pnpm --filter @gamenight/db db:push",
+    "db:studio": "pnpm --filter @gamenight/db db:studio"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

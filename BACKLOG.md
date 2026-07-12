@@ -1,0 +1,40 @@
+# GameNight OS Backlog
+
+Ideas live here so nothing gets silently dropped. Status: NOW (current MVP push), NEXT (after MVP), LATER (someday), DEFERRED (decided against for now, with reason).
+
+## NOW (MVP)
+- [ ] Magic link auth (email in, link back, session cookie)
+- [ ] Crew: create group, invite link, join, member list
+- [ ] Events: create game night, RSVP yes/no/maybe
+- [ ] Bracket: single elimination, generalize Beerio Kart engine
+- [ ] Score entry from phone (mobile-first)
+- [ ] Broadcast: live TV leaderboard view over WebSockets
+- [ ] Recap card: canvas-to-JPG, port from Beerio Kart
+
+## NEXT (first post-MVP wave)
+- [ ] Seasons: 8-12 week arcs with standings and an offseason
+- [ ] Round robin format
+- [ ] Availability polling and auto-pick-the-night
+- [ ] Flake tracking / RSVP streaks
+- [ ] Mario Kart game pack (first real pack on the generic model)
+- [ ] Spectator predictions ticker on Broadcast (port from Beerio Kart)
+
+## LATER
+- [ ] Handicap engine (golf-style modifiers to keep nights competitive)
+- [ ] Draft night mode (snake drafts for characters/teams, TV draft board)
+- [ ] Wager ledger (bragging-rights bets, confirmations, outstanding debts)
+- [ ] Achievements/badges, including group-created custom badges
+- [ ] Cross-game stats profiles per member
+- [ ] House rules per group per game, with versioning
+- [ ] Smack talk feed on Broadcast view
+- [ ] Capacitor native wrapper
+- [ ] Offline score entry sync (PWA background sync)
+- [ ] Additional game packs: Smash, board games, darts, poker night
+
+## DEFERRED
+- Venue/brewery league mode: different customer, different product. Revisit only if a venue asks.
+- Money wagers: regulatory mess. Bragging rights only.
+
+## OPEN DECISIONS
+- Does Beerio Kart Bracket fold in as the first game pack or stay a separate app? Leaning fold-in, not decided.
+- Recap card sharing: native share sheet vs download-and-post? Decide when building it.
