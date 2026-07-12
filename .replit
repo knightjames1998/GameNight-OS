@@ -1,12 +1,11 @@
-run = "pnpm start"
+modules = ["nodejs-20"]
+
+run = "npx -y pnpm@9 build && npx -y pnpm@9 start"
 entrypoint = "apps/server/src/index.ts"
 
-[nix]
-channel = "stable-24_05"
-
 [deployment]
-build = ["sh", "-c", "npm install -g pnpm@9 && pnpm install && pnpm build"]
-run = ["sh", "-c", "pnpm start"]
+build = ["sh", "-c", "npx -y pnpm@9 install && npx -y pnpm@9 build"]
+run = ["sh", "-c", "npx -y pnpm@9 start"]
 
 [[ports]]
 localPort = 3000
