@@ -43,22 +43,3 @@ export interface GroupDetail extends Omit<GroupSummary, "role"> {
     joinedAt: string;
   }[];
 }
-
-export type RsvpStatus = "yes" | "no" | "maybe";
-
-export interface EventSummary {
-  id: string;
-  groupId: string;
-  title: string;
-  scheduledFor: string | null;
-  status: "draft" | "scheduled" | "live" | "completed" | "cancelled";
-  createdBy: string;
-  createdAt: string;
-  counts: { yes: number; maybe: number; no: number };
-  myStatus: RsvpStatus | null;
-}
-
-export interface EventDetail extends Omit<EventSummary, "counts"> {
-  rsvps: { userId: string; status: RsvpStatus; displayName: string }[];
-  noResponse: { userId: string; displayName: string }[];
-}
