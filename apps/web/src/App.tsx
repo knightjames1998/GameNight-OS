@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { api, ApiError, type Me } from "./api";
 import Home from "./pages/Home";
 import GroupPage from "./pages/GroupPage";
+import EventPage from "./pages/EventPage";
 import JoinPage from "./pages/JoinPage";
 
 export default function App() {
@@ -47,6 +48,7 @@ export default function App() {
           }
         />
         <Route path="/g/:id" element={<GroupPage />} />
+        <Route path="/events/:id" element={<EventPage />} />
         <Route path="/join/:code" element={<JoinPage me={me} />} />
       </Routes>
     </BrowserRouter>
