@@ -10,6 +10,7 @@ import { bracketsRouter, tvRouter } from "./brackets.js";
 import { beerioRouter } from "./beerio.js";
 import { beerioGnRouter } from "./beerio-gn.js";
 import { quickPlayRouter } from "./quickplay.js";
+import { statsRouter } from "./stats.js";
 import { setupWebSockets } from "./ws.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -40,6 +41,7 @@ app.use("/api/tv", tvRouter);
 app.use("/api", beerioRouter); // public: sessions/hof for the Beerio pack
 app.use("/api", beerioGnRouter); // authed per-route: GameNight binding for the pack
 app.use("/api", quickPlayRouter);
+app.use("/api", statsRouter);
 app.use("/api", eventsRouter);
 app.use("/api", bracketsRouter);
 

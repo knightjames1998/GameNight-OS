@@ -18,7 +18,9 @@ Ideas live here so nothing gets silently dropped. Status: NOW (current MVP push)
 - [ ] Smack talk feed (on the TV view and/or in-app)
 - [ ] Flake tracking / RSVP streaks
 - [ ] Link a guest to a crew member (crew settings): someone plays as a typed guest on night one, joins the crew later, and their past results get credited to them. Needs the Entrant guest shape (shipped) plus a rebind action.
-- [ ] Legacy/stats screen: lifetime stats are being RECORDED (Beerio) but nothing displays them yet. Biggest gap in what is built.
+- [x] Legacy/stats screen (SHIPPED): lifetime crew leaderboard at /g/:id/stats. Generic brackets now materialize on completion too, so stats span both bracket types.
+- [ ] Stats on the TV view (leaderboard between matches)
+- [ ] Per-member stat profile page (currently expandable rows on the crew leaderboard)
 - [ ] UI design pass: the whole app is functional-but-boring placeholder styling. Deliberate for now; gets a dedicated design session (visual identity, bracket rendering with connector lines, animations).
 - [ ] Seasons: 8-12 week arcs with standings and an offseason
 - [ ] Round robin format
@@ -49,6 +51,9 @@ Ideas live here so nothing gets silently dropped. Status: NOW (current MVP push)
 - Every game mode/tracker ships with a TV/spectator view. The generic bracket has /tv/:id; Beerio Kart has its original live spectator QR flow.
 
 ## DECISION LOG
+- Beerio TV mode (shipped): reads the SAME public live-session endpoint the spectator view uses and renders with the SAME exported engine functions the host runs, so the big screen can never disagree with the phones. Polls every 3s (WebSocket hub is not wired into the beerio pack's own sync).
+- Generic brackets now materialize into matches/match_participants on completion (previously only the Beerio pack did). Undoing a result past completion RETRACTS the recorded rows, so the ledger always matches reality.
+- Placement rule for generic brackets: champion 1st, then everyone ranked by how late they were eliminated. Guests are skipped (no identity to credit).
 - Passwords added pre-v1 (revised from "magic links only"): Resend free-tier delivery limits made email-only login painful for testing and for friends pre-domain-verification. Signup does NOT verify email ownership; magic links remain the fallback and the only verified path. Revisit verification before any public launch.
 - Bracket scoring defaults open to all members; group owners/admins can lock it per bracket.
 

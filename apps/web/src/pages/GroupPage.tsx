@@ -131,6 +131,14 @@ export default function GroupPage({
         </div>
       )}
 
+      <Link
+        to={`/g/${group.id}/stats`}
+        className="block rounded-lg bg-neutral-900 border border-neutral-800 px-4 py-3 hover:border-neutral-600"
+      >
+        <span className="font-medium">📊 Lifetime stats</span>
+        <span className="text-neutral-500 text-sm ml-2">wins, records, by game</span>
+      </Link>
+
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Game nights</h2>
         {events === null && <p className="text-neutral-500 text-sm">Loading...</p>}

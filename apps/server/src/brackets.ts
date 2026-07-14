@@ -5,6 +5,8 @@ import {
   events,
   games,
   groups,
+  matches,
+  matchParticipants,
   memberships,
   rsvps,
   users,
@@ -43,6 +45,7 @@ tvRouter.get("/:id", async (req, res) => {
       groupId: brackets.groupId,
       status: brackets.status,
       openScoring: brackets.openScoring,
+      gameId: brackets.gameId,
       entrants: brackets.entrants,
       results: brackets.results,
       gameName: games.name,
@@ -174,6 +177,10 @@ bracketsRouter.post("/brackets/:id/matches/:matchId/result", async (req: AuthedR
     .set({ results, status: after.championSeed ? "completed" : "live" })
     .where(eq(brackets.id, loaded.id));
 
+  if (after.championSeed) {
+    await materialize({ ...loaded, results }, structure);
+  }
+
   broadcast({ type: "bracket_updated", bracketId: loaded.id });
   res.json({ ok: true });
 });
@@ -208,10 +215,18 @@ bracketsRouter.delete("/brackets/:id/matches/:matchId/result", async (req: Authe
     delete results[id];
   }
 
-  await getDb()
-    .update(brackets)
-    .set({ results, status: "live" })
-    .where(eq(brackets.id, loaded.id));
+  const db2 = getDb();
+  await db2.update(brackets).set({ results, status: "live" }).where(eq(brackets.id, loaded.id));
+
+  // The bracket is no longer finished, so its recorded results must go.
+  const stale = await db2
+    .select({ id: matches.id })
+    .from(matches)
+    .where(eq(matches.bracketId, loaded.id));
+  for (const m of stale) {
+    await db2.delete(matchParticipants).where(eq(matchParticipants.matchId, m.id));
+  }
+  await db2.delete(matches).where(eq(matches.bracketId, loaded.id));
 
   broadcast({ type: "bracket_updated", bracketId: loaded.id });
   res.json({ ok: true });
@@ -237,6 +252,73 @@ bracketsRouter.patch("/brackets/:id/settings", async (req: AuthedRequest, res) =
   broadcast({ type: "bracket_updated", bracketId: loaded.id });
   res.json({ ok: true });
 });
+
+/**
+ * Write a completed bracket into the cross-game stats ledger: one matches
+ * row for the tournament, one match_participants row per MEMBER entrant
+ * with their finishing place. Guests are skipped (they have no identity to
+ * credit yet; linking guests to members is a backlog item). Idempotent by
+ * bracketId.
+ */
+async function materialize(loaded: LoadedBracket, structure: ReturnType<typeof buildSingleElim>) {
+  const db = getDb();
+  const existing = await db
+    .select({ id: matches.id })
+    .from(matches)
+    .where(eq(matches.bracketId, loaded.id))
+    .limit(1);
+  if (existing[0]) return;
+
+  const computed = computeBracket(loaded.entrants.length, structure, loaded.results);
+  if (!computed.championSeed) return;
+
+  // Finishing place per seed: champion 1, runner-up 2, then by the round
+  // they went out (later exit = better place).
+  const exitRound = new Map<number, number>();
+  for (const round of computed.roundIds) {
+    for (const id of round) {
+      const m = computed.matches[id];
+      if (!m || !m.decided || m.auto) continue;
+      if (m.a.kind !== "player" || m.b.kind !== "player" || m.winner.kind !== "player") continue;
+      const loser = m.winner.seed === m.a.seed ? m.b.seed : m.a.seed;
+      exitRound.set(loser, m.def.round);
+    }
+  }
+  const ranked = [...exitRound.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+  const place = new Map<number, number>([[computed.championSeed, 1]]);
+  ranked.forEach(([seed], i) => place.set(seed, i + 2));
+
+  const match = (
+    await db
+      .insert(matches)
+      .values({
+        groupId: loaded.groupId,
+        bracketId: loaded.id,
+        gameId: loaded.gameId,
+        eventId: loaded.eventId,
+        round: 1,
+        position: 0,
+        status: "completed",
+      })
+      .returning()
+  )[0]!;
+
+  for (const [seed, p] of place) {
+    const e = loaded.entrants[seed - 1];
+    if (!e || e.kind !== "member") continue; // guests carry no stats
+    await db
+      .insert(matchParticipants)
+      .values({
+        groupId: loaded.groupId,
+        matchId: match.id,
+        userId: e.userId,
+        seed,
+        placement: p,
+        isWinner: p === 1,
+      })
+      .onConflictDoNothing();
+  }
+}
 
 // ---------- Derivation for the client ----------
 
@@ -312,6 +394,7 @@ interface LoadedBracket {
   groupName: string;
   status: "setup" | "live" | "completed";
   openScoring: boolean;
+  gameId: string;
   entrants: Entrant[];
   results: BracketResults;
   myRole: "owner" | "admin" | "member";
@@ -329,6 +412,7 @@ async function loadBracketForMember(
       groupId: brackets.groupId,
       status: brackets.status,
       openScoring: brackets.openScoring,
+      gameId: brackets.gameId,
       entrants: brackets.entrants,
       results: brackets.results,
       gameName: games.name,

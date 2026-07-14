@@ -24,15 +24,19 @@ interface MatchDef {
 interface BracketGroup {
   key: string; title: string; bracket: "wb" | "lb" | "gf"; ids: string[];
 }
-interface Bracket {
+export interface Bracket {
   defs: MatchDef[]; byId: Record<string, MatchDef>;
   groups: BracketGroup[]; k: number; S: number;
 }
-interface Player { seed: number; name: string | null; }
+export interface Player { seed: number; name: string | null; }
 const TBD: unique symbol = Symbol("TBD");
 const BYE: { bye: true; name: "BYE"; seed?: undefined } = { bye: true, name: "BYE" };
-type Competitor = Player | typeof TBD | typeof BYE;
-interface MatchResult {
+export type Competitor = Player | typeof TBD | typeof BYE;
+/** Narrow a Competitor to a real player (not TBD, not a BYE). */
+export function isRealPlayer(c: Competitor): c is Player {
+  return typeof c === "object" && c !== null && "seed" in c && (c as Player).seed !== undefined;
+}
+export interface MatchResult {
   a: Competitor; b: Competitor; winner: Competitor; loser: Competitor;
   decided: boolean; winSlot: "A" | "B" | null; auto: boolean;
   phantom: boolean; active: boolean; def: MatchDef;
@@ -43,7 +47,7 @@ type SeriesLen = 1 | 2 | 3;
 type Mode = "bracket" | "gp";        // bracket = 1v1 double-elim; gp = 4-kart Grand Prix
 interface Format { series: SeriesLen; mode: Mode; gpRaces: number; }
 type Series = Record<string, { a: number; b: number }>;
-interface SavedState {
+export interface SavedState {
   playerCount: number; names: string[];
   results: Record<string, "A" | "B">; series: Series; format: Format;
   gpLog: number[][];   // Grand Prix: each entry is one race's finishing order, as seed indices
@@ -154,11 +158,11 @@ function gpNextHeat(realCount: number, gpLog: number[][]) {
     .slice(0, hs)
     .sort((a, b) => a - b);
 }
-function gpComplete(realCount: number, target: number, gpLog: number[][]) {
+export function gpComplete(realCount: number, target: number, gpLog: number[][]) {
   return realCount >= 2 && gpLog.length >= gpTotalRaces(realCount, target);
 }
-interface GPStanding { seed: number; points: number; races: number; wins: number; rank: number; }
-function gpStandings(realCount: number, gpLog: number[][]): GPStanding[] {
+export interface GPStanding { seed: number; points: number; races: number; wins: number; rank: number; }
+export function gpStandings(realCount: number, gpLog: number[][]): GPStanding[] {
   const rows: GPStanding[] = Array.from({ length: realCount }, (_, seed) => ({ seed, points: 0, races: 0, wins: 0, rank: 0 }));
   for (const r of gpLog) r.forEach((seed, pos) => {
     if (seed >= realCount) return;
@@ -188,7 +192,7 @@ function roundTitleL(r:number,last:number){
   if(r===last)return"Losers Final"; if(r===last-1)return"Losers Semis"; return"Losers R"+r;
 }
 
-function buildBracket(N: number): Bracket {
+export function buildBracket(N: number): Bracket {
   const S=nextPow2(N), k=Math.log2(S);
   const defs:MatchDef[]=[], groups:BracketGroup[]=[], wbRounds:Record<number,string[]>={};
   const lbRoundForWB:Record<number,number>={1:1};
@@ -260,7 +264,7 @@ function buildBracket(N: number): Bracket {
   return{defs,byId,groups,k,S};
 }
 
-function compute(BR:Bracket, names:string[], results:Record<string,"A"|"B">): Record<string,MatchResult> {
+export function compute(BR:Bracket, names:string[], results:Record<string,"A"|"B">): Record<string,MatchResult> {
   const players:Player[]=names.map((n,i)=>({seed:i+1,name:n&&n.trim()?n.trim():null}));
   const M:Record<string,MatchResult>={};
   const resolve=(src:SlotSource):Competitor=>{
@@ -285,7 +289,7 @@ function compute(BR:Bracket, names:string[], results:Record<string,"A"|"B">): Re
   return M;
 }
 
-function getChampion(M:Record<string,MatchResult>):Player|null{
+export function getChampion(M:Record<string,MatchResult>):Player|null{
   const isReal=(p:Competitor):p is Player=>p!==TBD&&p!==BYE;
   const gf=M["GF"],gf2=M["GF2"];
   if(gf&&gf.decided&&isReal(gf.winner)){
@@ -1134,8 +1138,8 @@ function GrandPrix({names,realCount,gpLog,target,readOnly,onRecord,onUndo}:{
 // ─── Final placements (bracket) ───────────────────────────────────────────────
 // Full finishing order for a completed double-elim: champion, runner-up, then
 // everyone else ranked by how deep in the Losers Bracket they were eliminated.
-interface PlacementRow { seed:number; name:string; place:number; }
-function bracketPlacements(M:Record<string,MatchResult>,names:string[]):PlacementRow[]{
+export interface PlacementRow { seed:number; name:string; place:number; }
+export function bracketPlacements(M:Record<string,MatchResult>,names:string[]):PlacementRow[]{
   const isReal=(p:Competitor):p is Player=>p!==TBD&&p!==BYE;
   const champ=getChampion(M),runnerUp=getRunnerUp(M);
   if(!champ)return[];
@@ -2087,6 +2091,12 @@ export default function App(){
                   className="px-3 py-1.5 rounded-[9px] border-2 border-[var(--ink)] bg-[var(--foam)] font-[Fredoka] font-semibold text-[12px] text-[var(--ink)] shadow-[0_2px_0_rgba(22,35,59,.22)] cursor-pointer">
                   &larr; Back
                 </button>
+              )}
+              {!isSpectator&&sessionCode&&(
+                <a href={`/beerio/tv/${sessionCode}`} target="_blank" rel="noreferrer"
+                  className="px-3 py-1.5 rounded-[9px] border-2 border-[var(--ink)] bg-[var(--sun)] font-[Fredoka] font-semibold text-[12px] text-[var(--ink)] shadow-[0_2px_0_rgba(22,35,59,.22)] no-underline">
+                  📺 TV Mode
+                </a>
               )}
               {!isSpectator&&(
                 <button onClick={()=>setFormatOpen(true)} title="Format"
