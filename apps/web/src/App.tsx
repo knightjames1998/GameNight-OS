@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BrowserRouter, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useNavigate, useLocation} from "react-router-dom";
 import { api, ApiError, type Me } from "./api";
 import Home from "./pages/Home";
 import GroupPage from "./pages/GroupPage";
@@ -17,10 +17,11 @@ function BeerioRoute() {
   // never do a full page load (which iOS standalone mode turns into a new
   // Safari tab).
   const navigate = useNavigate();
+  const location = useLocation();
   useEffect(() => setBeerioNavigator((to) => navigate(to)), [navigate]);
   return (
     <div className="beerio-root">
-      <BeerioApp />
+      <BeerioApp key={location.search} />
     </div>
   );
 }
