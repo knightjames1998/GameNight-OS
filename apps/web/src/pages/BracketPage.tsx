@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, type BracketView, type BracketSlot } from "../api";
 import { RecapModal } from "../recap";
+import BackButton from "../BackButton";
 
 export default function BracketPage() {
   const { id } = useParams();
@@ -99,9 +100,7 @@ export default function BracketPage() {
   return (
     <main className="min-h-dvh bg-neutral-950 text-neutral-100">
       <div className="p-6 pb-2 max-w-3xl mx-auto">
-        <Link to={`/e/${bracket.eventId}`} className="text-sm text-neutral-500">
-          &larr; Back to event
-        </Link>
+        <BackButton />
         <div className="flex items-center justify-between mt-2">
           <h1 className="text-2xl font-bold tracking-tight">{bracket.gameName}</h1>
           <Link

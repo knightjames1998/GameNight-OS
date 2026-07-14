@@ -8,6 +8,7 @@ import EventPage from "./pages/EventPage";
 import BracketPage from "./pages/BracketPage";
 import TvPage from "./pages/TvPage";
 import BeerioApp from "./beerio/BeerioApp";
+import QuickPlayPage from "./pages/QuickPlayPage";
 
 export default function App() {
   const [me, setMe] = useState<Me | null>(null);
@@ -63,6 +64,7 @@ export default function App() {
         <Route path="/b/:id" element={<BracketPage />} />
         <Route path="/tv/:id" element={<TvPage />} />
         <Route path="/beerio" element={<div className="beerio-root"><BeerioApp /></div>} />
+        <Route path="/quick" element={<QuickPlayPage />} />
         <Route path="/join/:code" element={<JoinPage me={me} />} />
       </Routes>
     </BrowserRouter>

@@ -2048,12 +2048,6 @@ export default function App(){
 
   return(
     <ColorsCtx.Provider value={colors}>
-      {GN_EVENT&&!isSpectator&&(
-        <a href={`/e/${GN_EVENT}`}
-          className="fixed top-2 left-2 z-[70] px-3 py-1.5 rounded-[9px] border-2 border-[var(--ink)] bg-[var(--foam)] font-[Fredoka] font-semibold text-[12px] text-[var(--ink)] shadow-[0_2px_0_rgba(22,35,59,.22)] no-underline">
-          &larr; Event
-        </a>
-      )}
       {/* Portrait blocker (tablets only) */}
       <div className="app-portrait-blocker">
         <div className="rp-card">
@@ -2088,6 +2082,12 @@ export default function App(){
               </div>
             </div>
             <div className="flex items-center gap-2.5">
+              {!isSpectator&&(
+                <button onClick={()=>{if(window.history.length>1)history.back();else location.href="/";}}
+                  className="px-3 py-1.5 rounded-[9px] border-2 border-[var(--ink)] bg-[var(--foam)] font-[Fredoka] font-semibold text-[12px] text-[var(--ink)] shadow-[0_2px_0_rgba(22,35,59,.22)] cursor-pointer">
+                  &larr; Back
+                </button>
+              )}
               {!isSpectator&&(
                 <button onClick={()=>setFormatOpen(true)} title="Format"
                   className="w-9 h-9 rounded-[10px] border-2 border-[var(--ink)] bg-[var(--foam)] text-[var(--ink)] text-[15px] grid place-items-center shadow-[0_3px_0_rgba(22,35,59,.22)] hover:bg-white active:translate-y-px transition-all cursor-pointer flex-shrink-0" style={{touchAction:"manipulation"}}>⚙️</button>

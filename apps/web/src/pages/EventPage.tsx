@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, type EventDetail, type RsvpStatus } from "../api";
+import BackButton from "../BackButton";
 
 export default function EventPage() {
   const { id } = useParams();
@@ -226,9 +227,7 @@ function RsvpList({
 function Shell({ children, backTo }: { children: React.ReactNode; backTo: string }) {
   return (
     <main className="min-h-dvh bg-neutral-950 text-neutral-100 p-6 max-w-md mx-auto space-y-8">
-      <Link to={backTo} className="text-sm text-neutral-500">
-        &larr; Back
-      </Link>
+      <BackButton />
       {children}
     </main>
   );

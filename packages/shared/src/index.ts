@@ -42,6 +42,30 @@ export interface Rsvp {
 }
 
 // ---------- Play ----------
+
+/**
+ * A bracket entrant is either a crew member (stats accrue) or a typed-in
+ * guest (no stats, linkable to a member later). Legacy rows stored bare
+ * userId strings; parseEntrants() below upgrades them on read, so no data
+ * migration was needed.
+ */
+export type Entrant =
+  | { kind: "member"; userId: string }
+  | { kind: "guest"; name: string };
+
+export function parseEntrants(raw: unknown): Entrant[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Entrant[] = [];
+  for (const e of raw) {
+    if (typeof e === "string") out.push({ kind: "member", userId: e });
+    else if (e && typeof e === "object") {
+      const o = e as Record<string, unknown>;
+      if (o.kind === "guest" && typeof o.name === "string") out.push({ kind: "guest", name: o.name });
+      else if (typeof o.userId === "string") out.push({ kind: "member", userId: o.userId });
+    }
+  }
+  return out;
+}
 // A "game" is anything with participants and results. Packs layer on top.
 
 export type BracketFormat = "single_elim" | "round_robin";

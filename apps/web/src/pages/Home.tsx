@@ -133,6 +133,13 @@ function Groups({
             Double Elim &amp; Grand Prix
           </span>
         </Link>
+        <Link
+          to="/quick"
+          className="block rounded-lg bg-neutral-900 border border-neutral-800 px-4 py-3 font-semibold hover:border-neutral-600"
+        >
+          🏆 Generalized bracket
+          <span className="text-neutral-500 text-sm font-normal ml-2">single elim, typed names</span>
+        </Link>
       </section>
 
       <section className="space-y-3">

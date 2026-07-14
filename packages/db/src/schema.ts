@@ -56,6 +56,10 @@ export const groups = pgTable("groups", {
   slug: text("slug").notNull().unique(),
   // Invite code baked in from day one; join-via-link is the growth loop.
   inviteCode: text("invite_code").notNull().unique(),
+  // A personal crew is auto-created the first time someone runs a game
+  // mode without a crew (Option B: one system, not a parallel quick-play
+  // path). Hidden from the crew list; upgradeable by inviting people.
+  isPersonal: boolean("is_personal").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -149,7 +153,9 @@ export const brackets = pgTable(
       .default("setup"),
     // When false, only group owners/admins can record or undo results.
     openScoring: boolean("open_scoring").notNull().default(true),
-    entrants: jsonb("entrants").$type<string[]>().notNull().default([]),
+    // Entrant[] from @gamenight/shared: members and/or typed guests.
+    // Legacy rows hold bare userId strings; parseEntrants() handles both.
+    entrants: jsonb("entrants").$type<unknown[]>().notNull().default([]),
     results: jsonb("results")
       .$type<Record<string, "A" | "B">>()
       .notNull()

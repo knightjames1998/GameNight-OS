@@ -16,8 +16,10 @@ import {
   buildSingleElim,
   computeBracket,
   downstreamOf,
+  parseEntrants,
   roundTitle,
   type BracketResults,
+  type Entrant,
   type Slot,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
@@ -56,7 +58,7 @@ tvRouter.get("/:id", async (req, res) => {
     res.status(404).json({ error: "Bracket not found" });
     return;
   }
-  const view = await deriveView({ ...b, myRole: "member" });
+  const view = await deriveView({ ...b, entrants: parseEntrants(b.entrants), myRole: "member" });
   res.json({ ...view, canScore: false, canManage: false });
 });
 
@@ -110,7 +112,7 @@ bracketsRouter.post("/events/:eventId/bracket", async (req: AuthedRequest, res) 
         gameId: game.id,
         format: "single_elim",
         status: "live",
-        entrants: yesList.map((r) => r.userId),
+        entrants: yesList.map((r) => ({ kind: "member" as const, userId: r.userId })),
         results: {},
       })
       .returning()
@@ -240,25 +242,30 @@ bracketsRouter.patch("/brackets/:id/settings", async (req: AuthedRequest, res) =
 
 async function deriveView(loaded: LoadedBracket) {
   const db = getDb();
-  const entrantRows = loaded.entrants.length
+  const memberIds = loaded.entrants
+    .filter((e): e is { kind: "member"; userId: string } => e.kind === "member")
+    .map((e) => e.userId);
+  const entrantRows = memberIds.length
     ? await db
         .select({ id: users.id, displayName: users.displayName })
         .from(users)
-        .where(inArray(users.id, loaded.entrants))
+        .where(inArray(users.id, memberIds))
     : [];
   const nameOf = new Map(entrantRows.map((u) => [u.id, u.displayName]));
+
+  const labelOf = (seed: number): { userId: string | null; displayName: string } => {
+    const e = loaded.entrants[seed - 1];
+    if (!e) return { userId: null, displayName: "Unknown" };
+    if (e.kind === "guest") return { userId: null, displayName: e.name };
+    return { userId: e.userId, displayName: nameOf.get(e.userId) ?? "Unknown" };
+  };
 
   const structure = buildSingleElim(loaded.entrants.length);
   const computed = computeBracket(loaded.entrants.length, structure, loaded.results);
 
   const slotView = (s: Slot) =>
     s.kind === "player"
-      ? {
-          kind: "player" as const,
-          seed: s.seed,
-          userId: loaded.entrants[s.seed - 1]!,
-          displayName: nameOf.get(loaded.entrants[s.seed - 1]!) ?? "Unknown",
-        }
+      ? { kind: "player" as const, seed: s.seed, ...labelOf(s.seed) }
       : { kind: s.kind };
 
   return {
@@ -305,7 +312,7 @@ interface LoadedBracket {
   groupName: string;
   status: "setup" | "live" | "completed";
   openScoring: boolean;
-  entrants: string[];
+  entrants: Entrant[];
   results: BracketResults;
   myRole: "owner" | "admin" | "member";
 }
@@ -336,7 +343,7 @@ async function loadBracketForMember(
   if (!b) return undefined;
   const role = await roleOf(b.groupId, userId);
   if (!role) return undefined;
-  return { ...b, myRole: role };
+  return { ...b, entrants: parseEntrants(b.entrants), myRole: role };
 }
 
 async function loadEventForMember(eventId: string, userId: string) {

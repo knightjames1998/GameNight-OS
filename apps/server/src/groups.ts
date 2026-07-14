@@ -35,7 +35,7 @@ groupsRouter.post("/", async (req: AuthedRequest, res) => {
   res.json(group);
 });
 
-/** List the caller's groups. */
+/** List the caller's crews. Personal (quick play) groups are hidden. */
 groupsRouter.get("/", async (req: AuthedRequest, res) => {
   const db = getDb();
   const rows = await db
@@ -48,8 +48,39 @@ groupsRouter.get("/", async (req: AuthedRequest, res) => {
     })
     .from(memberships)
     .innerJoin(groups, eq(memberships.groupId, groups.id))
-    .where(eq(memberships.userId, req.user!.id));
+    .where(and(eq(memberships.userId, req.user!.id), eq(groups.isPersonal, false)));
   res.json(rows);
+});
+
+/**
+ * Leave a crew. Owners can't walk out on a crew that still has people in
+ * it (no ownership transfer exists yet); they remove the others first, or
+ * hand over ownership once that ships.
+ */
+groupsRouter.delete("/:id/members/me", async (req: AuthedRequest, res) => {
+  const db = getDb();
+  const groupId = String(req.params.id);
+  const rows = await db
+    .select({ userId: memberships.userId, role: memberships.role })
+    .from(memberships)
+    .where(eq(memberships.groupId, groupId));
+
+  const me = rows.find((m) => m.userId === req.user!.id);
+  if (!me) {
+    res.status(404).json({ error: "Group not found" });
+    return;
+  }
+  if (me.role === "owner" && rows.length > 1) {
+    res.status(400).json({
+      error: "Owners can't leave a crew with members in it. Remove them first.",
+    });
+    return;
+  }
+
+  await db
+    .delete(memberships)
+    .where(and(eq(memberships.groupId, groupId), eq(memberships.userId, req.user!.id)));
+  res.json({ ok: true });
 });
 
 /** Group detail with member list. Members only. */

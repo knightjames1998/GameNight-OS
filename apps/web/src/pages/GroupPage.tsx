@@ -215,9 +215,25 @@ export default function GroupPage({
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">
-          Members <span className="text-neutral-500 font-normal">({group.members.length})</span>
-        </h2>
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-lg font-semibold">
+            Members <span className="text-neutral-500 font-normal">({group.members.length})</span>
+          </h2>
+          <button
+            className="text-red-400/70 text-sm"
+            onClick={async () => {
+              if (!window.confirm(`Leave ${group.name}? Your game history stays with the crew.`)) return;
+              try {
+                await api(`/api/groups/${group.id}/members/me`, { method: "DELETE" });
+                navigate("/");
+              } catch (e) {
+                window.alert(e instanceof Error ? e.message : "Couldn't leave");
+              }
+            }}
+          >
+            leave crew
+          </button>
+        </div>
         <ul className="space-y-1">
           {group.members.map((m) => {
             const canRemove =
