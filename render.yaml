@@ -1,0 +1,41 @@
+# Render Blueprint. Import this repo on Render and it reads this file.
+#
+# Two non-obvious things are handled here, both learned the hard way:
+#
+# 1. --prod=false on install. Render sets NODE_ENV=production, and pnpm
+#    then SKIPS devDependencies. But the build needs them (vite, tsc,
+#    drizzle-kit). Without this flag the build fails with "Cannot find
+#    module vite".
+#
+# 2. db:push runs in the build. Render's free tier has no shell, so this
+#    is the only way to apply schema changes. It uses --force, which
+#    accepts changes without prompting. Additive changes (new tables and
+#    columns) are safe; if a future change DROPS a column, that data goes
+#    with it. Check the schema diff before deploying destructive changes.
+#
+# The database is NOT defined here on purpose: Render's free Postgres is
+# deleted 30 days after creation. Use Neon (free, permanent) and paste its
+# connection string into DATABASE_URL. See RENDER.md.
+
+services:
+  - type: web
+    name: gamenight-os
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: corepack enable && pnpm install --prod=false && pnpm build && pnpm db:push:ci
+    startCommand: pnpm start
+    healthCheckPath: /api/health
+    # The WebSocket hub lives in this process's memory. More than one
+    # instance would split the room: phones on instance A would never see
+    # updates from instance B. Keep this at 1 until the hub moves to a
+    # shared backend (Redis pub/sub or similar).
+    numInstances: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATABASE_URL
+        sync: false # paste your Neon connection string in the dashboard
+      - key: RESEND_API_KEY
+        sync: false
