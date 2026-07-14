@@ -129,7 +129,7 @@ export default function BracketPage() {
                 await load();
               }}
             />
-            Anyone can record results
+            Let members record results too (admins always can).
           </label>
         </div>
       )}
