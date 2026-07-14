@@ -9,7 +9,8 @@
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:push:ci": "drizzle-kit push --force"
   },
   "dependencies": {
     "drizzle-orm": "^0.38.2",
