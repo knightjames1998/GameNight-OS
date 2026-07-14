@@ -2228,7 +2228,7 @@ export default function App(){
               </div>
             </div>
             <div className="flex items-center gap-2.5">
-              {!isSpectator&&(
+              {(
                 <button onClick={()=>{if(window.history.length>1)history.back();else location.href="/";}}
                   className="px-3 py-1.5 rounded-[9px] border-2 border-[var(--ink)] bg-[var(--foam)] font-[Fredoka] font-semibold text-[12px] text-[var(--ink)] shadow-[0_2px_0_rgba(22,35,59,.22)] cursor-pointer">
                   &larr; Back
@@ -2280,7 +2280,7 @@ export default function App(){
         {/* Crowd predictions (live rooms only) */}
         {predsActive&&(
           <Predictions
-            canPick={isLive} preds={preds}
+            canPick={predsActive} preds={preds}
             myName={specName} onName={handleSpecName}
             myPicks={myPicks} onPick={handlePick}
             items={predItems} scoreOf={scoreOf}
