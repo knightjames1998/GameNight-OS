@@ -51,6 +51,7 @@ Ideas live here so nothing gets silently dropped. Status: NOW (current MVP push)
 - Every game mode/tracker ships with a TV/spectator view. The generic bracket has /tv/:id; Beerio Kart has its original live spectator QR flow.
 
 ## DECISION LOG
+- Hosting (in progress): Replit's free tier cannot publish this app (needs a live server + Postgres + WebSockets = paid Autoscale/Reserved VM; the free slot is static-only, which is why Beerio Kart fit and this doesn't). Moving deploys to Render free tier, with Postgres on NEON rather than Render because Render's free database is deleted after 30 days. Replit stays usable for development. See RENDER.md.
 - Beerio TV mode (shipped): reads the SAME public live-session endpoint the spectator view uses and renders with the SAME exported engine functions the host runs, so the big screen can never disagree with the phones. Polls every 3s (WebSocket hub is not wired into the beerio pack's own sync).
 - Generic brackets now materialize into matches/match_participants on completion (previously only the Beerio pack did). Undoing a result past completion RETRACTS the recorded rows, so the ledger always matches reality.
 - Placement rule for generic brackets: champion 1st, then everyone ranked by how late they were eliminated. Guests are skipped (no identity to credit).
