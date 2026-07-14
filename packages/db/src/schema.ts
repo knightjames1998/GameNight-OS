@@ -157,7 +157,7 @@ export const brackets = pgTable(
       .notNull()
       .default("setup"),
     // When false, only group owners/admins can record or undo results.
-    openScoring: boolean("open_scoring").notNull().default(true),
+    openScoring: boolean("open_scoring").notNull().default(false),
     // Entrant[] from @gamenight/shared: members and/or typed guests.
     // Legacy rows hold bare userId strings; parseEntrants() handles both.
     entrants: jsonb("entrants").$type<unknown[]>().notNull().default([]),
