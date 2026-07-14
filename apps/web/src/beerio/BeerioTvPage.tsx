@@ -321,8 +321,9 @@ function MatchCard({
   const Row = ({ side }: { side: "a" | "b" }) => {
     const c = m[side];
     const real = isRealPlayer(c);
-    const seed = real ? c.seed : undefined;
-    const label = real ? (c.name ?? `Racer ${c.seed + 1}`) : "TBD";
+    // Bracket seeds are 1-based; the colors array is 0-based.
+    const colorIdx = real ? c.seed - 1 : undefined;
+    const label = real ? (c.name ?? `Racer ${c.seed}`) : "TBD";
     const won = m.decided && m.winSlot === (side === "a" ? "A" : "B");
     const lost = m.decided && !won && real;
     return (
@@ -332,7 +333,7 @@ function MatchCard({
       >
         <span
           className="w-[1.6vw] h-[1.6vw] rounded-full border-[3px] border-[var(--ink)] shrink-0"
-          style={{ background: seed !== undefined ? (state.colors?.[seed] ?? "var(--foam)") : "transparent" }}
+          style={{ background: colorIdx !== undefined ? (state.colors?.[colorIdx] ?? "var(--foam)") : "transparent" }}
         />
         <span
           className={`font-[Fredoka] font-bold text-[1.9vw] text-[var(--ink)] flex-1 truncate ${
