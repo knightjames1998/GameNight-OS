@@ -46,126 +46,96 @@ export default function StatsPage() {
   const count = active ? active.tournaments : stats?.tournaments ?? 0;
 
   return (
-    <main className="min-h-dvh bg-neutral-950 text-neutral-100 p-6 max-w-md mx-auto space-y-6">
-      <BackButton />
+    <main className="gn-app">
+      <div className="gn-wrap space-y-6">
+        <BackButton />
 
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Lifetime stats</h1>
-        {stats && (
-          <p className="text-neutral-500 text-sm mt-1">
-            {count} {count === 1 ? "tournament" : "tournaments"}
-            {active ? ` of ${active.name}` : " across all game modes"}
+        <div>
+          <h1 className="gn-title text-2xl">🏆 Leaderboard</h1>
+          {stats && (
+            <p className="gn-hint mt-1">
+              {count} {count === 1 ? "tournament" : "tournaments"}
+              {active ? ` of ${active.name}` : " across all game modes"}
+            </p>
+          )}
+        </div>
+
+        {error && <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>}
+        {!stats && !error && <p className="gn-hint">Loading...</p>}
+
+        {stats?.leaderboard.length === 0 && (
+          <p className="gn-hint">
+            Nothing recorded yet. Finish a bracket or a Beerio Kart night and the crew's
+            records show up here. Guests don't count until they're linked to a member.
           </p>
         )}
-      </div>
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
-      {!stats && !error && <p className="text-neutral-500 text-sm">Loading...</p>}
-
-      {stats?.leaderboard.length === 0 && (
-        <p className="text-neutral-500 text-sm">
-          Nothing recorded yet. Finish a bracket or a Beerio Kart night and the crew's
-          records show up here. Guests don't count until they're linked to a member.
-        </p>
-      )}
-
-      {stats && stats.games.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-          <Tab active={tab === null} onClick={() => { setTab(null); setOpen(null); }}>
-            All
-          </Tab>
-          {stats.games.map((g) => (
-            <Tab
-              key={g.name}
-              active={tab === g.name}
-              onClick={() => { setTab(g.name); setOpen(null); }}
-            >
-              {g.name}
-            </Tab>
-          ))}
-        </div>
-      )}
-
-      <ul className="space-y-2">
-        {shown?.map((r, i) => {
-          const expanded = open === r.userId;
-          return (
-            <li
-              key={r.userId}
-              className={`rounded-lg border px-4 py-3 ${
-                i === 0
-                  ? "bg-yellow-500/10 border-yellow-500/40"
-                  : "bg-neutral-900 border-neutral-800"
-              }`}
-            >
+        {stats && stats.games.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            <button className={`gn-tab ${tab === null ? "gn-tab--on" : ""}`} onClick={() => { setTab(null); setOpen(null); }}>
+              All
+            </button>
+            {stats.games.map((g) => (
               <button
-                className="w-full text-left"
-                onClick={() => tab === null && setOpen(expanded ? null : r.userId)}
+                key={g.name}
+                className={`gn-tab ${tab === g.name ? "gn-tab--on" : ""}`}
+                onClick={() => { setTab(g.name); setOpen(null); }}
               >
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="flex items-baseline gap-2 min-w-0">
-                    <span
-                      className={`text-sm w-5 shrink-0 ${
-                        i === 0 ? "text-yellow-400" : "text-neutral-600"
-                      }`}
-                    >
-                      {i + 1}
-                    </span>
-                    <span className={`font-semibold truncate ${i === 0 ? "text-yellow-400" : ""}`}>
-                      {r.displayName}
-                    </span>
-                  </span>
-                  <span className="text-sm shrink-0">
-                    <span className="font-semibold">{r.wins}</span>
-                    <span className="text-neutral-500"> {r.wins === 1 ? "win" : "wins"}</span>
-                  </span>
-                </div>
-                <div className="text-xs text-neutral-500 mt-1 pl-7">
-                  {r.played} played &middot; {Math.round(r.winRate * 100)}% win rate &middot;{" "}
-                  {r.podiums} top 3
-                  {r.avgPlacement !== null && ` · avg finish ${r.avgPlacement.toFixed(1)}`}
-                </div>
+                {g.name}
               </button>
+            ))}
+          </div>
+        )}
 
-              {expanded && tab === null && (
-                <ul className="mt-3 pl-7 space-y-1 border-t border-neutral-800 pt-2">
-                  {r.byGame.map((g) => (
-                    <li key={g.name} className="text-xs text-neutral-400 flex justify-between">
-                      <span>{g.name}</span>
-                      <span className="text-neutral-500">
-                        {g.wins}/{g.played} won
+        <ul className="space-y-2">
+          {shown?.map((r, i) => {
+            const expanded = open === r.userId;
+            const top = i === 0;
+            return (
+              <li key={r.userId} className={top ? "gn-champ" : "gn-card"} style={{ padding: 0 }}>
+                <button
+                  className="w-full text-left"
+                  style={{ padding: "12px 16px", background: "transparent", border: 0, color: "var(--gn-ink)" }}
+                  onClick={() => tab === null && setOpen(expanded ? null : r.userId)}
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="flex items-baseline gap-2 min-w-0">
+                      <span className={`gn-rank ${top ? "gn-rank--top" : ""}`} style={{ fontSize: "16px", width: "22px", flexShrink: 0 }}>
+                        {i + 1}
                       </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </main>
-  );
-}
+                      <span className="font-bold truncate" style={top ? { color: "var(--gn-gold)" } : undefined}>
+                        {r.displayName}
+                      </span>
+                    </span>
+                    <span className="text-sm shrink-0">
+                      <span className="font-bold">{r.wins}</span>
+                      <span className="gn-hint"> {r.wins === 1 ? "win" : "wins"}</span>
+                    </span>
+                  </div>
+                  <div className="gn-hint mt-1" style={{ fontSize: "12px", paddingLeft: "30px" }}>
+                    {r.played} played &middot; {Math.round(r.winRate * 100)}% win rate &middot;{" "}
+                    {r.podiums} top 3
+                    {r.avgPlacement !== null && ` · avg finish ${r.avgPlacement.toFixed(1)}`}
+                  </div>
+                </button>
 
-function Tab({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`shrink-0 rounded-full border px-3 py-1 text-sm ${
-        active
-          ? "bg-neutral-100 text-neutral-950 border-neutral-100 font-semibold"
-          : "bg-neutral-900 text-neutral-400 border-neutral-800"
-      }`}
-    >
-      {children}
-    </button>
+                {expanded && tab === null && (
+                  <ul className="space-y-1" style={{ margin: "0 16px 12px", paddingLeft: "30px", borderTop: "2px solid var(--gn-line)", paddingTop: "8px" }}>
+                    {r.byGame.map((g) => (
+                      <li key={g.name} className="gn-hint flex justify-between" style={{ fontSize: "12px" }}>
+                        <span>{g.name}</span>
+                        <span style={{ color: "var(--gn-dim)" }}>
+                          {g.wins}/{g.played} won
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </main>
   );
 }

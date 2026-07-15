@@ -133,3 +133,72 @@
 @media (prefers-reduced-motion:reduce){
   .gn-btn,.gn-cab{transition:none}
 }
+
+/* ============================================================
+   Generic tournament + leaderboard + TV (Arcade)
+   Branded packs (Beerio) keep their own styling and ignore all of this.
+   ============================================================ */
+:root{ --gn-yes:#3ad07a; --gn-yes-ink:#062a17; }
+
+/* pill tabs (stats leaderboard filters) */
+.gn-tab{
+  flex-shrink:0;min-height:40px;padding:0 14px;border-radius:999px;border:2px solid var(--gn-line);
+  background:var(--gn-surf);color:var(--gn-dim);font-weight:800;font-size:13px;font-family:inherit;
+  cursor:pointer;white-space:nowrap;
+}
+.gn-tab--on{background:var(--gn-ink);color:var(--gn-bg);border-color:var(--gn-ink)}
+
+/* champion callout (bracket page) */
+.gn-champ{border:2px solid rgba(255,207,63,.55);background:rgba(255,207,63,.10);border-radius:16px}
+
+/* leaderboard rows */
+.gn-rank{font-family:"Luckiest Guy",system-ui,cursive;color:var(--gn-dim);line-height:1}
+.gn-rank--top{color:var(--gn-gold)}
+
+/* bracket match card + slots (phone / desktop scoring) */
+.gn-match{background:var(--gn-surf);border:2px solid var(--gn-line);border-radius:12px;overflow:hidden}
+.gn-match--live{border-color:var(--gn-p2)}
+.gn-slot{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:12px 14px;font-weight:700;font-size:14px;text-align:left;
+  background:transparent;border:0;color:var(--gn-ink);font-family:inherit;
+}
+.gn-slot--win{color:var(--gn-p2);background:rgba(53,224,196,.10)}
+.gn-slot--lose{color:var(--gn-dim);text-decoration:line-through}
+.gn-slot--empty{color:#8a7ca2;font-style:italic;font-weight:600}
+.gn-slot--tap{cursor:pointer}
+.gn-slot--tap:active{background:var(--gn-raise)}
+.gn-slot__hint{font-size:11px;color:var(--gn-dim);font-weight:700;flex-shrink:0}
+.gn-slot__seed{font-size:11px;color:#8a7ca2;font-weight:800;flex-shrink:0}
+.gn-slot__div{height:2px;background:var(--gn-line)}
+.gn-undo{
+  width:100%;border:0;border-top:2px solid var(--gn-line);background:transparent;
+  color:var(--gn-dim);font-family:inherit;font-weight:700;font-size:11px;padding:6px 0;cursor:pointer;
+}
+.gn-undo:hover{color:var(--gn-ink)}
+
+/* ---- TV / broadcast (big screen, Arcade) ---- */
+.gn-tv{
+  min-height:100dvh;color:var(--gn-ink);font-family:Nunito,system-ui,sans-serif;position:relative;overflow:hidden;
+  background:radial-gradient(1400px 700px at 50% -10%, #241a30 0%, var(--gn-bg) 60%);
+}
+.gn-tv::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;
+  background:repeating-linear-gradient(to bottom,#fff 0 1px,transparent 1px 4px)}
+.gn-tv > *{position:relative;z-index:1}
+.gn-tv-title{
+  font-family:"Luckiest Guy",system-ui,cursive;color:#fff;letter-spacing:1px;line-height:.95;
+  text-shadow:0 0 26px rgba(255,90,95,.45), 3px 4px 0 rgba(0,0,0,.4);
+}
+.gn-tv-round{font-family:Fredoka,system-ui,sans-serif;font-weight:700;color:var(--gn-dim);text-transform:uppercase;letter-spacing:2px}
+.gn-tv-match{background:var(--gn-surf);border:3px solid var(--gn-line);border-radius:16px;overflow:hidden}
+.gn-tv-match--live{border-color:var(--gn-p2);box-shadow:0 0 30px rgba(53,224,196,.18)}
+.gn-tv-slot{padding:14px 22px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gn-tv-slot--win{color:var(--gn-p2);background:rgba(53,224,196,.12)}
+.gn-tv-slot--lose{color:var(--gn-dim);text-decoration:line-through;opacity:.75}
+.gn-tv-slot--empty{color:#8a7ca2;font-style:italic;font-weight:600}
+.gn-tv-slot__div{height:3px;background:var(--gn-line)}
+.gn-tv-champ{border:3px solid rgba(255,207,63,.6);background:rgba(255,207,63,.10);border-radius:22px}
+.gn-live-dot{width:.7em;height:.7em;border-radius:50%;background:var(--gn-yes);box-shadow:0 0 12px var(--gn-yes);display:inline-block}
+@media (prefers-reduced-motion:reduce){.gn-pulse{animation:none}}
+.gn-pulse{animation:gnpulse 1.6s ease-in-out infinite}
+@keyframes gnpulse{0%,100%{opacity:1}50%{opacity:.4}}

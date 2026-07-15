@@ -7,7 +7,8 @@ import BackButton from "../BackButton";
 // The Broadcast view. Design target: a 75" TV at couch distance. That
 // means: huge type, high contrast, zero interaction, information visible
 // from across the room. This page never asks for login; the bracket UUID
-// in the URL is the (unguessable) key.
+// in the URL is the (unguessable) key. Styled in the Arcade language so
+// the big screen matches the app; branded packs bring their own TV mode.
 
 type TvView = BracketView & { groupName: string };
 
@@ -64,15 +65,15 @@ export default function TvPage() {
 
   if (error) {
     return (
-      <main className="min-h-dvh bg-neutral-950 text-neutral-100 flex items-center justify-center">
-        <p className="text-red-400 text-3xl">{error}</p>
+      <main className="gn-tv flex items-center justify-center">
+        <p className="text-3xl" style={{ color: "var(--gn-danger)" }}>{error}</p>
       </main>
     );
   }
   if (!bracket) {
     return (
-      <main className="min-h-dvh bg-neutral-950 text-neutral-100 flex items-center justify-center">
-        <p className="text-neutral-600 text-3xl">Loading...</p>
+      <main className="gn-tv flex items-center justify-center">
+        <p className="gn-hint text-3xl">Loading...</p>
       </main>
     );
   }
@@ -80,31 +81,31 @@ export default function TvPage() {
   const scoreUrl = `${window.location.origin}/b/${bracket.id}`;
 
   return (
-    <main className="min-h-dvh bg-neutral-950 text-neutral-100 flex flex-col p-10 overflow-hidden">
-      <header className="flex items-start justify-between">
+    <main className="gn-tv flex flex-col p-10">
+      <header className="flex items-start justify-between gap-6">
         <div>
           <BackButton className="!text-lg mb-2 block" />
-          <h1 className="text-6xl font-black tracking-tight">{bracket.gameName}</h1>
-          <p className="text-2xl text-neutral-500 mt-2">
-            {bracket.groupName} &middot; {bracket.entrantCount} players
-            <span className="ml-4 inline-flex items-center gap-2 text-green-500">
-              <span className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
+          <h1 className="gn-tv-title text-6xl">{bracket.gameName}</h1>
+          <p className="text-2xl mt-3 flex items-center gap-4" style={{ color: "var(--gn-dim)" }}>
+            <span>{bracket.groupName} &middot; {bracket.entrantCount} players</span>
+            <span className="inline-flex items-center gap-2" style={{ color: "var(--gn-yes)" }}>
+              <span className="gn-live-dot gn-pulse" />
               live
             </span>
           </p>
         </div>
         <div className="text-center shrink-0">
           <div className="bg-white p-2 rounded-lg">
-            <QRCodeSVG value={scoreUrl} size={110} />
+            <QRCodeSVG value={scoreUrl} size={110} fgColor="#17111f" />
           </div>
-          <p className="text-neutral-600 text-sm mt-1">scan to score</p>
+          <p className="gn-hint text-sm mt-1">scan to score</p>
         </div>
       </header>
 
       {bracket.champion?.kind === "player" && (
-        <div className="mt-8 rounded-2xl border-2 border-yellow-500/60 bg-yellow-500/10 px-8 py-6 text-center">
-          <p className="text-yellow-500 text-2xl uppercase tracking-widest">Champion</p>
-          <p className="text-7xl font-black text-yellow-400 mt-2">
+        <div className="gn-tv-champ mt-8 px-8 py-6 text-center">
+          <p className="text-2xl uppercase tracking-widest" style={{ color: "var(--gn-gold)" }}>Champion</p>
+          <p className="gn-tv-title text-7xl mt-2" style={{ color: "var(--gn-gold)" }}>
             {bracket.champion.displayName}
           </p>
         </div>
@@ -113,24 +114,17 @@ export default function TvPage() {
       <div className="flex-1 flex gap-10 mt-10 items-start justify-center">
         {bracket.rounds.map((round) => (
           <section key={round.title} className="flex-1 max-w-md flex flex-col justify-around self-stretch gap-6">
-            <h2 className="text-2xl font-bold text-neutral-400 uppercase tracking-widest text-center">
-              {round.title}
-            </h2>
+            <h2 className="gn-tv-round text-2xl text-center">{round.title}</h2>
             <div className="flex-1 flex flex-col justify-around gap-6">
               {round.matches.map((m) => (
-                <div
-                  key={m.id}
-                  className={`rounded-xl border-2 overflow-hidden ${
-                    m.playable ? "border-green-500/50" : "border-neutral-800"
-                  } bg-neutral-900`}
-                >
+                <div key={m.id} className={`gn-tv-match ${m.playable ? "gn-tv-match--live" : ""}`}>
                   <TvSlot
                     label={m.a.kind === "player" ? m.a.displayName : m.a.kind === "bye" ? "bye" : "—"}
                     won={m.decided && m.winner?.kind === "player" && m.winner.seed === (m.a as any).seed}
                     lost={m.decided && m.winner?.kind === "player" && m.winner.seed !== (m.a as any).seed}
                     real={m.a.kind === "player"}
                   />
-                  <div className="border-t-2 border-neutral-800" />
+                  <div className="gn-tv-slot__div" />
                   <TvSlot
                     label={m.b.kind === "player" ? m.b.displayName : m.b.kind === "bye" ? "bye" : "—"}
                     won={m.decided && m.winner?.kind === "player" && m.winner.seed === (m.b as any).seed}
@@ -158,19 +152,6 @@ function TvSlot({
   lost: boolean | null | undefined;
   real: boolean;
 }) {
-  return (
-    <div
-      className={`px-6 py-4 text-3xl font-bold truncate ${
-        !real
-          ? "text-neutral-700 italic font-normal"
-          : won
-            ? "text-green-400 bg-green-500/10"
-            : lost
-              ? "text-neutral-600 line-through"
-              : "text-neutral-100"
-      }`}
-    >
-      {label}
-    </div>
-  );
+  const tone = !real ? "gn-tv-slot--empty" : won ? "gn-tv-slot--win" : lost ? "gn-tv-slot--lose" : "";
+  return <div className={`gn-tv-slot text-3xl ${tone}`}>{label}</div>;
 }

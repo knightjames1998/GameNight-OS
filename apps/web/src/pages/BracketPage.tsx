@@ -84,42 +84,41 @@ export default function BracketPage() {
 
   if (error) {
     return (
-      <main className="min-h-dvh bg-neutral-950 text-neutral-100 p-6">
-        <p className="text-red-400">{error}</p>
+      <main className="gn-app">
+        <div className="gn-wrap"><BackButton /><p style={{ color: "var(--gn-danger)", marginTop: "12px" }}>{error}</p></div>
       </main>
     );
   }
   if (!bracket) {
     return (
-      <main className="min-h-dvh bg-neutral-950 text-neutral-100 p-6">
-        <p className="text-neutral-500">Loading...</p>
+      <main className="gn-app">
+        <div className="gn-wrap"><BackButton /><p className="gn-hint" style={{ marginTop: "12px" }}>Loading...</p></div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-dvh bg-neutral-950 text-neutral-100">
+    <main className="gn-app">
       <div className="p-6 pb-2 max-w-3xl mx-auto">
         <BackButton />
-        <div className="flex items-center justify-between mt-2">
-          <h1 className="text-2xl font-bold tracking-tight">{bracket.gameName}</h1>
-          <Link
-            to={`/tv/${bracket.id}`}
-            className="rounded-lg bg-neutral-800 px-3 py-2 text-sm shrink-0"
-          >
-            TV mode
+        <div className="flex items-center justify-between mt-2 gap-2">
+          <h1 className="gn-title text-2xl">{bracket.gameName}</h1>
+          <Link to={`/tv/${bracket.id}`} className="gn-btn gn-btn--ghost shrink-0" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+            📺 TV mode
           </Link>
         </div>
-        <p className="text-neutral-500 text-sm">
+        <p className="gn-hint" style={{ fontSize: "13px" }}>
           {bracket.entrantCount} players &middot; single elimination &middot; open /tv link on the big screen
         </p>
       </div>
 
       {bracket.canManage && (
         <div className="px-6 pt-2 max-w-3xl mx-auto">
-          <label className="flex items-center gap-2 text-sm text-neutral-400">
+          <label className="gn-hint flex items-center gap-2" style={{ cursor: "pointer" }}>
             <input
               type="checkbox"
+              className="accent-[var(--gn-p2)]"
+              style={{ width: "16px", height: "16px" }}
               checked={bracket.openScoring}
               onChange={async (e) => {
                 await api(`/api/brackets/${id}/settings`, {
@@ -135,13 +134,14 @@ export default function BracketPage() {
       )}
 
       {bracket.champion?.kind === "player" && (
-        <div className="mx-6 mt-3 max-w-3xl md:mx-auto rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-center">
-          <span className="text-yellow-400 font-bold text-lg">
-            {bracket.champion.displayName} wins it all
+        <div className="gn-champ mx-6 mt-3 max-w-3xl md:mx-auto px-4 py-3 text-center">
+          <span className="font-bold text-lg" style={{ color: "var(--gn-gold)" }}>
+            🏆 {bracket.champion.displayName} wins it all
           </span>
           <button
             onClick={() => setShowRecap(true)}
-            className="block mx-auto mt-2 rounded-lg bg-yellow-500 text-neutral-950 font-semibold px-4 py-2 text-sm"
+            className="gn-btn block mx-auto mt-2"
+            style={{ background: "var(--gn-gold)", color: "#2a2003", minHeight: "40px" }}
           >
             Share recap card
           </button>
@@ -150,7 +150,7 @@ export default function BracketPage() {
 
       {showRecap && <RecapModal view={bracket} onClose={() => setShowRecap(false)} />}
 
-      <p className="px-6 pt-4 pb-1 text-xs text-neutral-600 max-w-3xl mx-auto">
+      <p className="px-6 pt-4 pb-1 max-w-3xl mx-auto" style={{ fontSize: "12px", color: "var(--gn-dim)" }}>
         {bracket.canScore
           ? "Tap a name to record the winner. Swipe sideways for later rounds."
           : "Scoring is locked to group admins. Swipe sideways for later rounds."}
@@ -159,14 +159,11 @@ export default function BracketPage() {
       <div className="flex gap-4 overflow-x-auto px-6 pb-10 pt-2 snap-x">
         {bracket.rounds.map((round) => (
           <section key={round.title} className="shrink-0 w-64 snap-start space-y-3">
-            <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide">
+            <h2 className="gn-tv-round" style={{ fontSize: "13px", letterSpacing: "1px" }}>
               {round.title}
             </h2>
             {round.matches.map((m) => (
-              <div
-                key={m.id}
-                className="rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden"
-              >
+              <div key={m.id} className={`gn-match ${m.playable ? "gn-match--live" : ""}`}>
                 <SlotRow
                   slot={m.a}
                   isWinner={m.decided && m.winner?.kind === "player" && m.winner.seed === (m.a as any).seed}
@@ -174,7 +171,7 @@ export default function BracketPage() {
                   faded={m.decided && m.winner?.kind === "player" && m.winner.seed !== (m.a as any).seed}
                   onPick={() => record(m.id, "A")}
                 />
-                <div className="border-t border-neutral-800" />
+                <div className="gn-slot__div" />
                 <SlotRow
                   slot={m.b}
                   isWinner={m.decided && m.winner?.kind === "player" && m.winner.seed === (m.b as any).seed}
@@ -183,10 +180,7 @@ export default function BracketPage() {
                   onPick={() => record(m.id, "B")}
                 />
                 {m.undoable && bracket.canScore && (
-                  <button
-                    onClick={() => undo(m.id)}
-                    className="w-full text-xs text-neutral-600 py-1 border-t border-neutral-800"
-                  >
+                  <button onClick={() => undo(m.id)} className="gn-undo">
                     undo
                   </button>
                 )}
@@ -215,28 +209,27 @@ function SlotRow({
   const label =
     slot.kind === "player" ? slot.displayName : slot.kind === "bye" ? "bye" : "TBD";
 
-  const base = "w-full text-left px-4 py-3 flex justify-between items-center";
-  const toneClass =
+  const tone =
     slot.kind !== "player"
-      ? "text-neutral-600 italic"
+      ? "gn-slot--empty"
       : isWinner
-        ? "text-green-400 font-semibold"
+        ? "gn-slot--win"
         : faded
-          ? "text-neutral-600 line-through"
-          : "text-neutral-100";
+          ? "gn-slot--lose"
+          : "";
 
   if (playable && slot.kind === "player") {
     return (
-      <button onClick={onPick} className={`${base} ${toneClass} active:bg-neutral-800`}>
-        <span>{label}</span>
-        <span className="text-xs text-neutral-600">tap to win</span>
+      <button onClick={onPick} className={`gn-slot gn-slot--tap ${tone}`}>
+        <span className="truncate">{label}</span>
+        <span className="gn-slot__hint">tap to win</span>
       </button>
     );
   }
   return (
-    <div className={`${base} ${toneClass}`}>
-      <span>{label}</span>
-      {slot.kind === "player" && <span className="text-xs text-neutral-700">#{slot.seed}</span>}
+    <div className={`gn-slot ${tone}`}>
+      <span className="truncate">{label}</span>
+      {slot.kind === "player" && <span className="gn-slot__seed">#{slot.seed}</span>}
     </div>
   );
 }

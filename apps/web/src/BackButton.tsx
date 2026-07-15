@@ -14,7 +14,7 @@ export default function BackButton({ className = "" }: { className?: string }) {
         if (window.history.length > 1) navigate(-1);
         else navigate("/");
       }}
-      className={`text-sm text-neutral-500 ${className}`}
+      className={`gn-textbtn ${className}`}
     >
       &larr; Back
     </button>

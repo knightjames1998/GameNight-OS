@@ -69,15 +69,15 @@ export default function EventPage() {
 
   if (error) {
     return (
-      <Shell backTo="/">
-        <p className="text-red-400">{error}</p>
+      <Shell>
+        <p style={{ color: "var(--gn-danger)" }}>{error}</p>
       </Shell>
     );
   }
   if (!event) {
     return (
-      <Shell backTo="/">
-        <p className="text-neutral-500">Loading...</p>
+      <Shell>
+        <p className="gn-hint">Loading...</p>
       </Shell>
     );
   }
@@ -92,43 +92,48 @@ export default function EventPage() {
       })
     : "Date TBD";
 
-  const buttons: { status: RsvpStatus; label: string; active: string }[] = [
-    { status: "yes", label: "I'm in", active: "bg-green-500 text-neutral-950 border-green-500" },
-    { status: "maybe", label: "Maybe", active: "bg-yellow-500 text-neutral-950 border-yellow-500" },
-    { status: "no", label: "Can't", active: "bg-red-500 text-neutral-950 border-red-500" },
+  // Active state colors map to the arcade tokens: in = teal, maybe = gold, out = coral.
+  const buttons: { status: RsvpStatus; label: string; bg: string; ink: string }[] = [
+    { status: "yes", label: "I'm in", bg: "var(--gn-yes)", ink: "var(--gn-yes-ink)" },
+    { status: "maybe", label: "Maybe", bg: "var(--gn-gold)", ink: "#2a2003" },
+    { status: "no", label: "Can't", bg: "var(--gn-p1)", ink: "var(--gn-p1-ink)" },
   ];
 
   const groupBy = (s: RsvpStatus) => event.rsvps.filter((r) => r.status === s);
 
   return (
-    <Shell backTo={`/g/${event.groupId}`}>
+    <Shell>
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{event.title}</h1>
-        <p className="text-neutral-400 mt-1">{when}</p>
+        <h1 className="gn-title text-2xl">{event.title}</h1>
+        <p className="gn-hint mt-1">{when}</p>
       </div>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">You going?</h2>
+        <h2 className="gn-h2">You going?</h2>
         <div className="grid grid-cols-3 gap-2">
-          {buttons.map((b) => (
-            <button
-              key={b.status}
-              onClick={() => rsvp(b.status)}
-              disabled={busy}
-              className={`rounded-lg border py-3 font-semibold transition-colors ${
-                event.myStatus === b.status
-                  ? b.active
-                  : "bg-neutral-900 border-neutral-800 text-neutral-300"
-              }`}
-            >
-              {b.label}
-            </button>
-          ))}
+          {buttons.map((b) => {
+            const on = event.myStatus === b.status;
+            return (
+              <button
+                key={b.status}
+                onClick={() => rsvp(b.status)}
+                disabled={busy}
+                className="gn-btn"
+                style={
+                  on
+                    ? { background: b.bg, color: b.ink, boxShadow: "0 4px 0 rgba(0,0,0,.35)" }
+                    : { background: "var(--gn-surf)", color: "var(--gn-ink)", border: "2px solid var(--gn-line)" }
+                }
+              >
+                {b.label}
+              </button>
+            );
+          })}
         </div>
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Tournament</h2>
+        <h2 className="gn-h2">Tournament</h2>
         {(() => {
           const isHost = event.myRole === "owner" || event.myRole === "admin";
           const liveNow = !!event.beerioCode;
@@ -136,12 +141,9 @@ export default function EventPage() {
           // room, or on a "waiting for the host" screen. Only hosts can
           // actually start the night.
           return (
-            <Link
-              to={`/beerio?event=${id}`}
-              className="block rounded-lg border border-yellow-600/50 bg-yellow-500/10 px-4 py-3 text-yellow-400 font-semibold"
-            >
-              🍺 Beerio Kart
-              <span className="text-yellow-600/80 text-sm font-normal ml-2">
+            <Link to={`/beerio?event=${id}`} className="gn-cab gn-cab--beerio">
+              <span className="gn-cab__name">🍺 Beerio Kart</span>
+              <span className="gn-cab__sub">
                 {liveNow
                   ? isHost
                     ? "live now, rejoin"
@@ -154,39 +156,30 @@ export default function EventPage() {
           );
         })()}
         {event.bracket ? (
-          <Link
-            to={`/b/${event.bracket.id}`}
-            className="block rounded-lg bg-neutral-900 border border-neutral-800 px-4 py-3 hover:border-neutral-600"
-          >
-            <span className="font-medium">
-              {event.bracket.status === "completed" ? "Final bracket" : "Live bracket"}
+          <Link to={`/b/${event.bracket.id}`} className="gn-cab gn-cab--brk">
+            <span className="gn-cab__name">
+              🏆 {event.bracket.status === "completed" ? "Final bracket" : "Live bracket"}
             </span>
-            <span className="text-neutral-500 text-sm ml-2">tap to open</span>
+            <span className="gn-cab__sub">tap to open</span>
           </Link>
         ) : event.myRole !== "owner" && event.myRole !== "admin" ? (
-          <p className="text-neutral-500 text-sm">
+          <p className="gn-hint">
             The crew owner or an admin starts the generalized bracket.
           </p>
         ) : groupBy("yes").length >= 2 ? (
-          <button
-            onClick={startBracket}
-            disabled={busy}
-            className="w-full rounded-lg bg-neutral-100 text-neutral-950 font-semibold py-3 disabled:opacity-50"
-          >
+          <button onClick={startBracket} disabled={busy} className="gn-btn gn-btn--p1 w-full">
             Start generalized bracket ({groupBy("yes").length} players)
           </button>
         ) : (
-          <p className="text-neutral-500 text-sm">
-            Needs at least 2 yes RSVPs to start a bracket.
-          </p>
+          <p className="gn-hint">Needs at least 2 yes RSVPs to start a bracket.</p>
         )}
       </section>
 
       <section className="space-y-4">
-        <RsvpList title="In" people={groupBy("yes")} tone="text-green-400" />
-        <RsvpList title="Maybe" people={groupBy("maybe")} tone="text-yellow-400" />
-        <RsvpList title="Out" people={groupBy("no")} tone="text-red-400" />
-        <RsvpList title="No answer yet" people={event.noResponse} tone="text-neutral-500" />
+        <RsvpList title="In" people={groupBy("yes")} tone="var(--gn-yes)" />
+        <RsvpList title="Maybe" people={groupBy("maybe")} tone="var(--gn-gold)" />
+        <RsvpList title="Out" people={groupBy("no")} tone="var(--gn-p1)" />
+        <RsvpList title="No answer yet" people={event.noResponse} tone="var(--gn-dim)" />
       </section>
     </Shell>
   );
@@ -204,14 +197,14 @@ function RsvpList({
   if (people.length === 0) return null;
   return (
     <div>
-      <h3 className={`text-sm font-semibold mb-1 ${tone}`}>
+      <h3 className="text-sm font-bold mb-1" style={{ color: tone }}>
         {title} ({people.length})
       </h3>
       <ul className="space-y-1">
         {people.map((p) => (
           <li
             key={p.userId}
-            className="rounded-lg bg-neutral-900 border border-neutral-800 px-4 py-2"
+            style={{ background: "var(--gn-surf)", border: "2px solid var(--gn-line)", borderRadius: "12px", padding: "10px 14px", fontWeight: 700 }}
           >
             {p.displayName}
           </li>
@@ -221,11 +214,13 @@ function RsvpList({
   );
 }
 
-function Shell({ children, backTo }: { children: React.ReactNode; backTo: string }) {
+function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-dvh bg-neutral-950 text-neutral-100 p-6 max-w-md mx-auto space-y-8">
-      <BackButton />
-      {children}
+    <main className="gn-app">
+      <div className="gn-wrap space-y-8">
+        <BackButton />
+        {children}
+      </div>
     </main>
   );
 }
