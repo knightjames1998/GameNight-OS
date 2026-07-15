@@ -61,24 +61,21 @@ export default function Login({
 
   if (sent) {
     return (
-      <div className="w-full max-w-sm text-center space-y-2">
-        <h2 className="text-xl font-semibold">Check your email</h2>
-        <p className="text-neutral-400 text-sm">
+      <div className="w-full max-w-sm text-center space-y-3">
+        <h2 className="gn-title text-xl">Check your email</h2>
+        <p className="gn-hint">
           A login link is on its way to {email}. It works once and expires in 15 minutes.
         </p>
-        <button className="text-sm text-neutral-500 underline" onClick={() => setSent(false)}>
+        <button className="gn-textbtn" onClick={() => setSent(false)}>
           Back
         </button>
       </div>
     );
   }
 
-  const input =
-    "w-full rounded-lg bg-neutral-900 border border-neutral-800 px-4 py-3 text-base outline-none focus:border-neutral-600";
-
   return (
     <div className="w-full max-w-sm space-y-3">
-      <h2 className="text-xl font-semibold text-center">
+      <h2 className="gn-title text-xl text-center">
         {mode === "signup" ? "Create account" : "Log in"}
       </h2>
 
@@ -88,7 +85,7 @@ export default function Login({
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={30}
-          className={input}
+          className="gn-input"
         />
       )}
       <input
@@ -98,7 +95,7 @@ export default function Login({
         placeholder="you@example.com"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className={input}
+        className="gn-input"
       />
       {mode !== "link" && (
         <input
@@ -108,17 +105,13 @@ export default function Login({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
-          className={input}
+          className="gn-input"
         />
       )}
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      {error && <p className="text-sm" style={{ color: "var(--gn-danger)" }}>{error}</p>}
 
-      <button
-        onClick={submit}
-        disabled={busy}
-        className="w-full rounded-lg bg-neutral-100 text-neutral-950 font-semibold py-3 disabled:opacity-50"
-      >
+      <button onClick={submit} disabled={busy} className="gn-btn gn-btn--p1 w-full">
         {busy
           ? "Working..."
           : mode === "link"
@@ -129,25 +122,25 @@ export default function Login({
       </button>
 
       {mode === "password" && (
-        <p className="text-neutral-600 text-xs text-center">
+        <p className="gn-hint text-xs text-center">
           Forgot your password? Use "Email me a link" to log in, then set a
           new password from the home screen.
         </p>
       )}
 
-      <div className="text-center text-sm text-neutral-500 space-x-3">
+      <div className="text-center space-x-2">
         {mode !== "password" && (
-          <button className="underline" onClick={() => setMode("password")}>
+          <button className="gn-textbtn" onClick={() => setMode("password")}>
             Use password
           </button>
         )}
         {mode !== "link" && (
-          <button className="underline" onClick={() => setMode("link")}>
+          <button className="gn-textbtn" onClick={() => setMode("link")}>
             Email me a link
           </button>
         )}
         {mode !== "signup" && (
-          <button className="underline" onClick={() => setMode("signup")}>
+          <button className="gn-textbtn" onClick={() => setMode("signup")}>
             Sign up
           </button>
         )}

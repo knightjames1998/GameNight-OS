@@ -1,1 +1,135 @@
 @import "tailwindcss";
+
+/* ============================================================
+   GameNight OS - theme tokens
+   ------------------------------------------------------------
+   Arcade is the default theme, defined on :root. Adding another
+   theme later (e.g. Tabletop) means adding a second token block,
+   for example:  [data-theme="tabletop"] { --gn-bg: ...; ... }
+   plus a switcher that sets document.documentElement.dataset.theme.
+   The component classes below read ONLY these variables, so a new
+   theme is a swap of values, not a rewrite of components.
+   Screens that use .gn-* classes are themed; other pages keep
+   their current look until their own UI pass.
+   ============================================================ */
+:root {
+  --gn-bg:      #17111f;  /* deep plum, not flat black */
+  --gn-surf:    #241a30;  /* cards / inputs */
+  --gn-raise:   #2e2140;  /* raised (ghost buttons) */
+  --gn-line:    #3a2c4d;  /* borders */
+  --gn-ink:     #f4ecff;  /* primary text */
+  --gn-dim:     #c3b6d6;  /* secondary text */
+  --gn-place:   #9a8cb3;  /* input placeholder */
+  --gn-p1:      #ff5a5f;  /* coral - primary "go" action */
+  --gn-p1-ink:  #1a0d0e;
+  --gn-p1-sh:   #b8383c;
+  --gn-p2:      #35e0c4;  /* teal - confirm / save */
+  --gn-p2-ink:  #0d1a17;
+  --gn-p2-sh:   #1aa88f;
+  --gn-gold:    #ffcf3f;  /* Beerio accent */
+  --gn-danger:  #ff9a9e;
+}
+
+/* ---- app shell ------------------------------------------------ */
+.gn-app{
+  min-height:100dvh;
+  background:var(--gn-bg);
+  color:var(--gn-ink);
+  font-family:Nunito, system-ui, sans-serif;
+  position:relative;
+}
+.gn-app::before{                 /* ambient scanlines, very faint */
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.05;
+  background:repeating-linear-gradient(to bottom,#fff 0 1px,transparent 1px 3px);
+}
+.gn-app > *{position:relative;z-index:1}
+.gn-wrap{max-width:28rem;margin:0 auto;padding:20px 18px 48px}
+
+/* visible keyboard focus for everything interactive in a themed screen */
+.gn-app a:focus-visible,
+.gn-app button:focus-visible,
+.gn-app input:focus-visible{outline:3px solid var(--gn-p2);outline-offset:2px;border-radius:10px}
+
+/* ---- wordmark ------------------------------------------------- */
+.gn-brand{
+  font-family:"Luckiest Guy", system-ui, cursive;
+  color:#fff;letter-spacing:.5px;line-height:1;
+  text-shadow:0 0 14px rgba(255,90,95,.45), 2px 3px 0 rgba(0,0,0,.35);
+}
+.gn-title{font-family:Fredoka, system-ui, sans-serif;font-weight:700;color:var(--gn-ink);line-height:1.1}
+
+/* ---- text bits ------------------------------------------------ */
+.gn-lab{color:var(--gn-dim);font-size:13px;font-weight:700}
+.gn-hint{color:var(--gn-dim);font-size:13px}
+.gn-h2{font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:17px;color:var(--gn-ink);margin:0}
+
+/* ---- inputs --------------------------------------------------- */
+.gn-input{
+  width:100%;min-height:48px;border-radius:12px;background:var(--gn-surf);
+  border:2px solid var(--gn-line);color:var(--gn-ink);padding:0 14px;
+  font-size:15px;font-family:inherit;color-scheme:dark;
+}
+.gn-input::placeholder{color:var(--gn-place)}
+.gn-input:focus{outline:none;border-color:var(--gn-p2)}
+
+.gn-code{
+  display:block;background:var(--gn-surf);border:2px solid var(--gn-line);
+  border-radius:12px;padding:10px 12px;color:var(--gn-ink);
+  font-family:ui-monospace, SFMono-Regular, Menlo, monospace;font-size:12px;
+  word-break:break-all;
+}
+
+/* ---- buttons -------------------------------------------------- */
+.gn-btn{
+  min-height:48px;padding:0 16px;border-radius:12px;border:0;
+  font-weight:800;font-size:14px;font-family:inherit;cursor:pointer;white-space:nowrap;
+  transition:transform .1s, box-shadow .1s, filter .1s;
+}
+.gn-btn:disabled{opacity:.4;cursor:default;box-shadow:none}
+.gn-btn--ghost{background:var(--gn-raise);color:var(--gn-ink);box-shadow:inset 0 -3px 0 rgba(0,0,0,.35)}
+.gn-btn--go{background:var(--gn-p2);color:var(--gn-p2-ink);box-shadow:0 4px 0 var(--gn-p2-sh)}
+.gn-btn--p1{background:var(--gn-p1);color:var(--gn-p1-ink);box-shadow:0 4px 0 var(--gn-p1-sh)}
+.gn-btn--go:active:not(:disabled),
+.gn-btn--p1:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.4)}
+
+.gn-textbtn{
+  background:transparent;border:0;color:var(--gn-dim);font-weight:700;font-size:13px;
+  font-family:inherit;cursor:pointer;padding:8px 6px;min-height:40px;
+}
+.gn-textbtn:hover{color:var(--gn-ink)}
+.gn-textbtn--danger{color:var(--gn-danger)}
+.gn-textbtn--danger:hover{color:#ffb7ba}
+
+/* ---- card / panel -------------------------------------------- */
+.gn-card{background:var(--gn-surf);border:2px solid var(--gn-line);border-radius:16px;padding:14px 16px}
+
+/* ---- arcade "cabinet" nav button (modes, stats, crews, events) */
+.gn-cab{
+  display:block;text-decoration:none;color:var(--gn-ink);border-radius:16px;
+  padding:15px 16px;border:2px solid var(--gn-line);background:var(--gn-surf);
+  box-shadow:0 6px 0 rgba(0,0,0,.4);transition:transform .12s, box-shadow .12s;
+}
+.gn-cab:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.4)}
+.gn-cab__name{display:flex;align-items:center;gap:10px;font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:17px}
+.gn-cab__sub{color:var(--gn-dim);font-size:13px;margin-top:3px}
+.gn-cab--beerio{border-color:#5a4a1e;background:linear-gradient(180deg,#332913,#241a30)}
+.gn-cab--beerio .gn-cab__name{color:var(--gn-gold)}
+.gn-cab--brk .gn-cab__name{color:var(--gn-p1)}
+.gn-cab--stats .gn-cab__name{color:var(--gn-p2)}
+
+/* ---- role / status chips ------------------------------------- */
+.gn-chip{font-weight:800;font-size:11px;letter-spacing:.5px;padding:5px 10px;border-radius:999px;text-transform:uppercase;white-space:nowrap}
+.gn-chip--owner{background:rgba(255,207,63,.16);color:var(--gn-gold)}
+.gn-chip--admin{background:rgba(53,224,196,.16);color:var(--gn-p2)}
+.gn-chip--member{background:rgba(255,90,95,.14);color:#ff8b8f}
+
+/* ---- labeled divider (separates one region of a page from the next) */
+.gn-divider{
+  display:flex;align-items:center;gap:10px;margin:4px 0;
+  color:var(--gn-dim);font-size:11px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;
+}
+.gn-divider::before,.gn-divider::after{content:"";height:2px;flex:1;background:var(--gn-line);border-radius:2px}
+
+@media (prefers-reduced-motion:reduce){
+  .gn-btn,.gn-cab{transition:none}
+}

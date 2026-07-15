@@ -86,190 +86,182 @@ export default function GroupPage({
   if (error) {
     return (
       <Shell>
-        <p className="text-red-400">{error}</p>
+        <p style={{ color: "var(--gn-danger)" }}>{error}</p>
       </Shell>
     );
   }
   if (!group) {
     return (
       <Shell>
-        <p className="text-neutral-500">Loading...</p>
+        <p className="gn-hint">Loading...</p>
       </Shell>
     );
   }
 
   return (
     <Shell>
-      <h1 className="text-2xl font-bold tracking-tight">{group.name}</h1>
+      <div className="space-y-1">
+        <h1 className="gn-title text-2xl">{group.name}</h1>
+        {me && (
+          <div className="gn-hint">
+            {editingName ? (
+              <span className="flex gap-2 items-center">
+                <input
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  maxLength={30}
+                  className="gn-input"
+                  style={{ minHeight: "40px", maxWidth: "12rem" }}
+                />
+                <button
+                  className="gn-textbtn"
+                  onClick={async () => {
+                    const name = nameDraft.trim();
+                    if (name && name !== me.displayName) {
+                      await api("/api/auth/me", {
+                        method: "PATCH",
+                        body: JSON.stringify({ displayName: name }),
+                      });
+                      onNameChange(name);
+                      setGroup(
+                        group && {
+                          ...group,
+                          members: group.members.map((m) =>
+                            m.userId === me.id ? { ...m, displayName: name } : m,
+                          ),
+                        },
+                      );
+                    }
+                    setEditingName(false);
+                  }}
+                >
+                  save
+                </button>
+              </span>
+            ) : (
+              <span>
+                Playing as <span style={{ color: "var(--gn-ink)", fontWeight: 700 }}>{me.displayName}</span>{" "}
+                <button
+                  className="gn-textbtn"
+                  onClick={() => {
+                    setNameDraft(me.displayName);
+                    setEditingName(true);
+                  }}
+                >
+                  edit
+                </button>
+              </span>
+            )}
+          </div>
+        )}
+      </div>
 
-      {me && (
-        <div className="text-sm text-neutral-500 -mt-6">
-          {editingName ? (
-            <span className="flex gap-2 items-center">
-              <input
-                value={nameDraft}
-                onChange={(e) => setNameDraft(e.target.value)}
-                maxLength={30}
-                className="rounded bg-neutral-900 border border-neutral-800 px-2 py-1 text-neutral-100 outline-none focus:border-neutral-600"
-              />
-              <button
-                className="text-neutral-300"
-                onClick={async () => {
-                  const name = nameDraft.trim();
-                  if (name && name !== me.displayName) {
-                    await api("/api/auth/me", {
-                      method: "PATCH",
-                      body: JSON.stringify({ displayName: name }),
-                    });
-                    onNameChange(name);
-                    setGroup(
-                      group && {
-                        ...group,
-                        members: group.members.map((m) =>
-                          m.userId === me.id ? { ...m, displayName: name } : m,
-                        ),
-                      },
-                    );
-                  }
-                  setEditingName(false);
-                }}
-              >
-                save
-              </button>
-            </span>
-          ) : (
-            <span>
-              Playing as <span className="text-neutral-300">{me.displayName}</span>{" "}
-              <button
-                className="underline"
-                onClick={() => {
-                  setNameDraft(me.displayName);
-                  setEditingName(true);
-                }}
-              >
-                edit
-              </button>
-            </span>
-          )}
-        </div>
-      )}
-
-      <Link
-        to={`/g/${group.id}/stats`}
-        className="block rounded-lg bg-neutral-900 border border-neutral-800 px-4 py-3 hover:border-neutral-600"
-      >
-        <span className="font-medium">📊 Lifetime stats</span>
-        <span className="text-neutral-500 text-sm ml-2">wins, records, by game</span>
+      <Link to={`/g/${group.id}/stats`} className="gn-cab gn-cab--stats">
+        <span className="gn-cab__name">📊 Lifetime stats</span>
+        <span className="gn-cab__sub">wins, records, by game</span>
       </Link>
 
+      {/* ---- Game nights ------------------------------------------------ */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Game nights</h2>
-        {events === null && <p className="text-neutral-500 text-sm">Loading...</p>}
+        <h2 className="gn-h2">Game nights</h2>
+        {events === null && <p className="gn-hint">Loading...</p>}
         {events?.length === 0 && (
-          <p className="text-neutral-500 text-sm">Nothing scheduled. Fix that below.</p>
+          <p className="gn-hint">Nothing scheduled yet. Start one below.</p>
         )}
-        <ul className="space-y-2">
-          {events?.map((e) => (
-            <li key={e.id}>
-              <Link
-                to={`/e/${e.id}`}
-                className="block rounded-lg bg-neutral-900 border border-neutral-800 px-4 py-3 hover:border-neutral-600"
-              >
-                <div className="flex justify-between items-baseline">
-                  <span className="font-medium">{e.title}</span>
-                  {e.myStatus && (
-                    <span className="text-xs text-neutral-500">you: {e.myStatus}</span>
-                  )}
-                </div>
-                <div className="text-sm text-neutral-400 mt-1">
-                  {e.scheduledFor
-                    ? new Date(e.scheduledFor).toLocaleString([], {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })
-                    : "Date TBD"}
-                  <span className="text-neutral-600">
-                    {" "}
-                    &middot; {e.counts.yes} in / {e.counts.maybe} maybe / {e.counts.no} out
-                  </span>
-                </div>
-              </Link>
-              {canManage && (
-                <div className="flex justify-end pt-1">
-                  <button
-                    className="text-red-400/60 text-xs"
-                    onClick={async () => {
-                      if (!window.confirm(`Delete "${e.title}"? Its RSVPs, brackets and recorded stats go with it. This can't be undone.`)) return;
-                      try {
-                        await api(`/api/events/${e.id}`, { method: "DELETE" });
-                        setEvents((events ?? []).filter((x) => x.id !== e.id));
-                      } catch (err) {
-                        window.alert(err instanceof Error ? err.message : "Couldn't delete");
-                      }
-                    }}
-                  >
-                    delete event
-                  </button>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-        <div className="space-y-2 pt-1">
+        {!!events?.length && (
+          <ul className="space-y-2">
+            {events.map((e) => (
+              <li key={e.id} className="space-y-1">
+                <Link to={`/e/${e.id}`} className="gn-cab">
+                  <div className="flex justify-between items-baseline gap-2">
+                    <span className="gn-cab__name" style={{ fontSize: "16px" }}>{e.title}</span>
+                    {e.myStatus && (
+                      <span className="gn-hint" style={{ fontSize: "12px" }}>you: {e.myStatus}</span>
+                    )}
+                  </div>
+                  <div className="gn-cab__sub">
+                    {e.scheduledFor
+                      ? new Date(e.scheduledFor).toLocaleString([], {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })
+                      : "Date TBD"}
+                    {" · "}
+                    {e.counts.yes} in / {e.counts.maybe} maybe / {e.counts.no} out
+                  </div>
+                </Link>
+                {canManage && (
+                  <div className="flex justify-end">
+                    <button
+                      className="gn-textbtn gn-textbtn--danger"
+                      style={{ fontSize: "12px", minHeight: "32px" }}
+                      onClick={async () => {
+                        if (!window.confirm(`Delete "${e.title}"? Its RSVPs, brackets and recorded stats go with it. This can't be undone.`)) return;
+                        try {
+                          await api(`/api/events/${e.id}`, { method: "DELETE" });
+                          setEvents((events ?? []).filter((x) => x.id !== e.id));
+                        } catch (err) {
+                          window.alert(err instanceof Error ? err.message : "Couldn't delete");
+                        }
+                      }}
+                    >
+                      delete event
+                    </button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="gn-divider">Schedule a new one</div>
+        <div className="gn-card space-y-2">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Game night title"
             maxLength={80}
-            className="w-full rounded-lg bg-neutral-900 border border-neutral-800 px-4 py-2 outline-none focus:border-neutral-600"
+            className="gn-input"
           />
-          <label className="block text-sm text-neutral-400">Date and time (optional)</label>
+          <label className="gn-lab">Date and time (optional)</label>
           <div className="flex gap-2">
             <input
               type="datetime-local"
               value={when}
               onChange={(e) => setWhen(e.target.value)}
-              className="flex-1 rounded-lg bg-neutral-900 border border-neutral-800 px-4 py-2 outline-none focus:border-neutral-600 text-neutral-300"
+              className="gn-input"
             />
-            <button
-              onClick={createEvent}
-              disabled={!title.trim() || busy}
-              className="rounded-lg bg-neutral-100 text-neutral-950 font-semibold px-4 py-2 disabled:opacity-40"
-            >
+            <button onClick={createEvent} disabled={!title.trim() || busy} className="gn-btn gn-btn--p1">
               Create
             </button>
           </div>
         </div>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Invite your crew</h2>
-        <p className="text-neutral-400 text-sm">
-          Anyone with this link can join. Drop it in the group chat.
-        </p>
+      {/* ---- Crew (people) --------------------------------------------- */}
+      <div className="gn-divider">Your crew</div>
+
+      <section className="gn-card space-y-2">
+        <h2 className="gn-h2">Invite link</h2>
+        <p className="gn-hint">Anyone with this link can join. Drop it in the group chat.</p>
         <div className="flex gap-2 items-center">
-          <code className="flex-1 rounded-lg bg-neutral-900 border border-neutral-800 px-3 py-2 text-xs break-all">
-            {inviteUrl}
-          </code>
-          <button
-            onClick={copyInvite}
-            className="rounded-lg bg-neutral-100 text-neutral-950 font-semibold px-3 py-2 text-sm shrink-0"
-          >
+          <code className="gn-code flex-1">{inviteUrl}</code>
+          <button onClick={copyInvite} className="gn-btn gn-btn--go" style={{ minHeight: "44px" }}>
             {copied ? "Copied" : "Copy"}
           </button>
         </div>
       </section>
 
-      <section className="space-y-2">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold">
-            Members <span className="text-neutral-500 font-normal">({group.members.length})</span>
+      <section className="gn-card space-y-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="gn-h2">
+            Members <span className="gn-hint" style={{ fontWeight: 400 }}>({group.members.length})</span>
           </h2>
           <button
-            className="text-red-400/70 text-sm"
+            className="gn-textbtn gn-textbtn--danger"
             onClick={async () => {
               if (!window.confirm(`Leave ${group.name}? Your game history stays with the crew.`)) return;
               try {
@@ -283,7 +275,7 @@ export default function GroupPage({
             leave crew
           </button>
         </div>
-        <ul className="space-y-1">
+        <ul className="space-y-2">
           {group.members.map((m) => {
             const canRemove =
               me &&
@@ -293,14 +285,20 @@ export default function GroupPage({
             return (
               <li
                 key={m.userId}
-                className="flex justify-between items-center rounded-lg bg-neutral-900 border border-neutral-800 px-4 py-2"
+                className="flex justify-between items-center gap-2"
+                style={{
+                  background: "var(--gn-raise)",
+                  border: "2px solid var(--gn-line)",
+                  borderRadius: "12px",
+                  padding: "10px 14px",
+                }}
               >
-                <span>{m.displayName}</span>
-                <span className="flex items-center gap-3">
-                  <span className="text-neutral-500 text-sm">{m.role}</span>
+                <span style={{ fontWeight: 700 }}>{m.displayName}</span>
+                <span className="flex items-center gap-2">
+                  <span className={`gn-chip gn-chip--${m.role}`}>{m.role}</span>
                   {group.myRole === "owner" && m.role !== "owner" && (
                     <button
-                      className="text-neutral-400 text-sm"
+                      className="gn-textbtn"
                       onClick={async () => {
                         const next = m.role === "admin" ? "member" : "admin";
                         await api(`/api/groups/${group.id}/members/${m.userId}/role`, {
@@ -320,7 +318,7 @@ export default function GroupPage({
                   )}
                   {canRemove && (
                     <button
-                      className="text-red-400/70 text-sm"
+                      className="gn-textbtn gn-textbtn--danger"
                       onClick={async () => {
                         if (!window.confirm(`Remove ${m.displayName} from ${group.name}? Their game history stays.`)) return;
                         await api(`/api/groups/${group.id}/members/${m.userId}`, { method: "DELETE" });
@@ -336,10 +334,12 @@ export default function GroupPage({
           })}
         </ul>
       </section>
+
       {group.myRole === "owner" && (
-        <section className="pt-2 border-t border-neutral-900">
+        <>
+          <div className="gn-divider">Danger zone</div>
           <button
-            className="text-red-400/70 text-sm"
+            className="gn-textbtn gn-textbtn--danger"
             onClick={async () => {
               if (!window.confirm(`Delete the entire "${group.name}" crew? Every event, bracket and lifetime stat goes with it. This cannot be undone.`)) return;
               if (!window.confirm("Really delete? There's no undo.")) return;
@@ -353,7 +353,7 @@ export default function GroupPage({
           >
             delete this crew
           </button>
-        </section>
+        </>
       )}
     </Shell>
   );
@@ -361,11 +361,13 @@ export default function GroupPage({
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-dvh bg-neutral-950 text-neutral-100 p-6 max-w-md mx-auto space-y-8">
-      <Link to="/" className="text-sm text-neutral-500">
-        &larr; All crews
-      </Link>
-      {children}
+    <main className="gn-app">
+      <div className="gn-wrap space-y-6">
+        <Link to="/" className="gn-textbtn" style={{ display: "inline-block" }}>
+          &larr; All crews
+        </Link>
+        {children}
+      </div>
     </main>
   );
 }
