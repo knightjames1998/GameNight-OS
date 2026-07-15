@@ -13,13 +13,13 @@ Ideas live here so nothing gets silently dropped. Status: NOW (current push), NE
 - [x] Legacy/stats screen: lifetime crew leaderboard at /g/:id/stats. Generic brackets and Beerio nights both materialize on completion, so stats span both bracket types.
 
 ## NOW
-- [ ] UI design pass (ACTIVE): Arcade theme rollout across the generic app.
-      - Shipped: main page (Home + Login) and crew page (GroupPage), plus the theme-token foundation in index.css.
-      - In progress: stats/leaderboard, generic single-elim tournament (event, bracket, quick play), and the generic tournament TV mode.
-      - Branded packs (Beerio Kart) keep their own styling and are NOT reskinned.
-- [ ] Smash Bros game pack (next pack; must satisfy all 8 standing rules). Plan tracked in GAMEPLAN.md.
+- [ ] Smash Bros game pack (must satisfy all 8 standing rules). Plan tracked in GAMEPLAN.md.
 
 ## NEXT (priority order set by James)
+- [ ] UI design pass (paused, resumes after Smash Bros): Arcade theme rollout across the generic app.
+      - Shipped: Home, Login, GroupPage, StatsPage, QuickPlayPage, EventPage, BracketPage, TvPage, plus the theme-token foundation in index.css.
+      - Remaining: JoinPage (invite-accept screen), and whatever new screens Smash Bros adds get themed as part of that pack.
+      - Branded packs (Beerio Kart, and Smash Bros once it has its own identity) keep their own styling and are NOT reskinned.
 - [ ] More game packs. Candidates: board games, darts, poker night.
 - [ ] Tabletop theme: build the second theme token block + a user-facing theme switcher (Arcade default, Tabletop opt-in). Foundation already laid (CSS variables + gn-* component classes).
 - [ ] Smack talk feed (on the TV view and/or in-app)
