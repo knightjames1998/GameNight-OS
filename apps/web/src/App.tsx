@@ -18,7 +18,7 @@ function BeerioRoute() {
   // Safari tab).
   const navigate = useNavigate();
   const location = useLocation();
-  useEffect(() => setBeerioNavigator((to) => navigate(to)), [navigate]);
+  useEffect(() => setBeerioNavigator((to, replace) => navigate(to, { replace: !!replace })), [navigate]);
   return (
     <div className="beerio-root">
       <BeerioApp key={location.search} />

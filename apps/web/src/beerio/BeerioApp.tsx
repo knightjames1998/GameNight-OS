@@ -97,13 +97,25 @@ function gnEvent(): string | null {
 // Client-side navigation, injected by the host app. A raw <a href> is a
 // full page load, and in iOS standalone (home-screen) mode that breaks
 // out into a new Safari tab. Falls back to location when unset.
-let gnNavigator: ((to: string) => void) | null = null;
-export function setBeerioNavigator(fn: (to: string) => void) {
+let gnNavigator: ((to: string, replace?: boolean) => void) | null = null;
+export function setBeerioNavigator(fn: (to: string, replace?: boolean) => void) {
   gnNavigator = fn;
 }
 function gnNavigate(to: string) {
-  if (gnNavigator) gnNavigator(to);
+  if (gnNavigator) gnNavigator(to, false);
   else location.href = to;
+}
+// Automatic bounces (a member on ?event= being sent into the host's ?s= live
+// room) REPLACE the history entry instead of pushing one. Pushing left the
+// /beerio?event= URL on the stack, so pressing back landed on it, its redirect
+// effect re-fired, and you got shoved forward again unless you tapped back
+// twice fast. Firefox exposed this (it won't back/forward-cache a page holding
+// an open WebSocket, so the entry genuinely re-mounts and re-redirects); Safari
+// served the stale entry frozen from bfcache and hid it. Replacing removes the
+// entry at its source, so back works on the first press on every browser.
+function gnRedirect(to: string) {
+  if (gnNavigator) gnNavigator(to, true);
+  else location.replace(to);
 }
 
 /** Set by the app so completion can surface what actually got recorded. */
@@ -1674,6 +1686,12 @@ export default function App(){
   // Members used to land on their own local setup screen, so every person
   // who tapped Beerio Kart started a private tournament. The room now
   // belongs to the event, not to whoever's phone opened it first.
+  // A member landing on ?event= has to resolve (are they the host? which room?)
+  // via one network round trip before anything real can render. Until then, show
+  // a neutral connecting card instead of the host's setup default, which is the
+  // screen that used to flash past on the way into the live spectator view.
+  // Gated so it never covers a night already in progress on this device (rule 8).
+  const [gnResolving,setGnResolving]=useState(()=>!!gnEvent()&&!isLive&&!spectatorInit&&!loadSaved());
   const [gnWaiting,setGnWaiting]=useState(false);
   // Waiting members poll for the room; when the host opens it, they drop
   // straight into the live view without touching anything.
@@ -1684,7 +1702,7 @@ export default function App(){
     const t=setInterval(()=>{
       fetch(`${API}/beerio-context/${ev}`,{credentials:"same-origin"})
         .then(r=>r.ok?r.json():null)
-        .then(d=>{if(d?.sessionCode)gnNavigate(`/beerio?s=${d.sessionCode}`);})
+        .then(d=>{if(d?.sessionCode)gnRedirect(`/beerio?s=${d.sessionCode}`);})
         .catch(()=>{/* keep waiting */});
     },4000);
     return()=>clearInterval(t);
@@ -1697,14 +1715,19 @@ export default function App(){
     fetch(`${API}/beerio-context/${ev}`,{credentials:"same-origin"})
       .then(r=>r.ok?r.json():null)
       .then(async d=>{
-        if(!d||cancelled)return;
+        if(cancelled)return;
+        if(!d){setGnResolving(false);return;}
 
         // Not a host: watch the host's room, or wait for it to open.
         if(!d.canHost){
-          if(d.sessionCode)gnNavigate(`/beerio?s=${d.sessionCode}`);
-          else setGnWaiting(true);
+          if(d.sessionCode)gnRedirect(`/beerio?s=${d.sessionCode}`);
+          else {setGnResolving(false);setGnWaiting(true);}
           return;
         }
+
+        // From here down we're the host: setup or a rejoined room will render,
+        // so drop the connecting gate.
+        setGnResolving(false);
 
         // Host rejoining an open room: adopt its state so the auto-sync
         // effect can't overwrite the live night with this device's stale copy.
@@ -1750,7 +1773,7 @@ export default function App(){
         setSessionCode(null);
         try{localStorage.removeItem(SESSION_KEY);}catch{/* ignore */}
       })
-      .catch(()=>{/* offline or logged out: setup screen stays as-is */});
+      .catch(()=>{setGnResolving(false);/* offline or logged out: setup screen stays as-is */});
 
     return()=>{cancelled=true;};
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2168,6 +2191,24 @@ export default function App(){
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[isSpectator,gpDone,gpLog.length]);
 
+  if(gnResolving){
+    return(
+      <div className="beerio-root min-h-dvh flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <h1 className="font-[Luckiest_Guy,cursive] text-[34px] text-[var(--sun)] m-0"
+          style={{WebkitTextStroke:"2px var(--ink)",textShadow:"3px 3px 0 var(--ink)"}}>
+          BEERIO KART
+        </h1>
+        <p className="font-[Fredoka] font-semibold text-[16px] text-[var(--ink)] max-w-[320px]">
+          Connecting to the night&hellip;
+        </p>
+        <button onClick={()=>{if(window.history.length>1)history.back();else gnNavigate("/");}}
+          className="px-4 py-2 rounded-[10px] border-2 border-[var(--ink)] bg-[var(--foam)] font-[Fredoka] font-semibold text-[13px] text-[var(--ink)] shadow-[0_2px_0_rgba(22,35,59,.22)] cursor-pointer">
+          &larr; Back to event
+        </button>
+      </div>
+    );
+  }
+
   if(gnWaiting){
     return(
       <div className="beerio-root min-h-dvh flex flex-col items-center justify-center gap-4 p-6 text-center">
@@ -2178,7 +2219,7 @@ export default function App(){
         <p className="font-[Fredoka] font-semibold text-[16px] text-[var(--ink)] max-w-[320px]">
           Waiting for the host to start the night. This page updates on its own.
         </p>
-        <button onClick={()=>{if(window.history.length>1)history.back();else location.href="/";}}
+        <button onClick={()=>{if(window.history.length>1)history.back();else gnNavigate("/");}}
           className="px-4 py-2 rounded-[10px] border-2 border-[var(--ink)] bg-[var(--foam)] font-[Fredoka] font-semibold text-[13px] text-[var(--ink)] shadow-[0_2px_0_rgba(22,35,59,.22)] cursor-pointer">
           &larr; Back to event
         </button>
