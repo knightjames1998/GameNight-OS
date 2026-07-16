@@ -179,6 +179,47 @@
 }
 .gn-undo:hover{color:var(--gn-ink)}
 
+/* ---- bracket TREE (Arcade): slot-height layout + connector lines ----
+   Each match is absolutely centered at (i+0.5)*slotH within its column,
+   and slotH doubles each round, so a match sits vertically between the two
+   it feeds from. Connector arms + vertical joiners (drawn inline) trace the
+   path a winner takes. Columns scroll horizontally within their section. */
+.gn-bkt-secs{display:flex;flex-direction:column;gap:22px}
+.gn-bkt-sec{min-width:0}
+.gn-bkt-tag{
+  display:inline-flex;align-items:center;gap:8px;margin-bottom:10px;
+  font-family:Fredoka, system-ui, sans-serif;font-weight:800;font-size:12px;
+  letter-spacing:.7px;text-transform:uppercase;padding:5px 13px;border-radius:999px;
+  border:2px solid var(--gn-line);background:var(--gn-surf);
+}
+.gn-bkt-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;padding-bottom:6px}
+.gn-bkt-row{display:flex;align-items:flex-start;width:max-content}
+.gn-bkt-rt{
+  font-family:Fredoka, system-ui, sans-serif;font-weight:800;font-size:11px;letter-spacing:1px;
+  text-transform:uppercase;color:var(--gn-dim);padding-bottom:6px;margin-bottom:8px;
+  border-bottom:1px dashed var(--gn-line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.gn-bkt-card{
+  display:flex;flex-direction:column;background:var(--gn-surf);border:2px solid var(--gn-line);
+  border-radius:11px;overflow:hidden;box-shadow:0 2px 0 rgba(0,0,0,.35);
+}
+.gn-bkt-card--live{border-color:var(--gn-p2);box-shadow:0 0 16px rgba(53,224,196,.20)}
+.gn-bkt-slot{
+  flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;
+  padding:0 11px;background:transparent;border:0;color:var(--gn-ink);
+  font-family:inherit;font-weight:700;font-size:13px;text-align:left;line-height:1.1;min-height:0;
+}
+.gn-bkt-slot--tap{cursor:pointer}
+.gn-bkt-slot--tap:active{background:var(--gn-raise)}
+.gn-bkt-slot--win{color:var(--gn-p2);background:rgba(53,224,196,.10)}
+.gn-bkt-slot--lose{color:var(--gn-dim);opacity:.6}
+.gn-bkt-slot--lose .gn-bkt-nm{text-decoration:line-through}
+.gn-bkt-slot--empty{color:#8a7ca2;font-style:italic;font-weight:600}
+.gn-bkt-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gn-bkt-meta{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.gn-bkt-seed{font-size:10px;color:#8a7ca2;font-weight:800}
+.gn-bkt-div{height:2px;background:var(--gn-line);flex-shrink:0}
+
 /* ---- TV / broadcast (big screen, Arcade) ---- */
 .gn-tv{
   min-height:100dvh;color:var(--gn-ink);font-family:Nunito,system-ui,sans-serif;position:relative;overflow:hidden;
@@ -204,3 +245,25 @@
 @media (prefers-reduced-motion:reduce){.gn-pulse{animation:none}}
 .gn-pulse{animation:gnpulse 1.6s ease-in-out infinite}
 @keyframes gnpulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ---- TV "now playing" board (big screen) ----
+   A full bracket tree is unreadable across a room, so the TV surfaces what
+   matters right now: the matchups on deck and the latest results, in type
+   sized to be read from the couch. Everything scales with vmin. */
+.gn-tv-cols{display:grid;grid-template-columns:1fr 1fr;gap:3vmin;flex:1;min-height:0;margin-top:3vmin}
+@media (max-width:860px){.gn-tv-cols{grid-template-columns:1fr}}
+.gn-tv-h2{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;color:var(--gn-ink);margin-bottom:1.8vmin;display:flex;align-items:baseline;gap:1.4vmin}
+.gn-tv-h2 span{font-size:1.9vmin;color:var(--gn-dim);font-weight:700}
+.gn-tv-stack{display:flex;flex-direction:column;gap:1.6vmin;min-height:0}
+.gn-tvm{background:var(--gn-surf);border:3px solid var(--gn-line);border-radius:2vmin;overflow:hidden}
+.gn-tvm--live{border-color:var(--gn-p2);box-shadow:0 0 3.2vmin rgba(53,224,196,.20)}
+.gn-tvm__rt{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:1.7vmin;letter-spacing:.18vmin;text-transform:uppercase;color:var(--gn-dim);padding:1vmin 1.8vmin 0}
+.gn-tvm__row{display:flex;align-items:center;justify-content:space-between;gap:1.5vmin;padding:1.5vmin 1.8vmin;font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;color:var(--gn-ink)}
+.gn-tvm__row--win{color:var(--gn-p2);background:rgba(53,224,196,.12)}
+.gn-tvm__row--lose{color:var(--gn-dim);opacity:.6}
+.gn-tvm__row--lose .gn-tvm__nm{text-decoration:line-through}
+.gn-tvm__nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.gn-tvm__seed{font-size:1.7vmin;color:#8a7ca2;font-weight:800;flex-shrink:0}
+.gn-tvm__vs{font-family:"Luckiest Guy",system-ui,cursive;color:var(--gn-p1);font-size:2vmin;text-align:center;padding:.2vmin 0;letter-spacing:.1vmin}
+.gn-tvm__div{height:3px;background:var(--gn-line)}
+.gn-tv-empty{font-family:Fredoka,system-ui,sans-serif;font-weight:700;font-size:2.2vmin;color:var(--gn-dim);opacity:.7}

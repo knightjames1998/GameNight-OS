@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { api, type BracketView } from "../api";
+import { api, type BracketView, type BracketMatchView } from "../api";
 import BackButton from "../BackButton";
 
-// The Broadcast view. Design target: a 75" TV at couch distance. That
-// means: huge type, high contrast, zero interaction, information visible
-// from across the room. This page never asks for login; the bracket UUID
-// in the URL is the (unguessable) key. Styled in the Arcade language so
-// the big screen matches the app; branded packs bring their own TV mode.
+// The Broadcast view. Design target: a 75" TV at couch distance. A full
+// bracket tree is unreadable from across a room, so — like the Beerio pack's
+// TV mode — this surfaces what actually matters live: the matchups on deck
+// and the latest results, in type sized to read from the couch. Styled in
+// the Arcade language; branded packs bring their own TV mode.
 
 type TvView = BracketView & { groupName: string };
+type FlatMatch = BracketMatchView & { round: string };
 
 export default function TvPage() {
   const { id } = useParams();
@@ -79,15 +80,28 @@ export default function TvPage() {
   }
 
   const scoreUrl = `${window.location.origin}/b/${bracket.id}`;
+  const all: FlatMatch[] = bracket.rounds.flatMap((r) =>
+    r.matches.map((m) => ({ ...m, round: r.title })),
+  );
+  // On deck: both seats filled, nobody's won yet. Decided: real results
+  // (skip bye walkovers). "Latest" leans on structure order — later rounds
+  // sit last — which reads as recency closely enough without timestamps.
+  const live = all.filter((m) => m.playable);
+  const decided = all.filter((m) => m.decided && !m.auto);
+  const latest = decided.slice(-6).reverse();
+  const isChamp = bracket.champion?.kind === "player";
 
   return (
     <main className="gn-tv flex flex-col p-10">
-      <header className="flex items-start justify-between gap-6">
+      <header className="flex items-start justify-between gap-6 shrink-0">
         <div>
           <BackButton className="!text-lg mb-2 block" />
           <h1 className="gn-tv-title text-6xl">{bracket.gameName}</h1>
-          <p className="text-2xl mt-3 flex items-center gap-4" style={{ color: "var(--gn-dim)" }}>
-            <span>{bracket.groupName} &middot; {bracket.entrantCount} players</span>
+          <p className="text-2xl mt-3 flex items-center gap-4 flex-wrap" style={{ color: "var(--gn-dim)" }}>
+            <span>
+              {bracket.groupName} &middot; {bracket.entrantCount} players &middot;{" "}
+              {bracket.format === "double_elim" ? "double elim" : "single elim"}
+            </span>
             <span className="inline-flex items-center gap-2" style={{ color: "var(--gn-yes)" }}>
               <span className="gn-live-dot gn-pulse" />
               live
@@ -102,71 +116,76 @@ export default function TvPage() {
         </div>
       </header>
 
-      {bracket.champion?.kind === "player" && (
-        <div className="gn-tv-champ mt-8 px-8 py-6 text-center">
+      {isChamp && (
+        <div className="gn-tv-champ mt-8 px-8 py-6 text-center shrink-0">
           <p className="text-2xl uppercase tracking-widest" style={{ color: "var(--gn-gold)" }}>Champion</p>
           <p className="gn-tv-title text-7xl mt-2" style={{ color: "var(--gn-gold)" }}>
-            {bracket.champion.displayName}
+            {bracket.champion!.kind === "player" ? bracket.champion!.displayName : ""}
           </p>
         </div>
       )}
 
-      {/* Double elim splits into two shelves: the winners bracket (plus the
-          grand final) on top, the losers bracket below. Single elim has no
-          losers rounds, so it renders exactly as before. */}
-      <TvRoundsRow rounds={bracket.rounds.filter((r) => r.side !== "L")} />
-      {bracket.rounds.some((r) => r.side === "L") && (
-        <TvRoundsRow rounds={bracket.rounds.filter((r) => r.side === "L")} />
-      )}
+      <div className="gn-tv-cols">
+        {!isChamp && (
+          <section className="flex flex-col min-h-0">
+            <h2 className="gn-tv-h2">On deck <span>{live.length} ready</span></h2>
+            <div className="gn-tv-stack">
+              {live.length === 0 ? (
+                <p className="gn-tv-empty">Waiting on the next matchup…</p>
+              ) : (
+                live.slice(0, 5).map((m) => <TvMatch key={m.id} m={m} live />)
+              )}
+            </div>
+          </section>
+        )}
+
+        <section className="flex flex-col min-h-0">
+          <h2 className="gn-tv-h2">
+            Latest results <span>{decided.length} played</span>
+          </h2>
+          <div className="gn-tv-stack">
+            {latest.length === 0 ? (
+              <p className="gn-tv-empty">No results yet.</p>
+            ) : (
+              latest.map((m) => <TvMatch key={m.id} m={m} />)
+            )}
+          </div>
+        </section>
+      </div>
     </main>
   );
 }
 
-function TvRoundsRow({ rounds }: { rounds: TvView["rounds"] }) {
+function TvMatch({ m, live }: { m: FlatMatch; live?: boolean }) {
+  const winnerSeed = m.winner?.kind === "player" ? m.winner.seed : null;
   return (
-    <div className="flex-1 flex gap-10 mt-10 items-start justify-center">
-      {rounds.map((round) => (
-        <section key={round.title} className="flex-1 max-w-md flex flex-col justify-around self-stretch gap-6">
-          <h2 className="gn-tv-round text-2xl text-center">{round.title}</h2>
-          <div className="flex-1 flex flex-col justify-around gap-6">
-            {round.matches.map((m) => (
-              <div key={m.id} className={`gn-tv-match ${m.playable ? "gn-tv-match--live" : ""}`}>
-                {m.reset && (
-                  <p className="gn-tv-round text-lg text-center" style={{ margin: "4px 0 0" }}>reset</p>
-                )}
-                <TvSlot
-                  label={m.a.kind === "player" ? m.a.displayName : m.a.kind === "bye" ? "bye" : "—"}
-                  won={m.decided && m.winner?.kind === "player" && m.winner.seed === (m.a as any).seed}
-                  lost={m.decided && m.winner?.kind === "player" && m.winner.seed !== (m.a as any).seed}
-                  real={m.a.kind === "player"}
-                />
-                <div className="gn-tv-slot__div" />
-                <TvSlot
-                  label={m.b.kind === "player" ? m.b.displayName : m.b.kind === "bye" ? "bye" : "—"}
-                  won={m.decided && m.winner?.kind === "player" && m.winner.seed === (m.b as any).seed}
-                  lost={m.decided && m.winner?.kind === "player" && m.winner.seed !== (m.b as any).seed}
-                  real={m.b.kind === "player"}
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
+    <div className={`gn-tvm ${live ? "gn-tvm--live" : ""}`}>
+      <div className="gn-tvm__rt">{m.round}</div>
+      <TvRow slot={m.a} decided={m.decided} winnerSeed={winnerSeed} />
+      <div className="gn-tvm__div" />
+      <TvRow slot={m.b} decided={m.decided} winnerSeed={winnerSeed} />
     </div>
   );
 }
 
-function TvSlot({
-  label,
-  won,
-  lost,
-  real,
+function TvRow({
+  slot,
+  decided,
+  winnerSeed,
 }: {
-  label: string;
-  won: boolean | null | undefined;
-  lost: boolean | null | undefined;
-  real: boolean;
+  slot: BracketMatchView["a"];
+  decided: boolean;
+  winnerSeed: number | null;
 }) {
-  const tone = !real ? "gn-tv-slot--empty" : won ? "gn-tv-slot--win" : lost ? "gn-tv-slot--lose" : "";
-  return <div className={`gn-tv-slot text-3xl ${tone}`}>{label}</div>;
+  const isPlayer = slot.kind === "player";
+  const label = isPlayer ? slot.displayName : slot.kind === "bye" ? "bye" : "TBD";
+  const won = decided && isPlayer && winnerSeed === slot.seed;
+  const lost = decided && isPlayer && winnerSeed !== null && winnerSeed !== slot.seed;
+  const tone = won ? "gn-tvm__row--win" : lost ? "gn-tvm__row--lose" : "";
+  return (
+    <div className={`gn-tvm__row ${tone}`}>
+      <span className="gn-tvm__nm">{label}</span>
+      {won ? <span>🏆</span> : isPlayer ? <span className="gn-tvm__seed">#{slot.seed}</span> : null}
+    </div>
+  );
 }
