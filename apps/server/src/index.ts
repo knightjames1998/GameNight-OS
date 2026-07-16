@@ -1,3 +1,6 @@
+// Must run before any route module registers handlers: patches the Router
+// so async handler rejections return a 500 instead of crashing the process.
+import "./async-safe.js";
 import express from "express";
 import cookieParser from "cookie-parser";
 import { createServer } from "node:http";
@@ -58,6 +61,16 @@ app.get("*", (_req, res) => {
   res.sendFile(path.join(webDist, "index.html"), (err) => {
     if (err) res.status(404).send("Web build not found. Run pnpm build.");
   });
+});
+
+// ---------- Error boundary ----------
+// Any error a route handler throws or rejects with is routed here by the
+// async-safe patch. Return a 500 and keep the process (and the WebSocket
+// hub) alive; a single bad query must never take the whole server down.
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("[route error]", err);
+  if (res.headersSent) return;
+  res.status(500).json({ error: "Something went wrong on our end." });
 });
 
 // ---------- WebSocket hub ----------

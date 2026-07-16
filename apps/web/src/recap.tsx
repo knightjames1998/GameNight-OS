@@ -141,6 +141,36 @@ export function biggestUpset(view: BracketView): Upset | null {
 
 // ---------- Canvas drawing ----------
 
+// Arcade palette (mirrors the --gn-* tokens; canvas can't read CSS vars).
+const RECAP = {
+  bg: "#17111f",
+  surf: "#241a30",
+  line: "#3a2c4d",
+  ink: "#f4ecff",
+  dim: "#c3b6d6",
+  gold: "#ffcf3f",
+  coral: "#ff5a5f",
+  teal: "#35e0c4",
+};
+const FONT_DISPLAY = '"Luckiest Guy", system-ui, cursive';
+const FONT_HEAD = '"Fredoka", system-ui, sans-serif';
+const FONT_BODY = '"Nunito", system-ui, sans-serif';
+
+/** Load the webfonts the card draws with, so the canvas isn't a fallback. */
+export async function ensureRecapFonts(): Promise<void> {
+  const faces = [
+    `400 46px ${FONT_DISPLAY}`,
+    `700 42px ${FONT_HEAD}`,
+    `700 21px ${FONT_HEAD}`,
+    `700 15px ${FONT_BODY}`,
+  ];
+  try {
+    await Promise.all(faces.map((f) => (document as any).fonts?.load(f)));
+  } catch {
+    // Fonts unavailable (offline etc.); the card falls back to system-ui.
+  }
+}
+
 export function drawRecapCard(view: BracketView): HTMLCanvasElement {
   const standings = computeStandings(view);
   const upset = biggestUpset(view);
@@ -148,8 +178,8 @@ export function drawRecapCard(view: BracketView): HTMLCanvasElement {
   const scale = 2;
   const W = 800;
   const PAD = 40;
-  const HEAD = 120;
-  const CHAMP = 130;
+  const HEAD = 128;
+  const CHAMP = 132;
   const ROW = 58;
   const UPSET = upset ? 64 : 0;
   const FOOT = 70;
@@ -162,44 +192,8 @@ export function drawRecapCard(view: BracketView): HTMLCanvasElement {
   if (!ctx) return cv;
   ctx.scale(scale, scale);
 
-  const ink = "#f5f5f5";
-  const dim = "#8b8b8b";
-  const gold = "#f0b429";
-  const card = "#171717";
-  const line = "#2a2a2a";
+  const { ink, dim, gold, surf, line, coral, teal } = RECAP;
 
-  // Background
-  ctx.fillStyle = "#0a0a0a";
-  ctx.fillRect(0, 0, W, H);
-
-  // Header
-  ctx.fillStyle = ink;
-  ctx.font = "900 44px system-ui, sans-serif";
-  ctx.fillText(view.gameName.slice(0, 24), PAD, 66);
-  ctx.fillStyle = dim;
-  ctx.font = "600 18px system-ui, sans-serif";
-  const date = new Date().toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-  ctx.fillText(
-    `${view.groupName} · ${date} · ${view.entrantCount} players · single elim`,
-    PAD,
-    98,
-  );
-  ctx.fillStyle = gold;
-  ctx.fillRect(PAD, HEAD - 8, W - PAD * 2, 3);
-
-  // Champion block
-  const champ = standings.find((s) => s.rank === 1);
-  ctx.fillStyle = gold;
-  ctx.font = "700 16px system-ui, sans-serif";
-  ctx.fillText("CHAMPION", PAD, HEAD + 34);
-  ctx.font = "900 46px system-ui, sans-serif";
-  ctx.fillText(`\u{1F3C6} ${champ ? champ.name.slice(0, 18) : "?"}`, PAD, HEAD + 86);
-
-  // Standings rows
   const rowRadius = (x: number, y: number, w: number, h: number, r: number) => {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -210,35 +204,82 @@ export function drawRecapCard(view: BracketView): HTMLCanvasElement {
     ctx.closePath();
   };
 
-  let y = HEAD + CHAMP;
+  // Background: deep plum with a soft coral glow up top, matching the app.
+  ctx.fillStyle = RECAP.bg;
+  ctx.fillRect(0, 0, W, H);
+  const glow = ctx.createRadialGradient(W / 2, -60, 40, W / 2, -60, 520);
+  glow.addColorStop(0, "rgba(255,90,95,0.16)");
+  glow.addColorStop(1, "rgba(255,90,95,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, 260);
+
+  // Wordmark (top-right) + title
+  ctx.textAlign = "right";
+  ctx.fillStyle = gold;
+  ctx.font = `400 20px ${FONT_DISPLAY}`;
+  ctx.fillText("GAMENIGHT OS", W - PAD, 44);
+  ctx.textAlign = "left";
+
+  ctx.fillStyle = ink;
+  ctx.font = `700 42px ${FONT_HEAD}`;
+  ctx.fillText(view.gameName.slice(0, 22), PAD, 62);
+  ctx.fillStyle = dim;
+  ctx.font = `700 17px ${FONT_BODY}`;
+  const date = new Date().toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const fmt = view.format === "double_elim" ? "double elim" : "single elim";
+  ctx.fillText(`${view.groupName} · ${date} · ${view.entrantCount} players · ${fmt}`, PAD, 94);
+
+  // Gold divider with a teal accent tick (the two player accents).
+  ctx.fillStyle = gold;
+  ctx.fillRect(PAD, HEAD - 12, W - PAD * 2, 3);
+  ctx.fillStyle = teal;
+  ctx.fillRect(PAD, HEAD - 12, 54, 3);
+
+  // Champion block
+  const champ = standings.find((s) => s.rank === 1);
+  ctx.fillStyle = gold;
+  ctx.font = `700 15px ${FONT_HEAD}`;
+  ctx.fillText("CHAMPION", PAD, HEAD + 32);
+  ctx.fillStyle = ink;
+  ctx.font = `400 46px ${FONT_DISPLAY}`;
+  ctx.fillText(`\u{1F3C6} ${champ ? champ.name.slice(0, 18) : "?"}`, PAD, HEAD + 88);
+
+  // Standings rows
+  const y = HEAD + CHAMP;
   standings.forEach((s, i) => {
     const top = y + i * ROW;
-    ctx.fillStyle = s.rank === 1 ? "rgba(240,180,41,0.12)" : card;
-    ctx.strokeStyle = s.rank === 1 ? gold : line;
+    const isChamp = s.rank === 1;
+    ctx.fillStyle = isChamp ? "rgba(255,207,63,0.12)" : surf;
+    ctx.strokeStyle = isChamp ? gold : line;
     ctx.lineWidth = 2;
-    rowRadius(PAD, top, W - PAD * 2, ROW - 10, 10);
+    rowRadius(PAD, top, W - PAD * 2, ROW - 10, 12);
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = s.rank === 1 ? gold : ink;
-    ctx.font = "700 21px system-ui, sans-serif";
+    ctx.fillStyle = isChamp ? gold : ink;
+    ctx.font = `700 21px ${FONT_HEAD}`;
     ctx.fillText(s.name.slice(0, 20), PAD + 20, top + 31);
 
     ctx.fillStyle = dim;
-    ctx.font = "600 15px system-ui, sans-serif";
+    ctx.font = `700 15px ${FONT_BODY}`;
     const label = `${s.label} · #${s.seed} seed`;
-    const w = ctx.measureText(label).width;
-    ctx.fillText(label, W - PAD - 20 - w, top + 30);
+    ctx.textAlign = "right";
+    ctx.fillText(label, W - PAD - 20, top + 30);
+    ctx.textAlign = "left";
   });
 
   // Upset callout
   if (upset) {
     const top = y + standings.length * ROW + 8;
-    ctx.fillStyle = "#e05d5d";
-    ctx.font = "700 15px system-ui, sans-serif";
+    ctx.fillStyle = coral;
+    ctx.font = `700 15px ${FONT_HEAD}`;
     ctx.fillText("BIGGEST UPSET", PAD, top + 12);
     ctx.fillStyle = ink;
-    ctx.font = "600 19px system-ui, sans-serif";
+    ctx.font = `700 19px ${FONT_BODY}`;
     ctx.fillText(
       `${upset.winner} (#${upset.winnerSeed}) took out ${upset.loser} (#${upset.loserSeed})`,
       PAD,
@@ -247,8 +288,8 @@ export function drawRecapCard(view: BracketView): HTMLCanvasElement {
   }
 
   // Footer
-  ctx.fillStyle = "#4a4a4a";
-  ctx.font = "600 14px system-ui, sans-serif";
+  ctx.fillStyle = dim;
+  ctx.font = `700 14px ${FONT_BODY}`;
   ctx.fillText("made with GameNight OS", PAD, H - 28);
 
   return cv;
@@ -262,17 +303,23 @@ export function RecapModal({ view, onClose }: { view: BracketView; onClose: () =
   const blobRef = useRef<Blob | null>(null);
 
   useEffect(() => {
-    const cv = drawRecapCard(view);
-    cv.toBlob(
-      (b) => {
-        if (!b) return;
-        blobRef.current = b;
-        setUrl(URL.createObjectURL(b));
-      },
-      "image/jpeg",
-      0.92,
-    );
+    let cancelled = false;
+    // Wait for the Arcade webfonts so the card doesn't bake in system-ui.
+    ensureRecapFonts().then(() => {
+      if (cancelled) return;
+      const cv = drawRecapCard(view);
+      cv.toBlob(
+        (b) => {
+          if (!b || cancelled) return;
+          blobRef.current = b;
+          setUrl(URL.createObjectURL(b));
+        },
+        "image/jpeg",
+        0.92,
+      );
+    });
     return () => {
+      cancelled = true;
       setUrl((u) => {
         if (u) URL.revokeObjectURL(u);
         return "";
@@ -301,36 +348,35 @@ export function RecapModal({ view, onClose }: { view: BracketView; onClose: () =
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 flex items-center justify-center p-4 z-50"
+      style={{ background: "rgba(10,6,15,0.72)" }}
       onClick={onClose}
     >
       <div
-        className="bg-neutral-950 border border-neutral-800 rounded-xl p-4 w-full max-w-md space-y-3"
+        className="gn-card w-full max-w-md space-y-3"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center">
-          <h2 className="font-semibold">Recap card</h2>
-          <button className="text-neutral-500 text-sm" onClick={onClose}>
+          <h2 className="gn-h2">Recap card</h2>
+          <button className="gn-textbtn" onClick={onClose}>
             close
           </button>
         </div>
         {url ? (
-          <img src={url} alt="Tournament recap" className="w-full rounded-lg border border-neutral-800" />
+          <img src={url} alt="Tournament recap" className="w-full rounded-lg" style={{ border: "2px solid var(--gn-line)" }} />
         ) : (
-          <p className="text-neutral-500 text-sm py-8 text-center">Building your card...</p>
+          <p className="gn-hint py-8 text-center">Building your card...</p>
         )}
-        {msg && <p className="text-yellow-500 text-sm">{msg}</p>}
+        {msg && <p className="text-sm" style={{ color: "var(--gn-gold)" }}>{msg}</p>}
         <div className="flex gap-2">
-          <button
-            onClick={share}
-            className="flex-1 rounded-lg bg-neutral-100 text-neutral-950 font-semibold py-3"
-          >
+          <button onClick={share} className="gn-btn gn-btn--p1 flex-1">
             Share
           </button>
           <a
             href={url || undefined}
             download={fname}
-            className="flex-1 rounded-lg bg-neutral-800 text-center font-semibold py-3"
+            className="gn-btn gn-btn--ghost flex-1 text-center"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}
           >
             Download
           </a>

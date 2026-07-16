@@ -282,37 +282,50 @@ authRouter.patch("/me", requireAuth, async (req: AuthedRequest, res) => {
   res.json({ ...req.user!, displayName });
 });
 
+// Standalone Arcade-themed chrome for the magic-link tap-through pages
+// (deep plum, coral action, Luckiest Guy wordmark). These render outside the
+// SPA, so they pull the fonts in directly.
+const PAGE_HEAD = `<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#17111f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<title>GameNight OS</title>`;
+
 const PAGE_STYLE =
   "margin:0;min-height:100dvh;display:flex;flex-direction:column;align-items:center;" +
-  "justify-content:center;gap:16px;background:#0a0a0a;color:#f5f5f5;" +
-  "font-family:system-ui,sans-serif;padding:24px;text-align:center";
+  "justify-content:center;gap:18px;background:#17111f;color:#f4ecff;" +
+  "font-family:Nunito,system-ui,sans-serif;padding:24px;text-align:center";
+
+const WORDMARK =
+  `<h1 style="margin:0;font-family:'Luckiest Guy',system-ui,cursive;font-size:32px;` +
+  `letter-spacing:.5px;color:#fff;text-shadow:0 0 14px rgba(255,90,95,.45),2px 3px 0 rgba(0,0,0,.35)">` +
+  `GameNight OS</h1>`;
 
 /** The tap-through page. The form POST is what preview bots can't fake. */
 function confirmPage(token: string, redirect: string): string {
-  return `<!doctype html><html><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>GameNight OS</title></head>
+  return `<!doctype html><html lang="en"><head>${PAGE_HEAD}</head>
 <body style="${PAGE_STYLE}">
-<h1 style="margin:0;font-size:28px">GameNight OS</h1>
-<p style="color:#a3a3a3;margin:0">One tap to finish logging in.</p>
+${WORDMARK}
+<p style="color:#c3b6d6;margin:0">One tap to finish logging in.</p>
 <form method="POST" action="/api/auth/verify">
 <input type="hidden" name="token" value="${token}">
 <input type="hidden" name="redirect" value="${redirect.replace(/"/g, "")}">
-<button type="submit" style="background:#f5f5f5;color:#0a0a0a;border:0;border-radius:8px;
-padding:14px 40px;font-size:16px;font-weight:600">Log in</button>
+<button type="submit" style="background:#ff5a5f;color:#1a0d0e;border:0;border-radius:12px;
+padding:15px 44px;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer;
+box-shadow:0 4px 0 #b8383c">Log in</button>
 </form>
 </body></html>`;
 }
 
 function expiredPage(): string {
-  return `<!doctype html><html><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>GameNight OS</title></head>
+  return `<!doctype html><html lang="en"><head>${PAGE_HEAD}</head>
 <body style="${PAGE_STYLE}">
-<h1 style="margin:0;font-size:28px">GameNight OS</h1>
-<p style="color:#a3a3a3;margin:0">This login link is invalid or expired.<br>
+${WORDMARK}
+<p style="color:#c3b6d6;margin:0">This login link is invalid or expired.<br>
 Go back to the app and request a new one.</p>
-<a href="/" style="color:#f5f5f5">Back to the app</a>
+<a href="/" style="color:#35e0c4;font-weight:700;text-decoration:none">Back to the app</a>
 </body></html>`;
 }
 

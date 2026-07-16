@@ -57,8 +57,8 @@ export default function App() {
 
   if (loading) {
     return (
-      <main className="min-h-dvh bg-neutral-950 text-neutral-100 flex items-center justify-center">
-        <p className="text-neutral-600">Loading...</p>
+      <main className="gn-app flex items-center justify-center" style={{ minHeight: "100dvh" }}>
+        <p className="gn-hint">Loading...</p>
       </main>
     );
   }

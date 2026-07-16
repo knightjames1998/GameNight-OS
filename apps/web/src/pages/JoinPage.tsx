@@ -33,28 +33,31 @@ export default function JoinPage({ me }: { me: Me | null }) {
   }
 
   return (
-    <main className="min-h-dvh bg-neutral-950 text-neutral-100 flex flex-col items-center justify-center gap-8 p-6">
-      <h1 className="text-3xl font-bold tracking-tight">GameNight OS</h1>
-      {error && <p className="text-red-400">{error}</p>}
-      {!error && groupName === null && <p className="text-neutral-500">Loading...</p>}
-      {!error && groupName !== null && (
-        <>
-          <p className="text-neutral-300 text-center">
-            You've been invited to join <span className="font-semibold">{groupName}</span>
-          </p>
-          {me ? (
-            <button
-              onClick={join}
-              disabled={busy}
-              className="rounded-lg bg-neutral-100 text-neutral-950 font-semibold px-8 py-3 disabled:opacity-50"
-            >
-              {busy ? "Joining..." : `Join as ${me.displayName}`}
-            </button>
-          ) : (
-            <Login redirect={`/join/${code}`} />
-          )}
-        </>
-      )}
+    <main className="gn-app">
+      <div className="gn-wrap flex flex-col items-center gap-6" style={{ minHeight: "100dvh", justifyContent: "center", paddingTop: 40, paddingBottom: 40 }}>
+        <h1 className="gn-brand" style={{ fontSize: 34 }}>GameNight OS</h1>
+
+        {error && <p style={{ color: "var(--gn-danger)" }} className="text-center">{error}</p>}
+        {!error && groupName === null && <p className="gn-hint">Loading...</p>}
+
+        {!error && groupName !== null && (
+          <>
+            <div className="gn-card w-full text-center">
+              <p className="gn-hint">You've been invited to join</p>
+              <p className="gn-title text-2xl mt-1">{groupName}</p>
+            </div>
+            {me ? (
+              <button onClick={join} disabled={busy} className="gn-btn gn-btn--p1 w-full">
+                {busy ? "Joining..." : `Join as ${me.displayName}`}
+              </button>
+            ) : (
+              <div className="w-full">
+                <Login redirect={`/join/${code}`} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </main>
   );
 }
