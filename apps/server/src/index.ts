@@ -14,6 +14,7 @@ import { beerioRouter } from "./beerio.js";
 import { beerioGnRouter } from "./beerio-gn.js";
 import { quickPlayRouter } from "./quickplay.js";
 import { smashRouter, smashTvRouter } from "./smash.js";
+import { marioKartRouter, marioKartTvRouter } from "./mariokart.js";
 import { statsRouter } from "./stats.js";
 import { setupWebSockets } from "./ws.js";
 
@@ -21,7 +22,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 3000);
 
 const app = express();
-// Replit sits behind a proxy; trust it so req.protocol reports https
+// Render sits behind a proxy; trust it so req.protocol reports https
 // and magic link URLs come out correct.
 app.set("trust proxy", 1);
 app.use(express.json());
@@ -43,10 +44,12 @@ app.use("/api/join", joinRouter);
 // entering them and 401s before the request can fall through.
 app.use("/api/tv", tvRouter);
 app.use("/api/tv", smashTvRouter); // public: big-screen read for the Smash pack
+app.use("/api/tv", marioKartTvRouter); // public: big-screen read for Mario Kart
 app.use("/api", beerioRouter); // public: sessions/hof for the Beerio pack
 app.use("/api", beerioGnRouter); // authed per-route: GameNight binding for the pack
 app.use("/api", quickPlayRouter);
 app.use("/api", smashRouter); // authed per-route: Smash pack play + stats
+app.use("/api", marioKartRouter); // authed per-route: Mario Kart general tracking
 app.use("/api", statsRouter);
 app.use("/api", eventsRouter);
 app.use("/api", bracketsRouter);

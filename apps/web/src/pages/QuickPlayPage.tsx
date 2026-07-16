@@ -10,7 +10,11 @@ import BackButton from "../BackButton";
 export default function QuickPlayPage() {
   const navigate = useNavigate();
   const [gameName, setGameName] = useState("");
-  const [format, setFormat] = useState<"single_elim" | "double_elim">("single_elim");
+  const [format, setFormat] = useState<"single_elim" | "double_elim">(
+    new URLSearchParams(window.location.search).get("format") === "double_elim"
+      ? "double_elim"
+      : "single_elim",
+  );
   const [names, setNames] = useState<string[]>(["", "", "", ""]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

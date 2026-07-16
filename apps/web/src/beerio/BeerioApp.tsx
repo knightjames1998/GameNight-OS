@@ -779,8 +779,8 @@ function ShareModal({code,status,liveUrl,snapshotUrl,onClose,onRetry}:{
 // ─── Floating "join live" QR ───────────────────────────────────────────────────
 // Stays on screen at all times once a live room exists, so anyone nearby can scan
 // in without the host hunting for the share button. Portaled to <body> so scroll
-// position never affects it. Offset up from the corner so it never sits behind
-// Replit's "Made with Replit" publish badge.
+// position never affects it. Offset up from the corner so it clears the
+// bottom edge and the mobile home indicator.
 function FloatingQR({liveUrl,status,canGoLive,isSpectator,onGoLive,onOpen}:{
   liveUrl:string;status:LiveStatus;canGoLive:boolean;isSpectator:boolean;onGoLive:()=>void;onOpen:()=>void;
 }){

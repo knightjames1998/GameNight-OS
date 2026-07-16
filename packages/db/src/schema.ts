@@ -11,6 +11,7 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 
 // ---------- Identity ----------
@@ -263,3 +264,24 @@ export const smashSessions = pgTable("smash_sessions", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// ---------- Generic session pack ----------
+// Newer session-based packs (Mario Kart general tracking today) share one
+// table, keyed by (event, pack) so several can run on the same event. Same
+// jsonb-working-state + materialize-into-matches model as smash_sessions;
+// smash keeps its own table for back-compat. Additive: brand-new table.
+export const gameSessions = pgTable(
+  "game_sessions",
+  {
+    eventId: uuid("event_id").notNull().references(() => events.id),
+    pack: text("pack").notNull(),
+    groupId: uuid("group_id").notNull().references(() => groups.id),
+    status: text("status", { enum: ["setup", "live", "completed"] })
+      .notNull()
+      .default("setup"),
+    state: jsonb("state").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.eventId, t.pack] })],
+);

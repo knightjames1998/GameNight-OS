@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { api, type EventDetail, type RsvpStatus } from "../api";
 import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
+import GamePicker, { type PickerGame, type PickerFormat } from "../GamePicker";
 
 export default function EventPage() {
   const { id } = useParams();
@@ -10,7 +11,6 @@ export default function EventPage() {
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [format, setFormat] = useState<"single_elim" | "double_elim">("single_elim");
 
   async function load() {
     try {
@@ -40,7 +40,7 @@ export default function EventPage() {
     () => load(),
   );
 
-  async function startBracket() {
+  async function startBracket(format: "single_elim" | "double_elim") {
     if (busy) return;
     setBusy(true);
     try {
@@ -134,65 +134,8 @@ export default function EventPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="gn-h2">Tournament</h2>
-        {(() => {
-          const isHost = event.myRole === "owner" || event.myRole === "admin";
-          const liveNow = !!event.beerioCode;
-          // Members can always open Beerio: they land in the host's live
-          // room, or on a "waiting for the host" screen. Only hosts can
-          // actually start the night.
-          return (
-            <Link to={`/beerio?event=${id}`} className="gn-cab gn-cab--beerio">
-              <span className="gn-cab__name">🍺 Beerio Kart</span>
-              <span className="gn-cab__sub">
-                {liveNow
-                  ? isHost
-                    ? "live now, rejoin"
-                    : "live now, watch"
-                  : isHost
-                    ? "Double Elim & Grand Prix"
-                    : "waiting for the host"}
-              </span>
-            </Link>
-          );
-        })()}
-        <Link to={`/smash?event=${id}`} className="gn-cab gn-cab--smash">
-          <span className="gn-cab__name">🥊 Smash Night</span>
-          <span className="gn-cab__sub">
-            {event.myRole === "owner" || event.myRole === "admin"
-              ? "FFA & King of the Hill"
-              : "join the host's session"}
-          </span>
-        </Link>
-        {event.bracket ? (
-          <Link to={`/b/${event.bracket.id}`} className="gn-cab gn-cab--brk">
-            <span className="gn-cab__name">
-              🏆 {event.bracket.status === "completed" ? "Final bracket" : "Live bracket"}
-            </span>
-            <span className="gn-cab__sub">tap to open</span>
-          </Link>
-        ) : event.myRole !== "owner" && event.myRole !== "admin" ? (
-          <p className="gn-hint">
-            The crew owner or an admin starts the generalized bracket.
-          </p>
-        ) : groupBy("yes").length >= 2 ? (
-          <div className="space-y-2">
-            <select
-              value={format}
-              onChange={(e) => setFormat(e.target.value as "single_elim" | "double_elim")}
-              className="gn-input w-full"
-              aria-label="Bracket format"
-            >
-              <option value="single_elim">Single elimination</option>
-              <option value="double_elim">Double elimination</option>
-            </select>
-            <button onClick={startBracket} disabled={busy} className="gn-btn gn-btn--p1 w-full">
-              Start generalized bracket ({groupBy("yes").length} players)
-            </button>
-          </div>
-        ) : (
-          <p className="gn-hint">Needs at least 2 yes RSVPs to start a bracket.</p>
-        )}
+        <h2 className="gn-h2">Games</h2>
+        <GamePicker games={eventGames(event, id!, (to) => navigate(to), startBracket, groupBy("yes").length)} />
       </section>
 
       <section className="space-y-4">
@@ -243,4 +186,78 @@ function Shell({ children }: { children: React.ReactNode }) {
       </div>
     </main>
   );
+}
+
+// The event's game > format menu. Session packs (Beerio, Smash, Mario Kart
+// general) are plain links — those pages gate hosting themselves and show a
+// "waiting for the host" screen to members. Only Tournament needs gating
+// here, because starting a bracket happens on this screen.
+function eventGames(
+  event: EventDetail,
+  id: string,
+  navigate: (to: string) => void,
+  startBracket: (f: "single_elim" | "double_elim") => void,
+  yesCount: number,
+): PickerGame[] {
+  const isHost = event.myRole === "owner" || event.myRole === "admin";
+  const beerioSub = event.beerioCode
+    ? isHost
+      ? "live now, rejoin"
+      : "live now, watch"
+    : "double elim & grand prix";
+
+  let tournamentFormats: PickerFormat[];
+  if (event.bracket) {
+    tournamentFormats = [
+      {
+        key: "open",
+        label: event.bracket.status === "completed" ? "Open final bracket" : "Open live bracket",
+        sub: "tap to open",
+        onPick: () => navigate(`/b/${event.bracket!.id}`),
+      },
+    ];
+  } else if (!isHost) {
+    tournamentFormats = [
+      { key: "wait", label: "Waiting for the host", sub: "an owner or admin starts it", onPick: () => {}, disabled: true },
+    ];
+  } else if (yesCount >= 2) {
+    tournamentFormats = [
+      { key: "single", label: "Single elimination", sub: `${yesCount} players`, onPick: () => startBracket("single_elim") },
+      { key: "double", label: "Double elimination", sub: `${yesCount} players · losers bracket`, onPick: () => startBracket("double_elim") },
+    ];
+  } else {
+    tournamentFormats = [
+      { key: "need", label: "Needs 2+ yes RSVPs", sub: "get the crew to RSVP first", onPick: () => {}, disabled: true },
+    ];
+  }
+
+  return [
+    {
+      key: "mariokart",
+      name: "Mario Kart",
+      emoji: "🏎️",
+      cabClass: "gn-cab--mk",
+      formats: [
+        { key: "beerio", label: "🍺 Beerio Kart", sub: beerioSub, onPick: () => navigate(`/beerio?event=${id}`) },
+        { key: "general", label: "🏁 General tracking", sub: "pick a racer, log races", onPick: () => navigate(`/mariokart?event=${id}`) },
+      ],
+    },
+    {
+      key: "smash",
+      name: "Smash Bros",
+      emoji: "🥊",
+      cabClass: "gn-cab--smash",
+      formats: [
+        { key: "ffa", label: "Free-for-all", sub: "2–8 players a game", onPick: () => navigate(`/smash?event=${id}&mode=ffa`) },
+        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => navigate(`/smash?event=${id}&mode=koth`) },
+      ],
+    },
+    {
+      key: "tournament",
+      name: "Tournament",
+      emoji: "🏆",
+      cabClass: "gn-cab--brk",
+      formats: tournamentFormats,
+    },
+  ];
 }

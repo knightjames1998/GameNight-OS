@@ -1,6 +1,6 @@
 # Deploying GameNight OS to Render
 
-Replit's free tier can't publish this app (it needs a live Node server, Postgres, and WebSockets, which means a paid Autoscale or Reserved VM deployment). Render can, for free. Keep developing in Replit if you like; GitHub stays the source of truth and Render deploys from it.
+This app needs a live Node server, Postgres, and WebSockets. Render runs all three on its free tier. GitHub is the source of truth; the workflow is edit → push to `main` → Render auto-deploys → check the deploy log.
 
 ## The one trap to know about
 
@@ -24,7 +24,7 @@ Replit's free tier can't publish this app (it needs a live Node server, Postgres
 4. Render reads `render.yaml` from the repo and configures everything: build command, start command, health check, Node version, single instance.
 5. It will ask for the two secrets it can't guess:
    - `DATABASE_URL` → paste the Neon connection string from step 1.
-   - `RESEND_API_KEY` → same key you used in Replit (Resend dashboard → API Keys).
+   - `RESEND_API_KEY` → your Resend key (Resend dashboard → API Keys).
 6. Click **Apply** / **Create**. First deploy takes 3-5 minutes.
 
 The build automatically pushes the database schema (all 13 tables), so there's no separate setup step. Watch the deploy log; you want to see `[✓] Changes applied` then `GameNight OS server listening`.
@@ -38,12 +38,11 @@ Your app is at `https://gamenight-os.onrender.com` (or whatever name Render assi
 3. Start a bracket, score a match, and check that a second device sees the update live. That's the WebSocket test, and it's the one thing most likely to behave differently in production.
 4. Open TV mode.
 
-## What's different from Replit
+## Things to know
 
 - **Cold starts.** Free services sleep after 15 minutes of inactivity. The next visitor waits 30-60 seconds for it to wake, then it's fast for everyone. For a game night, hit the URL yourself a minute before people arrive and it stays warm all evening. ($7/month kills cold starts entirely if it ever becomes annoying.)
-- **Auto-deploy.** Every push to `main` on GitHub redeploys automatically. No more copy-paste-into-Replit for deploys (though you can still develop in Replit and push from there).
-- **Fresh database.** Neon starts empty. Your Replit test data does not come along. Log in, remake your crew, and go. (Copying the old data over is possible but not worth it for test data.)
-- **Env vars** live in Render's dashboard (Environment tab), not Replit Secrets.
+- **Auto-deploy.** Every push to `main` on GitHub redeploys automatically. There's no separate build step to run locally — push and watch the deploy log.
+- **Env vars** live in Render's dashboard (Environment tab).
 
 ## Schema changes from here on
 

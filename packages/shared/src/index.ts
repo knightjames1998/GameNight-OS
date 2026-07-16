@@ -118,6 +118,8 @@ export type WsMessage =
   | { type: "match_updated"; matchId: string }
   | { type: "leaderboard_updated"; eventId: string }
   | { type: "smash_updated"; eventId: string }
+  | { type: "mario_kart_updated"; eventId: string }
   | { type: "ping" };
 export * from "./bracket.js";
 export * from "./smash.js";
+export * from "./mariokart.js";

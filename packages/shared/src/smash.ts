@@ -119,19 +119,29 @@ export function newSmashState(opts: {
 
 // ---------- Pure helpers ----------
 
-/** Random fighter, optionally excluding some (so a match has no dupes). */
-export function randomFighter(exclude: Iterable<string> = []): string {
+/**
+ * Random character, optionally excluding some (so a match has no dupes).
+ * The pool defaults to the Smash roster; other packs (Mario Kart) pass
+ * their own so this same session engine works for them.
+ */
+export function randomFighter(
+  exclude: Iterable<string> = [],
+  pool: readonly string[] = SMASH_FIGHTERS,
+): string {
   const taken = new Set(exclude);
-  const pool = SMASH_FIGHTERS.filter((f) => !taken.has(f));
-  const from = pool.length ? pool : SMASH_FIGHTERS;
+  const avail = pool.filter((f) => !taken.has(f));
+  const from = avail.length ? avail : pool;
   return from[Math.floor(Math.random() * from.length)]!;
 }
 
-/** Assign a unique-where-possible random fighter to every roster slot. */
-export function assignRandomFighters(roster: SmashPlayer[]): SmashPlayer[] {
+/** Assign a unique-where-possible random character to every roster slot. */
+export function assignRandomFighters(
+  roster: SmashPlayer[],
+  pool: readonly string[] = SMASH_FIGHTERS,
+): SmashPlayer[] {
   const used = new Set<string>();
   return roster.map((p) => {
-    const c = randomFighter(used);
+    const c = randomFighter(used, pool);
     used.add(c);
     return { ...p, character: c };
   });

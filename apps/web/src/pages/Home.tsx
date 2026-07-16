@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api, type GroupSummary, type Me } from "../api";
 import Login from "./Login";
+import GamePicker, { type PickerGame } from "../GamePicker";
 
 export default function Home({
   me,
@@ -32,6 +33,7 @@ function Groups({
   onNameChange: (name: string) => void;
   onLogout: () => void;
 }) {
+  const navigate = useNavigate();
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
   const [newName, setNewName] = useState("");
   const [displayName, setDisplayName] = useState(me.displayName);
@@ -71,6 +73,56 @@ function Groups({
     setPw("");
     setPwSaved(true);
   }
+
+  // Session packs need a (personal) event to hang the live session on; spin
+  // one up, then drop into the pack's own setup screen.
+  async function startSession(pack: "smash" | "mariokart", suffix = "") {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { eventId } = await api<{ eventId: string }>(`/api/quickplay/${pack}`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      const route = pack === "smash" ? "smash" : "mariokart";
+      navigate(`/${route}?event=${eventId}${suffix}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const quickGames: PickerGame[] = [
+    {
+      key: "mariokart",
+      name: "Mario Kart",
+      emoji: "🏎️",
+      cabClass: "gn-cab--mk",
+      formats: [
+        { key: "beerio", label: "🍺 Beerio Kart", sub: "double elim & grand prix", onPick: () => navigate("/beerio") },
+        { key: "general", label: "🏁 General tracking", sub: "pick a racer, log races", onPick: () => startSession("mariokart") },
+      ],
+    },
+    {
+      key: "smash",
+      name: "Smash Bros",
+      emoji: "🥊",
+      cabClass: "gn-cab--smash",
+      formats: [
+        { key: "ffa", label: "Free-for-all", sub: "2–8 players a game", onPick: () => startSession("smash", "&mode=ffa") },
+        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => startSession("smash", "&mode=koth") },
+      ],
+    },
+    {
+      key: "tournament",
+      name: "Tournament",
+      emoji: "🏆",
+      cabClass: "gn-cab--brk",
+      formats: [
+        { key: "single", label: "Single elimination", sub: "typed names", onPick: () => navigate("/quick?format=single_elim") },
+        { key: "double", label: "Double elimination", sub: "losers bracket + grand final", onPick: () => navigate("/quick?format=double_elim") },
+      ],
+    },
+  ];
 
   return (
     <main className="gn-app">
@@ -146,16 +198,9 @@ function Groups({
         </section>
 
         <section className="space-y-3">
-          <h2 className="gn-h2">Game modes</h2>
+          <h2 className="gn-h2">Games</h2>
           <p className="gn-hint">Playable standalone, no event needed; fill in names manually.</p>
-          <Link to="/beerio" className="gn-cab gn-cab--beerio">
-            <span className="gn-cab__name">🍺 Beerio Kart</span>
-            <span className="gn-cab__sub">Double Elim &amp; Grand Prix</span>
-          </Link>
-          <Link to="/quick" className="gn-cab gn-cab--brk">
-            <span className="gn-cab__name">🏆 Generalized bracket</span>
-            <span className="gn-cab__sub">single elim, typed names</span>
-          </Link>
+          <GamePicker games={quickGames} />
         </section>
 
         <section className="space-y-3">

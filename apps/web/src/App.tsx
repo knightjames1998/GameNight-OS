@@ -13,6 +13,8 @@ import StatsPage from "./pages/StatsPage";
 import BeerioTvPage from "./beerio/BeerioTvPage";
 import SmashPage from "./smash/SmashPage";
 import SmashTvPage from "./smash/SmashTvPage";
+import MarioKartPage from "./mariokart/MarioKartPage";
+import MarioKartTvPage from "./mariokart/MarioKartTvPage";
 
 function BeerioRoute() {
   // Hand the vendored app a router-aware navigate(), so its internal links
@@ -33,6 +35,11 @@ function SmashSearchKeyed() {
   // remount on its own; key by search so the page rebinds to the new event.
   const location = useLocation();
   return <SmashPage key={location.search} />;
+}
+
+function MarioKartSearchKeyed() {
+  const location = useLocation();
+  return <MarioKartPage key={location.search} />;
 }
 
 export default function App() {
@@ -94,6 +101,8 @@ export default function App() {
         <Route path="/beerio/tv/:code" element={<BeerioTvPage />} />
         <Route path="/smash" element={<SmashSearchKeyed />} />
         <Route path="/smash/tv/:eventId" element={<SmashTvPage />} />
+        <Route path="/mariokart" element={<MarioKartSearchKeyed />} />
+        <Route path="/mariokart/tv/:eventId" element={<MarioKartTvPage />} />
         <Route path="/join/:code" element={<JoinPage me={me} />} />
       </Routes>
     </BrowserRouter>

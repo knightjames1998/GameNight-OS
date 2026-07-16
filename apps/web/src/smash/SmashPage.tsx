@@ -159,7 +159,10 @@ function SetupOrWaiting({
   busy: boolean;
   onStart: (p: unknown) => void;
 }) {
-  const [mode, setMode] = useState<Mode>("ffa");
+  // A format chosen upstream (the game>format picker) arrives as ?mode=.
+  const initialMode: Mode =
+    new URLSearchParams(window.location.search).get("mode") === "koth" ? "koth" : "ffa";
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [assignment, setAssignment] = useState<Assignment>("self");
   const [detail, setDetail] = useState<Detail>("winner");
   const [roster, setRoster] = useState<{ userId: string | null; name: string }[]>([]);

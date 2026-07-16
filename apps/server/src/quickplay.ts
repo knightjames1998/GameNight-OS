@@ -116,3 +116,30 @@ quickPlayRouter.post("/quickplay/bracket", async (req: AuthedRequest, res) => {
 
   res.json({ id: bracket.id });
 });
+
+/**
+ * Quick play for a session-based pack (Smash, Mario Kart): spin up a
+ * personal crew + a live event and hand back the event id, so the pack's
+ * normal event-keyed flow works with no crew or RSVP. The caller adds
+ * players (themselves + typed guests) on the pack's own setup screen.
+ */
+async function quickSessionEvent(req: AuthedRequest, fallbackTitle: string): Promise<string> {
+  const db = getDb();
+  const groupId = await ensurePersonalGroup(req.user!.id, req.user!.displayName);
+  const title = String(req.body?.title ?? "").trim().slice(0, 50) || fallbackTitle;
+  const event = (
+    await db
+      .insert(events)
+      .values({ groupId, title, scheduledFor: new Date(), status: "live", createdBy: req.user!.id })
+      .returning()
+  )[0]!;
+  return event.id;
+}
+
+quickPlayRouter.post("/quickplay/smash", async (req: AuthedRequest, res) => {
+  res.json({ eventId: await quickSessionEvent(req, "Smash Night") });
+});
+
+quickPlayRouter.post("/quickplay/mariokart", async (req: AuthedRequest, res) => {
+  res.json({ eventId: await quickSessionEvent(req, "Mario Kart") });
+});
