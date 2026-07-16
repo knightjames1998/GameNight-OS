@@ -579,7 +579,10 @@ smashRouter.get("/groups/:id/smash-stats", requireAuth, async (req: AuthedReques
       displayName: users.displayName,
       character: matchParticipants.character,
       isWinner: matchParticipants.isWinner,
+      placement: matchParticipants.placement,
       matchId: matchParticipants.matchId,
+      eventId: matches.eventId,
+      position: matches.position,
     })
     .from(matchParticipants)
     .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
@@ -610,9 +613,63 @@ smashRouter.get("/groups/:id/smash-stats", requireAuth, async (req: AuthedReques
     players.set(r.userId, p);
   }
 
+  // Best win streak: longest run of consecutive wins within a single night,
+  // ordering each player's games by position. This is the KOTH "king on a
+  // roll" stat, and it reads sensibly for FFA too (games won in a row).
+  const streakBest = new Map<string, number>();
+  const byUserEvent = new Map<string, { position: number; isWinner: boolean }[]>();
+  for (const r of rows) {
+    const key = `${r.userId}|${r.eventId ?? ""}`;
+    (byUserEvent.get(key) ?? byUserEvent.set(key, []).get(key)!).push({
+      position: r.position ?? 0,
+      isWinner: r.isWinner,
+    });
+  }
+  for (const [key, list] of byUserEvent) {
+    const userId = key.split("|")[0]!;
+    list.sort((a, b) => a.position - b.position);
+    let run = 0;
+    let best = 0;
+    for (const g of list) {
+      run = g.isWinner ? run + 1 : 0;
+      if (run > best) best = run;
+    }
+    streakBest.set(userId, Math.max(streakBest.get(userId) ?? 0, best));
+  }
+
+  // Head-to-head: for every match two members shared, the better placement
+  // wins the meeting. Ties (equal placement, e.g. both non-winners in a
+  // winner-only FFA) count as a meeting with no edge, so records stay honest.
+  const byMatch = new Map<string, { userId: string; placement: number | null }[]>();
+  for (const r of rows) {
+    (byMatch.get(r.matchId) ?? byMatch.set(r.matchId, []).get(r.matchId)!).push({
+      userId: r.userId,
+      placement: r.placement,
+    });
+  }
+  const nameOf = new Map([...players.values()].map((p) => [p.userId, p.name]));
+  const h2h = new Map<string, { a: string; b: string; aWins: number; bWins: number; meetings: number }>();
+  for (const parts of byMatch.values()) {
+    for (let i = 0; i < parts.length; i++) {
+      for (let j = i + 1; j < parts.length; j++) {
+        const [x, y] = [parts[i]!, parts[j]!];
+        const a = x.userId < y.userId ? x : y;
+        const b = x.userId < y.userId ? y : x;
+        const key = `${a.userId}|${b.userId}`;
+        const rec = h2h.get(key) ?? { a: a.userId, b: b.userId, aWins: 0, bWins: 0, meetings: 0 };
+        rec.meetings++;
+        const ap = a.placement ?? 99;
+        const bp = b.placement ?? 99;
+        if (ap < bp) rec.aWins++;
+        else if (bp < ap) rec.bWins++;
+        h2h.set(key, rec);
+      }
+    }
+  }
+
   const byPlayer = [...players.values()].map((p) => {
     let main: string | null = null;
-    let variety = p.counts.size;
+    const variety = p.counts.size;
     let max = 0;
     for (const [c, n] of p.counts) if (n > max) ((max = n), (main = c));
     return {
@@ -623,12 +680,29 @@ smashRouter.get("/groups/:id/smash-stats", requireAuth, async (req: AuthedReques
       winRate: p.played ? p.wins / p.played : 0,
       main,
       variety,
+      bestStreak: streakBest.get(p.userId) ?? 0,
     };
   });
 
+  const headToHead = [...h2h.values()]
+    .filter((r) => r.aWins + r.bWins > 0)
+    .map((r) => ({
+      aUserId: r.a,
+      bUserId: r.b,
+      aName: nameOf.get(r.a) ?? "?",
+      bName: nameOf.get(r.b) ?? "?",
+      aWins: r.aWins,
+      bWins: r.bWins,
+      meetings: r.meetings,
+    }))
+    .sort((x, y) => y.meetings - x.meetings || y.aWins + y.bWins - (x.aWins + x.bWins));
+
   res.json({
     games: matchIds.size,
-    byCharacter: [...chars.values()].sort((a, b) => b.wins - a.wins || b.played - a.played),
+    byCharacter: [...chars.values()]
+      .map((c) => ({ ...c, winRate: c.played ? c.wins / c.played : 0 }))
+      .sort((a, b) => b.wins - a.wins || b.played - a.played),
     byPlayer: byPlayer.sort((a, b) => b.wins - a.wins || b.winRate - a.winRate),
+    headToHead,
   });
 });

@@ -27,6 +27,124 @@ interface StatsView {
   games: GameStats[];
 }
 
+// The generic aggregator names the Smash pack's game this; the tab with
+// this label swaps the generic list for the character-rich panel below.
+const SMASH_GAME_NAME = "Smash Bros";
+
+interface SmashStats {
+  games: number;
+  byCharacter: { character: string; played: number; wins: number; winRate: number }[];
+  byPlayer: {
+    userId: string;
+    name: string;
+    played: number;
+    wins: number;
+    winRate: number;
+    main: string | null;
+    variety: number;
+    bestStreak: number;
+  }[];
+  headToHead: {
+    aUserId: string;
+    bUserId: string;
+    aName: string;
+    bName: string;
+    aWins: number;
+    bWins: number;
+    meetings: number;
+  }[];
+}
+
+const pct = (n: number) => `${Math.round(n * 100)}%`;
+
+function SmashPanel({ groupId }: { groupId: string }) {
+  const [data, setData] = useState<SmashStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api<SmashStats>(`/api/groups/${groupId}/smash-stats`)
+      .then(setData)
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
+  }, [groupId]);
+
+  if (error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
+  if (!data) return <p className="gn-hint">Loading...</p>;
+  if (data.games === 0) {
+    return <p className="gn-hint">No Smash games recorded yet. Play an FFA or King of the Hill night and it fills in here.</p>;
+  }
+
+  const accent = "#ff6a5a";
+  const sectionHead = (label: string) => (
+    <h2 className="gn-h2" style={{ color: accent, marginBottom: 8 }}>{label}</h2>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Players */}
+      <section>
+        {sectionHead("Players")}
+        <ul className="space-y-2">
+          {data.byPlayer.map((p, i) => (
+            <li key={p.userId} className={i === 0 ? "gn-champ" : "gn-card"} style={{ padding: "12px 16px" }}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="flex items-baseline gap-2 min-w-0">
+                  <span className={`gn-rank ${i === 0 ? "gn-rank--top" : ""}`} style={{ fontSize: "16px", width: "22px", flexShrink: 0 }}>{i + 1}</span>
+                  <span className="font-bold truncate" style={i === 0 ? { color: "var(--gn-gold)" } : undefined}>{p.name}</span>
+                </span>
+                <span className="text-sm shrink-0">
+                  <span className="font-bold">{p.wins}</span>
+                  <span className="gn-hint"> / {p.played}</span>
+                </span>
+              </div>
+              <div className="gn-hint mt-1" style={{ fontSize: "12px", paddingLeft: "30px" }}>
+                {pct(p.winRate)} win rate
+                {p.main && <> &middot; main {p.main}</>}
+                {" "}&middot; {p.variety} {p.variety === 1 ? "fighter" : "fighters"}
+                {p.bestStreak > 1 && <> &middot; 🔥 {p.bestStreak} in a row</>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Fighters */}
+      <section>
+        {sectionHead("Fighters")}
+        <ul className="space-y-1">
+          {data.byCharacter.map((c) => (
+            <li key={c.character} className="gn-card flex items-baseline justify-between" style={{ padding: "10px 16px" }}>
+              <span className="font-bold truncate">{c.character}</span>
+              <span className="text-sm shrink-0 gn-hint">
+                <span className="font-bold" style={{ color: "var(--gn-ink)" }}>{c.wins}</span> / {c.played} &middot; {pct(c.winRate)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Head to head */}
+      {data.headToHead.length > 0 && (
+        <section>
+          {sectionHead("Head to head")}
+          <ul className="space-y-1">
+            {data.headToHead.slice(0, 12).map((h) => (
+              <li key={`${h.aUserId}-${h.bUserId}`} className="gn-card flex items-baseline justify-between gap-2" style={{ padding: "10px 16px" }}>
+                <span className="truncate">
+                  <span className="font-bold" style={h.aWins >= h.bWins ? { color: "var(--gn-ink)" } : { color: "var(--gn-dim)" }}>{h.aName}</span>
+                  <span className="gn-hint"> vs </span>
+                  <span className="font-bold" style={h.bWins > h.aWins ? { color: "var(--gn-ink)" } : { color: "var(--gn-dim)" }}>{h.bName}</span>
+                </span>
+                <span className="text-sm shrink-0 font-bold">{h.aWins}&ndash;{h.bWins}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="gn-hint mt-1" style={{ fontSize: "12px" }}>Better finish in a shared game takes the meeting. Ties (same finish) don't count either way.</p>
+        </section>
+      )}
+    </div>
+  );
+}
+
 export default function StatsPage() {
   const { id } = useParams();
   const [stats, setStats] = useState<StatsView | null>(null);
@@ -54,8 +172,9 @@ export default function StatsPage() {
           <h1 className="gn-title text-2xl">🏆 Leaderboard</h1>
           {stats && (
             <p className="gn-hint mt-1">
-              {count} {count === 1 ? "tournament" : "tournaments"}
-              {active ? ` of ${active.name}` : " across all game modes"}
+              {tab === SMASH_GAME_NAME
+                ? `${count} ${count === 1 ? "game" : "games"} of Smash Bros`
+                : `${count} ${count === 1 ? "tournament" : "tournaments"}${active ? ` of ${active.name}` : " across all game modes"}`}
             </p>
           )}
         </div>
@@ -87,6 +206,9 @@ export default function StatsPage() {
           </div>
         )}
 
+        {tab === SMASH_GAME_NAME && id ? (
+          <SmashPanel groupId={id} />
+        ) : (
         <ul className="space-y-2">
           {shown?.map((r, i) => {
             const expanded = open === r.userId;
@@ -135,6 +257,7 @@ export default function StatsPage() {
             );
           })}
         </ul>
+        )}
       </div>
     </main>
   );
