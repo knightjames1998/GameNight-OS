@@ -11,6 +11,8 @@ import BeerioApp, { setBeerioNavigator } from "./beerio/BeerioApp";
 import QuickPlayPage from "./pages/QuickPlayPage";
 import StatsPage from "./pages/StatsPage";
 import BeerioTvPage from "./beerio/BeerioTvPage";
+import SmashPage from "./smash/SmashPage";
+import SmashTvPage from "./smash/SmashTvPage";
 
 function BeerioRoute() {
   // Hand the vendored app a router-aware navigate(), so its internal links
@@ -24,6 +26,13 @@ function BeerioRoute() {
       <BeerioApp key={location.search} />
     </div>
   );
+}
+
+function SmashSearchKeyed() {
+  // /smash?event=A -> /smash?event=B is a same-route navigation and won't
+  // remount on its own; key by search so the page rebinds to the new event.
+  const location = useLocation();
+  return <SmashPage key={location.search} />;
 }
 
 export default function App() {
@@ -83,6 +92,8 @@ export default function App() {
         <Route path="/quick" element={<QuickPlayPage />} />
         <Route path="/g/:id/stats" element={<StatsPage />} />
         <Route path="/beerio/tv/:code" element={<BeerioTvPage />} />
+        <Route path="/smash" element={<SmashSearchKeyed />} />
+        <Route path="/smash/tv/:eventId" element={<SmashTvPage />} />
         <Route path="/join/:code" element={<JoinPage me={me} />} />
       </Routes>
     </BrowserRouter>

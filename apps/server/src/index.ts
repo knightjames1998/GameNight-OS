@@ -10,6 +10,7 @@ import { bracketsRouter, tvRouter } from "./brackets.js";
 import { beerioRouter } from "./beerio.js";
 import { beerioGnRouter } from "./beerio-gn.js";
 import { quickPlayRouter } from "./quickplay.js";
+import { smashRouter, smashTvRouter } from "./smash.js";
 import { statsRouter } from "./stats.js";
 import { setupWebSockets } from "./ws.js";
 
@@ -38,9 +39,11 @@ app.use("/api/join", joinRouter);
 // apply requireAuth at router level, which runs for every /api request
 // entering them and 401s before the request can fall through.
 app.use("/api/tv", tvRouter);
+app.use("/api/tv", smashTvRouter); // public: big-screen read for the Smash pack
 app.use("/api", beerioRouter); // public: sessions/hof for the Beerio pack
 app.use("/api", beerioGnRouter); // authed per-route: GameNight binding for the pack
 app.use("/api", quickPlayRouter);
+app.use("/api", smashRouter); // authed per-route: Smash pack play + stats
 app.use("/api", statsRouter);
 app.use("/api", eventsRouter);
 app.use("/api", bracketsRouter);

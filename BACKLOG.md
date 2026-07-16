@@ -13,7 +13,8 @@ Ideas live here so nothing gets silently dropped. Status: NOW (current push), NE
 - [x] Legacy/stats screen: lifetime crew leaderboard at /g/:id/stats. Generic brackets and Beerio nights both materialize on completion, so stats span both bracket types.
 
 ## NOW
-- [ ] Smash Bros game pack (must satisfy all 8 standing rules). Plan tracked in GAMEPLAN.md.
+- [x] Smash Bros game pack, Session A: FFA Night (2-8) + King of the Hill + character system (self-select / random / host-assign, full Ultimate roster) + its own TV mode + lifetime character stats. Satisfies all 8 standing rules. Tournament for Smash reuses the existing single-elim engine (no new bracket code).
+- [ ] Smash Bros, Session B: double-elimination. Adds a format dropdown to BOTH the generic Tournament tracker and the Smash Tournament option, in the shared engine (packages/shared/src/bracket.ts). Biggest piece is undo across the winners/losers brackets + grand-final reset; needs isolated testing. Not Smash-specific.
 
 ## NEXT (priority order set by James)
 - [ ] UI design pass (paused, resumes after Smash Bros): Arcade theme rollout across the generic app.
@@ -41,6 +42,9 @@ Ideas live here so nothing gets silently dropped. Status: NOW (current push), NE
 - [ ] Offline score entry sync (PWA background sync)
 
 ## DEFERRED
+- Smash character portraits: fighters are text-only for now. Portraits/thumbnails come with the UI pass (asset sourcing + licensing to think about). The roster and picker are built to swap in art without a data change.
+- Smash stage tracking: which stage each game was on. Cut for Session A. Too much input per game for the payoff; the fun stat is the fighter, not the stage.
+- Smash stock tracking: stocks remaining / KO counts per game. Cut for Session A for the same reason (per-life data entry). Winner + optional full placement is the low-barrier target (standing rule 9).
 - House rules per group per game (versioned rule sets): deferred by James.
 - Handicap engine: cut by James (not necessary).
 - Venue/brewery league mode: different customer, different product. Revisit only if a venue asks.
@@ -57,6 +61,13 @@ Ideas live here so nothing gets silently dropped. Status: NOW (current push), NE
 - Prefill rosters from the event's yes-RSVP list, and never clobber a session already in progress.
 
 ## DECISION LOG
+- Smash scope split (2026-07-16): the pack ships as two sessions. Session A = FFA Night + King of the Hill + character system + TV + stats, with Tournament reusing the existing single-elim engine. Session B = double-elimination in the shared engine, surfaced as a format dropdown in both the generic Tournament tracker and the Smash Tournament option. Double-elim was split out because it touches non-Smash code and its undo (re-routing losers between brackets + grand-final reset) needs isolated testing.
+- Smash storage model (2026-07-16): FFA and KOTH are session-based, not brackets. A night is a running log of individual games held in one server-side row per event (smash_sessions, jsonb state), so members join the host's session rather than a local copy (standing rule 2). Each completed game materializes into matches/match_participants immediately, keyed smash:{eventId}:{idx} for idempotent undo/redo. The jsonb is the live working state; the matches tables are the durable ledger.
+- Smash character tracking (2026-07-16): added one nullable column, match_participants.character, so the fighter played survives into the lifetime ledger (otherwise "wins with <fighter>" is impossible). It is a generic per-participant label; brackets and Beerio leave it null. This is the only schema change in Session A besides the new smash_sessions table; both are additive and apply via the existing pnpm db:push:ci in the Render build.
+- Smash roster (2026-07-16): one flat list of every fighter across all games (the complete Ultimate roster, static since Sora in Oct 2021), no per-game filtering. Echo fighters are separate entries and the three Mii Fighters are separate; Pokemon Trainer and Pyra/Mythra are single picks (tracking which Pokemon or twin is the kind of per-life granularity standing rule 9 says isn't worth the input). Pinned against a current source at build time, not from memory.
+- Smash result detail (2026-07-16): winner-only is the default (one tap), with an opt-in full-placement toggle for FFA (1..N). Low barrier for entry, meticulous mode available. KOTH and Tournament are inherently winner/loser so the toggle only affects FFA.
+- Smash character assignment (2026-07-16): host picks one mode per session: players self-select on their own devices (default), host taps once for random, or host-assigns everyone. Self-select writes are scoped so a member can only set their own slot; the host can set any.
+- Smash stats endpoint (2026-07-16): character stats (wins by fighter, each member's main, variety) come from a dedicated /groups/:id/smash-stats endpoint reading the pack's ledger rows, leaving the generic /groups/:id/stats aggregator untouched. Keeps the character focus out of the cross-game leaderboard and lowers the risk of destabilizing a working endpoint (standing rule 9).
 - UI direction (2026-07-15): Arcade chosen as the app's visual identity (deep plum, coral + teal "player" accents, chunky pressable buttons, Luckiest Guy wordmark). Tabletop was the runner-up and is saved as a future opt-in theme, not built now.
 - Theming architecture (2026-07-15): the app moved off hardcoded Tailwind color utilities onto CSS custom-property tokens plus a small gn-* component-class layer in index.css. Reason: Tailwind color utilities compile to fixed values and cannot be re-themed at runtime; CSS variables can. A second theme (Tabletop) becomes another token block plus a switcher, with no component rewrites.
 - Theme scope (2026-07-15): generic app screens get the Arcade theme; branded packs (Beerio Kart) keep their own styling by design. The generic tournament TV mode gets an Arcade big-screen variant; Beerio's TV mode is untouched.

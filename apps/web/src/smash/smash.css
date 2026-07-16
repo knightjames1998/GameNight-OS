@@ -1,0 +1,94 @@
+/* ============================================================
+   Smash pack theme. Its own design language (standing rule 3):
+   high-energy red/steel with hard angular cards and a "VS" motif,
+   distinct from the arcade-cabinet look of the core screens. Reads
+   the shared --gn-* tokens where it can so a global theme swap still
+   flows through.
+   ============================================================ */
+
+.sm-root {
+  min-height: 100dvh;
+  background:
+    radial-gradient(120% 80% at 50% -10%, #3a0d12 0%, transparent 60%),
+    linear-gradient(180deg, #1a0e10, #120a12);
+  color: var(--gn-ink);
+  font-family: Nunito, system-ui, sans-serif;
+}
+.sm-wrap { max-width: 30rem; margin: 0 auto; padding: 16px 16px 56px; }
+
+.sm-brand {
+  font-family: "Luckiest Guy", system-ui, cursive;
+  font-size: 30px; letter-spacing: 1px; line-height: 1; color: #fff;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px rgba(255, 70, 60, 0.6), 2px 3px 0 rgba(0, 0, 0, 0.5);
+}
+.sm-brand em { color: #ff4a3d; font-style: normal; }
+.sm-sub { color: var(--gn-dim); font-size: 13px; margin-top: 2px; }
+
+.sm-card {
+  background: linear-gradient(180deg, #241417, #1b0f13);
+  border: 1px solid #5a2026;
+  border-radius: 4px;
+  padding: 14px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+.sm-card + .sm-card { margin-top: 12px; }
+.sm-h { font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 16px; margin: 0 0 10px; }
+.sm-lab { color: var(--gn-dim); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+.sm-hint { color: var(--gn-dim); font-size: 13px; }
+
+/* segmented pick (mode / assignment / detail) */
+.sm-seg { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.sm-seg button {
+  flex: 1 1 auto; min-width: 84px; padding: 9px 10px; border-radius: 3px;
+  border: 1px solid #5a2026; background: #1b0f13; color: var(--gn-dim);
+  font-weight: 700; font-size: 13px; cursor: pointer;
+}
+.sm-seg button.on { background: #ff4a3d; color: #1a0708; border-color: #ff4a3d; }
+
+.sm-input, .sm-select {
+  width: 100%; padding: 10px; border-radius: 3px; border: 1px solid #5a2026;
+  background: #140a0d; color: var(--gn-ink); font-size: 15px;
+}
+
+.sm-btn {
+  width: 100%; padding: 13px; border-radius: 3px; border: none; cursor: pointer;
+  font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 16px;
+  background: #ff4a3d; color: #1a0708; box-shadow: 0 4px 0 #a52a22;
+}
+.sm-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5); }
+.sm-btn:disabled { opacity: 0.5; }
+.sm-btn--ghost { background: #241417; color: var(--gn-ink); border: 1px solid #5a2026; box-shadow: none; }
+.sm-btn--go { background: var(--gn-p2); color: var(--gn-p2-ink); box-shadow: 0 4px 0 var(--gn-p2-sh); }
+
+.sm-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid #3a181c; }
+.sm-row:first-child { border-top: none; }
+.sm-name { font-weight: 700; }
+.sm-char { color: var(--gn-dim); font-size: 12px; }
+.sm-pill { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: #3a181c; color: var(--gn-dim); }
+.sm-pill--king { background: var(--gn-gold); color: #2a1e00; }
+
+/* VS panel for KOTH */
+.sm-vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: stretch; }
+.sm-fighter { text-align: center; padding: 14px 8px; border: 1px solid #5a2026; border-radius: 4px; background: #1b0f13; cursor: pointer; }
+.sm-fighter.win { border-color: var(--gn-p2); }
+.sm-fighter__n { font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 18px; }
+.sm-fighter__c { color: var(--gn-dim); font-size: 12px; margin-top: 2px; }
+.sm-vsbadge { align-self: center; font-family: "Luckiest Guy", cursive; color: #ff4a3d; font-size: 22px; }
+
+.sm-err { color: var(--gn-danger); font-size: 13px; margin-top: 8px; }
+.sm-textbtn { background: none; border: none; color: var(--gn-dim); font-weight: 700; cursor: pointer; padding: 6px 0; }
+.sm-textbtn:hover { color: var(--gn-ink); }
+
+.sm-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+
+/* TV mode: bigger, darker, meant for a room to read across it */
+.sm-tv { min-height: 100dvh; background: radial-gradient(130% 90% at 50% 0%, #4a0f16, #0f0709); color: #fff; padding: 3vmin 4vmin; }
+.sm-tv__brand { font-family: "Luckiest Guy", cursive; font-size: 6vmin; text-transform: uppercase; text-shadow: 0 0 22px rgba(255, 70, 60, 0.7); }
+.sm-tv__king { font-size: 8vmin; font-family: Fredoka, sans-serif; font-weight: 700; color: var(--gn-gold); }
+.sm-tv__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2vmin; margin-top: 3vmin; }
+.sm-tv__panel { background: rgba(0, 0, 0, 0.35); border: 1px solid #7a2028; border-radius: 6px; padding: 2.4vmin; }
+.sm-tv__panel h3 { font-size: 2.6vmin; color: #ff9a6a; margin: 0 0 1.4vmin; text-transform: uppercase; letter-spacing: 0.5px; }
+.sm-tv__line { display: flex; justify-content: space-between; font-size: 3vmin; padding: 0.8vmin 0; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.sm-tv__line:first-of-type { border-top: none; }
+.sm-tv__muted { color: #d8a; }

@@ -116,6 +116,8 @@
 .gn-cab--beerio .gn-cab__name{color:var(--gn-gold)}
 .gn-cab--brk .gn-cab__name{color:var(--gn-p1)}
 .gn-cab--stats .gn-cab__name{color:var(--gn-p2)}
+.gn-cab--smash{border-color:#5a2026;background:linear-gradient(180deg,#2a1013,#241a30)}
+.gn-cab--smash .gn-cab__name{color:#ff6a5a}
 
 /* ---- role / status chips ------------------------------------- */
 .gn-chip{font-weight:800;font-size:11px;letter-spacing:.5px;padding:5px 10px;border-radius:999px;text-transform:uppercase;white-space:nowrap}

@@ -117,5 +117,7 @@ export type WsMessage =
   | { type: "bracket_updated"; bracketId: string }
   | { type: "match_updated"; matchId: string }
   | { type: "leaderboard_updated"; eventId: string }
+  | { type: "smash_updated"; eventId: string }
   | { type: "ping" };
 export * from "./bracket.js";
+export * from "./smash.js";

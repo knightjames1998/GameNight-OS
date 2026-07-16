@@ -155,6 +155,14 @@ export default function EventPage() {
             </Link>
           );
         })()}
+        <Link to={`/smash?event=${id}`} className="gn-cab gn-cab--smash">
+          <span className="gn-cab__name">🥊 Smash Night</span>
+          <span className="gn-cab__sub">
+            {event.myRole === "owner" || event.myRole === "admin"
+              ? "FFA & King of the Hill"
+              : "join the host's session"}
+          </span>
+        </Link>
         {event.bracket ? (
           <Link to={`/b/${event.bracket.id}`} className="gn-cab gn-cab--brk">
             <span className="gn-cab__name">

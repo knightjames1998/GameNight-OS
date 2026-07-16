@@ -205,6 +205,11 @@ export const matchParticipants = pgTable(
     score: integer("score"),
     placement: integer("placement"),
     isWinner: boolean("is_winner").notNull().default(false),
+    // Generic per-participant label a pack may attach to a result. The
+    // Smash pack stores the fighter played here so "wins with <fighter>"
+    // and "most-played" survive into the lifetime ledger. Null for packs
+    // that don't use it (brackets, Beerio).
+    character: text("character"),
   },
   (t) => [
     uniqueIndex("match_participants_match_user_uq").on(t.matchId, t.userId),
@@ -233,5 +238,26 @@ export const beerioSessions = pgTable("beerio_sessions", {
 export const beerioHof = pgTable("beerio_hof", {
   code: text("code").primaryKey(),
   data: jsonb("data").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ---------- Smash pack ----------
+// FFA Night and King of the Hill are session-based, not brackets: a night
+// is a running log of individual games. The live session (roster,
+// assignment mode, per-game log, KOTH state) is stored server-side as
+// jsonb, ONE per event, so members join the host's session instead of a
+// local copy (standing rule 2). Completed games materialize into
+// matches/match_participants (standing rule 5); the jsonb here is the live
+// working state, the matches tables are the durable ledger.
+export const smashSessions = pgTable("smash_sessions", {
+  eventId: uuid("event_id")
+    .primaryKey()
+    .references(() => events.id),
+  groupId: uuid("group_id").notNull().references(() => groups.id),
+  status: text("status", { enum: ["setup", "live", "completed"] })
+    .notNull()
+    .default("setup"),
+  state: jsonb("state").$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
