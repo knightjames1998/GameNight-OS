@@ -68,7 +68,7 @@ export function parseEntrants(raw: unknown): Entrant[] {
 }
 // A "game" is anything with participants and results. Packs layer on top.
 
-export type BracketFormat = "single_elim" | "round_robin";
+export type BracketFormat = "single_elim" | "double_elim" | "round_robin";
 export type MatchStatus = "pending" | "live" | "completed";
 
 export interface Game {

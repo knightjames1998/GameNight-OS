@@ -15,6 +15,8 @@ Live in production. The MVP framework is BUILT (Phases 0-5: scaffold, auth+crew,
 Full detail and the reasoning behind each rule lives in BACKLOG.md's STANDING RULES and DECISION LOG sections.
 
 ## NOW: Smash Bros game pack
+Session A (FFA + King of the Hill + characters + TV + stats) and Session B (double elimination in the shared bracket engine, with a format dropdown on the event bracket and Quick Play; isolated tests via `pnpm test:bracket`) are SHIPPED. Remaining idea in this lane: a Tournament format inside the Smash launcher itself (see BACKLOG NOW).
+
 The second game pack, built from scratch (not ported like Beerio Kart), so it's the first real test of whether the eight standing rules above generalize cleanly to a new mode.
 
 Shape (confirm/refine at the start of the session, don't assume before then):

@@ -67,6 +67,21 @@ export default function SmashTvPage() {
         <div style={{ marginTop: "2vmin" }}>
           <div className="sm-tv__muted" style={{ fontSize: "2.6vmin" }}>👑 Current king{session.koth && session.koth.streak > 0 ? ` · ${session.koth.streak} in a row` : ""}</div>
           <div className="sm-tv__king">{nameOf.get(kingId)} <span style={{ fontSize: "3.4vmin" }} className="sm-tv__muted">as {charOf.get(kingId) ?? "?"}</span></div>
+          {session.koth && session.koth.queue.length > 0 && (
+            <div style={{ marginTop: "1.6vmin" }}>
+              <span style={{ fontSize: "3.4vmin", fontFamily: "Fredoka, sans-serif", fontWeight: 700 }}>
+                ⚔️ Up next: {nameOf.get(session.koth.queue[0]!)}
+                {charOf.get(session.koth.queue[0]!) ? (
+                  <span className="sm-tv__muted" style={{ fontSize: "2.6vmin" }}> as {charOf.get(session.koth.queue[0]!)}</span>
+                ) : null}
+              </span>
+              {session.koth.queue.length > 1 && (
+                <div className="sm-tv__muted" style={{ fontSize: "2.4vmin", marginTop: "0.6vmin" }}>
+                  Then: {session.koth.queue.slice(1).map((id) => nameOf.get(id)).filter(Boolean).join(" · ")}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

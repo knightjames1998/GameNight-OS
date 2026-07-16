@@ -111,33 +111,48 @@ export default function TvPage() {
         </div>
       )}
 
-      <div className="flex-1 flex gap-10 mt-10 items-start justify-center">
-        {bracket.rounds.map((round) => (
-          <section key={round.title} className="flex-1 max-w-md flex flex-col justify-around self-stretch gap-6">
-            <h2 className="gn-tv-round text-2xl text-center">{round.title}</h2>
-            <div className="flex-1 flex flex-col justify-around gap-6">
-              {round.matches.map((m) => (
-                <div key={m.id} className={`gn-tv-match ${m.playable ? "gn-tv-match--live" : ""}`}>
-                  <TvSlot
-                    label={m.a.kind === "player" ? m.a.displayName : m.a.kind === "bye" ? "bye" : "—"}
-                    won={m.decided && m.winner?.kind === "player" && m.winner.seed === (m.a as any).seed}
-                    lost={m.decided && m.winner?.kind === "player" && m.winner.seed !== (m.a as any).seed}
-                    real={m.a.kind === "player"}
-                  />
-                  <div className="gn-tv-slot__div" />
-                  <TvSlot
-                    label={m.b.kind === "player" ? m.b.displayName : m.b.kind === "bye" ? "bye" : "—"}
-                    won={m.decided && m.winner?.kind === "player" && m.winner.seed === (m.b as any).seed}
-                    lost={m.decided && m.winner?.kind === "player" && m.winner.seed !== (m.b as any).seed}
-                    real={m.b.kind === "player"}
-                  />
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+      {/* Double elim splits into two shelves: the winners bracket (plus the
+          grand final) on top, the losers bracket below. Single elim has no
+          losers rounds, so it renders exactly as before. */}
+      <TvRoundsRow rounds={bracket.rounds.filter((r) => r.side !== "L")} />
+      {bracket.rounds.some((r) => r.side === "L") && (
+        <TvRoundsRow rounds={bracket.rounds.filter((r) => r.side === "L")} />
+      )}
     </main>
+  );
+}
+
+function TvRoundsRow({ rounds }: { rounds: TvView["rounds"] }) {
+  return (
+    <div className="flex-1 flex gap-10 mt-10 items-start justify-center">
+      {rounds.map((round) => (
+        <section key={round.title} className="flex-1 max-w-md flex flex-col justify-around self-stretch gap-6">
+          <h2 className="gn-tv-round text-2xl text-center">{round.title}</h2>
+          <div className="flex-1 flex flex-col justify-around gap-6">
+            {round.matches.map((m) => (
+              <div key={m.id} className={`gn-tv-match ${m.playable ? "gn-tv-match--live" : ""}`}>
+                {m.reset && (
+                  <p className="gn-tv-round text-lg text-center" style={{ margin: "4px 0 0" }}>reset</p>
+                )}
+                <TvSlot
+                  label={m.a.kind === "player" ? m.a.displayName : m.a.kind === "bye" ? "bye" : "—"}
+                  won={m.decided && m.winner?.kind === "player" && m.winner.seed === (m.a as any).seed}
+                  lost={m.decided && m.winner?.kind === "player" && m.winner.seed !== (m.a as any).seed}
+                  real={m.a.kind === "player"}
+                />
+                <div className="gn-tv-slot__div" />
+                <TvSlot
+                  label={m.b.kind === "player" ? m.b.displayName : m.b.kind === "bye" ? "bye" : "—"}
+                  won={m.decided && m.winner?.kind === "player" && m.winner.seed === (m.b as any).seed}
+                  lost={m.decided && m.winner?.kind === "player" && m.winner.seed !== (m.b as any).seed}
+                  real={m.b.kind === "player"}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
   );
 }
 

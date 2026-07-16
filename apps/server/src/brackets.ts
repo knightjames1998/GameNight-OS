@@ -15,12 +15,14 @@ import {
   inArray,
 } from "@gamenight/db";
 import {
-  buildSingleElim,
+  buildStructure,
   computeBracket,
   downstreamOf,
   parseEntrants,
-  roundTitle,
+  placements,
+  type BracketFormat,
   type BracketResults,
+  type BracketStructure,
   type Entrant,
   type Slot,
 } from "@gamenight/shared";
@@ -46,6 +48,7 @@ tvRouter.get("/:id", async (req, res) => {
       status: brackets.status,
       openScoring: brackets.openScoring,
       gameId: brackets.gameId,
+      format: brackets.format,
       entrants: brackets.entrants,
       results: brackets.results,
       gameName: games.name,
@@ -105,6 +108,8 @@ bracketsRouter.post("/events/:eventId/bracket", async (req: AuthedRequest, res) 
   }
 
   const gameName = String(req.body?.gameName ?? "").trim() || "Game Night";
+  const format: BracketFormat =
+    req.body?.format === "double_elim" ? "double_elim" : "single_elim";
   const game = (
     await db
       .insert(games)
@@ -119,7 +124,7 @@ bracketsRouter.post("/events/:eventId/bracket", async (req: AuthedRequest, res) 
         groupId: event.groupId,
         eventId: event.id,
         gameId: game.id,
-        format: "single_elim",
+        format,
         status: "live",
         entrants: yesList.map((r) => ({ kind: "member" as const, userId: r.userId })),
         results: {},
@@ -164,7 +169,7 @@ bracketsRouter.post("/brackets/:id/matches/:matchId/result", async (req: AuthedR
   }
 
   const matchId = String(req.params.matchId);
-  const structure = buildSingleElim(loaded.entrants.length);
+  const structure = buildStructure(loaded.format, loaded.entrants.length);
   const computed = computeBracket(loaded.entrants.length, structure, loaded.results);
   const match = computed.matches[matchId];
   if (!match) {
@@ -214,7 +219,7 @@ bracketsRouter.delete("/brackets/:id/matches/:matchId/result", async (req: Authe
     return;
   }
 
-  const structure = buildSingleElim(loaded.entrants.length);
+  const structure = buildStructure(loaded.format, loaded.entrants.length);
   const results: BracketResults = { ...loaded.results };
   delete results[matchId];
   for (const id of downstreamOf(structure, matchId)) {
@@ -266,7 +271,7 @@ bracketsRouter.patch("/brackets/:id/settings", async (req: AuthedRequest, res) =
  * credit yet; linking guests to members is a backlog item). Idempotent by
  * bracketId.
  */
-async function materialize(loaded: LoadedBracket, structure: ReturnType<typeof buildSingleElim>) {
+async function materialize(loaded: LoadedBracket, structure: BracketStructure) {
   const db = getDb();
   const existing = await db
     .select({ id: matches.id })
@@ -278,21 +283,10 @@ async function materialize(loaded: LoadedBracket, structure: ReturnType<typeof b
   const computed = computeBracket(loaded.entrants.length, structure, loaded.results);
   if (!computed.championSeed) return;
 
-  // Finishing place per seed: champion 1, runner-up 2, then by the round
-  // they went out (later exit = better place).
-  const exitRound = new Map<number, number>();
-  for (const round of computed.roundIds) {
-    for (const id of round) {
-      const m = computed.matches[id];
-      if (!m || !m.decided || m.auto) continue;
-      if (m.a.kind !== "player" || m.b.kind !== "player" || m.winner.kind !== "player") continue;
-      const loser = m.winner.seed === m.a.seed ? m.b.seed : m.a.seed;
-      exitRound.set(loser, m.def.round);
-    }
-  }
-  const ranked = [...exitRound.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]);
-  const place = new Map<number, number>([[computed.championSeed, 1]]);
-  ranked.forEach(([seed], i) => place.set(seed, i + 2));
+  // Finishing place per seed: champion 1, then by how late each player was
+  // eliminated. The engine knows what "eliminated" means per format (in
+  // double elim a winners-bracket loss just drops you down).
+  const place = placements(structure, computed);
 
   const match = (
     await db
@@ -348,7 +342,7 @@ async function deriveView(loaded: LoadedBracket) {
     return { userId: e.userId, displayName: nameOf.get(e.userId) ?? "Unknown" };
   };
 
-  const structure = buildSingleElim(loaded.entrants.length);
+  const structure = buildStructure(loaded.format, loaded.entrants.length);
   const computed = computeBracket(loaded.entrants.length, structure, loaded.results);
 
   const slotView = (s: Slot) =>
@@ -363,27 +357,34 @@ async function deriveView(loaded: LoadedBracket) {
     gameName: loaded.gameName,
     groupName: loaded.groupName,
     status: loaded.status,
+    format: loaded.format,
     openScoring: loaded.openScoring,
     canScore: canScore(loaded),
     canManage: loaded.myRole === "owner" || loaded.myRole === "admin",
     entrantCount: loaded.entrants.length,
-    rounds: computed.roundIds.map((ids, i) => ({
-      title: roundTitle(i + 1, structure.rounds),
-      matches: ids
-        .map((id) => computed.matches[id]!)
-        // Phantom bye-vs-bye matches are engine bookkeeping; hide them.
-        .filter((m) => !(m.a.kind === "bye" && m.b.kind === "bye"))
-        .map((m) => ({
-          id: m.def.id,
-          a: slotView(m.a),
-          b: slotView(m.b),
-          winner: m.decided && !m.auto ? slotView(m.winner) : m.auto ? slotView(m.winner) : null,
-          decided: m.decided,
-          auto: m.auto,
-          playable: m.playable,
-          undoable: m.def.id in loaded.results,
-        })),
-    })),
+    rounds: structure.groups
+      .map((g) => ({
+        title: g.title,
+        side: g.side,
+        matches: g.ids
+          .map((id) => computed.matches[id]!)
+          // Phantom bye-vs-bye matches and a grand-final reset that isn't
+          // needed are engine bookkeeping; hide them.
+          .filter((m) => m.active && !(m.a.kind === "bye" && m.b.kind === "bye"))
+          .map((m) => ({
+            id: m.def.id,
+            a: slotView(m.a),
+            b: slotView(m.b),
+            winner: m.decided ? slotView(m.winner) : null,
+            decided: m.decided,
+            auto: m.auto,
+            playable: m.playable,
+            undoable: m.def.id in loaded.results,
+            reset: !!m.def.resetOf,
+          })),
+      }))
+      // A losers round can be all-phantom when byes outnumber players.
+      .filter((g) => g.matches.length > 0),
     champion: computed.championSeed
       ? slotView({ kind: "player", seed: computed.championSeed })
       : null,
@@ -399,6 +400,7 @@ interface LoadedBracket {
   gameName: string;
   groupName: string;
   status: "setup" | "live" | "completed";
+  format: BracketFormat;
   openScoring: boolean;
   gameId: string;
   entrants: Entrant[];
@@ -419,6 +421,7 @@ async function loadBracketForMember(
       status: brackets.status,
       openScoring: brackets.openScoring,
       gameId: brackets.gameId,
+      format: brackets.format,
       entrants: brackets.entrants,
       results: brackets.results,
       gameName: games.name,

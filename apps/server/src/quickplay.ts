@@ -19,7 +19,7 @@ import {
   and,
   eq,
 } from "@gamenight/db";
-import type { Entrant } from "@gamenight/shared";
+import type { BracketFormat, Entrant } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 
 export const quickPlayRouter = Router();
@@ -75,6 +75,8 @@ quickPlayRouter.post("/quickplay/bracket", async (req: AuthedRequest, res) => {
   }
 
   const gameName = String(req.body?.gameName ?? "").trim().slice(0, 50) || "Quick Play";
+  const format: BracketFormat =
+    req.body?.format === "double_elim" ? "double_elim" : "single_elim";
   const db = getDb();
   const groupId = await ensurePersonalGroup(req.user!.id, req.user!.displayName);
 
@@ -104,7 +106,7 @@ quickPlayRouter.post("/quickplay/bracket", async (req: AuthedRequest, res) => {
         groupId,
         eventId: event.id,
         gameId: game.id,
-        format: "single_elim",
+        format,
         status: "live",
         entrants,
         results: {},

@@ -10,6 +10,7 @@ import BackButton from "../BackButton";
 export default function QuickPlayPage() {
   const navigate = useNavigate();
   const [gameName, setGameName] = useState("");
+  const [format, setFormat] = useState<"single_elim" | "double_elim">("single_elim");
   const [names, setNames] = useState<string[]>(["", "", "", ""]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -23,7 +24,7 @@ export default function QuickPlayPage() {
     try {
       const b = await api<{ id: string }>("/api/quickplay/bracket", {
         method: "POST",
-        body: JSON.stringify({ gameName, names }),
+        body: JSON.stringify({ gameName, names, format }),
       });
       navigate(`/b/${b.id}`);
     } catch (e) {
@@ -55,6 +56,19 @@ export default function QuickPlayPage() {
             maxLength={50}
             className="gn-input"
           />
+        </section>
+
+        <section className="space-y-2">
+          <label className="gn-lab" htmlFor="qp-format">Format</label>
+          <select
+            id="qp-format"
+            value={format}
+            onChange={(e) => setFormat(e.target.value as "single_elim" | "double_elim")}
+            className="gn-input"
+          >
+            <option value="single_elim">Single elimination</option>
+            <option value="double_elim">Double elimination (losers bracket + grand final)</option>
+          </select>
         </section>
 
         <section className="space-y-2">

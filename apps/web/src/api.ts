@@ -86,6 +86,8 @@ export interface BracketMatchView {
   auto: boolean;
   playable: boolean;
   undoable: boolean;
+  /** Double elim only: this is the grand-final reset match. */
+  reset?: boolean;
 }
 
 export interface BracketView {
@@ -95,10 +97,11 @@ export interface BracketView {
   gameName: string;
   groupName: string;
   status: "setup" | "live" | "completed";
+  format: "single_elim" | "double_elim" | "round_robin";
   openScoring: boolean;
   canScore: boolean;
   canManage: boolean;
   entrantCount: number;
-  rounds: { title: string; matches: BracketMatchView[] }[];
+  rounds: { title: string; side: "W" | "L" | "GF"; matches: BracketMatchView[] }[];
   champion: BracketSlot | null;
 }

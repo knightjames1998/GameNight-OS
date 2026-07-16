@@ -108,7 +108,7 @@ export default function BracketPage() {
           </Link>
         </div>
         <p className="gn-hint" style={{ fontSize: "13px" }}>
-          {bracket.entrantCount} players &middot; single elimination &middot; open /tv link on the big screen
+          {bracket.entrantCount} players &middot; {bracket.format === "double_elim" ? "double elimination" : "single elimination"} &middot; open /tv link on the big screen
         </p>
       </div>
 
@@ -164,6 +164,11 @@ export default function BracketPage() {
             </h2>
             {round.matches.map((m) => (
               <div key={m.id} className={`gn-match ${m.playable ? "gn-match--live" : ""}`}>
+                {m.reset && (
+                  <p className="gn-hint" style={{ fontSize: "11px", padding: "4px 8px 0", margin: 0 }}>
+                    bracket reset — winner takes it all
+                  </p>
+                )}
                 <SlotRow
                   slot={m.a}
                   isWinner={m.decided && m.winner?.kind === "player" && m.winner.seed === (m.a as any).seed}

@@ -18,6 +18,7 @@ const player = (s: BracketSlot) => (s.kind === "player" ? s : null);
 
 /** How far everyone got, best finish first. */
 export function computeStandings(view: BracketView): StandingRow[] {
+  if (view.format === "double_elim") return computeStandingsDouble(view);
   const rows: StandingRow[] = [];
   const totalRounds = view.rounds.length;
 
@@ -52,6 +53,55 @@ export function computeStandings(view: BracketView): StandingRow[] {
   if (champ) {
     rows.push({ name: champ.displayName, seed: champ.seed, label: "Champion", rank: 1 });
   }
+  rows.sort((x, y) => x.rank - y.rank || x.seed - y.seed);
+  return rows;
+}
+
+/**
+ * Double elim: only losers-bracket losses eliminate (a winners-bracket loss
+ * drops you down), the runner-up is the loser of whichever grand final
+ * actually decided it (the reset if one was forced).
+ */
+function computeStandingsDouble(view: BracketView): StandingRow[] {
+  const rows: StandingRow[] = [];
+
+  const champ = player(view.champion ?? { kind: "tbd" });
+  if (champ) {
+    rows.push({ name: champ.displayName, seed: champ.seed, label: "Champion", rank: 1 });
+  }
+
+  // The server hides an unneeded reset, so the deciding grand final is
+  // simply the last one visible.
+  const gfs = view.rounds.find((r) => r.side === "GF")?.matches ?? [];
+  const decider = gfs[gfs.length - 1];
+  if (decider && decider.decided && !decider.auto) {
+    const a = player(decider.a);
+    const b = player(decider.b);
+    const w = player(decider.winner ?? { kind: "tbd" });
+    if (a && b && w) {
+      const loser = w.seed === a.seed ? b : a;
+      rows.push({ name: loser.displayName, seed: loser.seed, label: "Runner-up", rank: 2 });
+    }
+  }
+
+  const lRounds = view.rounds.filter((r) => r.side === "L");
+  let rank = 3;
+  for (let i = lRounds.length - 1; i >= 0; i--) {
+    const round = lRounds[i]!;
+    let outs = 0;
+    for (const m of round.matches) {
+      if (!m.decided || m.auto) continue;
+      const a = player(m.a);
+      const b = player(m.b);
+      const w = player(m.winner ?? { kind: "tbd" });
+      if (!a || !b || !w) continue;
+      const loser = w.seed === a.seed ? b : a;
+      rows.push({ name: loser.displayName, seed: loser.seed, label: `Out in ${round.title}`, rank });
+      outs++;
+    }
+    rank += outs; // ties share rank within a round
+  }
+
   rows.sort((x, y) => x.rank - y.rank || x.seed - y.seed);
   return rows;
 }

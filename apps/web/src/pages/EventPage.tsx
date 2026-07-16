@@ -10,6 +10,7 @@ export default function EventPage() {
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [format, setFormat] = useState<"single_elim" | "double_elim">("single_elim");
 
   async function load() {
     try {
@@ -45,7 +46,7 @@ export default function EventPage() {
     try {
       const b = await api<{ id: string }>(`/api/events/${id}/bracket`, {
         method: "POST",
-        body: JSON.stringify({}),
+        body: JSON.stringify({ format }),
       });
       navigate(`/b/${b.id}`);
     } finally {
@@ -175,9 +176,20 @@ export default function EventPage() {
             The crew owner or an admin starts the generalized bracket.
           </p>
         ) : groupBy("yes").length >= 2 ? (
-          <button onClick={startBracket} disabled={busy} className="gn-btn gn-btn--p1 w-full">
-            Start generalized bracket ({groupBy("yes").length} players)
-          </button>
+          <div className="space-y-2">
+            <select
+              value={format}
+              onChange={(e) => setFormat(e.target.value as "single_elim" | "double_elim")}
+              className="gn-input w-full"
+              aria-label="Bracket format"
+            >
+              <option value="single_elim">Single elimination</option>
+              <option value="double_elim">Double elimination</option>
+            </select>
+            <button onClick={startBracket} disabled={busy} className="gn-btn gn-btn--p1 w-full">
+              Start generalized bracket ({groupBy("yes").length} players)
+            </button>
+          </div>
         ) : (
           <p className="gn-hint">Needs at least 2 yes RSVPs to start a bracket.</p>
         )}

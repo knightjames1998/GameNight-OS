@@ -8,6 +8,7 @@
     "build": "pnpm --filter @gamenight/shared build && pnpm --filter @gamenight/db build && pnpm --filter @gamenight/web build && pnpm --filter @gamenight/server build",
     "start": "pnpm --filter @gamenight/server start",
     "typecheck": "pnpm -r typecheck",
+    "test:bracket": "pnpm --filter @gamenight/server exec tsx --test ../../packages/shared/tests/bracket.test.ts",
     "db:push": "pnpm --filter @gamenight/db db:push",
     "db:studio": "pnpm --filter @gamenight/db db:studio",
     "db:push:ci": "pnpm --filter @gamenight/db db:push:ci"

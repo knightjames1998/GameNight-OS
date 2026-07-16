@@ -150,7 +150,9 @@ export const brackets = pgTable(
     groupId: uuid("group_id").notNull().references(() => groups.id),
     eventId: uuid("event_id").notNull().references(() => events.id),
     gameId: uuid("game_id").notNull().references(() => games.id),
-    format: text("format", { enum: ["single_elim", "round_robin"] })
+    // Text enum is TypeScript-level only (no CHECK constraint), so adding
+    // a format is code-only: no schema push needed.
+    format: text("format", { enum: ["single_elim", "double_elim", "round_robin"] })
       .notNull()
       .default("single_elim"),
     status: text("status", { enum: ["setup", "live", "completed"] })

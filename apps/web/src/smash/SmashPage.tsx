@@ -199,11 +199,11 @@ function SetupOrWaiting({
     <>
       {completed && (
         <div className="sm-card" style={{ marginTop: 16 }}>
-          <p className="sm-hint">The last night wrapped. Starting again begins a fresh session for this event.</p>
+          <p className="sm-hint">That format wrapped. Pick a format below to run another one tonight.</p>
         </div>
       )}
       <div className="sm-card" style={{ marginTop: 16 }}>
-        <div className="sm-h">Mode</div>
+        <div className="sm-h">Format</div>
         <div className="sm-seg">
           <button className={mode === "ffa" ? "on" : ""} onClick={() => setMode("ffa")}>Free-for-all</button>
           <button className={mode === "koth" ? "on" : ""} onClick={() => setMode("koth")}>King of the Hill</button>
@@ -385,8 +385,11 @@ function LivePlay({
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
             <button className="sm-btn sm-btn--ghost" disabled={busy || session.games.length === 0} onClick={() => call(`/api/smash/${eventId}/undo`)}>↶ Undo last</button>
-            <button className="sm-btn sm-btn--go" disabled={busy} onClick={() => call(`/api/smash/${eventId}/complete`)}>End night</button>
+            <button className="sm-btn sm-btn--go" disabled={busy} onClick={() => call(`/api/smash/${eventId}/complete`)}>End format</button>
           </div>
+          <p className="sm-hint" style={{ marginTop: 8 }}>
+            Ending the format wraps this run and takes you back to the format picker, so you can go from FFA into King of the Hill (or run it back).
+          </p>
         </div>
       )}
     </>
@@ -449,11 +452,16 @@ function FfaPlay({
   busy: boolean;
   onRecord: (lines: { playerId: string; placement: number; isWinner: boolean }[]) => void;
 }) {
-  const [inGame, setInGame] = useState<Record<string, boolean>>({});
+  // Everyone plays by default: most FFA nights are full-roster games, so
+  // the checklist starts all-on and "record" resets it back to all-on.
+  const allChecked = () =>
+    Object.fromEntries(session.roster.map((p): [string, boolean] => [p.id, true]));
+  const [inGame, setInGame] = useState<Record<string, boolean>>(allChecked);
   const [winner, setWinner] = useState<string | null>(null);
   const [places, setPlaces] = useState<Record<string, number>>({});
 
   const active = session.roster.filter((p) => inGame[p.id]);
+  const everyoneIn = active.length === session.roster.length;
   const detail = session.resultDetail;
 
   const toggle = (id: string) => setInGame((s) => ({ ...s, [id]: !s[id] }));
@@ -465,7 +473,7 @@ function FfaPlay({
     } else {
       onRecord(active.map((p) => ({ playerId: p.id, placement: places[p.id] ?? 0, isWinner: (places[p.id] ?? 0) === 1 })));
     }
-    setInGame({});
+    setInGame(allChecked());
     setWinner(null);
     setPlaces({});
   };
@@ -479,8 +487,16 @@ function FfaPlay({
 
   return (
     <div className="sm-card">
-      <div className="sm-h">Record a game</div>
-      <p className="sm-hint" style={{ marginBottom: 8 }}>Tick who played, then {detail === "winner" ? "tap the winner" : "set each placement"}.</p>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+        <div className="sm-h">Record a game</div>
+        <button
+          className="sm-textbtn"
+          onClick={() => setInGame(everyoneIn ? {} : allChecked())}
+        >
+          {everyoneIn ? "clear all" : "check all"}
+        </button>
+      </div>
+      <p className="sm-hint" style={{ marginBottom: 8 }}>Everyone starts checked; untick who sat out, then {detail === "winner" ? "tap the winner" : "set each placement"}.</p>
       {session.roster.map((p) => (
         <div className="sm-row" key={p.id}>
           <input type="checkbox" checked={!!inGame[p.id]} onChange={() => toggle(p.id)} />
