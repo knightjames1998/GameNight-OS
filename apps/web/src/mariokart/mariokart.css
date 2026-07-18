@@ -75,7 +75,7 @@
 .mk-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 
 /* TV mode: bigger, meant for a room to read across it */
-.mk-tv { min-height: 100dvh; background: radial-gradient(130% 90% at 50% 0%, #0e2f7a, #060a14); color: #fff; padding: 3vmin 4vmin; }
+.mk-tv { min-height: 100dvh; background: radial-gradient(130% 90% at 50% 0%, #0e2f7a, #060a14); color: #fff; padding: calc(3vmin + env(safe-area-inset-top, 0px)) calc(4vmin + env(safe-area-inset-right, 0px)) calc(3vmin + env(safe-area-inset-bottom, 0px)) calc(4vmin + env(safe-area-inset-left, 0px)); }
 .mk-tv__brand { font-family: "Luckiest Guy", cursive; font-size: 6vmin; text-transform: uppercase; text-shadow: 0 0 22px rgba(255, 70, 70, 0.6); }
 .mk-tv__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2vmin; margin-top: 3vmin; }
 .mk-tv__panel { background: rgba(0, 0, 0, 0.35); border: 1px solid #2a4f9a; border-radius: 6px; padding: 2.4vmin; }

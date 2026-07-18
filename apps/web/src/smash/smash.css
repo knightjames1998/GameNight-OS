@@ -83,7 +83,7 @@
 .sm-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 
 /* TV mode: bigger, darker, meant for a room to read across it */
-.sm-tv { min-height: 100dvh; background: radial-gradient(130% 90% at 50% 0%, #4a0f16, #0f0709); color: #fff; padding: 3vmin 4vmin; }
+.sm-tv { min-height: 100dvh; background: radial-gradient(130% 90% at 50% 0%, #4a0f16, #0f0709); color: #fff; padding: calc(3vmin + env(safe-area-inset-top, 0px)) calc(4vmin + env(safe-area-inset-right, 0px)) calc(3vmin + env(safe-area-inset-bottom, 0px)) calc(4vmin + env(safe-area-inset-left, 0px)); }
 .sm-tv__brand { font-family: "Luckiest Guy", cursive; font-size: 6vmin; text-transform: uppercase; text-shadow: 0 0 22px rgba(255, 70, 60, 0.7); }
 .sm-tv__king { font-size: 8vmin; font-family: Fredoka, sans-serif; font-weight: 700; color: var(--gn-gold); }
 .sm-tv__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2vmin; margin-top: 3vmin; }

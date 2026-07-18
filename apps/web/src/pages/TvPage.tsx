@@ -92,7 +92,7 @@ export default function TvPage() {
   const isChamp = bracket.champion?.kind === "player";
 
   return (
-    <main className="gn-tv flex flex-col p-10">
+    <main className="gn-tv flex flex-col" style={{ padding: "calc(2.5rem + env(safe-area-inset-top, 0px)) calc(2.5rem + env(safe-area-inset-right, 0px)) calc(2.5rem + env(safe-area-inset-bottom, 0px)) calc(2.5rem + env(safe-area-inset-left, 0px))" }}>
       <header className="flex items-start justify-between gap-6 shrink-0">
         <div>
           <BackButton className="!text-lg mb-2 block" />

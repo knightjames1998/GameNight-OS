@@ -30,6 +30,22 @@
   --gn-danger:  #ff9a9e;
 }
 
+/* ---- standalone web app polish -------------------------------- */
+/* black-translucent status bar + viewport-fit=cover means the app paints
+   under the iPhone notch and home indicator. Every root shell insets its
+   CONTENT with the device's safe-area values while the shell's own
+   background still bleeds edge to edge. Mode TV classes with their own
+   padding handle this via calc() in their mode css. */
+.gn-app, .gn-tv, .beerio-root, .mk-root, .mp-root, .sm-root{
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+html{ -webkit-text-size-adjust: 100%; }
+body{ overscroll-behavior-y: none; }        /* no rubber-band background flash */
+*{ -webkit-tap-highlight-color: transparent; } /* no gray tap flash on iOS */
+
 /* ---- app shell ------------------------------------------------ */
 .gn-app{
   min-height:100dvh;

@@ -137,7 +137,7 @@ function PredictionBar({
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="beerio-root min-h-dvh w-full overflow-hidden flex flex-col p-[2vw] gap-[1.5vw]">
+    <div className="beerio-root min-h-dvh w-full overflow-hidden flex flex-col gap-[1.5vw]" style={{ padding: "calc(2vw + env(safe-area-inset-top, 0px)) calc(2vw + env(safe-area-inset-right, 0px)) calc(2vw + env(safe-area-inset-bottom, 0px)) calc(2vw + env(safe-area-inset-left, 0px))" }}>
       {children}
     </div>
   );

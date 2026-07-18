@@ -2193,7 +2193,7 @@ export default function App(){
 
   if(gnResolving){
     return(
-      <div className="beerio-root min-h-dvh flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="beerio-root min-h-dvh flex flex-col items-center justify-center gap-4 text-center" style={{ padding: "calc(1.5rem + env(safe-area-inset-top, 0px)) calc(1.5rem + env(safe-area-inset-right, 0px)) calc(1.5rem + env(safe-area-inset-bottom, 0px)) calc(1.5rem + env(safe-area-inset-left, 0px))" }}>
         <h1 className="font-[Luckiest_Guy,cursive] text-[34px] text-[var(--sun)] m-0"
           style={{WebkitTextStroke:"2px var(--ink)",textShadow:"3px 3px 0 var(--ink)"}}>
           BEERIO KART
@@ -2211,7 +2211,7 @@ export default function App(){
 
   if(gnWaiting){
     return(
-      <div className="beerio-root min-h-dvh flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="beerio-root min-h-dvh flex flex-col items-center justify-center gap-4 text-center" style={{ padding: "calc(1.5rem + env(safe-area-inset-top, 0px)) calc(1.5rem + env(safe-area-inset-right, 0px)) calc(1.5rem + env(safe-area-inset-bottom, 0px)) calc(1.5rem + env(safe-area-inset-left, 0px))" }}>
         <h1 className="font-[Luckiest_Guy,cursive] text-[34px] text-[var(--sun)] m-0"
           style={{WebkitTextStroke:"2px var(--ink)",textShadow:"3px 3px 0 var(--ink)"}}>
           BEERIO KART
@@ -2270,7 +2270,7 @@ export default function App(){
             </div>
             <div className="flex items-center gap-2.5">
               {(
-                <button onClick={()=>{if(window.history.length>1)history.back();else location.href="/";}}
+                <button onClick={()=>{if(window.history.length>1)history.back();else gnNavigate("/");}}
                   className="px-3 py-1.5 rounded-[9px] border-2 border-[var(--ink)] bg-[var(--foam)] font-[Fredoka] font-semibold text-[12px] text-[var(--ink)] shadow-[0_2px_0_rgba(22,35,59,.22)] cursor-pointer">
                   &larr; Back
                 </button>

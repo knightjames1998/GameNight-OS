@@ -15,7 +15,7 @@ export default function Home({
 }) {
   if (!me) {
     return (
-      <main className="gn-app flex flex-col items-center justify-center gap-8 p-6">
+      <main className="gn-app flex flex-col items-center justify-center gap-8" style={{ padding: "calc(1.5rem + env(safe-area-inset-top, 0px)) calc(1.5rem + env(safe-area-inset-right, 0px)) calc(1.5rem + env(safe-area-inset-bottom, 0px)) calc(1.5rem + env(safe-area-inset-left, 0px))" }}>
         <h1 className="gn-brand text-4xl">GameNight OS</h1>
         <Login />
       </main>
@@ -76,7 +76,7 @@ function Groups({
 
   // Session packs need a (personal) event to hang the live session on; spin
   // one up, then drop into the pack's own setup screen.
-  async function startSession(pack: "smash" | "mariokart", suffix = "") {
+  async function startSession(pack: "smash" | "mariokart" | "marioparty", suffix = "") {
     if (busy) return;
     setBusy(true);
     try {
@@ -84,8 +84,7 @@ function Groups({
         method: "POST",
         body: JSON.stringify({}),
       });
-      const route = pack === "smash" ? "smash" : "mariokart";
-      navigate(`/${route}?event=${eventId}${suffix}`);
+      navigate(`/${pack}?event=${eventId}${suffix}`);
     } finally {
       setBusy(false);
     }
@@ -110,6 +109,15 @@ function Groups({
       formats: [
         { key: "ffa", label: "Free-for-all", sub: "2–8 players a game", onPick: () => startSession("smash", "&mode=ffa") },
         { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => startSession("smash", "&mode=koth") },
+      ],
+    },
+    {
+      key: "marioparty",
+      name: "Mario Party",
+      emoji: "🎲",
+      cabClass: "gn-cab--mp",
+      formats: [
+        { key: "board", label: "🎲 Board night", sub: "stars, boards, bonus stars", onPick: () => startSession("marioparty") },
       ],
     },
     {
