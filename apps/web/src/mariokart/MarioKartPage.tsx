@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
-import { MARIO_KART_RACERS } from "@gamenight/shared";
+import { MARIO_KART_TITLES, rosterForTitle } from "@gamenight/shared";
 import "./mariokart.css";
 
 // Mario Kart "general tracking": FFA races. Pick a racer, then each race
@@ -25,6 +25,7 @@ interface GameLine { playerId: string; character: string | null; placement: numb
 interface Session {
   status: "setup" | "live" | "completed";
   groupId: string;
+  titleId: string | null;
   assignment: Assignment;
   resultDetail: Detail;
   openScoring: boolean;
@@ -44,11 +45,19 @@ interface Ctx {
   live: boolean;
 }
 
-function RacerSelect({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+function RacerSelect({
+  value,
+  onChange,
+  roster,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+  roster: readonly string[];
+}) {
   return (
     <select className="mk-select" value={value ?? ""} onChange={(e) => onChange(e.target.value || null)}>
       <option value="">Pick a racer</option>
-      {MARIO_KART_RACERS.map((r) => (
+      {roster.map((r) => (
         <option key={r} value={r}>{r}</option>
       ))}
     </select>
@@ -147,6 +156,7 @@ function SetupOrWaiting({
   busy: boolean;
   onStart: (p: unknown) => void;
 }) {
+  const [titleId, setTitleId] = useState<string>(MARIO_KART_TITLES[0]!.id);
   const [assignment, setAssignment] = useState<Assignment>("self");
   const [detail, setDetail] = useState<Detail>("winner");
   const [roster, setRoster] = useState<{ userId: string | null; name: string }[]>([]);
@@ -190,6 +200,18 @@ function SetupOrWaiting({
         </div>
       )}
       <div className="mk-card" style={{ marginTop: 16 }}>
+        <div className="mk-h">Which game?</div>
+        <select className="mk-select" value={titleId} onChange={(e) => setTitleId(e.target.value)}>
+          {MARIO_KART_TITLES.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+        <p className="mk-hint" style={{ marginTop: 8 }}>
+          Scopes the racer list and random assignment to this game's roster. Stats stay combined across games.
+        </p>
+      </div>
+
+      <div className="mk-card">
         <div className="mk-h">Racers</div>
         <div className="mk-seg">
           <button className={assignment === "self" ? "on" : ""} onClick={() => setAssignment("self")}>Players pick</button>
@@ -243,7 +265,7 @@ function SetupOrWaiting({
         className="mk-btn"
         style={{ marginTop: 12 }}
         disabled={busy || roster.length < 2}
-        onClick={() => onStart({ assignment, resultDetail: detail, roster })}
+        onClick={() => onStart({ titleId, assignment, resultDetail: detail, roster })}
       >
         {roster.length < 2 ? "Add at least 2 players" : "Start race night"}
       </button>
@@ -269,6 +291,7 @@ function LivePlay({
   const canHost = ctx?.canHost ?? false;
   const viewerId = ctx?.viewerId ?? "";
   const canScore = canHost || session.openScoring;
+  const titleRoster = rosterForTitle(MARIO_KART_TITLES, session.titleId);
 
   const setChar = (playerId: string, character: string | null) =>
     call(`/api/mariokart/${eventId}/character`, { playerId, character });
@@ -288,7 +311,7 @@ function LivePlay({
             </div>
             {mayEditChar(slot) && (
               <div style={{ width: 170 }}>
-                <RacerSelect value={slot.character} onChange={(v) => setChar(slot.id, v)} />
+                <RacerSelect value={slot.character} onChange={(v) => setChar(slot.id, v)} roster={titleRoster} />
               </div>
             )}
           </div>

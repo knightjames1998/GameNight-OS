@@ -36,6 +36,83 @@ export function isFighter(name: unknown): name is string {
   return typeof name === "string" && FIGHTER_SET.has(name);
 }
 
+// ---------- Which game in the series ----------
+// A pack with character selection carries a list of the specific titles in
+// its series. The host picks one on the pack's front page; that title
+// scopes both the character picker and the random pool (standing rule:
+// randomization stays within the game being played). It does NOT split
+// stats: a character is the same character across titles.
+//
+// The Smash titles are expressed as subsets of the Ultimate roster above so
+// spellings stay identical and lifetime stats stay unified. "Everyone is
+// Here" makes every past fighter a subset of Ultimate, so this is exact.
+export interface GameTitle {
+  id: string;
+  name: string;
+  roster: readonly string[];
+}
+
+/** The roster for a chosen title id, falling back to the first (default). */
+export function rosterForTitle(
+  titles: readonly GameTitle[],
+  titleId: string | null | undefined,
+): readonly string[] {
+  return (titles.find((t) => t.id === titleId) ?? titles[0])?.roster ?? [];
+}
+
+const pick = (...names: string[]): string[] => {
+  for (const n of names) if (!FIGHTER_SET.has(n)) throw new Error(`unknown fighter: ${n}`);
+  return names;
+};
+
+// Newest first; Ultimate is the default (also the widest roster).
+export const SMASH_TITLES: GameTitle[] = [
+  { id: "ultimate", name: "Ultimate", roster: SMASH_FIGHTERS },
+  {
+    id: "smash4",
+    name: "Smash 4 (Wii U / 3DS)",
+    roster: pick(
+      "Mario", "Luigi", "Peach", "Bowser", "Yoshi", "Rosalina & Luma", "Bowser Jr.", "Wario",
+      "Donkey Kong", "Diddy Kong", "Mr. Game & Watch", "Little Mac", "Link", "Zelda", "Sheik",
+      "Ganondorf", "Toon Link", "Samus", "Zero Suit Samus", "Pit", "Palutena", "Marth", "Ike",
+      "Robin", "Lucina", "Kirby", "King Dedede", "Meta Knight", "Fox", "Falco", "Pikachu",
+      "Lucario", "Jigglypuff", "Greninja", "R.O.B.", "Ness", "Captain Falcon", "Villager",
+      "Olimar", "Wii Fit Trainer", "Shulk", "Dr. Mario", "Dark Pit", "Lucas", "Duck Hunt",
+      "Ryu", "Cloud", "Corrin", "Bayonetta", "Mewtwo", "Roy", "Mii Brawler", "Mii Swordfighter",
+      "Mii Gunner", "Sonic", "Mega Man", "Pac-Man",
+    ).concat("Charizard"), // standalone in Smash 4; in Ultimate it's part of Pokemon Trainer
+  },
+  {
+    id: "brawl",
+    name: "Brawl",
+    roster: pick(
+      "Mario", "Luigi", "Peach", "Bowser", "Donkey Kong", "Diddy Kong", "Yoshi", "Wario", "Link",
+      "Zelda", "Sheik", "Ganondorf", "Toon Link", "Samus", "Zero Suit Samus", "Pit", "Ice Climbers",
+      "R.O.B.", "Kirby", "Meta Knight", "King Dedede", "Olimar", "Fox", "Falco", "Wolf",
+      "Captain Falcon", "Pikachu", "Pokemon Trainer", "Lucario", "Jigglypuff", "Marth", "Ike",
+      "Ness", "Lucas", "Mr. Game & Watch", "Snake", "Sonic",
+    ),
+  },
+  {
+    id: "melee",
+    name: "Melee",
+    roster: pick(
+      "Mario", "Luigi", "Peach", "Bowser", "Donkey Kong", "Yoshi", "Fox", "Falco", "Ness",
+      "Captain Falcon", "Pikachu", "Pichu", "Jigglypuff", "Kirby", "Samus", "Zelda", "Sheik",
+      "Link", "Young Link", "Ganondorf", "Marth", "Roy", "Mr. Game & Watch", "Mewtwo", "Dr. Mario",
+      "Ice Climbers",
+    ),
+  },
+  {
+    id: "smash64",
+    name: "Smash 64",
+    roster: pick(
+      "Mario", "Donkey Kong", "Link", "Samus", "Yoshi", "Kirby", "Fox", "Pikachu", "Luigi",
+      "Ness", "Captain Falcon", "Jigglypuff",
+    ),
+  },
+];
+
 // ---------- Session shapes ----------
 
 export type SmashMode = "ffa" | "koth";
@@ -81,6 +158,9 @@ export interface KothState {
 }
 
 export interface SmashSessionState {
+  // Which title in the series is being played. Scopes the roster and the
+  // random pool; null means the pack's default (widest) title.
+  titleId: string | null;
   mode: SmashMode;
   assignment: SmashAssignment;
   resultDetail: SmashResultDetail;
@@ -93,12 +173,14 @@ export interface SmashSessionState {
 }
 
 export function newSmashState(opts: {
+  titleId?: string | null;
   mode: SmashMode;
   assignment: SmashAssignment;
   resultDetail: SmashResultDetail;
   roster: SmashPlayer[];
 }): SmashSessionState {
   return {
+    titleId: opts.titleId ?? null,
     mode: opts.mode,
     assignment: opts.assignment,
     resultDetail: opts.resultDetail,

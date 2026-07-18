@@ -31,6 +31,8 @@ import {
 import {
   newSmashState,
   assignRandomFighters,
+  SMASH_TITLES,
+  rosterForTitle,
   kothAdvance,
   validateFfa,
   isFighter,
@@ -321,8 +323,13 @@ smashRouter.post("/events/:eventId/smash", requireAuth, async (req: AuthedReques
     return;
   }
 
-  let state = newSmashState({ mode, assignment, resultDetail, roster });
-  if (assignment === "random") state.roster = assignRandomFighters(state.roster);
+  const titleId = SMASH_TITLES.some((t) => t.id === req.body?.titleId)
+    ? String(req.body.titleId)
+    : SMASH_TITLES[0]!.id;
+  const pool = rosterForTitle(SMASH_TITLES, titleId);
+
+  let state = newSmashState({ titleId, mode, assignment, resultDetail, roster });
+  if (assignment === "random") state.roster = assignRandomFighters(state.roster, pool);
 
   await db
     .insert(smashSessions)
@@ -353,8 +360,9 @@ smashRouter.post("/smash/:eventId/character", requireAuth, async (req: AuthedReq
   }
   const playerId = String(req.body?.playerId ?? "");
   const character = req.body?.character;
-  if (character !== null && !isFighter(character)) {
-    res.status(400).json({ error: "Unknown fighter" });
+  const titlePool = rosterForTitle(SMASH_TITLES, loaded.state.titleId);
+  if (character !== null && !titlePool.includes(character)) {
+    res.status(400).json({ error: "That fighter isn't in this game" });
     return;
   }
   const slot = loaded.state.roster.find((p) => p.id === playerId);
@@ -388,7 +396,10 @@ smashRouter.post("/smash/:eventId/randomize", requireAuth, async (req: AuthedReq
     res.status(403).json({ error: "Host only" });
     return;
   }
-  loaded.state.roster = assignRandomFighters(loaded.state.roster);
+  loaded.state.roster = assignRandomFighters(
+    loaded.state.roster,
+    rosterForTitle(SMASH_TITLES, loaded.state.titleId),
+  );
   await saveState(eventId, loaded.row.groupId, loaded.state, loaded.row.status);
   res.json({ ok: true });
 });

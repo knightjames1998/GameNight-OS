@@ -32,7 +32,8 @@ import {
   validateFfa,
   isRacer,
   summarizeNight,
-  MARIO_KART_RACERS,
+  MARIO_KART_TITLES,
+  rosterForTitle,
   type SmashSessionState,
   type SmashPlayer,
   type SmashResultDetail,
@@ -305,8 +306,13 @@ marioKartRouter.post("/events/:eventId/mariokart", requireAuth, async (req: Auth
   }
 
   // Mario Kart general tracking is always FFA races.
-  let state = newSmashState({ mode: "ffa", assignment, resultDetail, roster });
-  if (assignment === "random") state.roster = assignRandomFighters(state.roster, MARIO_KART_RACERS);
+  const titleId = MARIO_KART_TITLES.some((t) => t.id === req.body?.titleId)
+    ? String(req.body.titleId)
+    : MARIO_KART_TITLES[0]!.id;
+  const pool = rosterForTitle(MARIO_KART_TITLES, titleId);
+
+  let state = newSmashState({ titleId, mode: "ffa", assignment, resultDetail, roster });
+  if (assignment === "random") state.roster = assignRandomFighters(state.roster, pool);
 
   await db
     .insert(gameSessions)
@@ -335,8 +341,9 @@ marioKartRouter.post("/mariokart/:eventId/character", requireAuth, async (req: A
   }
   const playerId = String(req.body?.playerId ?? "");
   const character = req.body?.character;
-  if (character !== null && !isRacer(character)) {
-    res.status(400).json({ error: "Unknown racer" });
+  const titlePool = rosterForTitle(MARIO_KART_TITLES, loaded.state.titleId);
+  if (character !== null && !titlePool.includes(character)) {
+    res.status(400).json({ error: "That racer isn't in this game" });
     return;
   }
   const slot = loaded.state.roster.find((p) => p.id === playerId);
@@ -369,7 +376,10 @@ marioKartRouter.post("/mariokart/:eventId/randomize", requireAuth, async (req: A
     res.status(403).json({ error: "Host only" });
     return;
   }
-  loaded.state.roster = assignRandomFighters(loaded.state.roster, MARIO_KART_RACERS);
+  loaded.state.roster = assignRandomFighters(
+    loaded.state.roster,
+    rosterForTitle(MARIO_KART_TITLES, loaded.state.titleId),
+  );
   await saveState(eventId, loaded.state, loaded.row.status);
   res.json({ ok: true });
 });

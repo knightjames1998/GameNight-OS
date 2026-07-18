@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
-import { SMASH_FIGHTERS } from "@gamenight/shared";
+import { SMASH_TITLES, rosterForTitle } from "@gamenight/shared";
 import "./smash.css";
 
 type Mode = "ffa" | "koth";
@@ -27,6 +27,7 @@ interface GameLine { playerId: string; character: string | null; placement: numb
 interface Session {
   status: "setup" | "live" | "completed";
   groupId: string;
+  titleId: string | null;
   mode: Mode;
   assignment: Assignment;
   resultDetail: Detail;
@@ -48,11 +49,19 @@ interface Ctx {
   live: boolean;
 }
 
-function FighterSelect({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+function FighterSelect({
+  value,
+  onChange,
+  roster,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+  roster: readonly string[];
+}) {
   return (
     <select className="sm-select" value={value ?? ""} onChange={(e) => onChange(e.target.value || null)}>
       <option value="">Pick a fighter</option>
-      {SMASH_FIGHTERS.map((f) => (
+      {roster.map((f) => (
         <option key={f} value={f}>{f}</option>
       ))}
     </select>
@@ -163,6 +172,7 @@ function SetupOrWaiting({
   const initialMode: Mode =
     new URLSearchParams(window.location.search).get("mode") === "koth" ? "koth" : "ffa";
   const [mode, setMode] = useState<Mode>(initialMode);
+  const [titleId, setTitleId] = useState<string>(SMASH_TITLES[0]!.id);
   const [assignment, setAssignment] = useState<Assignment>("self");
   const [detail, setDetail] = useState<Detail>("winner");
   const [roster, setRoster] = useState<{ userId: string | null; name: string }[]>([]);
@@ -206,6 +216,18 @@ function SetupOrWaiting({
         </div>
       )}
       <div className="sm-card" style={{ marginTop: 16 }}>
+        <div className="sm-h">Which game?</div>
+        <select className="sm-select" value={titleId} onChange={(e) => setTitleId(e.target.value)}>
+          {SMASH_TITLES.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+        <p className="sm-hint" style={{ marginTop: 8 }}>
+          Scopes the fighter list and random assignment to this game's roster. Stats stay combined across games.
+        </p>
+      </div>
+
+      <div className="sm-card">
         <div className="sm-h">Format</div>
         <div className="sm-seg">
           <button className={mode === "ffa" ? "on" : ""} onClick={() => setMode("ffa")}>Free-for-all</button>
@@ -270,7 +292,7 @@ function SetupOrWaiting({
         className="sm-btn"
         style={{ marginTop: 12 }}
         disabled={busy || roster.length < 2}
-        onClick={() => onStart({ mode, assignment, resultDetail: detail, roster })}
+        onClick={() => onStart({ titleId, mode, assignment, resultDetail: detail, roster })}
       >
         {roster.length < 2 ? "Add at least 2 players" : `Start ${mode === "ffa" ? "FFA" : "King of the Hill"}`}
       </button>
@@ -296,6 +318,7 @@ function LivePlay({
   const canHost = ctx?.canHost ?? false;
   const viewerId = ctx?.viewerId ?? "";
   const canScore = canHost || session.openScoring;
+  const titleRoster = useMemo(() => rosterForTitle(SMASH_TITLES, session.titleId), [session.titleId]);
   const nameOf = useMemo(() => new Map(session.roster.map((p) => [p.id, p.name])), [session.roster]);
 
   const setChar = (playerId: string, character: string | null) =>
@@ -321,7 +344,7 @@ function LivePlay({
               </div>
               {mayEditChar(slot) && (
                 <div style={{ width: 160 }}>
-                  <FighterSelect value={slot.character} onChange={(v) => setChar(slot.id, v)} />
+                  <FighterSelect value={slot.character} onChange={(v) => setChar(slot.id, v)} roster={titleRoster} />
                 </div>
               )}
             </div>
