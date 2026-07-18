@@ -145,6 +145,112 @@ function SmashPanel({ groupId }: { groupId: string }) {
   );
 }
 
+const MARIO_PARTY_GAME_NAME = "Mario Party";
+
+interface MpStats {
+  games: number;
+  byPlayer: {
+    userId: string;
+    name: string;
+    games: number;
+    wins: number;
+    winRate: number;
+    totalStars: number;
+    avgStars: number;
+    main: string | null;
+    variety: number;
+    bonusStars: Record<string, number>;
+  }[];
+  byMap: { map: string; games: number; topWinner: string | null; topWinnerWins: number }[];
+  byCharacter: { character: string; played: number; wins: number; winRate: number }[];
+  bonusLeaders: { star: string; name: string | null; count: number }[];
+}
+
+function MarioPartyPanel({ groupId }: { groupId: string }) {
+  const [data, setData] = useState<MpStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api<MpStats>(`/api/groups/${groupId}/marioparty-stats`)
+      .then(setData)
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
+  }, [groupId]);
+
+  if (error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
+  if (!data) return <p className="gn-hint">Loading...</p>;
+  if (data.games === 0) {
+    return <p className="gn-hint">No Mario Party boards recorded yet. Play a board night and it fills in here.</p>;
+  }
+
+  const accent = "#ffd24a";
+  const head = (label: string) => <h2 className="gn-h2" style={{ color: accent, marginBottom: 8 }}>{label}</h2>;
+
+  return (
+    <div className="space-y-6">
+      <section>
+        {head("Players")}
+        <ul className="space-y-2">
+          {data.byPlayer.map((p, i) => (
+            <li key={p.userId} className={i === 0 ? "gn-champ" : "gn-card"} style={{ padding: "12px 16px" }}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="flex items-baseline gap-2 min-w-0">
+                  <span className={`gn-rank ${i === 0 ? "gn-rank--top" : ""}`} style={{ fontSize: "16px", width: "22px", flexShrink: 0 }}>{i + 1}</span>
+                  <span className="font-bold truncate" style={i === 0 ? { color: "var(--gn-gold)" } : undefined}>{p.name}</span>
+                </span>
+                <span className="text-sm shrink-0"><span className="font-bold">{p.wins}</span><span className="gn-hint"> / {p.games}</span></span>
+              </div>
+              <div className="gn-hint mt-1" style={{ fontSize: "12px", paddingLeft: "30px" }}>
+                {pct(p.winRate)} win rate &middot; {p.totalStars}★ total ({p.avgStars.toFixed(1)} avg)
+                {p.main && <> &middot; main {p.main}</>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        {head("Boards")}
+        <ul className="space-y-1">
+          {data.byMap.map((m) => (
+            <li key={m.map} className="gn-card flex items-baseline justify-between gap-2" style={{ padding: "10px 16px" }}>
+              <span className="font-bold truncate">{m.map}</span>
+              <span className="text-sm shrink-0 gn-hint">
+                {m.games} played{m.topWinner ? <> &middot; <span style={{ color: "var(--gn-ink)" }}>{m.topWinner}</span> {m.topWinnerWins}W</> : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {data.bonusLeaders.length > 0 && (
+        <section>
+          {head("Bonus stars")}
+          <ul className="space-y-1">
+            {data.bonusLeaders.map((b) => (
+              <li key={b.star} className="gn-card flex items-baseline justify-between gap-2" style={{ padding: "10px 16px" }}>
+                <span className="font-bold truncate">{b.star}</span>
+                <span className="text-sm shrink-0 gn-hint">{b.name ? <><span style={{ color: "var(--gn-ink)" }}>{b.name}</span> &times;{b.count}</> : "-"}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section>
+        {head("Characters")}
+        <ul className="space-y-1">
+          {data.byCharacter.map((c) => (
+            <li key={c.character} className="gn-card flex items-baseline justify-between" style={{ padding: "10px 16px" }}>
+              <span className="font-bold truncate">{c.character}</span>
+              <span className="text-sm shrink-0 gn-hint"><span className="font-bold" style={{ color: "var(--gn-ink)" }}>{c.wins}</span> / {c.played} &middot; {pct(c.winRate)}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
+
 export default function StatsPage() {
   const { id } = useParams();
   const [stats, setStats] = useState<StatsView | null>(null);
@@ -174,6 +280,8 @@ export default function StatsPage() {
             <p className="gn-hint mt-1">
               {tab === SMASH_GAME_NAME
                 ? `${count} ${count === 1 ? "game" : "games"} of Smash Bros`
+                : tab === MARIO_PARTY_GAME_NAME
+                ? `${count} ${count === 1 ? "board" : "boards"} of Mario Party`
                 : `${count} ${count === 1 ? "tournament" : "tournaments"}${active ? ` of ${active.name}` : " across all game modes"}`}
             </p>
           )}
@@ -208,6 +316,8 @@ export default function StatsPage() {
 
         {tab === SMASH_GAME_NAME && id ? (
           <SmashPanel groupId={id} />
+        ) : tab === MARIO_PARTY_GAME_NAME && id ? (
+          <MarioPartyPanel groupId={id} />
         ) : (
         <ul className="space-y-2">
           {shown?.map((r, i) => {

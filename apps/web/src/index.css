@@ -120,6 +120,8 @@
 .gn-cab--smash .gn-cab__name{color:#ff6a5a}
 .gn-cab--mk{border-color:#2a3f70;background:linear-gradient(180deg,#132038,#241a30)}
 .gn-cab--mk .gn-cab__name{color:#7fb0ff}
+.gn-cab--mp{border-color:#4d3573;background:linear-gradient(180deg,#241539,#2a1a30)}
+.gn-cab--mp .gn-cab__name{color:#ffd24a}
 
 /* format rows under an expanded game in the game>format picker */
 .gn-fmts{margin:8px 0 2px;padding-left:14px;border-left:2px solid var(--gn-line);

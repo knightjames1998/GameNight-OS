@@ -143,3 +143,7 @@ quickPlayRouter.post("/quickplay/smash", async (req: AuthedRequest, res) => {
 quickPlayRouter.post("/quickplay/mariokart", async (req: AuthedRequest, res) => {
   res.json({ eventId: await quickSessionEvent(req, "Mario Kart") });
 });
+
+quickPlayRouter.post("/quickplay/marioparty", async (req: AuthedRequest, res) => {
+  res.json({ eventId: await quickSessionEvent(req, "Mario Party") });
+});

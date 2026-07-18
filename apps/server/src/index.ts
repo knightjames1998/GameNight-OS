@@ -15,6 +15,7 @@ import { beerioGnRouter } from "./beerio-gn.js";
 import { quickPlayRouter } from "./quickplay.js";
 import { smashRouter, smashTvRouter } from "./smash.js";
 import { marioKartRouter, marioKartTvRouter } from "./mariokart.js";
+import { marioPartyRouter, marioPartyTvRouter } from "./marioparty.js";
 import { statsRouter } from "./stats.js";
 import { setupWebSockets } from "./ws.js";
 
@@ -45,11 +46,13 @@ app.use("/api/join", joinRouter);
 app.use("/api/tv", tvRouter);
 app.use("/api/tv", smashTvRouter); // public: big-screen read for the Smash pack
 app.use("/api/tv", marioKartTvRouter); // public: big-screen read for Mario Kart
+app.use("/api/tv", marioPartyTvRouter); // public: big-screen read for Mario Party
 app.use("/api", beerioRouter); // public: sessions/hof for the Beerio pack
 app.use("/api", beerioGnRouter); // authed per-route: GameNight binding for the pack
 app.use("/api", quickPlayRouter);
 app.use("/api", smashRouter); // authed per-route: Smash pack play + stats
 app.use("/api", marioKartRouter); // authed per-route: Mario Kart general tracking
+app.use("/api", marioPartyRouter); // authed per-route: Mario Party play + stats
 app.use("/api", statsRouter);
 app.use("/api", eventsRouter);
 app.use("/api", bracketsRouter);

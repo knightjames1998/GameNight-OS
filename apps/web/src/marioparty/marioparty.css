@@ -1,0 +1,91 @@
+/* ============================================================
+   Mario Party pack theme. Its own design language (standing rule
+   3): festive purple/gold board-game party, distinct from Mario
+   Kart's race red/blue, Smash's red/steel, and Beerio's
+   storybook. Reads the shared --gn-* tokens where it can.
+   ============================================================ */
+
+.mp-root {
+  min-height: 100dvh;
+  background:
+    radial-gradient(120% 80% at 50% -10%, #4a1d7a 0%, transparent 55%),
+    linear-gradient(180deg, #1c1230, #120c1e);
+  color: var(--gn-ink);
+  font-family: Nunito, system-ui, sans-serif;
+}
+.mp-wrap { max-width: 30rem; margin: 0 auto; padding: 16px 16px 56px; }
+
+.mp-brand {
+  font-family: "Luckiest Guy", system-ui, cursive;
+  font-size: 30px; letter-spacing: 1px; line-height: 1; color: #fff;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px rgba(255, 210, 90, 0.55), 2px 3px 0 rgba(0, 0, 0, 0.5);
+}
+.mp-brand em { color: #ffd24a; font-style: normal; }
+.mp-sub { color: var(--gn-dim); font-size: 13px; margin-top: 2px; }
+
+.mp-card {
+  background: linear-gradient(180deg, #2a1c44, #1d1433);
+  border: 1px solid #4d3573;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+.mp-card + .mp-card { margin-top: 12px; }
+.mp-h { font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 16px; margin: 0 0 10px; }
+.mp-lab { color: var(--gn-dim); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+.mp-hint { color: var(--gn-dim); font-size: 13px; }
+
+.mp-seg { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.mp-seg button {
+  flex: 1 1 auto; min-width: 84px; padding: 9px 10px; border-radius: 999px;
+  border: 1px solid #4d3573; background: #1d1433; color: var(--gn-dim);
+  font-weight: 700; font-size: 13px; cursor: pointer;
+}
+.mp-seg button.on { background: #ffd24a; color: #3a2600; border-color: #ffd24a; }
+
+.mp-input, .mp-select {
+  width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #4d3573;
+  background: #150e26; color: var(--gn-ink); font-size: 15px;
+}
+
+.mp-btn {
+  width: 100%; padding: 13px; border-radius: 12px; border: none; cursor: pointer;
+  font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 16px;
+  background: #ffd24a; color: #3a2600; box-shadow: 0 4px 0 #b58a1e;
+}
+.mp-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5); }
+.mp-btn:disabled { opacity: 0.5; }
+.mp-btn--ghost { background: #2a1c44; color: var(--gn-ink); border: 1px solid #4d3573; box-shadow: none; }
+.mp-btn--go { background: var(--gn-p2); color: var(--gn-p2-ink); box-shadow: 0 4px 0 var(--gn-p2-sh); }
+
+.mp-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid #33244f; }
+.mp-row:first-child { border-top: none; }
+.mp-name { font-weight: 700; }
+.mp-char { color: var(--gn-dim); font-size: 12px; }
+.mp-pill { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: #33244f; color: var(--gn-dim); }
+.mp-pill--star { background: #ffd24a; color: #3a2600; }
+
+.mp-stars { width: 64px; text-align: center; }
+.mp-bonus { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.mp-bonus button {
+  padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; cursor: pointer;
+  border: 1px solid #4d3573; background: #1d1433; color: var(--gn-dim);
+}
+.mp-bonus button.on { background: #a678e0; color: #180a2a; border-color: #a678e0; }
+
+.mp-err { color: var(--gn-danger); font-size: 13px; margin-top: 8px; }
+.mp-textbtn { background: none; border: none; color: var(--gn-dim); font-weight: 700; cursor: pointer; padding: 6px 0; }
+.mp-textbtn:hover { color: var(--gn-ink); }
+.mp-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+
+/* TV mode */
+.mp-tv { min-height: 100dvh; background: radial-gradient(130% 90% at 50% 0%, #5a2a92, #0f0818); color: #fff; padding: 3vmin 4vmin; }
+.mp-tv__brand { font-family: "Luckiest Guy", cursive; font-size: 6vmin; text-transform: uppercase; text-shadow: 0 0 22px rgba(255, 210, 90, 0.6); }
+.mp-tv__lead { font-size: 7vmin; font-family: Fredoka, sans-serif; font-weight: 700; color: #ffd24a; }
+.mp-tv__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2vmin; margin-top: 3vmin; }
+.mp-tv__panel { background: rgba(0, 0, 0, 0.35); border: 1px solid #6b4aa0; border-radius: 6px; padding: 2.4vmin; }
+.mp-tv__panel h3 { font-size: 2.6vmin; color: #ffd24a; margin: 0 0 1.4vmin; text-transform: uppercase; letter-spacing: 0.5px; }
+.mp-tv__line { display: flex; justify-content: space-between; font-size: 3vmin; padding: 0.8vmin 0; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.mp-tv__line:first-of-type { border-top: none; }
+.mp-tv__muted { color: #c9b0ec; }

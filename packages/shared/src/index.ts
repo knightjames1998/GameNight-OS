@@ -119,7 +119,9 @@ export type WsMessage =
   | { type: "leaderboard_updated"; eventId: string }
   | { type: "smash_updated"; eventId: string }
   | { type: "mario_kart_updated"; eventId: string }
+  | { type: "mario_party_updated"; eventId: string }
   | { type: "ping" };
 export * from "./bracket.js";
 export * from "./smash.js";
 export * from "./mariokart.js";
+export * from "./marioparty.js";

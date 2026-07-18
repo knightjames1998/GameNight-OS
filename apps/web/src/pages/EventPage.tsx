@@ -253,6 +253,15 @@ function eventGames(
       ],
     },
     {
+      key: "marioparty",
+      name: "Mario Party",
+      emoji: "🎲",
+      cabClass: "gn-cab--mp",
+      formats: [
+        { key: "board", label: "🎲 Board night", sub: "stars, boards, bonus stars", onPick: () => navigate(`/marioparty?event=${id}`) },
+      ],
+    },
+    {
       key: "tournament",
       name: "Tournament",
       emoji: "🏆",

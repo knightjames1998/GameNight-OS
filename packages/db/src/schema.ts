@@ -182,6 +182,10 @@ export const matches = pgTable(
     gameId: uuid("game_id").references(() => games.id),
     eventId: uuid("event_id").references(() => events.id),
     externalKey: text("external_key"),
+    // Generic per-match label a pack may attach. The Mario Party pack
+    // stores the board/map played here so "wins on <board>" survives into
+    // the lifetime ledger. Null for packs that don't use it.
+    label: text("label"),
     round: integer("round").notNull(),
     position: integer("position").notNull(),
     status: text("status", { enum: ["pending", "live", "completed"] })
@@ -213,6 +217,10 @@ export const matchParticipants = pgTable(
     // and "most-played" survive into the lifetime ledger. Null for packs
     // that don't use it (brackets, Beerio).
     character: text("character"),
+    // Generic per-participant metadata bag a pack may attach. The Mario
+    // Party pack stores the bonus stars a player won here, e.g.
+    // { bonusStars: ["Minigame Star", "Coin Star"] }. Null otherwise.
+    meta: jsonb("meta").$type<Record<string, unknown>>(),
   },
   (t) => [
     uniqueIndex("match_participants_match_user_uq").on(t.matchId, t.userId),
