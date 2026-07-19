@@ -122,6 +122,25 @@ export const rsvps = pgTable(
   ],
 );
 
+// Attendance is separate from RSVP intent: an RSVP is "I plan to come",
+// attendance is "I actually showed". Kept apart so flake tracking can
+// compare the two, and so someone who never RSVP'd can still check in.
+export const eventAttendance = pgTable(
+  "event_attendance",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    groupId: uuid("group_id").notNull().references(() => groups.id),
+    eventId: uuid("event_id").notNull().references(() => events.id),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    showed: boolean("showed").notNull(),
+    markedAt: timestamp("marked_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("event_attendance_event_user_uq").on(t.eventId, t.userId),
+    index("event_attendance_group_idx").on(t.groupId),
+  ],
+);
+
 // ---------- Play ----------
 // A game is anything with participants and results. Pack = ruleset/UI layer.
 // "mario_kart" is the first pack; "generic" is the fallback.

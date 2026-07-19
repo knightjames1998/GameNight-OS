@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import {
   getDb,
   brackets,
+  eventAttendance,
   events,
   games,
   groups,
@@ -140,6 +141,7 @@ groupsRouter.delete("/:id", async (req: AuthedRequest, res) => {
   await db.delete(matches).where(eq(matches.groupId, groupId));
   await db.delete(brackets).where(eq(brackets.groupId, groupId));
   await db.delete(rsvps).where(eq(rsvps.groupId, groupId));
+  await db.delete(eventAttendance).where(eq(eventAttendance.groupId, groupId));
   await db.delete(events).where(eq(events.groupId, groupId));
   await db.delete(games).where(eq(games.groupId, groupId));
   await db.delete(memberships).where(eq(memberships.groupId, groupId));

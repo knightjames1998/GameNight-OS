@@ -159,6 +159,42 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-chip--stats{background:rgba(53,224,196,.16);color:var(--gn-p2)}
 .gn-chip--vs{background:rgba(255,90,95,.14);color:#ff8b8f}
 
+/* Chip-shaped BUTTONS (delete, remove): same pill silhouette as the chips
+   around them, but clearly pressable, so every tappable thing in a row
+   reads the same way. */
+.gn-chipbtn{
+  border:0;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;
+  font-weight:800;font-size:11px;letter-spacing:.5px;text-transform:uppercase;
+  padding:5px 10px;border-radius:999px;
+}
+.gn-chipbtn--danger{background:rgba(255,90,95,.14);color:var(--gn-danger)}
+.gn-chipbtn--danger:active{background:rgba(255,90,95,.3)}
+
+/* Role chip as a dropdown: visually the .gn-chip pill with a tiny ▾ so it
+   reads as clickable. The native select is unstyled-on-top so the OS picker
+   still opens on tap. */
+.gn-chipsel{position:relative;display:inline-flex;align-items:center;border-radius:999px;flex-shrink:0}
+.gn-chipsel select{
+  appearance:none;-webkit-appearance:none;border:0;background:transparent;
+  font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.5px;
+  text-transform:uppercase;color:inherit;cursor:pointer;
+  padding:5px 22px 5px 10px;border-radius:999px;
+}
+.gn-chipsel__arrow{position:absolute;right:9px;font-size:9px;pointer-events:none;line-height:1}
+.gn-chipsel--admin{background:rgba(53,224,196,.16);color:var(--gn-p2)}
+.gn-chipsel--member{background:rgba(255,90,95,.14);color:#ff8b8f}
+.gn-chipsel select option{background:var(--gn-surf);color:var(--gn-ink)}
+
+/* Collapsed RSVP pill, inline with the event title. Text color is set
+   inline to the active status color (in/maybe/out). */
+.gn-rsvp-pill{
+  flex-shrink:0;display:inline-flex;align-items:center;gap:5px;margin-top:4px;
+  background:var(--gn-surf);border:2px solid var(--gn-line);border-radius:999px;
+  padding:7px 12px;font-family:inherit;font-weight:800;font-size:12px;
+  cursor:pointer;white-space:nowrap;
+}
+.gn-rsvp-pill:active{background:var(--gn-raise)}
+
 /* ---- labeled divider (separates one region of a page from the next) */
 .gn-divider{
   display:flex;align-items:center;gap:10px;margin:4px 0;

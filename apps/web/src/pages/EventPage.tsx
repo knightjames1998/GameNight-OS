@@ -12,6 +12,8 @@ export default function EventPage({ me }: { me: Me | null }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editRsvp, setEditRsvp] = useState(false);
+  const [editDate, setEditDate] = useState(false);
+  const [whenDraft, setWhenDraft] = useState("");
 
   async function load() {
     try {
@@ -33,6 +35,7 @@ export default function EventPage({ me }: { me: Me | null }) {
     (msg) => {
       if (msg.type === "event_rsvp_changed" && msg.eventId === id) load();
       if (msg.type === "event_session_changed" && msg.eventId === id) load();
+      if (msg.type === "event_updated" && msg.eventId === id) load();
       if (msg.type === "event_deleted" && msg.eventId === id) {
         window.alert("This game night was deleted.");
         navigate("/");
@@ -65,6 +68,42 @@ export default function EventPage({ me }: { me: Me | null }) {
       });
       await load();
       setEditRsvp(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveDate() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      // An emptied input means "clear the date" — the event goes back to TBD.
+      await api(`/api/events/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          scheduledFor: whenDraft ? new Date(whenDraft).toISOString() : null,
+        }),
+      });
+      await load();
+      setEditDate(false);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Couldn't change the date");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function markAttendance(showed: boolean) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await api(`/api/events/${id}/attendance`, {
+        method: "POST",
+        body: JSON.stringify({ showed }),
+      });
+      await load();
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Couldn't record that");
     } finally {
       setBusy(false);
     }
@@ -104,59 +143,129 @@ export default function EventPage({ me }: { me: Me | null }) {
 
   const groupBy = (s: RsvpStatus) => event.rsvps.filter((r) => r.status === s);
 
+  const canEditDate =
+    event.myRole === "owner" || event.myRole === "admin" || me?.id === event.createdBy;
+  const started =
+    !!event.scheduledFor && new Date(event.scheduledFor).getTime() <= Date.now();
+  const myButton = buttons.find((b) => b.status === event.myStatus);
+
   return (
     <Shell>
-      <div>
-        <h1 className="gn-title text-2xl">{event.title}</h1>
-        <p className="gn-hint mt-1">{when}</p>
+      {/* Once answered, the RSVP collapses into a pill inline with the title
+          so the games are the first thing on the page. Tapping it reopens
+          the three buttons. */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="gn-title text-2xl">{event.title}</h1>
+          {editDate ? (
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <input
+                type="datetime-local"
+                value={whenDraft}
+                onChange={(e) => setWhenDraft(e.target.value)}
+                className="gn-input"
+                style={{ minHeight: "40px", maxWidth: "13rem" }}
+              />
+              <button className="gn-textbtn" onClick={saveDate} disabled={busy}>
+                save
+              </button>
+              <button className="gn-textbtn" onClick={() => setEditDate(false)}>
+                cancel
+              </button>
+            </div>
+          ) : (
+            <p className="gn-hint mt-1">
+              {when}
+              {canEditDate && (
+                <button
+                  className="gn-textbtn"
+                  style={{ minHeight: 0, padding: "0 0 0 8px" }}
+                  onClick={() => {
+                    setWhenDraft(event.scheduledFor ? toLocalInput(event.scheduledFor) : "");
+                    setEditDate(true);
+                  }}
+                >
+                  change
+                </button>
+              )}
+            </p>
+          )}
+        </div>
+        {event.myStatus && !editRsvp && (
+          <button
+            className="gn-rsvp-pill"
+            style={{ color: myButton?.bg }}
+            onClick={() => setEditRsvp(true)}
+            title="Update RSVP"
+          >
+            {event.myStatus === "yes" ? "You're in" : event.myStatus === "maybe" ? "Maybe" : "You're out"}
+            <span aria-hidden="true" style={{ fontSize: "9px" }}>
+              ▾
+            </span>
+          </button>
+        )}
       </div>
 
-      {/* RSVP collapses to one line once answered, so it gets out of the way
-          of the games. "Update RSVP" reopens the three buttons. */}
-      <section className="space-y-2">
-        {event.myStatus && !editRsvp ? (
-          <div
-            className="flex items-center justify-between gap-2"
-            style={{
-              background: "var(--gn-surf)",
-              border: "2px solid var(--gn-line)",
-              borderRadius: "12px",
-              padding: "10px 14px",
-            }}
-          >
-            <span style={{ fontWeight: 700, color: buttons.find((b) => b.status === event.myStatus)?.bg }}>
-              {event.myStatus === "yes" ? "You're in" : event.myStatus === "maybe" ? "You're a maybe" : "You're out"}
-            </span>
-            <button className="gn-textbtn" onClick={() => setEditRsvp(true)}>
-              Update RSVP
-            </button>
+      {(!event.myStatus || editRsvp) && (
+        <section className="space-y-2">
+          <h2 className="gn-h2">You going?</h2>
+          <div className="grid grid-cols-3 gap-2">
+            {buttons.map((b) => {
+              const on = event.myStatus === b.status;
+              return (
+                <button
+                  key={b.status}
+                  onClick={() => rsvp(b.status)}
+                  disabled={busy}
+                  className="gn-btn"
+                  style={
+                    on
+                      ? { background: b.bg, color: b.ink, boxShadow: "0 4px 0 rgba(0,0,0,.35)" }
+                      : { background: "var(--gn-surf)", color: "var(--gn-ink)", border: "2px solid var(--gn-line)" }
+                  }
+                >
+                  {b.label}
+                </button>
+              );
+            })}
           </div>
-        ) : (
-          <>
-            <h2 className="gn-h2">You going?</h2>
-            <div className="grid grid-cols-3 gap-2">
-              {buttons.map((b) => {
-                const on = event.myStatus === b.status;
-                return (
-                  <button
-                    key={b.status}
-                    onClick={() => rsvp(b.status)}
-                    disabled={busy}
-                    className="gn-btn"
-                    style={
-                      on
-                        ? { background: b.bg, color: b.ink, boxShadow: "0 4px 0 rgba(0,0,0,.35)" }
-                        : { background: "var(--gn-surf)", color: "var(--gn-ink)", border: "2px solid var(--gn-line)" }
-                    }
-                  >
-                    {b.label}
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </section>
+        </section>
+      )}
+
+      {/* Show-up check-in: appears once the event's start time passes, and
+          disappears as soon as it's answered. Attendance is stored separately
+          from RSVP intent and feeds flake tracking. */}
+      {started && event.myAttendance === null && (
+        <section
+          className="flex items-center justify-between gap-3"
+          style={{
+            background: "var(--gn-surf)",
+            border: "2px solid var(--gn-line)",
+            borderRadius: "12px",
+            padding: "10px 14px",
+          }}
+        >
+          <span style={{ fontWeight: 700 }}>Did you actually show?</span>
+          <span className="flex gap-2">
+            <button
+              className="gn-btn gn-btn--go"
+              style={{ minHeight: "40px" }}
+              disabled={busy}
+              onClick={() => markAttendance(true)}
+            >
+              Yes
+            </button>
+            <button
+              className="gn-btn gn-btn--ghost"
+              style={{ minHeight: "40px" }}
+              disabled={busy}
+              onClick={() => markAttendance(false)}
+            >
+              No
+            </button>
+          </span>
+        </section>
+      )}
 
       <section className="space-y-2">
         <h2 className="gn-h2">Games</h2>
@@ -171,6 +280,13 @@ export default function EventPage({ me }: { me: Me | null }) {
       </section>
     </Shell>
   );
+}
+
+/** ISO timestamp -> the local "YYYY-MM-DDTHH:mm" a datetime-local input wants. */
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 // Each name links to the same profile/rivalry page the crew list uses:

@@ -44,7 +44,8 @@ export default function GroupPage({
   useLiveUpdates(
     (msg) => {
       if (msg.groupId !== id) return;
-      if (msg.type === "group_events_changed" || msg.type === "event_deleted") loadEvents();
+      if (msg.type === "group_events_changed" || msg.type === "event_deleted" || msg.type === "event_updated")
+        loadEvents();
       if (msg.type === "group_members_changed") loadGroup();
     },
     () => {
@@ -175,34 +176,29 @@ export default function GroupPage({
             {events.map((e) => (
               <li key={e.id}>
                 <Link to={`/e/${e.id}`} className="gn-cab" style={{ display: "block" }}>
-                  <div className="flex justify-between items-baseline gap-2">
+                  <div className="flex justify-between items-center gap-2">
                     <span className="gn-cab__name" style={{ fontSize: "16px" }}>{e.title}</span>
-                    <span className="flex items-baseline gap-3">
-                      {e.myStatus && (
-                        <span className="gn-hint" style={{ fontSize: "12px" }}>you: {e.myStatus}</span>
-                      )}
-                      {canManage && (
-                        <button
-                          className="gn-textbtn gn-textbtn--danger"
-                          style={{ fontSize: "12px", padding: 0 }}
-                          onClick={async (ev) => {
-                            // Inside the card's Link: don't navigate, just delete.
-                            ev.preventDefault();
-                            ev.stopPropagation();
-                            if (!window.confirm(`Delete "${e.title}"? Its RSVPs, brackets and recorded stats go with it. This can't be undone.`)) return;
-                            try {
-                              await api(`/api/events/${e.id}`, { method: "DELETE" });
-                              setEvents((events ?? []).filter((x) => x.id !== e.id));
-                            } catch (err) {
-                              window.alert(err instanceof Error ? err.message : "Couldn't delete");
-                            }
-                          }}
-                        >
-                          delete
-                        </button>
-                      )}
-                    </span>
+                    {canManage && (
+                      <button
+                        className="gn-chipbtn gn-chipbtn--danger"
+                        onClick={async (ev) => {
+                          // Inside the card's Link: don't navigate, just delete.
+                          ev.preventDefault();
+                          ev.stopPropagation();
+                          if (!window.confirm(`Delete "${e.title}"? Its RSVPs, brackets and recorded stats go with it. This can't be undone.`)) return;
+                          try {
+                            await api(`/api/events/${e.id}`, { method: "DELETE" });
+                            setEvents((events ?? []).filter((x) => x.id !== e.id));
+                          } catch (err) {
+                            window.alert(err instanceof Error ? err.message : "Couldn't delete");
+                          }
+                        }}
+                      >
+                        delete
+                      </button>
+                    )}
                   </div>
+                  {/* Your own RSVP rides the same info line as everyone else's. */}
                   <div className="gn-cab__sub">
                     {e.scheduledFor
                       ? new Date(e.scheduledFor).toLocaleString([], {
@@ -215,6 +211,7 @@ export default function GroupPage({
                       : "Date TBD"}
                     {" · "}
                     {e.counts.yes} in / {e.counts.maybe} maybe / {e.counts.no} out
+                    {e.myStatus && ` · you: ${e.myStatus}`}
                   </div>
                 </Link>
               </li>
@@ -279,7 +276,7 @@ export default function GroupPage({
             return (
               <li
                 key={m.userId}
-                className="flex justify-between items-center gap-2"
+                className="flex justify-between items-center gap-2 flex-wrap"
                 style={{
                   background: "var(--gn-raise)",
                   border: "2px solid var(--gn-line)",
@@ -299,39 +296,59 @@ export default function GroupPage({
                     cursor: "pointer",
                     textAlign: "left",
                     font: "inherit",
+                    flex: "1 0 auto",
+                    maxWidth: "100%",
                   }}
                   title={me && m.userId === me.id ? "Your stats" : `You vs ${m.displayName}`}
                 >
-                  {m.displayName}
+                  {/* The name never truncates or breaks mid-word; if a row runs
+                      out of room the role/remove controls wrap to their own
+                      right-aligned line instead. */}
+                  <span
+                    style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                  >
+                    {m.displayName}
+                  </span>
                   <span className={`gn-chip ${me && m.userId === me.id ? "gn-chip--stats" : "gn-chip--vs"}`}>
                     {me && m.userId === me.id ? "stats ›" : "vs ›"}
                   </span>
                 </button>
-                <span className="flex items-center gap-2">
-                  <span className={`gn-chip gn-chip--${m.role}`}>{m.role}</span>
-                  {group.myRole === "owner" && m.role !== "owner" && (
-                    <button
-                      className="gn-textbtn"
-                      onClick={async () => {
-                        const next = m.role === "admin" ? "member" : "admin";
-                        await api(`/api/groups/${group.id}/members/${m.userId}/role`, {
-                          method: "PATCH",
-                          body: JSON.stringify({ role: next }),
-                        });
-                        setGroup({
-                          ...group,
-                          members: group.members.map((x) =>
-                            x.userId === m.userId ? { ...x, role: next } : x,
-                          ),
-                        });
-                      }}
-                    >
-                      {m.role === "admin" ? "demote" : "make admin"}
-                    </button>
+                <span className="flex items-center gap-2" style={{ flexShrink: 0, marginLeft: "auto" }}>
+                  {/* Owners get the role as a dropdown (same chip look, tiny ▾)
+                      instead of a chip plus separate demote/make-admin text. */}
+                  {group.myRole === "owner" && m.role !== "owner" ? (
+                    <span className={`gn-chipsel gn-chipsel--${m.role}`}>
+                      <select
+                        value={m.role}
+                        aria-label={`Role for ${m.displayName}`}
+                        onChange={async (ev) => {
+                          const next = ev.target.value as "admin" | "member";
+                          if (next === m.role) return;
+                          await api(`/api/groups/${group.id}/members/${m.userId}/role`, {
+                            method: "PATCH",
+                            body: JSON.stringify({ role: next }),
+                          });
+                          setGroup({
+                            ...group,
+                            members: group.members.map((x) =>
+                              x.userId === m.userId ? { ...x, role: next } : x,
+                            ),
+                          });
+                        }}
+                      >
+                        <option value="admin">admin</option>
+                        <option value="member">member</option>
+                      </select>
+                      <span aria-hidden="true" className="gn-chipsel__arrow">
+                        ▾
+                      </span>
+                    </span>
+                  ) : (
+                    <span className={`gn-chip gn-chip--${m.role}`}>{m.role}</span>
                   )}
                   {canRemove && (
                     <button
-                      className="gn-textbtn gn-textbtn--danger"
+                      className="gn-chipbtn gn-chipbtn--danger"
                       onClick={async () => {
                         if (!window.confirm(`Remove ${m.displayName} from ${group.name}? Their game history stays.`)) return;
                         await api(`/api/groups/${group.id}/members/${m.userId}`, { method: "DELETE" });

@@ -13,7 +13,7 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-07-18
-    Shipped sessions since that redraw: 1
+    Shipped sessions since that redraw: 2
     Redraw due at:                      3
 
 **Every session that ships anything (feature, pack, or fix set) increments the counter by 1
@@ -78,6 +78,7 @@ last pass; then draw.
 - [x] Arcade theme across the generic app (CSS custom-property tokens + gn-* class layer) and PWA install (manifest, icons, iOS meta tags, safe-area insets)
 - [x] Async crash-safe routes: async-safe.ts patches the Express Router so a rejected handler returns a 500 instead of taking down the process and the WebSocket hub
 - [x] UI cleanup pass (2026-07-18). RSVP collapses to a one-line status + "Update RSVP" once answered; delete event moved inside the event tile; members moved directly under the schedule form with the invite link compacted to one copy row; password controls tucked under the name field; single-format games (Mario Party, a live Tournament) launch in one tap from the game picker; event RSVP names link to the same profile/rivalry pages as the crew list; rivalry colors flipped so YOU are always teal and the opponent red/coral. Also: generic brackets record into stats as "Tournament" instead of "Game Night" (existing rows renamed via one-off SQL in Neon: UPDATE games SET name = 'Tournament' WHERE name = 'Game Night').
+- [x] Show-up confirmation + event date editing + UI cleanup pass 2 (2026-07-19). New event_attendance table (separate from RSVP intent, feeds flake tracking): once an event's date arrives the event page asks "Did you actually show? Yes/No" and the prompt disappears when answered; locked server-side until the date passes, so changing the date re-locks/re-opens it automatically. Event dates are now editable in place (creator or admin; "change" next to the date on the event page, clearing the input returns the event to TBD; draft/scheduled status follows). UI: answered RSVP collapses to a status pill inline with the event title so Games sit at the top; game night tiles put delete in a real chip-style button and moved "you: yes" onto the date/counts line; member rows swap the role chip + demote/make-admin text for a role dropdown styled as the same chip with a ▾, and remove is a matching chip button; tight rows wrap controls to a second line instead of truncating names.
 - [x] Profiles + rivalry cards (2026-07-18). Tapping a member in the crew list opens /g/:id/member/:userId. Yourself = profile (games/wins/win rate/podiums/best/avg + by-game table). Anyone else = rivalry: side-by-side stats, head-to-head record banner, per-game H2H, shareable canvas-to-JPG rivalry card. Home gained a "Your stats" card aggregating across every crew including quick play. Server: three read-only endpoints in stats.ts. No schema change.
 
 ## SHIPPED — GAME PACKS
@@ -93,8 +94,7 @@ last pass; then draw.
 ## NEXT UP (queued)
 Priority order set by James. The top three are the committed next sessions.
 - [ ] 1. Event-level night recap: one shareable card for the whole event spanning every game played that night (all packs + brackets), with an MVP callout. Reuses the canvas-to-JPG pipeline.
-- [ ] 2. Show-up confirmation: one-tap "who's actually here" on the event page. Records attendance separate from RSVP intent; feeds flake tracking and tightens roster prefill. Gated by event date (see FEATURES TO ADD). Once answered, the control collapses to a one-line status + update button, same pattern the RSVP buttons now use (decided 2026-07-18).
-- [ ] (slot 3 open: James hasn't committed the third session yet; candidates below in priority order)
+- [ ] (slot 2 open: show-up confirmation shipped 2026-07-19; James hasn't committed the next sessions yet; candidates below in priority order)
 - [ ] Smashdown night (Smash pack format): Ultimate's built-in mode where a used fighter is struck from the roster until the series ends. The app renders the shared burned-fighter board (huge on the TV view), one tap per game to record the winner; roster + title selector already exist. New stat: unique fighters won with. Reuses the FFA engine, so this is the cheapest remaining pack work.
 - [ ] Smash Tournament format: a third option in the Smash format picker that launches a bracket from the Smash session roster and materializes with fighters. Today Smash tournaments run through the generic bracket.
 - [ ] Unify Smash + Mario Kart into one config-driven session pack (roster + enabled formats + table as config), so there's one code path instead of two near-copies. Also: a Mario Kart character-stats panel like Smash's.
@@ -104,11 +104,9 @@ Priority order set by James. The top three are the committed next sessions.
 ## FEATURES TO ADD
 Wanted, not yet scheduled into a session.
 - [ ] Mario Party: minigame head-to-heads as a second format in the pack, alongside Board night (requested 2026-07-18). Track who beats who in individual minigames; the game picker already supports multi-format packs, so this slots in as a second format entry.
-- [ ] Change event date after creating it. Events can be created with no date or the wrong one; there is currently no edit path.
-- [ ] Confirm arrival, gated by event date: the "I'm here" control stays locked until the event's date arrives, and re-locks/re-opens automatically when the date is changed. Couples tightly to the item above and to show-up confirmation; build them together so the lock is written once.
 - [ ] Link a guest to a crew member: someone plays as a typed guest on night one, joins the crew later, and their past results get credited to them. Needs the Entrant guest shape (shipped) plus a rebind action.
 - [ ] Smack talk feed (on the TV view and/or in-app)
-- [ ] Flake tracking / RSVP streaks (unblocked once show-up confirmation ships)
+- [ ] Flake tracking / RSVP streaks (UNBLOCKED 2026-07-19: show-up confirmation shipped, event_attendance now records who actually showed vs their RSVP)
 - [ ] Stats on the TV view (leaderboard between matches)
 - [ ] Spectator predictions ticker on the generic Broadcast (port from Beerio Kart)
 - [ ] Seasons: 8-12 week arcs with standings and an offseason

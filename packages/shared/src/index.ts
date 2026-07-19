@@ -113,6 +113,7 @@ export type WsMessage =
   | { type: "group_events_changed"; groupId: string }
   | { type: "group_members_changed"; groupId: string }
   | { type: "event_deleted"; eventId: string; groupId: string }
+  | { type: "event_updated"; eventId: string; groupId: string }
   | { type: "event_session_changed"; eventId: string }
   | { type: "bracket_updated"; bracketId: string }
   | { type: "match_updated"; matchId: string }

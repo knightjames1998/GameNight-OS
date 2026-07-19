@@ -65,11 +65,14 @@ export interface EventDetail {
   bracket: { id: string; status: "setup" | "live" | "completed" } | null;
   beerioCode: string | null;
   myRole: "owner" | "admin" | "member";
+  createdBy: string;
   scheduledFor: string | null;
   status: "draft" | "scheduled" | "live" | "completed" | "cancelled";
   rsvps: { userId: string; displayName: string; status: RsvpStatus }[];
   noResponse: { userId: string; displayName: string }[];
   myStatus: RsvpStatus | null;
+  /** Did I actually show? null until answered; only asked once the event starts. */
+  myAttendance: boolean | null;
 }
 
 export type BracketSlot =
