@@ -13,8 +13,8 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-07-19
-    Shipped sessions since that redraw: 2
-    Redraw due at:                      3
+    Shipped sessions since that redraw: 3
+    Redraw due at:                      3  <-- DUE: next session reconciles + redraws FIRST
 
 **Every session that ships anything (feature, pack, or fix set) increments the counter by 1
 as part of its delivery, in the same commit as its other changes.** Doc-only sessions do not

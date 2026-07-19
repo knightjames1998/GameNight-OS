@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, type Friend, type GroupSummary, type Me } from "../api";
 import Login from "./Login";
 import GamePicker, { type PickerGame } from "../GamePicker";
+import AddToHomeHint from "../AddToHomeHint";
 
 export default function Home({
   me,
@@ -17,6 +18,9 @@ export default function Home({
     return (
       <main className="gn-app flex flex-col items-center justify-center gap-8" style={{ padding: "calc(1.5rem + env(safe-area-inset-top, 0px)) calc(1.5rem + env(safe-area-inset-right, 0px)) calc(1.5rem + env(safe-area-inset-bottom, 0px)) calc(1.5rem + env(safe-area-inset-left, 0px))" }}>
         <h1 className="gn-brand text-4xl">GameNight OS</h1>
+        <div style={{ maxWidth: "24rem", width: "100%" }}>
+          <AddToHomeHint />
+        </div>
         <Login />
       </main>
     );
@@ -141,6 +145,8 @@ function Groups({
             Log out
           </button>
         </header>
+
+        <AddToHomeHint />
 
         <section className="space-y-2">
           <label className="gn-lab" htmlFor="home-name">
