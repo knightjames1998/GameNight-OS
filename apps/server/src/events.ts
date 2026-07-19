@@ -168,9 +168,10 @@ eventsRouter.patch("/events/:id", async (req: AuthedRequest, res) => {
       : found.status;
   await db.update(events).set({ scheduledFor, status }).where(eq(events.id, found.id));
 
-  broadcast({ type: "event_updated", eventId: found.id, groupId: found.groupId });
-  broadcast({ type: "group_events_changed", groupId: found.groupId });
-  res.json({ ok: true });
+  const origin = req.get("x-gn-client");
+  broadcast({ type: "event_updated", eventId: found.id, groupId: found.groupId }, origin);
+  broadcast({ type: "group_events_changed", groupId: found.groupId }, origin);
+  res.json(await eventDetail({ ...found, scheduledFor, status }, req.user!.id));
 });
 
 /** List a group's events, newest first, with RSVP summary and my status. */
@@ -206,14 +207,12 @@ eventsRouter.get("/groups/:groupId/events", async (req: AuthedRequest, res) => {
   );
 });
 
-/** Event detail: full RSVP breakdown with names, plus who hasn't answered. */
-eventsRouter.get("/events/:id", async (req: AuthedRequest, res) => {
-  const found = await loadEventForMember(String(req.params.id), req.user!.id);
-  if (!found) {
-    res.status(404).json({ error: "Event not found" });
-    return;
-  }
-
+/**
+ * The full event-detail payload the client renders. Shared by the GET and
+ * every mutation on this router, so a mutation's response IS the updated
+ * state — the client applies it directly instead of refetching.
+ */
+async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEventForMember>>>, userId: string) {
   const db = getDb();
   const responses = await db
     .select({
@@ -245,7 +244,7 @@ eventsRouter.get("/events/:id", async (req: AuthedRequest, res) => {
     await db
       .select({ role: memberships.role })
       .from(memberships)
-      .where(and(eq(memberships.groupId, found.groupId), eq(memberships.userId, req.user!.id)))
+      .where(and(eq(memberships.groupId, found.groupId), eq(memberships.userId, userId)))
       .limit(1)
   )[0]?.role;
 
@@ -253,21 +252,29 @@ eventsRouter.get("/events/:id", async (req: AuthedRequest, res) => {
     await db
       .select({ showed: eventAttendance.showed })
       .from(eventAttendance)
-      .where(
-        and(eq(eventAttendance.eventId, found.id), eq(eventAttendance.userId, req.user!.id)),
-      )
+      .where(and(eq(eventAttendance.eventId, found.id), eq(eventAttendance.userId, userId)))
       .limit(1)
   )[0];
 
-  res.json({
+  return {
     ...found,
     bracket: bracket ?? null,
     myRole,
     rsvps: responses,
     noResponse: members.filter((m) => !answered.has(m.userId)),
-    myStatus: responses.find((r) => r.userId === req.user!.id)?.status ?? null,
+    myStatus: responses.find((r) => r.userId === userId)?.status ?? null,
     myAttendance: attendance ? attendance.showed : null,
-  });
+  };
+}
+
+/** Event detail: full RSVP breakdown with names, plus who hasn't answered. */
+eventsRouter.get("/events/:id", async (req: AuthedRequest, res) => {
+  const found = await loadEventForMember(String(req.params.id), req.user!.id);
+  if (!found) {
+    res.status(404).json({ error: "Event not found" });
+    return;
+  }
+  res.json(await eventDetail(found, req.user!.id));
 });
 
 /** Set or change my RSVP. Upsert: tapping a different answer just switches it. */
@@ -298,8 +305,8 @@ eventsRouter.post("/events/:id/rsvp", async (req: AuthedRequest, res) => {
       set: { status: status as "yes" | "no" | "maybe", respondedAt: new Date() },
     });
 
-  broadcast({ type: "event_rsvp_changed", eventId: found.id });
-  res.json({ ok: true, status });
+  broadcast({ type: "event_rsvp_changed", eventId: found.id }, req.get("x-gn-client"));
+  res.json(await eventDetail(found, req.user!.id));
 });
 
 /**
@@ -337,8 +344,11 @@ eventsRouter.post("/events/:id/attendance", async (req: AuthedRequest, res) => {
       set: { showed: req.body.showed, markedAt: new Date() },
     });
 
-  broadcast({ type: "event_updated", eventId: found.id, groupId: found.groupId });
-  res.json({ ok: true, showed: req.body.showed });
+  broadcast(
+    { type: "event_updated", eventId: found.id, groupId: found.groupId },
+    req.get("x-gn-client"),
+  );
+  res.json(await eventDetail(found, req.user!.id));
 });
 
 // ---------- Helpers ----------

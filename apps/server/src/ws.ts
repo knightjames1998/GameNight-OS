@@ -19,9 +19,9 @@ export function setupWebSockets(server: Server) {
   });
 }
 
-export function broadcast(msg: WsMessage) {
+export function broadcast(msg: WsMessage, origin?: string) {
   if (!wss) return;
-  const payload = JSON.stringify(msg);
+  const payload = JSON.stringify(origin ? { ...msg, origin } : msg);
   for (const client of wss.clients) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(payload);

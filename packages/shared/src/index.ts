@@ -108,7 +108,7 @@ export interface MatchParticipant {
 // ---------- Broadcast (live TV sync) ----------
 // WebSocket message envelope. Server broadcasts these to TV/spectator views.
 
-export type WsMessage =
+type WsEvent =
   | { type: "event_rsvp_changed"; eventId: string }
   | { type: "group_events_changed"; groupId: string }
   | { type: "group_members_changed"; groupId: string }
@@ -122,6 +122,12 @@ export type WsMessage =
   | { type: "mario_kart_updated"; eventId: string }
   | { type: "mario_party_updated"; eventId: string }
   | { type: "ping" };
+
+// origin: the per-tab client id of whoever caused the write (from the
+// X-GN-Client request header). The acting tab already holds the mutation
+// response, so it can skip refetching on its own echo; every other client
+// treats the message normally.
+export type WsMessage = WsEvent & { origin?: string };
 export * from "./bracket.js";
 export * from "./smash.js";
 export * from "./mariokart.js";

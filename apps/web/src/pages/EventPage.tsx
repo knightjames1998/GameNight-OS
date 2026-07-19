@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, type EventDetail, type Me, type RsvpStatus } from "../api";
+import { api, CLIENT_ID, type EventDetail, type Me, type RsvpStatus } from "../api";
 import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
 import GamePicker, { type PickerGame, type PickerFormat } from "../GamePicker";
@@ -14,6 +14,9 @@ export default function EventPage({ me }: { me: Me | null }) {
   const [editRsvp, setEditRsvp] = useState(false);
   const [editDate, setEditDate] = useState(false);
   const [whenDraft, setWhenDraft] = useState("");
+  // Guards out-of-order mutation responses: only the newest request may
+  // write its result into state (rapid taps race otherwise).
+  const reqSeq = useRef(0);
 
   async function load() {
     try {
@@ -30,9 +33,12 @@ export default function EventPage({ me }: { me: Me | null }) {
 
   // Live: RSVPs land without a refresh, and if the organizer deletes the
   // event out from under you, you get bounced instead of staring at a
-  // screen that no longer exists.
+  // screen that no longer exists. Our own echoes are skipped: the mutation
+  // response already carried the updated state, so refetching on them
+  // would just double the traffic.
   useLiveUpdates(
     (msg) => {
+      if (msg.origin === CLIENT_ID) return;
       if (msg.type === "event_rsvp_changed" && msg.eventId === id) load();
       if (msg.type === "event_session_changed" && msg.eventId === id) load();
       if (msg.type === "event_updated" && msg.eventId === id) load();
@@ -58,33 +64,51 @@ export default function EventPage({ me }: { me: Me | null }) {
     }
   }
 
+  // Optimistic RSVP: paint the change immediately, then reconcile with the
+  // authoritative state the mutation response carries. On failure, roll
+  // back to the pre-tap snapshot and reopen the buttons.
   async function rsvp(status: RsvpStatus) {
-    if (busy) return;
-    setBusy(true);
+    if (!event) return;
+    const prev = event;
+    const seq = ++reqSeq.current;
+    if (me) {
+      const others = event.rsvps.filter((r) => r.userId !== me.id);
+      setEvent({
+        ...event,
+        myStatus: status,
+        rsvps: [...others, { userId: me.id, displayName: me.displayName, status }],
+        noResponse: event.noResponse.filter((p) => p.userId !== me.id),
+      });
+    }
+    setEditRsvp(false);
     try {
-      await api(`/api/events/${id}/rsvp`, {
+      const fresh = await api<EventDetail>(`/api/events/${id}/rsvp`, {
         method: "POST",
         body: JSON.stringify({ status }),
       });
-      await load();
-      setEditRsvp(false);
-    } finally {
-      setBusy(false);
+      if (seq === reqSeq.current) setEvent(fresh);
+    } catch (e) {
+      if (seq === reqSeq.current) {
+        setEvent(prev);
+        setEditRsvp(true);
+        window.alert(e instanceof Error ? e.message : "Couldn't save your RSVP");
+      }
     }
   }
 
   async function saveDate() {
     if (busy) return;
     setBusy(true);
+    const seq = ++reqSeq.current;
     try {
       // An emptied input means "clear the date" — the event goes back to TBD.
-      await api(`/api/events/${id}`, {
+      const fresh = await api<EventDetail>(`/api/events/${id}`, {
         method: "PATCH",
         body: JSON.stringify({
           scheduledFor: whenDraft ? new Date(whenDraft).toISOString() : null,
         }),
       });
-      await load();
+      if (seq === reqSeq.current) setEvent(fresh);
       setEditDate(false);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Couldn't change the date");
@@ -93,19 +117,23 @@ export default function EventPage({ me }: { me: Me | null }) {
     }
   }
 
+  // Optimistic check-in: the prompt disappears the moment it's tapped.
   async function markAttendance(showed: boolean) {
-    if (busy) return;
-    setBusy(true);
+    if (!event) return;
+    const prev = event;
+    const seq = ++reqSeq.current;
+    setEvent({ ...event, myAttendance: showed });
     try {
-      await api(`/api/events/${id}/attendance`, {
+      const fresh = await api<EventDetail>(`/api/events/${id}/attendance`, {
         method: "POST",
         body: JSON.stringify({ showed }),
       });
-      await load();
+      if (seq === reqSeq.current) setEvent(fresh);
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : "Couldn't record that");
-    } finally {
-      setBusy(false);
+      if (seq === reqSeq.current) {
+        setEvent(prev);
+        window.alert(e instanceof Error ? e.message : "Couldn't record that");
+      }
     }
   }
 

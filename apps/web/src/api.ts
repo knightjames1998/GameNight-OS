@@ -9,10 +9,20 @@ export class ApiError extends Error {
   }
 }
 
+// Per-tab id sent with every request. The server stamps it onto the
+// WebSocket broadcast a write causes, so the acting tab can recognize its
+// own echo and skip the redundant refetch (it already has the mutation
+// response). Other tabs and devices see a foreign origin and reload.
+export const CLIENT_ID = crypto.randomUUID();
+
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "X-GN-Client": CLIENT_ID,
+      ...options?.headers,
+    },
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
