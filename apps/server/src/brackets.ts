@@ -107,7 +107,7 @@ bracketsRouter.post("/events/:eventId/bracket", async (req: AuthedRequest, res) 
     return;
   }
 
-  const gameName = String(req.body?.gameName ?? "").trim() || "Game Night";
+  const gameName = String(req.body?.gameName ?? "").trim() || "Tournament";
   const format: BracketFormat =
     req.body?.format === "double_elim" ? "double_elim" : "single_elim";
   const game = (
