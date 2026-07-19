@@ -250,12 +250,17 @@ async function aggFor(db: Db, groupIds: string[], userId: string) {
 
 // ---------- Attendance / flake tracking ----------
 // An RSVP is intent; event_attendance is what actually happened. A flake is
-// "said yes, then answered the show-up prompt with no". Streaks count
-// consecutive shows across answered check-ins, ordered by event date.
+// "said yes and never confirmed showing up" — real flakes don't open the
+// app to tap no, so silence after a yes counts once the night is clearly
+// over (24h past its date). An honest "didn't show" answer counts right
+// away. Streaks count consecutive confirmed shows, ordered by event date.
+
+/** How long after an event's start an unanswered "yes" becomes a flake. */
+const FLAKE_GRACE_MS = 24 * 60 * 60 * 1000;
 
 async function attendanceFor(db: Db, groupIds: string[], userId: string) {
   const empty = {
-    answered: 0,
+    tracked: 0,
     showed: 0,
     flaked: 0,
     showRate: null as number | null,
@@ -264,7 +269,7 @@ async function attendanceFor(db: Db, groupIds: string[], userId: string) {
   };
   if (!groupIds.length) return empty;
 
-  const rows = await db
+  const answers = await db
     .select({
       eventId: eventAttendance.eventId,
       showed: eventAttendance.showed,
@@ -274,45 +279,52 @@ async function attendanceFor(db: Db, groupIds: string[], userId: string) {
     .from(eventAttendance)
     .innerJoin(events, eq(eventAttendance.eventId, events.id))
     .where(and(inArray(eventAttendance.groupId, groupIds), eq(eventAttendance.userId, userId)));
-  if (!rows.length) return empty;
 
-  const saidYes = new Set(
-    (
-      await db
-        .select({ eventId: rsvps.eventId })
-        .from(rsvps)
-        .where(
-          and(
-            inArray(rsvps.groupId, groupIds),
-            eq(rsvps.userId, userId),
-            eq(rsvps.status, "yes"),
-          ),
-        )
-    ).map((r) => r.eventId),
-  );
+  const yesRows = await db
+    .select({ eventId: rsvps.eventId, scheduledFor: events.scheduledFor })
+    .from(rsvps)
+    .innerJoin(events, eq(rsvps.eventId, events.id))
+    .where(
+      and(inArray(rsvps.groupId, groupIds), eq(rsvps.userId, userId), eq(rsvps.status, "yes")),
+    );
 
-  rows.sort(
-    (a, b) => (a.scheduledFor ?? a.createdAt).getTime() - (b.scheduledFor ?? b.createdAt).getTime(),
-  );
+  // One entry per event that can count: every answered check-in, plus every
+  // past dated event they said yes to and then went silent on. A "yes" on a
+  // dateless event never counts — you can't flake on a TBD.
+  const byEvent = new Map<string, { when: Date; showed: boolean | null; saidYes: boolean }>();
+  for (const a of answers) {
+    byEvent.set(a.eventId, { when: a.scheduledFor ?? a.createdAt, showed: a.showed, saidYes: false });
+  }
+  for (const y of yesRows) {
+    const e = byEvent.get(y.eventId);
+    if (e) {
+      e.saidYes = true;
+    } else if (y.scheduledFor && y.scheduledFor.getTime() < Date.now() - FLAKE_GRACE_MS) {
+      byEvent.set(y.eventId, { when: y.scheduledFor, showed: null, saidYes: true });
+    }
+  }
+  if (!byEvent.size) return empty;
+
+  const list = [...byEvent.values()].sort((a, b) => a.when.getTime() - b.when.getTime());
   let showed = 0;
   let flaked = 0;
   let current = 0;
   let best = 0;
-  for (const r of rows) {
-    if (r.showed) {
+  for (const e of list) {
+    if (e.showed === true) {
       showed++;
       current++;
       best = Math.max(best, current);
     } else {
       current = 0;
-      if (saidYes.has(r.eventId)) flaked++;
+      if (e.saidYes) flaked++;
     }
   }
   return {
-    answered: rows.length,
+    tracked: list.length,
     showed,
     flaked,
-    showRate: showed / rows.length,
+    showRate: showed / list.length,
     currentStreak: current,
     bestStreak: best,
   };

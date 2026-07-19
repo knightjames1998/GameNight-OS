@@ -237,10 +237,10 @@ function Profile({ stats, title, subtitle }: { stats: SideStats; title: string; 
   );
 }
 
-// Flake tracking: intent (RSVP yes) vs reality (the show-up check-in).
-// Hidden until at least one check-in exists so old profiles stay clean.
+// Flake tracking: intent (RSVP yes) vs reality (the show-up check-in, or
+// silence). Hidden until there's something tracked so old profiles stay clean.
 function ShowUpRecord({ a }: { a?: AttendanceStats }) {
-  if (!a || a.answered === 0) return null;
+  if (!a || a.tracked === 0) return null;
   const rate = a.showRate ?? 0;
   const rateColor = rate >= 0.8 ? "var(--gn-p2)" : rate >= 0.5 ? "var(--gn-gold)" : "var(--gn-danger)";
   return (
@@ -259,7 +259,7 @@ function ShowUpRecord({ a }: { a?: AttendanceStats }) {
         />
       </div>
       <p className="gn-hint" style={{ fontSize: "12px" }}>
-        showed up to {a.showed} of {a.answered} check-in{a.answered === 1 ? "" : "s"} · best streak{" "}
+        showed up to {a.showed} of {a.tracked} night{a.tracked === 1 ? "" : "s"} · best streak{" "}
         {a.bestStreak}
       </p>
     </div>

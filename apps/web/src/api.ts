@@ -76,8 +76,10 @@ export interface EventDetail {
 }
 
 // Show-up record derived from RSVPs + event_attendance (flake tracking).
+// tracked = answered check-ins + past yes-RSVPs gone silent (those silent
+// ones are flakes: nobody opens the app to confess a no-show).
 export interface AttendanceStats {
-  answered: number;
+  tracked: number;
   showed: number;
   flaked: number;
   showRate: number | null;

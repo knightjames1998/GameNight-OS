@@ -256,9 +256,11 @@ function Groups({
 
 // Everyone you've ever shared a crew with, in one place — no digging into a
 // crew to look someone up. Crewing together is the connection; there's no
-// separate add-friend step. Hidden until you've crewed with someone.
+// separate add-friend step. Collapsed behind one button so a long friends
+// list doesn't clutter the home page. Hidden until you've crewed with someone.
 function Friends() {
   const [friends, setFriends] = useState<Friend[] | null>(null);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     api<Friend[]>("/api/friends")
@@ -270,8 +272,20 @@ function Friends() {
 
   return (
     <section className="space-y-3">
-      <h2 className="gn-h2">Friends</h2>
-      <p className="gn-hint">Everyone you've crewed with. Tap for the rivalry and their stats.</p>
+      <button
+        className="gn-cab"
+        style={{ width: "100%", textAlign: "left", cursor: "pointer", font: "inherit" }}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span className="gn-cab__name">
+          👥 Friends <span className="gn-hint" style={{ fontWeight: 400 }}>({friends.length})</span>
+        </span>
+        <span className="gn-cab__sub">
+          {open ? "tap to hide" : "everyone you've crewed with · stats & rivalries"}
+        </span>
+      </button>
+      {open && (
       <ul className="space-y-2">
         {friends.map((f) => (
           <li key={f.userId}>
@@ -301,6 +315,7 @@ function Friends() {
           </li>
         ))}
       </ul>
+      )}
     </section>
   );
 }
