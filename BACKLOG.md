@@ -13,7 +13,7 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-07-18
-    Shipped sessions since that redraw: 0
+    Shipped sessions since that redraw: 1
     Redraw due at:                      3
 
 **Every session that ships anything (feature, pack, or fix set) increments the counter by 1
@@ -77,6 +77,7 @@ last pass; then draw.
 - [x] Recap card (canvas-to-JPG, share sheet + download)
 - [x] Arcade theme across the generic app (CSS custom-property tokens + gn-* class layer) and PWA install (manifest, icons, iOS meta tags, safe-area insets)
 - [x] Async crash-safe routes: async-safe.ts patches the Express Router so a rejected handler returns a 500 instead of taking down the process and the WebSocket hub
+- [x] UI cleanup pass (2026-07-18). RSVP collapses to a one-line status + "Update RSVP" once answered; delete event moved inside the event tile; members moved directly under the schedule form with the invite link compacted to one copy row; password controls tucked under the name field; single-format games (Mario Party, a live Tournament) launch in one tap from the game picker; event RSVP names link to the same profile/rivalry pages as the crew list; rivalry colors flipped so YOU are always teal and the opponent red/coral.
 - [x] Profiles + rivalry cards (2026-07-18). Tapping a member in the crew list opens /g/:id/member/:userId. Yourself = profile (games/wins/win rate/podiums/best/avg + by-game table). Anyone else = rivalry: side-by-side stats, head-to-head record banner, per-game H2H, shareable canvas-to-JPG rivalry card. Home gained a "Your stats" card aggregating across every crew including quick play. Server: three read-only endpoints in stats.ts. No schema change.
 
 ## SHIPPED — GAME PACKS
@@ -92,9 +93,8 @@ last pass; then draw.
 ## NEXT UP (queued)
 Priority order set by James. The top three are the committed next sessions.
 - [ ] 1. Event-level night recap: one shareable card for the whole event spanning every game played that night (all packs + brackets), with an MVP callout. Reuses the canvas-to-JPG pipeline.
-- [ ] 2. Show-up confirmation: one-tap "who's actually here" on the event page. Records attendance separate from RSVP intent; feeds flake tracking and tightens roster prefill. Gated by event date (see FEATURES TO ADD).
-- [ ] 3. UI cleanup pass: collapse related/stale controls. RSVP collapses once answered; delete event moves inside the event tile; general condensing of buttons that have served their purpose.
-- [ ] Smashdown night (Smash pack format): Ultimate's built-in mode where a used fighter is struck from the roster until the series ends. The app renders the shared burned-fighter board (huge on the TV view), one tap per game to record the winner; roster + title selector already exist. New stat: unique fighters won with. Reuses the FFA engine, so this is the cheapest remaining pack work.
+- [ ] 2. Show-up confirmation: one-tap "who's actually here" on the event page. Records attendance separate from RSVP intent; feeds flake tracking and tightens roster prefill. Gated by event date (see FEATURES TO ADD). Once answered, the control collapses to a one-line status + update button, same pattern the RSVP buttons now use (decided 2026-07-18).
+- [ ] 3. Smashdown night (Smash pack format): Ultimate's built-in mode where a used fighter is struck from the roster until the series ends. The app renders the shared burned-fighter board (huge on the TV view), one tap per game to record the winner; roster + title selector already exist. New stat: unique fighters won with. Reuses the FFA engine, so this is the cheapest remaining pack work.
 - [ ] Smash Tournament format: a third option in the Smash format picker that launches a bracket from the Smash session roster and materializes with fighters. Today Smash tournaments run through the generic bracket.
 - [ ] Unify Smash + Mario Kart into one config-driven session pack (roster + enabled formats + table as config), so there's one code path instead of two near-copies. Also: a Mario Kart character-stats panel like Smash's.
 - [ ] Tabletop theme: second theme token block + a user-facing theme switcher (Arcade default). Foundation already laid.
@@ -102,6 +102,7 @@ Priority order set by James. The top three are the committed next sessions.
 
 ## FEATURES TO ADD
 Wanted, not yet scheduled into a session.
+- [ ] Mario Party: minigame head-to-heads as a second format in the pack, alongside Board night (requested 2026-07-18). Track who beats who in individual minigames; the game picker already supports multi-format packs, so this slots in as a second format entry.
 - [ ] Change event date after creating it. Events can be created with no date or the wrong one; there is currently no edit path.
 - [ ] Confirm arrival, gated by event date: the "I'm here" control stays locked until the event's date arrives, and re-locks/re-opens automatically when the date is changed. Couples tightly to the item above and to show-up confirmation; build them together so the lock is written once.
 - [ ] Link a guest to a crew member: someone plays as a typed guest on night one, joins the crew later, and their past results get credited to them. Needs the Entrant guest shape (shipped) plus a rebind action.
@@ -157,6 +158,7 @@ Not committed, no design decided.
 - Any pack with character selection has a "Which game?" title selector on its front page. The chosen title scopes the character picker AND the random pool to that title's roster (never assign a character that isn't in the game being played). Titles are subsets/variants of the series; stats stay unified across titles by character name. New character packs follow this: define the series' titles as GameTitle[] in the pack's shared module, thread titleId through the session state, and scope the picker + random with rosterForTitle().
 
 ## DECISION LOG
+- UI cleanup pass details (2026-07-18): rivalry color convention is YOU = teal, opponent = red/coral, applied on the rivalry page and the share card (the card previously had it the other way around). RSVP collapses to a one-line status + "Update RSVP" once answered; show-up confirmation will collapse the same way when built. The game picker skips the format expansion for any game with exactly one format (Mario Party today; also a Tournament tile once its bracket is live), so those are one tap. Delete event moved inside the event tile (stops navigation via preventDefault/stopPropagation). On the crew page, Members sit directly under the schedule form and the invite link collapsed to a single copy row; the raw URL only appears if the clipboard is blocked, preserving the long-press fallback. Event RSVP names now link to /g/:id/member/:userId like the crew list does.
 - Map cadence is counter-driven, not memory-driven (2026-07-19): "every third session" is unenforceable across chats, since a fresh session cannot know the count. The MAP STATUS block at the top of this file holds the tally and the last redraw date; every shipping session increments it, and the session that tips it to 3 redraws the map before doing its feature work. The counter lives in the repo, so the rule survives losing a chat, the drawing, and the project settings all at once.
 - Backlog structure mirrors the project map (2026-07-19): headings were reorganized so each one renders as exactly one zone on the Excalidraw map (SHIPPED — FOUNDATION, SHIPPED — GAME PACKS, NEXT UP, FEATURES TO ADD, BUGS, IDEAS). MAP PROTOCOL at the top pins the layout, colors, and cameras so any session redraws the same map from this file alone, with or without the previous drawing's checkpoint. Renaming or reordering these headings means updating MAP PROTOCOL in the same commit.
 - Event date editing + arrival confirmation are ONE unit of work (2026-07-19): arrival confirmation is gated by the event date, so the date has to be authoritative and mutable before the gate can be trusted. Changing a date re-evaluates the lock. Building them separately means writing the lock twice.

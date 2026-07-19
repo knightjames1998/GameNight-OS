@@ -172,8 +172,9 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 
 // ---------- Rivalry pieces ----------
 
-const P1 = "var(--gn-coral, #ff5a5f)"; // me
-const P2 = "var(--gn-teal, #2dd4bf)"; // them
+// You are always teal, the opponent is always red/coral — here and on the card.
+const P1 = "var(--gn-teal, #2dd4bf)"; // me
+const P2 = "var(--gn-coral, #ff5a5f)"; // them
 
 function RecordBanner({ r }: { r: Rivalry }) {
   const { wins, losses, ties, meetings } = r.h2h;
@@ -317,17 +318,17 @@ function drawRivalryCard(r: Rivalry, groupName: string): HTMLCanvasElement {
   if (!ctx) return cv;
   ctx.scale(scale, scale);
 
-  // Background: deep plum, coral glow left, teal glow right (the two sides).
+  // Background: deep plum, teal glow left (you), coral glow right (them).
   ctx.fillStyle = C.bg;
   ctx.fillRect(0, 0, W, H);
   const gl = ctx.createRadialGradient(80, -40, 30, 80, -40, 420);
-  gl.addColorStop(0, "rgba(255,90,95,0.20)");
-  gl.addColorStop(1, "rgba(255,90,95,0)");
+  gl.addColorStop(0, "rgba(45,212,191,0.18)");
+  gl.addColorStop(1, "rgba(45,212,191,0)");
   ctx.fillStyle = gl;
   ctx.fillRect(0, 0, W, 260);
   const gr = ctx.createRadialGradient(W - 80, -40, 30, W - 80, -40, 420);
-  gr.addColorStop(0, "rgba(45,212,191,0.18)");
-  gr.addColorStop(1, "rgba(45,212,191,0)");
+  gr.addColorStop(0, "rgba(255,90,95,0.20)");
+  gr.addColorStop(1, "rgba(255,90,95,0)");
   ctx.fillStyle = gr;
   ctx.fillRect(0, 0, W, 260);
 
@@ -355,12 +356,12 @@ function drawRivalryCard(r: Rivalry, groupName: string): HTMLCanvasElement {
     ctx.font = `700 34px ${FONT_HEAD}`;
     ctx.fillText(t.slice(0, 14), x, y);
   };
-  name(r.me.displayName, C.coral, "left", PAD);
+  name(r.me.displayName, C.teal, "left", PAD);
   ctx.fillStyle = C.dim;
   ctx.textAlign = "center";
   ctx.font = `700 22px ${FONT_HEAD}`;
   ctx.fillText("VS", W / 2, y);
-  name(r.them.displayName, C.teal, "right", W - PAD);
+  name(r.them.displayName, C.coral, "right", W - PAD);
 
   // The record, huge
   y = HEAD + NAMES;
@@ -387,7 +388,7 @@ function drawRivalryCard(r: Rivalry, groupName: string): HTMLCanvasElement {
   y = HEAD + NAMES + RECORD;
   const statRow = (label: string, a: string, b: string, aWins: boolean, bWins: boolean) => {
     ctx.textAlign = "left";
-    ctx.fillStyle = aWins ? C.coral : C.ink;
+    ctx.fillStyle = aWins ? C.teal : C.ink;
     ctx.font = `${aWins ? 800 : 600} 26px ${FONT_HEAD}`;
     ctx.fillText(a, PAD, y);
     ctx.textAlign = "center";
@@ -395,7 +396,7 @@ function drawRivalryCard(r: Rivalry, groupName: string): HTMLCanvasElement {
     ctx.font = `700 14px ${FONT_BODY}`;
     ctx.fillText(label.toUpperCase(), W / 2, y - 3);
     ctx.textAlign = "right";
-    ctx.fillStyle = bWins ? C.teal : C.ink;
+    ctx.fillStyle = bWins ? C.coral : C.ink;
     ctx.font = `${bWins ? 800 : 600} 26px ${FONT_HEAD}`;
     ctx.fillText(b, W - PAD, y);
     y += 44;
@@ -426,7 +427,7 @@ function drawRivalryCard(r: Rivalry, groupName: string): HTMLCanvasElement {
       ctx.textAlign = "right";
       ctx.font = `800 20px ${FONT_HEAD}`;
       const rec = `${g.myWins} - ${g.theirWins}`;
-      ctx.fillStyle = g.myWins > g.theirWins ? C.coral : g.theirWins > g.myWins ? C.teal : C.dim;
+      ctx.fillStyle = g.myWins > g.theirWins ? C.teal : g.theirWins > g.myWins ? C.coral : C.dim;
       ctx.fillText(rec, W - PAD, y);
       y += 40;
     }

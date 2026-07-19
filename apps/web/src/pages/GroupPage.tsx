@@ -16,6 +16,7 @@ export default function GroupPage({
   const [events, setEvents] = useState<EventSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showInviteUrl, setShowInviteUrl] = useState(false);
   const [title, setTitle] = useState("");
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(me?.displayName ?? "");
@@ -61,8 +62,9 @@ export default function GroupPage({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard can be blocked (older webviews); the link is visible to
-      // long-press copy either way.
+      // Clipboard can be blocked (older webviews); reveal the link so it can
+      // be long-press copied instead.
+      setShowInviteUrl(true);
     }
   }
 
@@ -171,13 +173,35 @@ export default function GroupPage({
         {!!events?.length && (
           <ul className="space-y-2">
             {events.map((e) => (
-              <li key={e.id} className="space-y-1">
-                <Link to={`/e/${e.id}`} className="gn-cab">
+              <li key={e.id}>
+                <Link to={`/e/${e.id}`} className="gn-cab" style={{ display: "block" }}>
                   <div className="flex justify-between items-baseline gap-2">
                     <span className="gn-cab__name" style={{ fontSize: "16px" }}>{e.title}</span>
-                    {e.myStatus && (
-                      <span className="gn-hint" style={{ fontSize: "12px" }}>you: {e.myStatus}</span>
-                    )}
+                    <span className="flex items-baseline gap-3">
+                      {e.myStatus && (
+                        <span className="gn-hint" style={{ fontSize: "12px" }}>you: {e.myStatus}</span>
+                      )}
+                      {canManage && (
+                        <button
+                          className="gn-textbtn gn-textbtn--danger"
+                          style={{ fontSize: "12px", padding: 0 }}
+                          onClick={async (ev) => {
+                            // Inside the card's Link: don't navigate, just delete.
+                            ev.preventDefault();
+                            ev.stopPropagation();
+                            if (!window.confirm(`Delete "${e.title}"? Its RSVPs, brackets and recorded stats go with it. This can't be undone.`)) return;
+                            try {
+                              await api(`/api/events/${e.id}`, { method: "DELETE" });
+                              setEvents((events ?? []).filter((x) => x.id !== e.id));
+                            } catch (err) {
+                              window.alert(err instanceof Error ? err.message : "Couldn't delete");
+                            }
+                          }}
+                        >
+                          delete
+                        </button>
+                      )}
+                    </span>
                   </div>
                   <div className="gn-cab__sub">
                     {e.scheduledFor
@@ -193,25 +217,6 @@ export default function GroupPage({
                     {e.counts.yes} in / {e.counts.maybe} maybe / {e.counts.no} out
                   </div>
                 </Link>
-                {canManage && (
-                  <div className="flex justify-end">
-                    <button
-                      className="gn-textbtn gn-textbtn--danger"
-                      style={{ fontSize: "12px", minHeight: "32px" }}
-                      onClick={async () => {
-                        if (!window.confirm(`Delete "${e.title}"? Its RSVPs, brackets and recorded stats go with it. This can't be undone.`)) return;
-                        try {
-                          await api(`/api/events/${e.id}`, { method: "DELETE" });
-                          setEvents((events ?? []).filter((x) => x.id !== e.id));
-                        } catch (err) {
-                          window.alert(err instanceof Error ? err.message : "Couldn't delete");
-                        }
-                      }}
-                    >
-                      delete event
-                    </button>
-                  </div>
-                )}
               </li>
             ))}
           </ul>
@@ -243,17 +248,6 @@ export default function GroupPage({
 
       {/* ---- Crew (people) --------------------------------------------- */}
       <div className="gn-divider">Your crew</div>
-
-      <section className="gn-card space-y-2">
-        <h2 className="gn-h2">Invite link</h2>
-        <p className="gn-hint">Anyone with this link can join. Drop it in the group chat.</p>
-        <div className="flex gap-2 items-center">
-          <code className="gn-code flex-1">{inviteUrl}</code>
-          <button onClick={copyInvite} className="gn-btn gn-btn--go" style={{ minHeight: "44px" }}>
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
-      </section>
 
       <section className="gn-card space-y-3">
         <div className="flex items-baseline justify-between gap-2">
@@ -351,6 +345,18 @@ export default function GroupPage({
             );
           })}
         </ul>
+      </section>
+
+      {/* Compact invite row: one line, the full URL only appears if the
+          clipboard is blocked (older webviews) so long-press copy still works. */}
+      <section className="gn-card space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="gn-hint">Invite link — anyone with it can join.</span>
+          <button onClick={copyInvite} className="gn-btn gn-btn--go" style={{ minHeight: "40px" }}>
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+        {showInviteUrl && <code className="gn-code" style={{ display: "block" }}>{inviteUrl}</code>}
       </section>
 
       {group.myRole === "owner" && (

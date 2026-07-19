@@ -100,7 +100,7 @@ export default function App() {
             />
           }
         />
-        <Route path="/e/:id" element={<EventPage />} />
+        <Route path="/e/:id" element={<EventPage me={me} />} />
         <Route path="/b/:id" element={<BracketPage />} />
         <Route path="/tv/:id" element={<TvPage />} />
         <Route path="/beerio" element={<BeerioRoute />} />

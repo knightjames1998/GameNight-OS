@@ -162,11 +162,9 @@ function Groups({
               Save
             </button>
           </div>
-        </section>
 
-        {/* Password: prominent prompt when unset, collapses to a small
-            "Change password" once one exists so it stops eating space. */}
-        <section>
+          {/* Password lives right under the name field: prominent prompt when
+              unset, collapses to a small "Change password" once one exists. */}
           {me.hasPassword && !showPw ? (
             <div className="flex items-center justify-between">
               <span className="gn-hint">Password set.</span>

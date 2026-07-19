@@ -3,9 +3,9 @@ import { useState } from "react";
 // Shared "pick a game, then a format" chooser (Arcade). Used on the home
 // quick-play screen and on the event page. Each game expands to its formats;
 // the parent owns what each format does (navigate, start a bracket, etc.), so
-// this component stays dumb. Games with a single format still read as
-// game > format — e.g. Tournament expands to single/double elim, which is the
-// "the format is the game" case.
+// this component stays dumb. A game with exactly ONE format skips the
+// expansion step entirely: the cab itself launches the format in one tap
+// (e.g. Mario Party's board night, or a Tournament that's already live).
 
 export interface PickerFormat {
   key: string;
@@ -28,6 +28,26 @@ export default function GamePicker({ games }: { games: PickerGame[] }) {
   return (
     <div className="space-y-2">
       {games.map((g) => {
+        const single = g.formats.length === 1 ? g.formats[0] : null;
+        if (single) {
+          return (
+            <button
+              key={g.key}
+              type="button"
+              disabled={single.disabled}
+              onClick={single.onPick}
+              className={`gn-cab ${g.cabClass ?? ""} w-full text-left`}
+              style={{ display: "block", ...(single.disabled ? { opacity: 0.55, cursor: "default" } : {}) }}
+            >
+              <span className="gn-cab__name">
+                {g.emoji} {g.name}
+              </span>
+              <span className="gn-cab__sub">
+                {single.disabled ? single.label : (single.sub ?? g.sub ?? single.label)}
+              </span>
+            </button>
+          );
+        }
         const isOpen = open === g.key;
         return (
           <div key={g.key}>

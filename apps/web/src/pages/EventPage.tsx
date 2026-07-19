@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { api, type EventDetail, type RsvpStatus } from "../api";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { api, type EventDetail, type Me, type RsvpStatus } from "../api";
 import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
 import GamePicker, { type PickerGame, type PickerFormat } from "../GamePicker";
 
-export default function EventPage() {
+export default function EventPage({ me }: { me: Me | null }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editRsvp, setEditRsvp] = useState(false);
 
   async function load() {
     try {
@@ -63,6 +64,7 @@ export default function EventPage() {
         body: JSON.stringify({ status }),
       });
       await load();
+      setEditRsvp(false);
     } finally {
       setBusy(false);
     }
@@ -109,28 +111,51 @@ export default function EventPage() {
         <p className="gn-hint mt-1">{when}</p>
       </div>
 
+      {/* RSVP collapses to one line once answered, so it gets out of the way
+          of the games. "Update RSVP" reopens the three buttons. */}
       <section className="space-y-2">
-        <h2 className="gn-h2">You going?</h2>
-        <div className="grid grid-cols-3 gap-2">
-          {buttons.map((b) => {
-            const on = event.myStatus === b.status;
-            return (
-              <button
-                key={b.status}
-                onClick={() => rsvp(b.status)}
-                disabled={busy}
-                className="gn-btn"
-                style={
-                  on
-                    ? { background: b.bg, color: b.ink, boxShadow: "0 4px 0 rgba(0,0,0,.35)" }
-                    : { background: "var(--gn-surf)", color: "var(--gn-ink)", border: "2px solid var(--gn-line)" }
-                }
-              >
-                {b.label}
-              </button>
-            );
-          })}
-        </div>
+        {event.myStatus && !editRsvp ? (
+          <div
+            className="flex items-center justify-between gap-2"
+            style={{
+              background: "var(--gn-surf)",
+              border: "2px solid var(--gn-line)",
+              borderRadius: "12px",
+              padding: "10px 14px",
+            }}
+          >
+            <span style={{ fontWeight: 700, color: buttons.find((b) => b.status === event.myStatus)?.bg }}>
+              {event.myStatus === "yes" ? "You're in" : event.myStatus === "maybe" ? "You're a maybe" : "You're out"}
+            </span>
+            <button className="gn-textbtn" onClick={() => setEditRsvp(true)}>
+              Update RSVP
+            </button>
+          </div>
+        ) : (
+          <>
+            <h2 className="gn-h2">You going?</h2>
+            <div className="grid grid-cols-3 gap-2">
+              {buttons.map((b) => {
+                const on = event.myStatus === b.status;
+                return (
+                  <button
+                    key={b.status}
+                    onClick={() => rsvp(b.status)}
+                    disabled={busy}
+                    className="gn-btn"
+                    style={
+                      on
+                        ? { background: b.bg, color: b.ink, boxShadow: "0 4px 0 rgba(0,0,0,.35)" }
+                        : { background: "var(--gn-surf)", color: "var(--gn-ink)", border: "2px solid var(--gn-line)" }
+                    }
+                  >
+                    {b.label}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </section>
 
       <section className="space-y-2">
@@ -139,23 +164,29 @@ export default function EventPage() {
       </section>
 
       <section className="space-y-4">
-        <RsvpList title="In" people={groupBy("yes")} tone="var(--gn-yes)" />
-        <RsvpList title="Maybe" people={groupBy("maybe")} tone="var(--gn-gold)" />
-        <RsvpList title="Out" people={groupBy("no")} tone="var(--gn-p1)" />
-        <RsvpList title="No answer yet" people={event.noResponse} tone="var(--gn-dim)" />
+        <RsvpList title="In" people={groupBy("yes")} tone="var(--gn-yes)" groupId={event.groupId} meId={me?.id} />
+        <RsvpList title="Maybe" people={groupBy("maybe")} tone="var(--gn-gold)" groupId={event.groupId} meId={me?.id} />
+        <RsvpList title="Out" people={groupBy("no")} tone="var(--gn-p1)" groupId={event.groupId} meId={me?.id} />
+        <RsvpList title="No answer yet" people={event.noResponse} tone="var(--gn-dim)" groupId={event.groupId} meId={me?.id} />
       </section>
     </Shell>
   );
 }
 
+// Each name links to the same profile/rivalry page the crew list uses:
+// yourself = your stats, anyone else = you vs them.
 function RsvpList({
   title,
   people,
   tone,
+  groupId,
+  meId,
 }: {
   title: string;
   people: { userId: string; displayName: string }[];
   tone: string;
+  groupId: string;
+  meId?: string;
 }) {
   if (people.length === 0) return null;
   return (
@@ -165,11 +196,25 @@ function RsvpList({
       </h3>
       <ul className="space-y-1">
         {people.map((p) => (
-          <li
-            key={p.userId}
-            style={{ background: "var(--gn-surf)", border: "2px solid var(--gn-line)", borderRadius: "12px", padding: "10px 14px", fontWeight: 700 }}
-          >
-            {p.displayName}
+          <li key={p.userId}>
+            <Link
+              to={`/g/${groupId}/member/${p.userId}`}
+              className="flex justify-between items-center gap-2"
+              style={{
+                background: "var(--gn-surf)",
+                border: "2px solid var(--gn-line)",
+                borderRadius: "12px",
+                padding: "10px 14px",
+                fontWeight: 700,
+                color: "var(--gn-ink)",
+                textDecoration: "none",
+              }}
+            >
+              {p.displayName}
+              <span className="gn-hint" style={{ fontWeight: 400, fontSize: "11px" }}>
+                {meId === p.userId ? "stats" : "vs"}
+              </span>
+            </Link>
           </li>
         ))}
       </ul>
@@ -212,7 +257,7 @@ function eventGames(
       {
         key: "open",
         label: event.bracket.status === "completed" ? "Open final bracket" : "Open live bracket",
-        sub: "tap to open",
+        sub: event.bracket.status === "completed" ? "final bracket · tap to open" : "live now · tap to open",
         onPick: () => navigate(`/b/${event.bracket!.id}`),
       },
     ];

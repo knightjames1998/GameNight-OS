@@ -174,8 +174,9 @@ count lives in the repo.
 - When a bug is reported, find the ROOT CAUSE and say what it was. Do not patch symptoms.
 
 ## Now / Next
-Authoritative list lives in BACKLOG.md under NEXT UP. As of 2026-07-19 the committed next
-three sessions are:
+Authoritative list lives in BACKLOG.md under NEXT UP. As of 2026-07-18 (UI cleanup pass
+shipped) the committed next three sessions are:
 1. Event-level night recap
-2. Show-up confirmation (with event date editing and the date-gated arrival lock)
-3. UI cleanup pass (collapse RSVP once answered, delete event back inside the tile)
+2. Show-up confirmation (with event date editing and the date-gated arrival lock;
+   collapses once answered, same pattern as RSVP)
+3. Smashdown night (Smash pack format)
