@@ -1,55 +1,120 @@
 # GameNight OS Backlog
 
-Ideas live here so nothing gets silently dropped. Status: NOW (current push), NEXT (after), LATER (someday), DEFERRED (decided against for now, with reason).
+This file is the SOURCE OF TRUTH for project scope. The Excalidraw project map is a
+rendering of it, nothing more: every zone on the map maps to one heading below, so the
+map can always be redrawn from this file alone (see MAP PROTOCOL). If the two ever
+disagree, this file wins.
 
-## SHIPPED (MVP framework, original Phases 0-5)
-- [x] Magic link auth + password accounts
-- [x] Crew: groups, invite links, join, member removal, roles
-- [x] Events + RSVPs with live updates
-- [x] Single-elim bracket engine (Beerio derive-from-results pattern), byes, undo cascade, scoring lock
+Section order below is deliberate and matches the map's zone order. Do not rename or
+reorder headings without updating MAP PROTOCOL in the same commit.
+
+## MAP PROTOCOL
+How and when the Excalidraw project map gets redrawn. Written so any session reproduces
+the same map from this file, with or without the previous drawing's checkpoint.
+
+**When:** after every third shipped session. A "shipped session" is one that delivers a
+feature, pack, or fix set (doc-only passes do not count). Reconcile this file FIRST, then
+draw the map from the reconciled file. Never draw from memory of a previous map.
+
+**Zone-to-heading mapping (fixed):**
+| Zone | Title on map | Source heading |
+|---|---|---|
+| 1 | SHIPPED — FOUNDATION | ## SHIPPED — FOUNDATION |
+| 2 | SHIPPED — GAME PACKS | ## SHIPPED — GAME PACKS |
+| 3 | NEXT UP (queued) | ## NEXT UP (queued) |
+| 4 | FEATURES TO ADD | ## FEATURES TO ADD |
+| 5 | BUG FIXES | ## BUGS |
+| 6 | IDEAS — NOT SOLIDIFIED | ## IDEAS (not solidified) |
+
+**Layout (fixed, so redraws are stable):** 3 columns x 2 rows. Columns at x=40, 560, 1080,
+each 480 wide. Row 1 at y=95 (height 540), row 2 at y=660 (height 530). Zone header text
+15px below zone top, fontSize 22. Items 440 wide, 40 tall, 46px step, first item 50px below
+zone top; give a taller box (52-70) to any item whose label wraps past one line.
+
+**Colors:** zones 1-2 green (#d3f9d8 zone / #b2f2bb items / #15803d header). Zone 3 yellow
+(#fff3bf / #ffd8a8 / #b45309); the first three items get strokeWidth 2 and a leading number,
+they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb). Zone 5 red
+(#ffc9c9 zone / #b91c1c header): OPEN bugs #ffc9c9, the chosen FIX #ffd8a8, "Watch" traps
+#fff3bf, FIXED items #b2f2bb. Zone 6 purple (#e5dbff / #d0bfff / #6d28d9). Newly shipped
+items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
+
+**Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
+on a 1600x1200 panorama. Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
+
+**Reconcile step (do this before drawing):** move finished items from NEXT UP into the right
+SHIPPED section with a one-line summary and date; renumber the top three of NEXT UP; move
+fixed bugs to FIXED in BUGS and drop anything stale; add anything new discussed since the
+last pass; then draw.
+
+## SHIPPED — FOUNDATION
+- [x] Magic link auth + password accounts, 30-day session cookies
+- [x] Crew: groups, invite links, join flow, roles, member removal, self-leave, crew deletion
+- [x] Events + RSVPs with live updates, event deletion (cascades)
+- [x] Bracket engine: single elim (derive-from-results), byes, undo cascade, scoring lock; double elim with losers bracket + grand-final reset (packages/shared/src/bracket.ts, tests via `pnpm test:bracket`)
+- [x] Live sync: in-process WebSocket hub (apps/server/src/ws.ts), broadcast on every write, shared client hook useLiveUpdates
 - [x] TV broadcast view (public UUID link, QR to score, live)
+- [x] Lifetime stats ledger: matches/match_participants, fed by every pack on completion, retracted on undo
+- [x] Quick play: running a mode without a crew creates a hidden personal crew (groups.is_personal) so scoring/TV/recap all work through one system
 - [x] Recap card (canvas-to-JPG, share sheet + download)
-- [x] Beerio Kart game pack: 1:1 replica of the standalone app, bound to lifetime stats. Double elim + Grand Prix, spectator predictions, its own TV mode, live room bound to the event.
-- [x] Legacy/stats screen: lifetime crew leaderboard at /g/:id/stats. Generic brackets and Beerio nights both materialize on completion, so stats span both bracket types.
+- [x] Arcade theme across the generic app (CSS custom-property tokens + gn-* class layer) and PWA install (manifest, icons, iOS meta tags, safe-area insets)
+- [x] Async crash-safe routes: async-safe.ts patches the Express Router so a rejected handler returns a 500 instead of taking down the process and the WebSocket hub
+- [x] Profiles + rivalry cards (2026-07-18). Tapping a member in the crew list opens /g/:id/member/:userId. Yourself = profile (games/wins/win rate/podiums/best/avg + by-game table). Anyone else = rivalry: side-by-side stats, head-to-head record banner, per-game H2H, shareable canvas-to-JPG rivalry card. Home gained a "Your stats" card aggregating across every crew including quick play. Server: three read-only endpoints in stats.ts. No schema change.
 
-## NOW
-- [x] Smash Bros game pack, Session A: FFA Night (2-8) + King of the Hill + character system (self-select / random / host-assign, full Ultimate roster) + its own TV mode + lifetime character stats. Satisfies all 8 standing rules. Tournament for Smash reuses the existing single-elim engine (no new bracket code).
-- [x] Smash Bros, Session B: double-elimination in the shared engine (packages/shared/src/bracket.ts): losers bracket, grand-final reset, undo cascade across both brackets, format dropdown on the event bracket and Quick Play. Isolated tests in packages/shared/tests/bracket.test.ts (`pnpm test:bracket`). The "Smash Tournament option" half is moot until the Smash launcher grows a Tournament format (below).
-- [ ] Smash Tournament format: a third option in the Smash format picker that launches a bracket (single or double elim) from the Smash session roster and materializes with fighters. Today tournaments run through the generic bracket instead.
+## SHIPPED — GAME PACKS
+- [x] Beerio Kart: 1:1 replica of the standalone app, bound to lifetime stats. Double elim + Grand Prix, spectator predictions, its own TV mode, live room bound to the event.
+- [x] Smash Bros, Session A: FFA Night (2-8) + King of the Hill + character system (self-select / random / host-assign, full Ultimate roster) + its own TV mode + lifetime character stats.
+- [x] Smash Bros, Session B: double-elimination surfaced in the Smash section and the generic tournament tracker.
+- [x] Mario Kart general tracking pack.
+- [x] Mario Party pack: one recorded game = one board. Pick the board, enter each player's total stars, winner is the most stars (a top tie prompts the host to tap the winner, since coins aren't tracked); optional per-player bonus stars with one exclusive owner each. Own theme, own TV view, stats tab. Schema: matches.label = board, match_participants.meta = bonus stars.
+- [x] Title-scoped character selection (cross-pack): a "Which game?" selector scopes both the picker and the random pool to that title's roster. Smash: 64, Melee, Brawl, Smash 4, Ultimate. Mario Kart: MK8 Deluxe, Mario Kart World, Wii, Double Dash, MK64. Stats stay unified by character name. No schema change (titleId lives in session jsonb).
+- [x] Generic bracket tracker + its TV mode + recap card (the pack-agnostic path).
+- Shared primitives available to any new pack: FFA/placement roster, King of the Hill rotation, single + double elim bracket engine.
 
-- [x] Title-scoped character selection (cross-pack). A "Which game?" selector on the front page of every character pack (Smash, Mario Kart) scopes both the character picker and the random pool to that specific title's roster. Default is the newest/widest title (Smash: Ultimate; Mario Kart: MK8 Deluxe). Stats stay unified across titles (a character is the same character in every game). Smash titles: 64, Melee, Brawl, Smash 4, Ultimate. Mario Kart titles: MK8 Deluxe, Mario Kart World, Mario Kart Wii, Double Dash, MK64. No schema change (title lives in the session jsonb).
-- [x] Mario Party pack (Session 2). Board nights: pick the title (Jamboree default, Superstars), which scopes the character roster, the board list, AND the bonus-star options. Up to 4 players, characters self/random/host. One recorded game = one BOARD: pick the board, enter each player's total stars, winner is the most stars (a top tie prompts the host to tap the winner, since coins aren't tracked); optional per-player bonus stars. Own purple/gold theme, own TV view, BackButton, live sync, quick play, guests excluded from stats. Stats tab: wins/win rate, total and average stars, wins by board, bonus-star leaders, character stats. Schema: two nullable columns (matches.label = board, match_participants.meta = bonus stars).
-
-- [x] Profiles + rivalry cards (2026-07-18). Tapping a member in the crew list opens /g/:id/member/:userId. Yourself = profile (games/wins/win rate/podiums/best/avg + by-game table). Anyone else = rivalry: side-by-side stats (coral you, teal them), a head-to-head record banner, per-game H2H, and a shareable canvas-to-JPG rivalry card (same pipeline as the recap card). Home page gained a "Your stats" card: lifetime totals across every crew including quick play, expandable to a per-crew list linking each crew's stats page; hidden until the first recorded game. Server: three read-only endpoints in stats.ts (/me/stats, member stats, rivalry). No schema change.
-
-## NEXT (priority order set by James)
-- [ ] Event-level night recap: one shareable card for the whole event spanning every game played that night (all packs + brackets), with an MVP callout. Reuses the canvas-to-JPG pipeline.
-- [ ] Show-up confirmation: one-tap "who's actually here" on the event page. Records attendance separate from RSVP intent; feeds flake tracking and tightens roster prefill.
-- [ ] UI cleanup pass: collapse related/stale controls. RSVP controls collapse once answered; delete event moves inside the event tile; general condensing of buttons that have served their purpose.
-- [ ] Smashdown night (Smash pack format): Ultimate's built-in mode where a used fighter is struck from the roster until the series ends. The app renders the shared burned-fighter board (huge on the TV view), one tap per game to record the winner, roster + title selector already exist. New stat: unique fighters won with.
-- [x] UI design pass: Arcade theme rollout across the generic app. DONE — Home, Login, GroupPage, StatsPage, QuickPlayPage, EventPage, BracketPage, TvPage, JoinPage, the App loading fallback, the magic-link tap-through pages (server-rendered), and the tournament recap/share card are all Arcade. Branded packs (Beerio Kart, Smash) keep their own styling by design. The only remaining un-tokenized spot is the QR quiet-zone white background, which is intentional (scannability).
-- [x] Harden async route error handling (server). DONE — apps/server/src/async-safe.ts patches the Express Router so any handler that throws or rejects is routed to next(err); a top-level error middleware in index.ts returns a 500; process-level unhandledRejection/uncaughtException handlers keep the process (and the WebSocket hub) alive as a last resort. No new dependency (lockfile stays frozen-safe).
+## NEXT UP (queued)
+Priority order set by James. The top three are the committed next sessions.
+- [ ] 1. Event-level night recap: one shareable card for the whole event spanning every game played that night (all packs + brackets), with an MVP callout. Reuses the canvas-to-JPG pipeline.
+- [ ] 2. Show-up confirmation: one-tap "who's actually here" on the event page. Records attendance separate from RSVP intent; feeds flake tracking and tightens roster prefill. Gated by event date (see FEATURES TO ADD).
+- [ ] 3. UI cleanup pass: collapse related/stale controls. RSVP collapses once answered; delete event moves inside the event tile; general condensing of buttons that have served their purpose.
+- [ ] Smashdown night (Smash pack format): Ultimate's built-in mode where a used fighter is struck from the roster until the series ends. The app renders the shared burned-fighter board (huge on the TV view), one tap per game to record the winner; roster + title selector already exist. New stat: unique fighters won with. Reuses the FFA engine, so this is the cheapest remaining pack work.
+- [ ] Smash Tournament format: a third option in the Smash format picker that launches a bracket from the Smash session roster and materializes with fighters. Today Smash tournaments run through the generic bracket.
+- [ ] Unify Smash + Mario Kart into one config-driven session pack (roster + enabled formats + table as config), so there's one code path instead of two near-copies. Also: a Mario Kart character-stats panel like Smash's.
+- [ ] Tabletop theme: second theme token block + a user-facing theme switcher (Arcade default). Foundation already laid.
 - [ ] More game packs. Candidates: board games, darts, poker night.
-- [ ] Unify Smash + Mario Kart into one config-driven session pack (roster + enabled formats + table as config), so there's one code path instead of two near-copies. Deferred to keep shipped Smash byte-stable while it can't be tested locally. Also: a Mario Kart character-stats panel on the stats page (like Smash's), and Smash's Tournament format could route through the generic bracket the same way.
-- [ ] Tabletop theme: build the second theme token block + a user-facing theme switcher (Arcade default, Tabletop opt-in). Foundation already laid (CSS variables + gn-* component classes).
+
+## FEATURES TO ADD
+Wanted, not yet scheduled into a session.
+- [ ] Change event date after creating it. Events can be created with no date or the wrong one; there is currently no edit path.
+- [ ] Confirm arrival, gated by event date: the "I'm here" control stays locked until the event's date arrives, and re-locks/re-opens automatically when the date is changed. Couples tightly to the item above and to show-up confirmation; build them together so the lock is written once.
+- [ ] Link a guest to a crew member: someone plays as a typed guest on night one, joins the crew later, and their past results get credited to them. Needs the Entrant guest shape (shipped) plus a rebind action.
 - [ ] Smack talk feed (on the TV view and/or in-app)
-- [ ] Flake tracking / RSVP streaks
-- [ ] Link a guest to a crew member (crew settings): someone plays as a typed guest on night one, joins the crew later, and their past results get credited to them. Needs the Entrant guest shape (shipped) plus a rebind action.
-- [ ] Magic-link code entry for the installed app: iOS home-screen web apps keep cookies separate from Safari, so a magic link tapped in Mail logs into Safari, not the installed app. Add an "enter the code from your email" input on the login screen so the flow completes in-app. Password login already works in-app and is the workaround until then.
+- [ ] Flake tracking / RSVP streaks (unblocked once show-up confirmation ships)
 - [ ] Stats on the TV view (leaderboard between matches)
-- [x] Per-member stat profile page. Shipped as part of profiles + rivalry cards (below).
+- [ ] Spectator predictions ticker on the generic Broadcast (port from Beerio Kart)
 - [ ] Seasons: 8-12 week arcs with standings and an offseason
 - [ ] Round robin format
 - [ ] Availability polling and auto-pick-the-night
-- [ ] Spectator predictions ticker on the generic Broadcast (port from Beerio Kart)
 
-## LATER
+## BUGS
+Open first, then environment traps worth remembering, then fixed (fixed items age out after a couple of map redraws).
+- [ ] OPEN: magic link emails not sending since the move to Render. Verify before building: magic links print to the server logs in every environment, so check the Render logs to see whether the link is being generated (a delivery problem) or not (an env var / route problem). Note that Resend's free tier only ever delivered to the account owner's address, which looks identical to "broken" from a friend's phone, so confirm which failure this actually is.
+- [ ] FIX PLANNED: replace the emailed link with a verification CODE entered in the app. Fixes delivery-independent login AND the installed-app problem (iOS home-screen web apps keep cookies separate from Safari, so a link tapped in Mail logs into Safari, not the installed app). Supersedes the older "magic-link code entry" item.
+- Watch: Resend only delivers to the account owner's email until a sending domain is verified. Password signup is the friction-free path for friends until then.
+- Watch: `drizzle-kit push --force` silently no-ops in non-interactive CI (exits 0 without applying). Confirm the drizzle-kit success line in the build log on any schema-changing deploy; otherwise run idempotent SQL in the Neon console (ALTER TABLE ... ADD COLUMN IF NOT EXISTS).
+- [x] FIXED: Firefox double-back as a Beerio spectator. The auto event->s=CODE bounce pushed a history entry; switched to replace navigation plus a "Connecting to the night" gate.
+- [x] FIXED: Mario Party tied placements were arbitrary. Non-winners tied on stars now share a placement (competition ranking 1, 2, 2, 4).
+- [x] FIXED: PWA standalone mode (manifest, icons, iOS meta tags) and safe-area insets.
+
+## IDEAS (not solidified)
+Not committed, no design decided.
 - [ ] Draft night mode (snake drafts for characters/teams, TV draft board)
-- [ ] Wager ledger (bragging-rights bets, confirmations, outstanding debts)
+- [ ] Wager ledger (bragging-rights bets, confirmations, outstanding debts). Bragging rights only, never money.
 - [ ] Achievements/badges, including group-created custom badges
-- [ ] Cross-game stats profiles per member
-- [ ] Capacitor native wrapper: packages this web app as a real iOS/Android app for the app stores (same code, native shell, home screen icon, push notifications). Not needed while the PWA works.
+- [ ] Beer pong pack. Would force the one missing primitive, a team model (2v2), which then unlocks cornhole, foosball and doubles ping pong cheaply.
+- [ ] Pool / ping pong. Fastest possible ship: rides the existing KOTH engine almost unchanged.
+- [ ] Cornhole, darts, poker night. Poker needs a new session ledger engine (buy-ins, net results) but has the highest stat payoff.
+- [ ] Capacitor native wrapper: packages this web app as a real iOS/Android app (same code, native shell, push notifications). Not needed while the PWA works.
 - [ ] Offline score entry sync (PWA background sync)
+- [ ] Warm-up ping before game night: Render free tier sleeps after 15 minutes idle and the first request takes 30-60s. An external cron hitting a health endpoint before scheduled events removes the worst first impression in the app.
 
 ## DEFERRED
 - Smash character portraits: fighters are text-only for now. Portraits/thumbnails come with the UI pass (asset sourcing + licensing to think about). The roster and picker are built to swap in art without a data change.
@@ -61,6 +126,7 @@ Ideas live here so nothing gets silently dropped. Status: NOW (current push), NE
 - Money wagers: regulatory mess. Bragging rights only.
 
 ## STANDING RULES
+- Every third shipped session, reconcile this file and then redraw the Excalidraw project map from it, per MAP PROTOCOL at the top. This file is the source of truth; the map is a rendering. Reconcile first, draw second, never draw from memory of the last map. A lost drawing costs one redraw; a stale backlog costs the record itself.
 - Owners/admins run a mode: only they start it and edit results. Members watch. A per-mode toggle may open scoring to members, but it defaults OFF.
 - Members join the HOST'S live session, never a local copy. Session state lives server-side, keyed to the event.
 - Every game mode/tracker ships with a TV/spectator view, styled in that mode's OWN design language, not a generic one. Generic bracket has /tv/:id; Beerio Kart has its original live spectator QR flow.
@@ -72,6 +138,9 @@ Ideas live here so nothing gets silently dropped. Status: NOW (current push), NE
 - Any pack with character selection has a "Which game?" title selector on its front page. The chosen title scopes the character picker AND the random pool to that title's roster (never assign a character that isn't in the game being played). Titles are subsets/variants of the series; stats stay unified across titles by character name. New character packs follow this: define the series' titles as GameTitle[] in the pack's shared module, thread titleId through the session state, and scope the picker + random with rosterForTitle().
 
 ## DECISION LOG
+- Backlog structure mirrors the project map (2026-07-19): headings were reorganized so each one renders as exactly one zone on the Excalidraw map (SHIPPED — FOUNDATION, SHIPPED — GAME PACKS, NEXT UP, FEATURES TO ADD, BUGS, IDEAS). MAP PROTOCOL at the top pins the layout, colors, and cameras so any session redraws the same map from this file alone, with or without the previous drawing's checkpoint. Renaming or reordering these headings means updating MAP PROTOCOL in the same commit.
+- Event date editing + arrival confirmation are ONE unit of work (2026-07-19): arrival confirmation is gated by the event date, so the date has to be authoritative and mutable before the gate can be trusted. Changing a date re-evaluates the lock. Building them separately means writing the lock twice.
+- Magic link failure is unconfirmed as a Render regression (2026-07-19): Resend's free tier only ever delivered to the account owner's address, which is indistinguishable from "broken" when a friend tests it. Check the Render logs for the generated link before treating this as a delivery bug. The verification-code fix is worth building regardless, because it also resolves the installed-app cookie split that was already on the backlog.
 - Standalone web app pass (2026-07-18): added manifest + icons + apple meta tags so Add to Home Screen launches without browser chrome; status bar style is black-translucent with safe-area insets padded on every root shell (gn-app, gn-tv, beerio-root, mk/mp/sm roots and TVs) so content stays clear of the notch and home indicator while backgrounds bleed edge to edge. Shells that carried Tailwind padding utilities moved that padding to inline calc(base + env(safe-area-inset-*)) because un-layered CSS and utility classes fight over the same property. No service worker / offline mode: decided against for now (app is online-only by nature). Magic-link-in-standalone gap logged in NEXT.
 - Mario Party titles, bonus-star accuracy, exclusivity (2026-07-18, revises the entry below): three titles added (Super Mario Party 2018, Mario Party 6, Mario Party 2), so the picker is Jamboree (default), Superstars, Super Mario Party, MP6, MP2. The original bonus-star sets were WRONG and are corrected: modern games renamed Coin Star to Rich Star/Rich Bonus and Happening Star to Eventful Star/Eventful Bonus, and Superstars/Jamboree support nine bonus stars each (the "On" setting), not three (three is the "Classic" setting). Verified per game against the Mario Party Overlay bonus list plus the Super Mario Wiki. Counts: Jamboree 22 chars/7 boards/9 bonus, Superstars 10/5/9, Super Mario Party 20/4/11, MP6 11/6/3 (MP5's ten plus Toadette; Toad is NOT playable in 6), MP2 6/6/3. Each title shows its OWN award names while recording (what's on screen), but lifetime stats aggregate by FAMILY via MP_BONUS_FAMILIES/bonusFamilyOf, so Coin Star + Rich Star + Rich Bonus all roll up to "Coins" and the crew's "who always wins the minigame star" holds across every Mario Party they own. Same one-identity-many-spellings principle as characters. Bonus stars are now EXCLUSIVE per board: the recording UI was flipped from per-player chips to one row per bonus star with a single owner (structurally impossible to double-assign, and far fewer taps: 9 rows instead of 36 chips on Jamboree), and rankMpLines rejects a duplicate award server-side too. One player can still hold several different bonus stars. Toggling a player out of a board releases any award they held. Mario Party also added to the home Quick Play picker.
 - Mario Party pack (2026-07-18): a recorded "game" is one BOARD, not a minigame or a turn. Input is deliberately minimal (standing rule 9): board, each player's final star count, and optional bonus-star toggles. Coins are NOT tracked, so a tie on stars can't be auto-resolved; the host taps the winner instead (rankMpLines rejects a tapped winner who isn't tied at the top). Capped at 4 players, the game's own limit. Two new nullable columns rather than a pack-specific table: matches.label holds the board and match_participants.meta holds { bonusStars: [...] }, both generic enough for future packs (darts legs, poker tables). Stars ride on the existing match_participants.score. Title selection (Session 1's pattern) scopes three lists here, not just the roster: characters, boards, and bonus stars, since those differ per title (Jamboree awards Event Star, Superstars awards Happening Star). Jamboree is the default (newest, widest). A "Custom board" option is always available so a board we didn't pin, or a house variant, still records. Stats live on their own /groups/:id/marioparty-stats endpoint, leaving the generic aggregator untouched (same call as the Smash pack).
