@@ -179,4 +179,5 @@ shipped) the committed next three sessions are:
 1. Event-level night recap
 2. Show-up confirmation (with event date editing and the date-gated arrival lock;
    collapses once answered, same pattern as RSVP)
-3. Smashdown night (Smash pack format)
+3. Open slot — James hasn't committed the third session yet (Smashdown night is the
+   top candidate, not committed)
