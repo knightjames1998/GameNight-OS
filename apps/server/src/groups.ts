@@ -109,7 +109,7 @@ groupsRouter.patch("/:id/members/:userId/role", async (req: AuthedRequest, res) 
     .update(memberships)
     .set({ role })
     .where(and(eq(memberships.groupId, groupId), eq(memberships.userId, targetId)));
-  broadcast({ type: "group_members_changed", groupId });
+  broadcast({ type: "group_members_changed", groupId }, req.get("x-gn-client"));
   res.json({ ok: true });
 });
 
@@ -147,7 +147,7 @@ groupsRouter.delete("/:id", async (req: AuthedRequest, res) => {
   await db.delete(memberships).where(eq(memberships.groupId, groupId));
   await db.delete(groups).where(eq(groups.id, groupId));
 
-  broadcast({ type: "group_members_changed", groupId });
+  broadcast({ type: "group_members_changed", groupId }, req.get("x-gn-client"));
   res.json({ ok: true });
 });
 
@@ -179,7 +179,7 @@ groupsRouter.delete("/:id/members/me", async (req: AuthedRequest, res) => {
   await db
     .delete(memberships)
     .where(and(eq(memberships.groupId, groupId), eq(memberships.userId, req.user!.id)));
-  broadcast({ type: "group_members_changed", groupId });
+  broadcast({ type: "group_members_changed", groupId }, req.get("x-gn-client"));
   res.json({ ok: true });
 });
 
@@ -254,7 +254,7 @@ groupsRouter.delete("/:id/members/:userId", async (req: AuthedRequest, res) => {
   await db
     .delete(memberships)
     .where(and(eq(memberships.groupId, groupId), eq(memberships.userId, targetId)));
-  broadcast({ type: "group_members_changed", groupId });
+  broadcast({ type: "group_members_changed", groupId }, req.get("x-gn-client"));
   res.json({ ok: true });
 });
 
@@ -284,7 +284,7 @@ joinRouter.post("/:code", requireAuth, async (req: AuthedRequest, res) => {
     .insert(memberships)
     .values({ groupId: group.id, userId: req.user!.id, role: "member" })
     .onConflictDoNothing();
-  broadcast({ type: "group_members_changed", groupId: group.id });
+  broadcast({ type: "group_members_changed", groupId: group.id }, req.get("x-gn-client"));
   res.json({ groupId: group.id });
 });
 

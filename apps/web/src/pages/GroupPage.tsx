@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, type EventSummary, type GroupDetail, type Me } from "../api";
+import { api, CLIENT_ID, type EventSummary, type GroupDetail, type Me } from "../api";
 import { useLiveUpdates } from "../useLiveUpdates";
 
 export default function GroupPage({
@@ -43,6 +43,10 @@ export default function GroupPage({
   // without a refresh, same as RSVPs.
   useLiveUpdates(
     (msg) => {
+      // Own echoes are skipped: this page already applies its writes to
+      // local state (role changes, removals, deletes), so refetching on
+      // them would just double the traffic.
+      if (msg.origin === CLIENT_ID) return;
       if (msg.groupId !== id) return;
       if (msg.type === "group_events_changed" || msg.type === "event_deleted" || msg.type === "event_updated")
         loadEvents();

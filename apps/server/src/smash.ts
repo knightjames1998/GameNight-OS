@@ -82,12 +82,13 @@ async function saveState(
   groupId: string,
   state: SmashSessionState,
   status: "setup" | "live" | "completed",
+  origin?: string,
 ) {
   await getDb()
     .update(smashSessions)
     .set({ state: state as unknown as Record<string, unknown>, status, updatedAt: new Date() })
     .where(eq(smashSessions.eventId, eventId));
-  broadcast({ type: "smash_updated", eventId });
+  broadcast({ type: "smash_updated", eventId }, origin);
 }
 
 /** The group's single Smash game row, created on first use (pack "smash"). */
@@ -234,20 +235,26 @@ smashRouter.get("/smash-context/:eventId", requireAuth, async (req: AuthedReques
 
 // ---------- read live state ----------
 
-async function respondState(eventId: string, res: import("express").Response) {
+/**
+ * The session payload the page renders. Mutations return this directly so
+ * the acting client applies the response instead of refetching; the GETs
+ * serve the same shape so the two can never disagree.
+ */
+async function sessionView(eventId: string) {
   const loaded = await loadState(eventId);
-  if (!loaded) {
-    res.json({ session: null });
-    return;
-  }
-  res.json({
+  if (!loaded) return { session: null };
+  return {
     session: {
       status: loaded.row.status,
       groupId: loaded.row.groupId,
       ...loaded.state,
       summary: summarizeNight(loaded.state),
     },
-  });
+  };
+}
+
+async function respondState(eventId: string, res: import("express").Response) {
+  res.json(await sessionView(eventId));
 }
 
 smashRouter.get("/smash/:eventId", requireAuth, async (req: AuthedRequest, res) => {
@@ -338,8 +345,8 @@ smashRouter.post("/events/:eventId/smash", requireAuth, async (req: AuthedReques
       target: smashSessions.eventId,
       set: { groupId: event.groupId, status: "live", state: state as any, updatedAt: new Date() },
     });
-  broadcast({ type: "smash_updated", eventId });
-  res.json({ ok: true });
+  broadcast({ type: "smash_updated", eventId }, req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });
 
 // ---------- assignment ----------
@@ -380,8 +387,8 @@ smashRouter.post("/smash/:eventId/character", requireAuth, async (req: AuthedReq
     return;
   }
   slot.character = character ?? null;
-  await saveState(eventId, loaded.row.groupId, loaded.state, loaded.row.status);
-  res.json({ ok: true });
+  await saveState(eventId, loaded.row.groupId, loaded.state, loaded.row.status, req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });
 
 // Host re-rolls random fighters for everyone.
@@ -400,8 +407,8 @@ smashRouter.post("/smash/:eventId/randomize", requireAuth, async (req: AuthedReq
     loaded.state.roster,
     rosterForTitle(SMASH_TITLES, loaded.state.titleId),
   );
-  await saveState(eventId, loaded.row.groupId, loaded.state, loaded.row.status);
-  res.json({ ok: true });
+  await saveState(eventId, loaded.row.groupId, loaded.state, loaded.row.status, req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });
 
 // ---------- record a game / round ----------
@@ -482,9 +489,10 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
   const gameId = await ensureSmashGame(row.groupId);
   const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster);
 
-  await saveState(eventId, row.groupId, state, "live");
-  broadcast({ type: "leaderboard_updated", eventId });
-  res.json({ ok: true, ...report });
+  const origin = req.get("x-gn-client");
+  await saveState(eventId, row.groupId, state, "live", origin);
+  broadcast({ type: "leaderboard_updated", eventId }, origin);
+  res.json({ ...(await sessionView(eventId)), ...report });
 });
 
 // Undo the last recorded game (host only): drop the ledger rows and replay
@@ -503,7 +511,7 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
   }
   const last = state.games.pop();
   if (!last) {
-    res.json({ ok: true, empty: true });
+    res.json({ ...(await sessionView(eventId)), empty: true });
     return;
   }
   await deleteMaterialized(eventId, last.idx);
@@ -523,9 +531,10 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
     }
     state.koth = koth;
   }
-  await saveState(eventId, row.groupId, state, "live");
-  broadcast({ type: "leaderboard_updated", eventId });
-  res.json({ ok: true });
+  const origin = req.get("x-gn-client");
+  await saveState(eventId, row.groupId, state, "live", origin);
+  broadcast({ type: "leaderboard_updated", eventId }, origin);
+  res.json(await sessionView(eventId));
 });
 
 // Host toggles open scoring (members may record when on). Defaults off.
@@ -541,8 +550,8 @@ smashRouter.post("/smash/:eventId/open-scoring", requireAuth, async (req: Authed
     return;
   }
   loaded.state.openScoring = !!req.body?.open;
-  await saveState(eventId, loaded.row.groupId, loaded.state, loaded.row.status);
-  res.json({ ok: true, openScoring: loaded.state.openScoring });
+  await saveState(eventId, loaded.row.groupId, loaded.state, loaded.row.status, req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });
 
 // Host ends the night.
@@ -557,8 +566,8 @@ smashRouter.post("/smash/:eventId/complete", requireAuth, async (req: AuthedRequ
     res.status(403).json({ error: "Host only" });
     return;
   }
-  await saveState(eventId, loaded.row.groupId, loaded.state, "completed");
-  res.json({ ok: true });
+  await saveState(eventId, loaded.row.groupId, loaded.state, "completed", req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });
 
 // ---------- lifetime character stats ----------

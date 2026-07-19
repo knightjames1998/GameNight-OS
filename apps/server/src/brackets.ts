@@ -132,7 +132,7 @@ bracketsRouter.post("/events/:eventId/bracket", async (req: AuthedRequest, res) 
       .returning()
   )[0]!;
 
-  broadcast({ type: "bracket_updated", bracketId: bracket.id });
+  broadcast({ type: "bracket_updated", bracketId: bracket.id }, req.get("x-gn-client"));
   res.json({ id: bracket.id });
 });
 
@@ -192,8 +192,8 @@ bracketsRouter.post("/brackets/:id/matches/:matchId/result", async (req: AuthedR
     await materialize({ ...loaded, results }, structure);
   }
 
-  broadcast({ type: "bracket_updated", bracketId: loaded.id });
-  res.json({ ok: true });
+  broadcast({ type: "bracket_updated", bracketId: loaded.id }, req.get("x-gn-client"));
+  res.json(await deriveView({ ...loaded, results, status: after.championSeed ? "completed" : "live" }));
 });
 
 /**
@@ -239,8 +239,8 @@ bracketsRouter.delete("/brackets/:id/matches/:matchId/result", async (req: Authe
   }
   await db2.delete(matches).where(eq(matches.bracketId, loaded.id));
 
-  broadcast({ type: "bracket_updated", bracketId: loaded.id });
-  res.json({ ok: true });
+  broadcast({ type: "bracket_updated", bracketId: loaded.id }, req.get("x-gn-client"));
+  res.json(await deriveView({ ...loaded, results, status: "live" }));
 });
 
 /** Owner/admin toggle: open scoring for everyone, or lock it down. */
@@ -260,8 +260,8 @@ bracketsRouter.patch("/brackets/:id/settings", async (req: AuthedRequest, res) =
     return;
   }
   await getDb().update(brackets).set({ openScoring }).where(eq(brackets.id, loaded.id));
-  broadcast({ type: "bracket_updated", bracketId: loaded.id });
-  res.json({ ok: true });
+  broadcast({ type: "bracket_updated", bracketId: loaded.id }, req.get("x-gn-client"));
+  res.json(await deriveView({ ...loaded, openScoring }));
 });
 
 /**

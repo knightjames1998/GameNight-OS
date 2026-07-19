@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api";
+import { api, CLIENT_ID } from "../api";
 import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
 import {
@@ -77,6 +77,8 @@ export default function MarioPartyPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Newest-request-wins guard for mutation responses under rapid taps.
+  const reqSeq = useRef(0);
 
   async function refetch() {
     if (!eventId) return;
@@ -93,20 +95,33 @@ export default function MarioPartyPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
+  // Own echoes are skipped: every mutation response already carries the
+  // updated session, so refetching on them would double the traffic.
   useLiveUpdates(
     (m) => {
+      if (m.origin === CLIENT_ID) return;
       if ((m.type === "mario_party_updated" || m.type === "leaderboard_updated") && m.eventId === eventId) refetch();
     },
     () => refetch(),
   );
 
-  async function call(path: string, body?: unknown) {
+  // Mutations return the updated session; apply it directly. An optional
+  // optimistic updater paints simple changes before the network answers,
+  // rolling back to the snapshot on failure.
+  async function call(path: string, body?: unknown, optimistic?: (s: Session) => Session) {
     setErr(null);
+    const prev = session;
+    const seq = ++reqSeq.current;
+    if (optimistic && session) setSession(optimistic(session));
     setBusy(true);
     try {
-      await api(path, { method: "POST", body: body ? JSON.stringify(body) : undefined });
-      await refetch();
+      const r = await api<{ session: Session | null }>(path, {
+        method: "POST",
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (seq === reqSeq.current && r && typeof r === "object" && "session" in r) setSession(r.session);
     } catch (e: any) {
+      if (seq === reqSeq.current && optimistic) setSession(prev);
       setErr(e?.message ?? "Something went wrong");
     } finally {
       setBusy(false);
@@ -283,15 +298,19 @@ function LivePlay({
   ctx: Ctx | null;
   session: Session;
   busy: boolean;
-  call: (path: string, body?: unknown) => Promise<void>;
+  call: (path: string, body?: unknown, optimistic?: (s: Session) => Session) => Promise<void>;
 }) {
   const canHost = ctx?.canHost ?? false;
   const viewerId = ctx?.viewerId ?? "";
   const canScore = canHost || session.openScoring;
   const titleRoster = useMemo(() => rosterForTitle(MARIO_PARTY_TITLES, session.titleId), [session.titleId]);
 
+  // Optimistic: the dropdown reflects the pick instantly.
   const setChar = (playerId: string, character: string | null) =>
-    call(`/api/marioparty/${eventId}/character`, { playerId, character });
+    call(`/api/marioparty/${eventId}/character`, { playerId, character }, (s) => ({
+      ...s,
+      roster: s.roster.map((p) => (p.id === playerId ? { ...p, character } : p)),
+    }));
   const mayEditChar = (slot: Slot) => canHost || (session.assignment === "self" && slot.userId === viewerId);
 
   return (

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, type BracketView, type BracketSlot, type BracketMatchView } from "../api";
+import { api, CLIENT_ID, type BracketView, type BracketSlot, type BracketMatchView } from "../api";
 import { RecapModal } from "../recap";
 import BackButton from "../BackButton";
 
@@ -65,6 +65,9 @@ export default function BracketPage() {
       socket.onmessage = (msg) => {
         try {
           const data = JSON.parse(msg.data);
+          // Skip our own echo: the mutation response already carried the
+          // updated bracket, so refetching on it would double the traffic.
+          if (data.origin === CLIENT_ID) return;
           if (data.type === "bracket_updated" && data.bracketId === id) load();
         } catch {
           // Not our message; ignore.
@@ -89,21 +92,24 @@ export default function BracketPage() {
     };
   }, [id, load]);
 
+  // Mutations return the re-derived bracket; apply it directly instead of
+  // refetching. busy stays: a double-tap must not score two matches.
   const record = useCallback(
     async (matchId: string, winner: "A" | "B") => {
       if (busy) return;
       setBusy(true);
       try {
-        await api(`/api/brackets/${id}/matches/${matchId}/result`, {
-          method: "POST",
-          body: JSON.stringify({ winner }),
-        });
-        await load();
+        setBracket(
+          await api<BracketView>(`/api/brackets/${id}/matches/${matchId}/result`, {
+            method: "POST",
+            body: JSON.stringify({ winner }),
+          }),
+        );
       } finally {
         setBusy(false);
       }
     },
-    [busy, id, load],
+    [busy, id],
   );
 
   const undo = useCallback(
@@ -112,13 +118,16 @@ export default function BracketPage() {
         return;
       setBusy(true);
       try {
-        await api(`/api/brackets/${id}/matches/${matchId}/result`, { method: "DELETE" });
-        await load();
+        setBracket(
+          await api<BracketView>(`/api/brackets/${id}/matches/${matchId}/result`, {
+            method: "DELETE",
+          }),
+        );
       } finally {
         setBusy(false);
       }
     },
-    [busy, id, load],
+    [busy, id],
   );
 
   if (error) {
@@ -165,11 +174,12 @@ export default function BracketPage() {
               style={{ width: "16px", height: "16px" }}
               checked={bracket.openScoring}
               onChange={async (e) => {
-                await api(`/api/brackets/${id}/settings`, {
-                  method: "PATCH",
-                  body: JSON.stringify({ openScoring: e.target.checked }),
-                });
-                await load();
+                setBracket(
+                  await api<BracketView>(`/api/brackets/${id}/settings`, {
+                    method: "PATCH",
+                    body: JSON.stringify({ openScoring: e.target.checked }),
+                  }),
+                );
               }}
             />
             Let members record results too (admins always can).

@@ -58,7 +58,7 @@ eventsRouter.post("/groups/:groupId/events", async (req: AuthedRequest, res) => 
       .returning()
   )[0]!;
 
-  broadcast({ type: "group_events_changed", groupId });
+  broadcast({ type: "group_events_changed", groupId }, req.get("x-gn-client"));
   res.json(event);
 });
 
@@ -109,8 +109,9 @@ eventsRouter.delete("/events/:id", async (req: AuthedRequest, res) => {
   await db.delete(eventAttendance).where(eq(eventAttendance.eventId, found.id));
   await db.delete(events).where(eq(events.id, found.id));
 
-  broadcast({ type: "event_deleted", eventId: found.id, groupId: found.groupId });
-  broadcast({ type: "group_events_changed", groupId: found.groupId });
+  const origin = req.get("x-gn-client");
+  broadcast({ type: "event_deleted", eventId: found.id, groupId: found.groupId }, origin);
+  broadcast({ type: "group_events_changed", groupId: found.groupId }, origin);
   res.json({ ok: true });
 });
 

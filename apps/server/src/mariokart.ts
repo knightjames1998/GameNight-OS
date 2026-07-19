@@ -82,12 +82,13 @@ async function saveState(
   eventId: string,
   state: SmashSessionState,
   status: "setup" | "live" | "completed",
+  origin?: string,
 ) {
   await getDb()
     .update(gameSessions)
     .set({ state: state as unknown as Record<string, unknown>, status, updatedAt: new Date() })
     .where(and(eq(gameSessions.eventId, eventId), eq(gameSessions.pack, PACK)));
-  broadcast({ type: "mario_kart_updated", eventId });
+  broadcast({ type: "mario_kart_updated", eventId }, origin);
 }
 
 /** The group's single Mario Kart game row, created on first use. */
@@ -222,20 +223,26 @@ marioKartRouter.get("/mariokart-context/:eventId", requireAuth, async (req: Auth
 
 // ---------- read live state ----------
 
-async function respondState(eventId: string, res: import("express").Response) {
+/**
+ * The session payload the page renders. Mutations return this directly so
+ * the acting client applies the response instead of refetching; the GETs
+ * serve the same shape so the two can never disagree.
+ */
+async function sessionView(eventId: string) {
   const loaded = await loadState(eventId);
-  if (!loaded) {
-    res.json({ session: null });
-    return;
-  }
-  res.json({
+  if (!loaded) return { session: null };
+  return {
     session: {
       status: loaded.row.status,
       groupId: loaded.row.groupId,
       ...loaded.state,
       summary: summarizeNight(loaded.state),
     },
-  });
+  };
+}
+
+async function respondState(eventId: string, res: import("express").Response) {
+  res.json(await sessionView(eventId));
 }
 
 marioKartRouter.get("/mariokart/:eventId", requireAuth, async (req: AuthedRequest, res) => {
@@ -321,8 +328,8 @@ marioKartRouter.post("/events/:eventId/mariokart", requireAuth, async (req: Auth
       target: [gameSessions.eventId, gameSessions.pack],
       set: { groupId: event.groupId, status: "live", state: state as any, updatedAt: new Date() },
     });
-  broadcast({ type: "mario_kart_updated", eventId });
-  res.json({ ok: true });
+  broadcast({ type: "mario_kart_updated", eventId }, req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });
 
 // ---------- assignment ----------
@@ -361,8 +368,8 @@ marioKartRouter.post("/mariokart/:eventId/character", requireAuth, async (req: A
     return;
   }
   slot.character = character ?? null;
-  await saveState(eventId, loaded.state, loaded.row.status);
-  res.json({ ok: true });
+  await saveState(eventId, loaded.state, loaded.row.status, req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });
 
 marioKartRouter.post("/mariokart/:eventId/randomize", requireAuth, async (req: AuthedRequest, res) => {
@@ -380,8 +387,8 @@ marioKartRouter.post("/mariokart/:eventId/randomize", requireAuth, async (req: A
     loaded.state.roster,
     rosterForTitle(MARIO_KART_TITLES, loaded.state.titleId),
   );
-  await saveState(eventId, loaded.state, loaded.row.status);
-  res.json({ ok: true });
+  await saveState(eventId, loaded.state, loaded.row.status, req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });
 
 // ---------- record a race ----------
@@ -438,9 +445,10 @@ marioKartRouter.post("/mariokart/:eventId/record", requireAuth, async (req: Auth
   const gameId = await ensureGame(row.groupId);
   const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster);
 
-  await saveState(eventId, state, "live");
-  broadcast({ type: "leaderboard_updated", eventId });
-  res.json({ ok: true, ...report });
+  const origin = req.get("x-gn-client");
+  await saveState(eventId, state, "live", origin);
+  broadcast({ type: "leaderboard_updated", eventId }, origin);
+  res.json({ ...(await sessionView(eventId)), ...report });
 });
 
 marioKartRouter.post("/mariokart/:eventId/undo", requireAuth, async (req: AuthedRequest, res) => {
@@ -457,13 +465,14 @@ marioKartRouter.post("/mariokart/:eventId/undo", requireAuth, async (req: Authed
   }
   const last = state.games.pop();
   if (!last) {
-    res.json({ ok: true, empty: true });
+    res.json({ ...(await sessionView(eventId)), empty: true });
     return;
   }
   await deleteMaterialized(eventId, last.idx);
-  await saveState(eventId, state, "live");
-  broadcast({ type: "leaderboard_updated", eventId });
-  res.json({ ok: true });
+  const origin = req.get("x-gn-client");
+  await saveState(eventId, state, "live", origin);
+  broadcast({ type: "leaderboard_updated", eventId }, origin);
+  res.json(await sessionView(eventId));
 });
 
 marioKartRouter.post("/mariokart/:eventId/open-scoring", requireAuth, async (req: AuthedRequest, res) => {
@@ -478,8 +487,8 @@ marioKartRouter.post("/mariokart/:eventId/open-scoring", requireAuth, async (req
     return;
   }
   loaded.state.openScoring = !!req.body?.open;
-  await saveState(eventId, loaded.state, loaded.row.status);
-  res.json({ ok: true, openScoring: loaded.state.openScoring });
+  await saveState(eventId, loaded.state, loaded.row.status, req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });
 
 marioKartRouter.post("/mariokart/:eventId/complete", requireAuth, async (req: AuthedRequest, res) => {
@@ -493,6 +502,6 @@ marioKartRouter.post("/mariokart/:eventId/complete", requireAuth, async (req: Au
     res.status(403).json({ error: "Host only" });
     return;
   }
-  await saveState(eventId, loaded.state, "completed");
-  res.json({ ok: true });
+  await saveState(eventId, loaded.state, "completed", req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });

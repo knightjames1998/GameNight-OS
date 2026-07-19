@@ -84,12 +84,13 @@ async function saveState(
   eventId: string,
   state: MpSessionState,
   status: "setup" | "live" | "completed",
+  origin?: string,
 ) {
   await getDb()
     .update(gameSessions)
     .set({ state: state as unknown as Record<string, unknown>, status, updatedAt: new Date() })
     .where(and(eq(gameSessions.eventId, eventId), eq(gameSessions.pack, PACK)));
-  broadcast({ type: "mario_party_updated", eventId });
+  broadcast({ type: "mario_party_updated", eventId }, origin);
 }
 
 /** The group's single Mario Party game row, created on first use. */
@@ -227,20 +228,26 @@ marioPartyRouter.get("/marioparty-context/:eventId", requireAuth, async (req: Au
 
 // ---------- read live state ----------
 
-async function respondState(eventId: string, res: import("express").Response) {
+/**
+ * The session payload the page renders. Mutations return this directly so
+ * the acting client applies the response instead of refetching; the GETs
+ * serve the same shape so the two can never disagree.
+ */
+async function sessionView(eventId: string) {
   const loaded = await loadState(eventId);
-  if (!loaded) {
-    res.json({ session: null });
-    return;
-  }
-  res.json({
+  if (!loaded) return { session: null };
+  return {
     session: {
       status: loaded.row.status,
       groupId: loaded.row.groupId,
       ...loaded.state,
       summary: summarizeMpNight(loaded.state),
     },
-  });
+  };
+}
+
+async function respondState(eventId: string, res: import("express").Response) {
+  res.json(await sessionView(eventId));
 }
 
 marioPartyRouter.get("/marioparty/:eventId", requireAuth, async (req: AuthedRequest, res) => {
@@ -323,8 +330,8 @@ marioPartyRouter.post("/events/:eventId/marioparty", requireAuth, async (req: Au
       target: [gameSessions.eventId, gameSessions.pack],
       set: { groupId: event.groupId, status: "live", state: state as any, updatedAt: new Date() },
     });
-  broadcast({ type: "mario_party_updated", eventId });
-  res.json({ ok: true });
+  broadcast({ type: "mario_party_updated", eventId }, req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });
 
 // ---------- assignment ----------
@@ -363,8 +370,8 @@ marioPartyRouter.post("/marioparty/:eventId/character", requireAuth, async (req:
     return;
   }
   slot.character = character ?? null;
-  await saveState(eventId, loaded.state, loaded.row.status);
-  res.json({ ok: true });
+  await saveState(eventId, loaded.state, loaded.row.status, req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });
 
 marioPartyRouter.post("/marioparty/:eventId/randomize", requireAuth, async (req: AuthedRequest, res) => {
@@ -382,8 +389,8 @@ marioPartyRouter.post("/marioparty/:eventId/randomize", requireAuth, async (req:
     loaded.state.roster,
     rosterForTitle(MARIO_PARTY_TITLES, loaded.state.titleId),
   );
-  await saveState(eventId, loaded.state, loaded.row.status);
-  res.json({ ok: true });
+  await saveState(eventId, loaded.state, loaded.row.status, req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });
 
 // ---------- record a board ----------
@@ -446,9 +453,10 @@ marioPartyRouter.post("/marioparty/:eventId/record", requireAuth, async (req: Au
   const gameId = await ensureGame(row.groupId);
   const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster);
 
-  await saveState(eventId, state, "live");
-  broadcast({ type: "leaderboard_updated", eventId });
-  res.json({ ok: true, ...report });
+  const origin = req.get("x-gn-client");
+  await saveState(eventId, state, "live", origin);
+  broadcast({ type: "leaderboard_updated", eventId }, origin);
+  res.json({ ...(await sessionView(eventId)), ...report });
 });
 
 marioPartyRouter.post("/marioparty/:eventId/undo", requireAuth, async (req: AuthedRequest, res) => {
@@ -465,13 +473,14 @@ marioPartyRouter.post("/marioparty/:eventId/undo", requireAuth, async (req: Auth
   }
   const last = state.games.pop();
   if (!last) {
-    res.json({ ok: true, empty: true });
+    res.json({ ...(await sessionView(eventId)), empty: true });
     return;
   }
   await deleteMaterialized(eventId, last.idx);
-  await saveState(eventId, state, "live");
-  broadcast({ type: "leaderboard_updated", eventId });
-  res.json({ ok: true });
+  const origin = req.get("x-gn-client");
+  await saveState(eventId, state, "live", origin);
+  broadcast({ type: "leaderboard_updated", eventId }, origin);
+  res.json(await sessionView(eventId));
 });
 
 marioPartyRouter.post("/marioparty/:eventId/open-scoring", requireAuth, async (req: AuthedRequest, res) => {
@@ -486,8 +495,8 @@ marioPartyRouter.post("/marioparty/:eventId/open-scoring", requireAuth, async (r
     return;
   }
   loaded.state.openScoring = !!req.body?.open;
-  await saveState(eventId, loaded.state, loaded.row.status);
-  res.json({ ok: true, openScoring: loaded.state.openScoring });
+  await saveState(eventId, loaded.state, loaded.row.status, req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });
 
 marioPartyRouter.post("/marioparty/:eventId/complete", requireAuth, async (req: AuthedRequest, res) => {
@@ -501,8 +510,8 @@ marioPartyRouter.post("/marioparty/:eventId/complete", requireAuth, async (req: 
     res.status(403).json({ error: "Host only" });
     return;
   }
-  await saveState(eventId, loaded.state, "completed");
-  res.json({ ok: true });
+  await saveState(eventId, loaded.state, "completed", req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
 });
 
 // ---------- lifetime Mario Party stats ----------

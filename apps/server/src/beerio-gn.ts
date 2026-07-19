@@ -76,7 +76,7 @@ beerioGnRouter.post("/events/:eventId/beerio-session", async (req: AuthedRequest
     return;
   }
   await db.update(events).set({ beerioCode: code }).where(eq(events.id, event.id));
-  broadcast({ type: "event_session_changed", eventId: event.id });
+  broadcast({ type: "event_session_changed", eventId: event.id }, req.get("x-gn-client"));
   res.json({ ok: true });
 });
 
