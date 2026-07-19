@@ -8,13 +8,32 @@ disagree, this file wins.
 Section order below is deliberate and matches the map's zone order. Do not rename or
 reorder headings without updating MAP PROTOCOL in the same commit.
 
+## MAP STATUS (update every session, no exceptions)
+Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
+anyone's memory of how many sessions have happened.
+
+    Last map redraw:                    2026-07-18
+    Shipped sessions since that redraw: 0
+    Redraw due at:                      3
+
+**Every session that ships anything (feature, pack, or fix set) increments the counter by 1
+as part of its delivery, in the same commit as its other changes.** Doc-only sessions do not
+increment it and must not reset it.
+
+**When the counter reaches 3:** that session's FIRST task is to reconcile this file and
+redraw the map (see MAP PROTOCOL below), then set "Last map redraw" to today's date and the
+counter back to 0. Do that before starting the feature work, so a long session can't end with
+the map skipped. If the person asks to skip it, note the skip here and carry the counter
+forward rather than resetting.
+
 ## MAP PROTOCOL
 How and when the Excalidraw project map gets redrawn. Written so any session reproduces
 the same map from this file, with or without the previous drawing's checkpoint.
 
-**When:** after every third shipped session. A "shipped session" is one that delivers a
-feature, pack, or fix set (doc-only passes do not count). Reconcile this file FIRST, then
-draw the map from the reconciled file. Never draw from memory of a previous map.
+**When:** when the MAP STATUS counter above reaches 3. A "shipped session" is one that
+delivers a feature, pack, or fix set (doc-only passes do not count). Reconcile this file
+FIRST, then draw the map from the reconciled file, then reset MAP STATUS. Never draw from
+memory of a previous map.
 
 **Zone-to-heading mapping (fixed):**
 | Zone | Title on map | Source heading |
@@ -126,7 +145,7 @@ Not committed, no design decided.
 - Money wagers: regulatory mess. Bragging rights only.
 
 ## STANDING RULES
-- Every third shipped session, reconcile this file and then redraw the Excalidraw project map from it, per MAP PROTOCOL at the top. This file is the source of truth; the map is a rendering. Reconcile first, draw second, never draw from memory of the last map. A lost drawing costs one redraw; a stale backlog costs the record itself.
+- Read MAP STATUS at the top of this file at the start of EVERY session and increment its counter as part of any session that ships. When the counter hits 3, reconcile this file and redraw the Excalidraw project map from it (MAP PROTOCOL) BEFORE starting that session's feature work, then reset the counter. This file is the source of truth; the map is a rendering. Reconcile first, draw second, never draw from memory of the last map. A lost drawing costs one redraw; a stale backlog costs the record itself.
 - Owners/admins run a mode: only they start it and edit results. Members watch. A per-mode toggle may open scoring to members, but it defaults OFF.
 - Members join the HOST'S live session, never a local copy. Session state lives server-side, keyed to the event.
 - Every game mode/tracker ships with a TV/spectator view, styled in that mode's OWN design language, not a generic one. Generic bracket has /tv/:id; Beerio Kart has its original live spectator QR flow.
@@ -138,6 +157,7 @@ Not committed, no design decided.
 - Any pack with character selection has a "Which game?" title selector on its front page. The chosen title scopes the character picker AND the random pool to that title's roster (never assign a character that isn't in the game being played). Titles are subsets/variants of the series; stats stay unified across titles by character name. New character packs follow this: define the series' titles as GameTitle[] in the pack's shared module, thread titleId through the session state, and scope the picker + random with rosterForTitle().
 
 ## DECISION LOG
+- Map cadence is counter-driven, not memory-driven (2026-07-19): "every third session" is unenforceable across chats, since a fresh session cannot know the count. The MAP STATUS block at the top of this file holds the tally and the last redraw date; every shipping session increments it, and the session that tips it to 3 redraws the map before doing its feature work. The counter lives in the repo, so the rule survives losing a chat, the drawing, and the project settings all at once.
 - Backlog structure mirrors the project map (2026-07-19): headings were reorganized so each one renders as exactly one zone on the Excalidraw map (SHIPPED — FOUNDATION, SHIPPED — GAME PACKS, NEXT UP, FEATURES TO ADD, BUGS, IDEAS). MAP PROTOCOL at the top pins the layout, colors, and cameras so any session redraws the same map from this file alone, with or without the previous drawing's checkpoint. Renaming or reordering these headings means updating MAP PROTOCOL in the same commit.
 - Event date editing + arrival confirmation are ONE unit of work (2026-07-19): arrival confirmation is gated by the event date, so the date has to be authoritative and mutable before the gate can be trusted. Changing a date re-evaluates the lock. Building them separately means writing the lock twice.
 - Magic link failure is unconfirmed as a Render regression (2026-07-19): Resend's free tier only ever delivered to the account owner's address, which is indistinguishable from "broken" when a friend tests it. Check the Render logs for the generated link before treating this as a delivery bug. The verification-code fix is worth building regardless, because it also resolves the installed-app cookie split that was already on the backlog.

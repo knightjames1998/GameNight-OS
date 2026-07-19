@@ -19,14 +19,32 @@ zone-to-heading mapping, fixed layout, colors, and camera plan live in the MAP P
 section at the top of BACKLOG.md, so any session can redraw the same map from the file alone
 even with no access to the previous drawing.
 
+## Start of every session (do this before proposing or writing anything)
+1. Fresh `git clone --depth 1` of the repo. Never work from memory of a prior session.
+2. Read BACKLOG.md, starting with the MAP STATUS block at the very top.
+3. Act on the counter:
+   - counter < 3: continue with the requested work.
+   - counter = 3: say so, then reconcile BACKLOG.md and redraw the project map FIRST, reset
+     MAP STATUS (date = today, counter = 0), and only then start the session's feature work.
+     Doing it first is the point; a long session that leaves it for the end skips it.
+4. Confirm scope with James in a short structured exchange before writing code.
+
 ## Cadence rule (backlog + map)
-Every third shipped session (one that delivers a feature, pack, or fix set; doc-only passes
-do not count):
-1. Reconcile BACKLOG.md: move finished items into the right SHIPPED section with a one-line
-   summary and date, renumber the top three of NEXT UP, move fixed bugs to FIXED, drop stale
-   entries, add anything discussed since the last pass.
-2. THEN redraw the map from the reconciled file, following MAP PROTOCOL.
-Reconcile first, draw second. Never draw from memory of the previous map.
+The map redraw is driven by the MAP STATUS counter in BACKLOG.md, not by anyone's memory of
+how many sessions have passed. A fresh chat cannot know the count, which is exactly why the
+count lives in the repo.
+
+- Every session that ships anything (feature, pack, or fix set) increments the counter by 1
+  in the same commit as its other changes. Doc-only sessions do not increment and never reset.
+- When the counter reaches 3, that session reconciles BACKLOG.md and redraws the map before
+  its feature work, then resets the counter and the date.
+- Reconcile means: move finished items into the right SHIPPED section with a one-line summary
+  and date, renumber the top three of NEXT UP, move fixed bugs to FIXED, drop stale entries,
+  add anything discussed since the last pass.
+- Reconcile first, draw second. Never draw from memory of the previous map; MAP PROTOCOL in
+  BACKLOG.md pins the zone mapping, layout, colors, and cameras so the redraw is mechanical.
+- If James asks to skip a due redraw, note the skip in MAP STATUS and carry the counter
+  forward rather than resetting it.
 
 ## What exists and works (extend, do not rebuild)
 - Auth: magic links (tap-through page, prefetch-proof) AND password accounts (scrypt, signup
@@ -135,13 +153,17 @@ Reconcile first, draw second. Never draw from memory of the previous map.
   full-file replacements, applied by paste, then committed and pushed.
 - Fresh clone from GitHub before every edit session. Verify the delivery on a SECOND fresh
   clone (typecheck + build) before packaging. Never work from memory of prior sessions.
+- Every shipping delivery includes the MAP STATUS counter increment in BACKLOG.md, alongside
+  the session's own backlog updates. Treat a delivery that forgot it as incomplete.
 - Always list exactly which files changed. Every delivery ends with: files changed, what to
   test manually, deploy steps (or explicitly none).
 - One feature per session where possible; James may batch small asks.
 - Scope new sessions with a short structured scoping conversation before writing code; James
   confirms decisions tersely.
 - Keep visible chat responses minimal; bulk content goes in the zip, not pasted into chat.
-- Keep BACKLOG.md current every session, and follow the cadence rule above for the map.
+- Keep BACKLOG.md current every session: shipped items move sections, decisions get logged,
+  deferrals get stated. Increment MAP STATUS on any shipping session and follow the cadence
+  rule above for the map.
 
 ## Communication style
 - No em dashes ever.
