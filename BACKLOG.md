@@ -65,6 +65,15 @@ SHIPPED section with a one-line summary and date; renumber the top three of NEXT
 fixed bugs to FIXED in BUGS and drop anything stale; add anything new discussed since the
 last pass; then draw.
 
+**Committed file copy (always, added 2026-07-19):** the live MCP canvas does not render in
+Claude Code sessions (unlike regular Claude chats), so the map must ALSO always exist as
+`project-map.excalidraw` at the repo root — open it at excalidraw.com. It is generated, not
+hand-drawn: `scripts/generate-project-map.mjs` holds the zone/item data and emits the file
+with this protocol's layout and colors. On every redraw: update the item data in that script
+to match the reconciled headings, run `node scripts/generate-project-map.mjs`, and commit the
+regenerated file in the same commit as the reconcile. If the MCP canvas is unavailable in a
+session, regenerating the committed file alone still counts as the redraw.
+
 ## SHIPPED — FOUNDATION
 - [x] Magic link auth + password accounts, 30-day session cookies
 - [x] Crew: groups, invite links, join flow, roles, member removal, self-leave, crew deletion
