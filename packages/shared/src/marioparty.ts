@@ -242,12 +242,21 @@ export function rankMpLines(
     .filter((e) => e.playerId !== winner!.playerId)
     .sort((a, b) => b.stars - a.stars);
   const ordered: MpRawEntry[] = [winner, ...rest];
+  // Competition ranking (1, 2, 2, 4): non-winners tied on stars share a
+  // placement instead of getting an arbitrary order. The real tiebreak is
+  // coins, which we deliberately don't track, so we don't invent one. The
+  // winner always holds 1 (a non-winner tied with them lost the coin
+  // tiebreak in-game, so 2 is right).
+  const placements: number[] = ordered.map((_, i) => i + 1);
+  for (let i = 2; i < ordered.length; i++) {
+    if (ordered[i]!.stars === ordered[i - 1]!.stars) placements[i] = placements[i - 1]!;
+  }
   const lines: MpLine[] = ordered.map((e, i) => ({
     playerId: e.playerId,
     character: e.character,
     stars: e.stars,
     bonusStars: e.bonusStars,
-    placement: i + 1,
+    placement: placements[i] ?? i + 1,
     isWinner: i === 0,
   }));
   return { lines, error: null };

@@ -205,6 +205,8 @@ function Groups({
           )}
         </section>
 
+        <YourStats />
+
         <section className="space-y-3">
           <h2 className="gn-h2">Games</h2>
           <p className="gn-hint">Playable standalone, no event needed; fill in names manually.</p>
@@ -249,5 +251,83 @@ function Groups({
         </section>
       </div>
     </main>
+  );
+}
+
+// Lifetime totals across every crew (quick play included). Hidden until
+// there's at least one recorded game so a fresh account's home stays clean.
+interface MyStats {
+  played: number;
+  wins: number;
+  winRate: number;
+  podiums: number;
+  byGame: { name: string; played: number; wins: number }[];
+  byCrew: { groupId: string; name: string; played: number; wins: number; personal: boolean }[];
+}
+
+function YourStats() {
+  const [stats, setStats] = useState<MyStats | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    api<MyStats>("/api/me/stats")
+      .then(setStats)
+      .catch(() => {});
+  }, []);
+
+  if (!stats || stats.played === 0) return null;
+  const top = stats.byGame[0];
+
+  return (
+    <section className="space-y-2">
+      <h2 className="gn-h2">Your stats</h2>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full text-left"
+        style={{
+          background: "var(--gn-raise)",
+          border: "2px solid var(--gn-line)",
+          borderRadius: "14px",
+          padding: "12px 16px",
+          color: "var(--gn-ink)",
+          cursor: "pointer",
+          font: "inherit",
+        }}
+      >
+        <div className="flex justify-between items-baseline">
+          <span style={{ fontWeight: 800, fontSize: "18px" }}>
+            {stats.wins}
+            <span className="gn-hint" style={{ fontWeight: 400 }}> wins · </span>
+            {stats.played}
+            <span className="gn-hint" style={{ fontWeight: 400 }}> games · </span>
+            {Math.round(stats.winRate * 100)}%
+          </span>
+          <span className="gn-hint" style={{ fontSize: "12px" }}>{open ? "less" : "more"}</span>
+        </div>
+        {top && (
+          <div className="gn-hint" style={{ fontSize: "12px", marginTop: "2px" }}>
+            most played: {top.name} ({top.wins}W / {top.played})
+          </div>
+        )}
+      </button>
+      {open && (
+        <div className="space-y-1" style={{ padding: "2px 4px" }}>
+          {stats.byCrew.map((c) => (
+            <div key={c.groupId} className="flex justify-between items-baseline">
+              {c.personal ? (
+                <span className="gn-hint">Quick play</span>
+              ) : (
+                <Link to={`/g/${c.groupId}/stats`} className="gn-textbtn" style={{ padding: 0 }}>
+                  {c.name}
+                </Link>
+              )}
+              <span className="gn-hint" style={{ fontSize: "12px" }}>
+                {c.wins}W · {c.played} played
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

@@ -293,7 +293,25 @@ export default function GroupPage({
                   padding: "10px 14px",
                 }}
               >
-                <span style={{ fontWeight: 700 }}>{m.displayName}</span>
+                <button
+                  onClick={() => navigate(`/g/${group.id}/member/${m.userId}`)}
+                  style={{
+                    fontWeight: 700,
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    color: "var(--gn-ink)",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    font: "inherit",
+                  }}
+                  title={me && m.userId === me.id ? "Your stats" : `You vs ${m.displayName}`}
+                >
+                  {m.displayName}
+                  <span className="gn-hint" style={{ fontWeight: 400, fontSize: "11px", marginLeft: "6px" }}>
+                    {me && m.userId === me.id ? "stats" : "vs"}
+                  </span>
+                </button>
                 <span className="flex items-center gap-2">
                   <span className={`gn-chip gn-chip--${m.role}`}>{m.role}</span>
                   {group.myRole === "owner" && m.role !== "owner" && (
