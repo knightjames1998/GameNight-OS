@@ -289,6 +289,7 @@ export default function GroupPage({
               >
                 <button
                   onClick={() => navigate(`/g/${group.id}/member/${m.userId}`)}
+                  className="flex items-center gap-2"
                   style={{
                     fontWeight: 700,
                     background: "none",
@@ -302,8 +303,8 @@ export default function GroupPage({
                   title={me && m.userId === me.id ? "Your stats" : `You vs ${m.displayName}`}
                 >
                   {m.displayName}
-                  <span className="gn-hint" style={{ fontWeight: 400, fontSize: "11px", marginLeft: "6px" }}>
-                    {me && m.userId === me.id ? "stats" : "vs"}
+                  <span className={`gn-chip ${me && m.userId === me.id ? "gn-chip--stats" : "gn-chip--vs"}`}>
+                    {me && m.userId === me.id ? "stats ›" : "vs ›"}
                   </span>
                 </button>
                 <span className="flex items-center gap-2">

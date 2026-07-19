@@ -211,8 +211,8 @@ function RsvpList({
               }}
             >
               {p.displayName}
-              <span className="gn-hint" style={{ fontWeight: 400, fontSize: "11px" }}>
-                {meId === p.userId ? "stats" : "vs"}
+              <span className={`gn-chip ${meId === p.userId ? "gn-chip--stats" : "gn-chip--vs"}`}>
+                {meId === p.userId ? "stats ›" : "vs ›"}
               </span>
             </Link>
           </li>

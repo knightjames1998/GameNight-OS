@@ -155,6 +155,9 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-chip--owner{background:rgba(255,207,63,.16);color:var(--gn-gold)}
 .gn-chip--admin{background:rgba(53,224,196,.16);color:var(--gn-p2)}
 .gn-chip--member{background:rgba(255,90,95,.14);color:#ff8b8f}
+/* Tap affordance on member names: you = teal (your stats), them = coral (rivalry). */
+.gn-chip--stats{background:rgba(53,224,196,.16);color:var(--gn-p2)}
+.gn-chip--vs{background:rgba(255,90,95,.14);color:#ff8b8f}
 
 /* ---- labeled divider (separates one region of a page from the next) */
 .gn-divider{
