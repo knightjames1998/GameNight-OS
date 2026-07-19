@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, type GroupSummary, type Me } from "../api";
+import { api, type Friend, type GroupSummary, type Me } from "../api";
 import Login from "./Login";
 import GamePicker, { type PickerGame } from "../GamePicker";
 
@@ -247,8 +247,61 @@ function Groups({
             </button>
           </div>
         </section>
+
+        <Friends />
       </div>
     </main>
+  );
+}
+
+// Everyone you've ever shared a crew with, in one place — no digging into a
+// crew to look someone up. Crewing together is the connection; there's no
+// separate add-friend step. Hidden until you've crewed with someone.
+function Friends() {
+  const [friends, setFriends] = useState<Friend[] | null>(null);
+
+  useEffect(() => {
+    api<Friend[]>("/api/friends")
+      .then(setFriends)
+      .catch(() => setFriends([]));
+  }, []);
+
+  if (!friends?.length) return null;
+
+  return (
+    <section className="space-y-3">
+      <h2 className="gn-h2">Friends</h2>
+      <p className="gn-hint">Everyone you've crewed with. Tap for the rivalry and their stats.</p>
+      <ul className="space-y-2">
+        {friends.map((f) => (
+          <li key={f.userId}>
+            <Link
+              to={`/friend/${f.userId}`}
+              className="flex justify-between items-center gap-2"
+              style={{
+                background: "var(--gn-surf)",
+                border: "2px solid var(--gn-line)",
+                borderRadius: "12px",
+                padding: "10px 14px",
+                fontWeight: 700,
+                color: "var(--gn-ink)",
+                textDecoration: "none",
+              }}
+            >
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {f.displayName}
+              </span>
+              <span className="flex items-center gap-2" style={{ flexShrink: 0 }}>
+                <span className="gn-hint" style={{ fontSize: "11px" }}>
+                  {f.crews.length === 1 ? f.crews[0] : `${f.crews.length} crews`}
+                </span>
+                <span className="gn-chip gn-chip--vs">vs ›</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

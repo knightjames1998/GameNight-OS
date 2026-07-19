@@ -13,8 +13,8 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-07-18
-    Shipped sessions since that redraw: 2
-    Redraw due at:                      3
+    Shipped sessions since that redraw: 3
+    Redraw due at:                      3  <-- DUE: next session reconciles + redraws FIRST
 
 **Every session that ships anything (feature, pack, or fix set) increments the counter by 1
 as part of its delivery, in the same commit as its other changes.** Doc-only sessions do not
@@ -79,6 +79,7 @@ last pass; then draw.
 - [x] Async crash-safe routes: async-safe.ts patches the Express Router so a rejected handler returns a 500 instead of taking down the process and the WebSocket hub
 - [x] UI cleanup pass (2026-07-18). RSVP collapses to a one-line status + "Update RSVP" once answered; delete event moved inside the event tile; members moved directly under the schedule form with the invite link compacted to one copy row; password controls tucked under the name field; single-format games (Mario Party, a live Tournament) launch in one tap from the game picker; event RSVP names link to the same profile/rivalry pages as the crew list; rivalry colors flipped so YOU are always teal and the opponent red/coral. Also: generic brackets record into stats as "Tournament" instead of "Game Night" (existing rows renamed via one-off SQL in Neon: UPDATE games SET name = 'Tournament' WHERE name = 'Game Night').
 - [x] Show-up confirmation + event date editing + UI cleanup pass 2 (2026-07-19). New event_attendance table (separate from RSVP intent, feeds flake tracking): once an event's date arrives the event page asks "Did you actually show? Yes/No" and the prompt disappears when answered; locked server-side until the date passes, so changing the date re-locks/re-opens it automatically. Event dates are now editable in place (creator or admin; "change" next to the date on the event page, clearing the input returns the event to TBD; draft/scheduled status follows). UI: answered RSVP collapses to a status pill inline with the event title so Games sit at the top; game night tiles put delete in a real chip-style button and moved "you: yes" onto the date/counts line; member rows swap the role chip + demote/make-admin text for a role dropdown styled as the same chip with a ▾, and remove is a matching chip button; tight rows wrap controls to a second line instead of truncating names.
+- [x] Flake tracking + streaks + Friends (2026-07-19). Profiles gained a "show-up record": show rate, current/best show streak (🔥 at 3+), and flake count (flake = RSVP'd yes, answered the check-in with no), computed from rsvps + event_attendance ordered by event date. Member pages are tabbed: tapping a crew member opens the Rivalry by default with a second "<name>'s stats" tab for just them (self view unchanged). Home gained a Friends section: everyone you've ever shared a real crew with (personal quick-play crews never count), no adding — crewing together is the connection. Tapping a friend opens /friend/:userId, the same rivalry/stats tabs aggregated across every crew you share. Server: /api/friends, /api/friends/:userId/stats, /api/friends/:userId/rivalry; rivalry + profile aggregation refactored to run over a set of group ids. No schema change.
 - [x] Profiles + rivalry cards (2026-07-18). Tapping a member in the crew list opens /g/:id/member/:userId. Yourself = profile (games/wins/win rate/podiums/best/avg + by-game table). Anyone else = rivalry: side-by-side stats, head-to-head record banner, per-game H2H, shareable canvas-to-JPG rivalry card. Home gained a "Your stats" card aggregating across every crew including quick play. Server: three read-only endpoints in stats.ts. No schema change.
 
 ## SHIPPED — GAME PACKS
@@ -106,7 +107,6 @@ Wanted, not yet scheduled into a session.
 - [ ] Mario Party: minigame head-to-heads as a second format in the pack, alongside Board night (requested 2026-07-18). Track who beats who in individual minigames; the game picker already supports multi-format packs, so this slots in as a second format entry.
 - [ ] Link a guest to a crew member: someone plays as a typed guest on night one, joins the crew later, and their past results get credited to them. Needs the Entrant guest shape (shipped) plus a rebind action.
 - [ ] Smack talk feed (on the TV view and/or in-app)
-- [ ] Flake tracking / RSVP streaks (UNBLOCKED 2026-07-19: show-up confirmation shipped, event_attendance now records who actually showed vs their RSVP)
 - [ ] Stats on the TV view (leaderboard between matches)
 - [ ] Spectator predictions ticker on the generic Broadcast (port from Beerio Kart)
 - [ ] Seasons: 8-12 week arcs with standings and an offseason

@@ -9,14 +9,18 @@
 import { Router } from "express";
 import {
   getDb,
+  events,
+  eventAttendance,
   games,
   groups,
   matches,
   matchParticipants,
   memberships,
+  rsvps,
   users,
   and,
   eq,
+  inArray,
 } from "@gamenight/db";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 
@@ -217,6 +221,204 @@ function finishAgg(a: Agg) {
   };
 }
 
+type Db = ReturnType<typeof getDb>;
+
+/** One user's ledger stats across a set of crews. */
+async function aggFor(db: Db, groupIds: string[], userId: string) {
+  const a = newAgg();
+  if (groupIds.length) {
+    const rows = await db
+      .select({
+        placement: matchParticipants.placement,
+        isWinner: matchParticipants.isWinner,
+        gameName: games.name,
+      })
+      .from(matchParticipants)
+      .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
+      .leftJoin(games, eq(matches.gameId, games.id))
+      .where(
+        and(
+          inArray(matchParticipants.groupId, groupIds),
+          eq(matchParticipants.userId, userId),
+          eq(matches.status, "completed"),
+        ),
+      );
+    for (const r of rows) feedAgg(a, r.placement, r.isWinner, r.gameName);
+  }
+  return finishAgg(a);
+}
+
+// ---------- Attendance / flake tracking ----------
+// An RSVP is intent; event_attendance is what actually happened. A flake is
+// "said yes, then answered the show-up prompt with no". Streaks count
+// consecutive shows across answered check-ins, ordered by event date.
+
+async function attendanceFor(db: Db, groupIds: string[], userId: string) {
+  const empty = {
+    answered: 0,
+    showed: 0,
+    flaked: 0,
+    showRate: null as number | null,
+    currentStreak: 0,
+    bestStreak: 0,
+  };
+  if (!groupIds.length) return empty;
+
+  const rows = await db
+    .select({
+      eventId: eventAttendance.eventId,
+      showed: eventAttendance.showed,
+      scheduledFor: events.scheduledFor,
+      createdAt: events.createdAt,
+    })
+    .from(eventAttendance)
+    .innerJoin(events, eq(eventAttendance.eventId, events.id))
+    .where(and(inArray(eventAttendance.groupId, groupIds), eq(eventAttendance.userId, userId)));
+  if (!rows.length) return empty;
+
+  const saidYes = new Set(
+    (
+      await db
+        .select({ eventId: rsvps.eventId })
+        .from(rsvps)
+        .where(
+          and(
+            inArray(rsvps.groupId, groupIds),
+            eq(rsvps.userId, userId),
+            eq(rsvps.status, "yes"),
+          ),
+        )
+    ).map((r) => r.eventId),
+  );
+
+  rows.sort(
+    (a, b) => (a.scheduledFor ?? a.createdAt).getTime() - (b.scheduledFor ?? b.createdAt).getTime(),
+  );
+  let showed = 0;
+  let flaked = 0;
+  let current = 0;
+  let best = 0;
+  for (const r of rows) {
+    if (r.showed) {
+      showed++;
+      current++;
+      best = Math.max(best, current);
+    } else {
+      current = 0;
+      if (saidYes.has(r.eventId)) flaked++;
+    }
+  }
+  return {
+    answered: rows.length,
+    showed,
+    flaked,
+    showRate: showed / rows.length,
+    currentStreak: current,
+    bestStreak: best,
+  };
+}
+
+/** Non-personal crews both users belong to. Empty = you've never crewed together. */
+async function sharedGroupIds(db: Db, aId: string, bId: string): Promise<string[]> {
+  const mine = await db
+    .select({ groupId: memberships.groupId })
+    .from(memberships)
+    .innerJoin(groups, eq(memberships.groupId, groups.id))
+    .where(and(eq(memberships.userId, aId), eq(groups.isPersonal, false)));
+  if (!mine.length) return [];
+  const theirs = await db
+    .select({ groupId: memberships.groupId })
+    .from(memberships)
+    .where(
+      and(
+        eq(memberships.userId, bId),
+        inArray(
+          memberships.groupId,
+          mine.map((m) => m.groupId),
+        ),
+      ),
+    );
+  return theirs.map((t) => t.groupId);
+}
+
+/** Me vs them across a set of crews: both sides' stats + the h2h ledger. */
+async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: string) {
+  const mineAgg = newAgg();
+  const theirsAgg = newAgg();
+  const byMatch = new Map<
+    string,
+    { mine?: { p: number | null; w: boolean }; theirs?: { p: number | null; w: boolean }; game: string }
+  >();
+
+  if (groupIds.length) {
+    // Every completed participant row for either of us, in one query;
+    // pair them up by matchId in memory.
+    const rows = await db
+      .select({
+        matchId: matchParticipants.matchId,
+        userId: matchParticipants.userId,
+        placement: matchParticipants.placement,
+        isWinner: matchParticipants.isWinner,
+        gameName: games.name,
+      })
+      .from(matchParticipants)
+      .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
+      .leftJoin(games, eq(matches.gameId, games.id))
+      .where(
+        and(
+          inArray(matchParticipants.groupId, groupIds),
+          inArray(matchParticipants.userId, [meId, themId]),
+          eq(matches.status, "completed"),
+        ),
+      );
+    for (const r of rows) {
+      const side = r.userId === meId ? mineAgg : theirsAgg;
+      feedAgg(side, r.placement, r.isWinner, r.gameName);
+      const m = byMatch.get(r.matchId) ?? { game: r.gameName ?? "Unknown" };
+      if (r.userId === meId) m.mine = { p: r.placement, w: r.isWinner };
+      else m.theirs = { p: r.placement, w: r.isWinner };
+      byMatch.set(r.matchId, m);
+    }
+  }
+
+  let wins = 0;
+  let losses = 0;
+  let ties = 0;
+  const h2hByGame = new Map<string, { meetings: number; myWins: number; theirWins: number }>();
+  for (const m of byMatch.values()) {
+    if (!m.mine || !m.theirs) continue;
+    const g = h2hByGame.get(m.game) ?? { meetings: 0, myWins: 0, theirWins: 0 };
+    g.meetings++;
+    // Placement decides; isWinner breaks a null-placement pair (rare).
+    const mp = m.mine.p ?? Infinity;
+    const tp = m.theirs.p ?? Infinity;
+    if (mp < tp || (mp === tp && m.mine.w && !m.theirs.w)) {
+      wins++;
+      g.myWins++;
+    } else if (tp < mp || (mp === tp && m.theirs.w && !m.mine.w)) {
+      losses++;
+      g.theirWins++;
+    } else {
+      ties++;
+    }
+    h2hByGame.set(m.game, g);
+  }
+
+  return {
+    meStats: finishAgg(mineAgg),
+    themStats: finishAgg(theirsAgg),
+    h2h: {
+      meetings: wins + losses + ties,
+      wins,
+      losses,
+      ties,
+      byGame: [...h2hByGame.entries()]
+        .map(([name, v]) => ({ name, ...v }))
+        .sort((x, y) => y.meetings - x.meetings),
+    },
+  };
+}
+
 /** Everything I've played, across every crew I'm in. Feeds the Home card. */
 statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
   const db = getDb();
@@ -291,26 +493,12 @@ statsRouter.get("/groups/:id/members/:userId/stats", async (req: AuthedRequest, 
     return;
   }
 
-  const rows = await db
-    .select({
-      placement: matchParticipants.placement,
-      isWinner: matchParticipants.isWinner,
-      gameName: games.name,
-    })
-    .from(matchParticipants)
-    .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
-    .leftJoin(games, eq(matches.gameId, games.id))
-    .where(
-      and(
-        eq(matchParticipants.groupId, groupId),
-        eq(matchParticipants.userId, targetId),
-        eq(matches.status, "completed"),
-      ),
-    );
-
-  const a = newAgg();
-  for (const r of rows) feedAgg(a, r.placement, r.isWinner, r.gameName);
-  res.json({ userId: targetId, displayName: target[0].displayName, ...finishAgg(a) });
+  res.json({
+    userId: targetId,
+    displayName: target[0].displayName,
+    ...(await aggFor(db, [groupId], targetId)),
+    attendance: await attendanceFor(db, [groupId], targetId),
+  });
 });
 
 /** Me vs one crew member: both sides' stats plus the head-to-head ledger. */
@@ -336,68 +524,121 @@ statsRouter.get("/groups/:id/rivalry/:userId", async (req: AuthedRequest, res) =
     return;
   }
 
-  // Every completed participant row in the crew for either of us, in one
-  // query; pair them up by matchId in memory.
+  const r = await buildRivalry(db, [groupId], meId, themId);
+  res.json({
+    me: { userId: meId, displayName: meName, ...r.meStats },
+    them: { userId: themId, displayName: themName, ...r.themStats },
+    h2h: r.h2h,
+  });
+});
+
+// ---------- Friends (cross-crew) ----------
+// A friend is anyone you share (or have shared) a real crew with. No adding,
+// no requests: crewing together IS the connection. Personal quick-play crews
+// never count, they only ever contain you.
+
+/** Everyone I've crewed with, deduped across crews. Feeds the Home section. */
+statsRouter.get("/friends", async (req: AuthedRequest, res) => {
+  const db = getDb();
+  const mine = await db
+    .select({ groupId: memberships.groupId, name: groups.name })
+    .from(memberships)
+    .innerJoin(groups, eq(memberships.groupId, groups.id))
+    .where(and(eq(memberships.userId, req.user!.id), eq(groups.isPersonal, false)));
+  if (!mine.length) {
+    res.json([]);
+    return;
+  }
+
   const rows = await db
     .select({
-      matchId: matchParticipants.matchId,
-      userId: matchParticipants.userId,
-      placement: matchParticipants.placement,
-      isWinner: matchParticipants.isWinner,
-      gameName: games.name,
+      userId: memberships.userId,
+      displayName: users.displayName,
+      groupId: memberships.groupId,
     })
-    .from(matchParticipants)
-    .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
-    .leftJoin(games, eq(matches.gameId, games.id))
-    .where(and(eq(matchParticipants.groupId, groupId), eq(matches.status, "completed")));
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .where(
+      inArray(
+        memberships.groupId,
+        mine.map((m) => m.groupId),
+      ),
+    );
 
-  const mineAgg = newAgg();
-  const theirsAgg = newAgg();
-  const byMatch = new Map<string, { mine?: { p: number | null; w: boolean }; theirs?: { p: number | null; w: boolean }; game: string }>();
+  const crewName = new Map(mine.map((m) => [m.groupId, m.name]));
+  const byUser = new Map<string, { userId: string; displayName: string; crews: string[] }>();
   for (const r of rows) {
-    if (r.userId !== meId && r.userId !== themId) continue;
-    const side = r.userId === meId ? mineAgg : theirsAgg;
-    feedAgg(side, r.placement, r.isWinner, r.gameName);
-    const m = byMatch.get(r.matchId) ?? { game: r.gameName ?? "Unknown" };
-    if (r.userId === meId) m.mine = { p: r.placement, w: r.isWinner };
-    else m.theirs = { p: r.placement, w: r.isWinner };
-    byMatch.set(r.matchId, m);
+    if (r.userId === req.user!.id) continue;
+    const f = byUser.get(r.userId) ?? { userId: r.userId, displayName: r.displayName, crews: [] };
+    f.crews.push(crewName.get(r.groupId) ?? "?");
+    byUser.set(r.userId, f);
+  }
+  res.json(
+    [...byUser.values()].sort((a, b) => a.displayName.localeCompare(b.displayName)),
+  );
+});
+
+/** A friend's stats aggregated across every crew we share. */
+statsRouter.get("/friends/:userId/stats", async (req: AuthedRequest, res) => {
+  const db = getDb();
+  const targetId = String(req.params.userId);
+  const shared = await sharedGroupIds(db, req.user!.id, targetId);
+  if (!shared.length) {
+    res.status(404).json({ error: "You haven't crewed with this person" });
+    return;
   }
 
-  let wins = 0;
-  let losses = 0;
-  let ties = 0;
-  const h2hByGame = new Map<string, { meetings: number; myWins: number; theirWins: number }>();
-  for (const m of byMatch.values()) {
-    if (!m.mine || !m.theirs) continue;
-    const g = h2hByGame.get(m.game) ?? { meetings: 0, myWins: 0, theirWins: 0 };
-    g.meetings++;
-    // Placement decides; isWinner breaks a null-placement pair (rare).
-    const mp = m.mine.p ?? Infinity;
-    const tp = m.theirs.p ?? Infinity;
-    if (mp < tp || (mp === tp && m.mine.w && !m.theirs.w)) {
-      wins++;
-      g.myWins++;
-    } else if (tp < mp || (mp === tp && m.theirs.w && !m.mine.w)) {
-      losses++;
-      g.theirWins++;
-    } else {
-      ties++;
-    }
-    h2hByGame.set(m.game, g);
+  const target = (
+    await db.select({ displayName: users.displayName }).from(users).where(eq(users.id, targetId)).limit(1)
+  )[0];
+  if (!target) {
+    res.status(404).json({ error: "Not found" });
+    return;
   }
+  const crews = await db
+    .select({ name: groups.name })
+    .from(groups)
+    .where(inArray(groups.id, shared));
 
   res.json({
-    me: { userId: meId, displayName: meName, ...finishAgg(mineAgg) },
-    them: { userId: themId, displayName: themName, ...finishAgg(theirsAgg) },
-    h2h: {
-      meetings: wins + losses + ties,
-      wins,
-      losses,
-      ties,
-      byGame: [...h2hByGame.entries()]
-        .map(([name, v]) => ({ name, ...v }))
-        .sort((x, y) => y.meetings - x.meetings),
-    },
+    userId: targetId,
+    displayName: target.displayName,
+    crews: crews.map((c) => c.name).sort(),
+    ...(await aggFor(db, shared, targetId)),
+    attendance: await attendanceFor(db, shared, targetId),
+  });
+});
+
+/** Me vs a friend, aggregated across every crew we share. */
+statsRouter.get("/friends/:userId/rivalry", async (req: AuthedRequest, res) => {
+  const db = getDb();
+  const meId = req.user!.id;
+  const themId = String(req.params.userId);
+  if (themId === meId) {
+    res.status(400).json({ error: "That's you" });
+    return;
+  }
+  const shared = await sharedGroupIds(db, meId, themId);
+  if (!shared.length) {
+    res.status(404).json({ error: "You haven't crewed with this person" });
+    return;
+  }
+
+  const names = await db
+    .select({ id: users.id, displayName: users.displayName })
+    .from(users)
+    .where(inArray(users.id, [meId, themId]));
+  const meName = names.find((n) => n.id === meId)?.displayName;
+  const themName = names.find((n) => n.id === themId)?.displayName;
+  if (!meName || !themName) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const r = await buildRivalry(db, shared, meId, themId);
+  res.json({
+    me: { userId: meId, displayName: meName, ...r.meStats },
+    them: { userId: themId, displayName: themName, ...r.themStats },
+    h2h: r.h2h,
   });
 });

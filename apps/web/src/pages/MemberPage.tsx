@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { api, type Me } from "../api";
+import { api, type AttendanceStats, type Me } from "../api";
 import BackButton from "../BackButton";
 import { ensureRecapFonts } from "../recap";
 
-// One page, two faces. Tapping yourself in the crew list shows your
-// profile; tapping anyone else shows the rivalry comparison (you vs them)
-// with a shareable card. Both read the same lifetime ledger the stats
-// screen uses, so numbers always agree.
+// One page, two faces. Tapping yourself shows your profile; tapping anyone
+// else opens the rivalry comparison (you vs them) by default, with a second
+// tab for just their stats. Both read the same lifetime ledger the stats
+// screen uses, so numbers always agree. The crew route scopes everything to
+// one crew; the friend route (Home > Friends) aggregates every crew you share.
 
 interface SideStats {
   userId: string;
@@ -19,6 +20,9 @@ interface SideStats {
   winRate: number;
   avgPlacement: number | null;
   byGame: { name: string; played: number; wins: number }[];
+  attendance?: AttendanceStats;
+  /** Friend route only: the crews this view spans. */
+  crews?: string[];
 }
 
 interface Rivalry {
@@ -35,24 +39,69 @@ interface Rivalry {
 
 const pct = (r: number) => `${Math.round(r * 100)}%`;
 
+/** Crew route: /g/:id/member/:userId — everything scoped to that crew. */
 export default function MemberPage({ me }: { me: Me | null }) {
   const { id: groupId, userId } = useParams();
-  const isSelf = !!me && userId === me.id;
-  const [profile, setProfile] = useState<SideStats | null>(null);
-  const [rivalry, setRivalry] = useState<Rivalry | null>(null);
   const [groupName, setGroupName] = useState("");
-  const [err, setErr] = useState("");
-  const [showCard, setShowCard] = useState(false);
-
   useEffect(() => {
-    if (!groupId || !userId) return;
+    if (!groupId) return;
     let cancelled = false;
     api<{ name: string }>(`/api/groups/${groupId}`)
       .then((g) => {
         if (!cancelled) setGroupName(g.name ?? "");
       })
       .catch(() => {});
-    api<SideStats>(`/api/groups/${groupId}/members/${userId}/stats`)
+    return () => {
+      cancelled = true;
+    };
+  }, [groupId]);
+  if (!groupId || !userId) return null;
+  return (
+    <MemberView
+      key={`${groupId}:${userId}`}
+      isSelf={!!me && userId === me.id}
+      profileUrl={`/api/groups/${groupId}/members/${userId}/stats`}
+      rivalryUrl={`/api/groups/${groupId}/rivalry/${userId}`}
+      contextLabel={groupName}
+    />
+  );
+}
+
+/** Friend route: /friend/:userId — aggregated across every crew you share. */
+export function FriendPage({ me }: { me: Me | null }) {
+  const { userId } = useParams();
+  if (!userId) return null;
+  return (
+    <MemberView
+      key={userId}
+      isSelf={!!me && userId === me.id}
+      profileUrl={`/api/friends/${userId}/stats`}
+      rivalryUrl={`/api/friends/${userId}/rivalry`}
+    />
+  );
+}
+
+function MemberView({
+  isSelf,
+  profileUrl,
+  rivalryUrl,
+  contextLabel,
+}: {
+  isSelf: boolean;
+  profileUrl: string;
+  rivalryUrl: string;
+  /** Shown after the names; the friend route derives it from profile.crews. */
+  contextLabel?: string;
+}) {
+  const [profile, setProfile] = useState<SideStats | null>(null);
+  const [rivalry, setRivalry] = useState<Rivalry | null>(null);
+  const [err, setErr] = useState("");
+  const [showCard, setShowCard] = useState(false);
+  const [tab, setTab] = useState<"rivalry" | "stats">("rivalry");
+
+  useEffect(() => {
+    let cancelled = false;
+    api<SideStats>(profileUrl)
       .then((p) => {
         if (!cancelled) setProfile(p);
       })
@@ -60,7 +109,7 @@ export default function MemberPage({ me }: { me: Me | null }) {
         if (!cancelled) setErr(e instanceof Error ? e.message : "Couldn't load");
       });
     if (!isSelf) {
-      api<Rivalry>(`/api/groups/${groupId}/rivalry/${userId}`)
+      api<Rivalry>(rivalryUrl)
         .then((r) => {
           if (!cancelled) setRivalry(r);
         })
@@ -71,7 +120,9 @@ export default function MemberPage({ me }: { me: Me | null }) {
     return () => {
       cancelled = true;
     };
-  }, [groupId, userId, isSelf]);
+  }, [profileUrl, rivalryUrl, isSelf]);
+
+  const label = contextLabel || profile?.crews?.join(" · ") || "";
 
   return (
     <main className="gn-app">
@@ -80,46 +131,77 @@ export default function MemberPage({ me }: { me: Me | null }) {
         {err && <p className="gn-hint">{err}</p>}
 
         {isSelf && profile && <Profile stats={profile} title="Your stats" />}
-        {!isSelf && !rivalry && !err && <p className="gn-hint">Loading...</p>}
+        {!isSelf && !rivalry && !profile && !err && <p className="gn-hint">Loading...</p>}
 
-        {rivalry && (
+        {!isSelf && (rivalry || profile) && (
           <>
-            <header className="space-y-1">
-              <h1 className="gn-h1">Rivalry</h1>
-              <p className="gn-hint">
-                {rivalry.me.displayName} vs {rivalry.them.displayName}
-                {groupName ? ` · ${groupName}` : ""}
-              </p>
-            </header>
+            {/* Rivalry opens first; the second tab is just them. */}
+            <div className="flex gap-2">
+              <button
+                className={`gn-tab ${tab === "rivalry" ? "gn-tab--on" : ""}`}
+                onClick={() => setTab("rivalry")}
+              >
+                Rivalry
+              </button>
+              <button
+                className={`gn-tab ${tab === "stats" ? "gn-tab--on" : ""}`}
+                onClick={() => setTab("stats")}
+              >
+                {profile ? `${possessive(profile.displayName)} stats` : "Their stats"}
+              </button>
+            </div>
 
-            <RecordBanner r={rivalry} />
-            <Compare r={rivalry} />
-            <H2hByGame r={rivalry} />
+            {tab === "rivalry" && !rivalry && !err && <p className="gn-hint">Loading...</p>}
+            {tab === "rivalry" && rivalry && (
+              <>
+                <header className="space-y-1">
+                  <h1 className="gn-h1">Rivalry</h1>
+                  <p className="gn-hint">
+                    {rivalry.me.displayName} vs {rivalry.them.displayName}
+                    {label ? ` · ${label}` : ""}
+                  </p>
+                </header>
 
-            <button className="gn-btn gn-btn--p1 w-full" onClick={() => setShowCard(true)}>
-              Share rivalry card
-            </button>
+                <RecordBanner r={rivalry} />
+                <Compare r={rivalry} />
+                <H2hByGame r={rivalry} />
+
+                <button className="gn-btn gn-btn--p1 w-full" onClick={() => setShowCard(true)}>
+                  Share rivalry card
+                </button>
+              </>
+            )}
+
+            {tab === "stats" && !profile && !err && <p className="gn-hint">Loading...</p>}
+            {tab === "stats" && profile && (
+              <Profile stats={profile} title={`${possessive(profile.displayName)} stats`} subtitle={label} />
+            )}
           </>
         )}
       </div>
       {showCard && rivalry && (
-        <RivalryCardModal r={rivalry} groupName={groupName} onClose={() => setShowCard(false)} />
+        <RivalryCardModal r={rivalry} groupName={label} onClose={() => setShowCard(false)} />
       )}
     </main>
   );
 }
 
+const possessive = (name: string) => (name.endsWith("s") ? `${name}'` : `${name}'s`);
+
 // ---------- Self profile ----------
 
-function Profile({ stats, title }: { stats: SideStats; title: string }) {
+function Profile({ stats, title, subtitle }: { stats: SideStats; title: string; subtitle?: string }) {
   return (
     <section className="space-y-4">
       <header className="space-y-1">
         <h1 className="gn-h1">{title}</h1>
-        <p className="gn-hint">{stats.displayName}</p>
+        <p className="gn-hint">
+          {stats.displayName}
+          {subtitle ? ` · ${subtitle}` : ""}
+        </p>
       </header>
       {stats.played === 0 ? (
-        <p className="gn-hint">No recorded games in this crew yet. Play something!</p>
+        <p className="gn-hint">No recorded games yet. Play something!</p>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-2 text-center">
@@ -135,20 +217,52 @@ function Profile({ stats, title }: { stats: SideStats; title: string }) {
               value={stats.avgPlacement ? stats.avgPlacement.toFixed(1) : "-"}
             />
           </div>
-          <div className="gn-card space-y-2">
-            <h2 className="gn-h2">By game</h2>
-            {stats.byGame.map((g) => (
-              <div key={g.name} className="flex justify-between items-baseline">
-                <span style={{ fontWeight: 700 }}>{g.name}</span>
-                <span className="gn-hint">
-                  {g.wins}W · {g.played} played
-                </span>
-              </div>
-            ))}
-          </div>
         </>
       )}
+      <ShowUpRecord a={stats.attendance} />
+      {stats.played > 0 && (
+        <div className="gn-card space-y-2">
+          <h2 className="gn-h2">By game</h2>
+          {stats.byGame.map((g) => (
+            <div key={g.name} className="flex justify-between items-baseline">
+              <span style={{ fontWeight: 700 }}>{g.name}</span>
+              <span className="gn-hint">
+                {g.wins}W · {g.played} played
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
+  );
+}
+
+// Flake tracking: intent (RSVP yes) vs reality (the show-up check-in).
+// Hidden until at least one check-in exists so old profiles stay clean.
+function ShowUpRecord({ a }: { a?: AttendanceStats }) {
+  if (!a || a.answered === 0) return null;
+  const rate = a.showRate ?? 0;
+  const rateColor = rate >= 0.8 ? "var(--gn-p2)" : rate >= 0.5 ? "var(--gn-gold)" : "var(--gn-danger)";
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <Stat label="show rate" value={pct(rate)} accent={rateColor} />
+        <Stat
+          label="show streak"
+          value={a.currentStreak >= 3 ? `${a.currentStreak} 🔥` : String(a.currentStreak)}
+          accent={a.currentStreak >= 3 ? "var(--gn-gold)" : undefined}
+        />
+        <Stat
+          label="flakes"
+          value={String(a.flaked)}
+          accent={a.flaked > 0 ? "var(--gn-danger)" : "var(--gn-p2)"}
+        />
+      </div>
+      <p className="gn-hint" style={{ fontSize: "12px" }}>
+        showed up to {a.showed} of {a.answered} check-in{a.answered === 1 ? "" : "s"} · best streak{" "}
+        {a.bestStreak}
+      </p>
+    </div>
   );
 }
 

@@ -75,6 +75,23 @@ export interface EventDetail {
   myAttendance: boolean | null;
 }
 
+// Show-up record derived from RSVPs + event_attendance (flake tracking).
+export interface AttendanceStats {
+  answered: number;
+  showed: number;
+  flaked: number;
+  showRate: number | null;
+  currentStreak: number;
+  bestStreak: number;
+}
+
+// Anyone you share (or have shared) a real crew with.
+export interface Friend {
+  userId: string;
+  displayName: string;
+  crews: string[];
+}
+
 export type BracketSlot =
   | { kind: "player"; seed: number; userId: string; displayName: string }
   | { kind: "bye" }
