@@ -20,10 +20,14 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
   const hash = await scrypt(password, salt, 64);
   return crypto.timingSafeEqual(hash, Buffer.from(expected, "hex"));
 }
-import { getDb, users, magicLinkTokens, sessions, and, eq, gt, isNull } from "@gamenight/db";
+import { getDb, users, magicLinkTokens, sessions, and, eq, gt, isNull, desc } from "@gamenight/db";
 import { sendMagicLink } from "./email.js";
 
-const TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes
+// A request row's code and link share one expiry: 10 minutes. Short because
+// the code is the primary path now and is typed in immediately.
+const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const RESEND_THROTTLE_MS = 60 * 1000; // one send per email per minute
+const MAX_CODE_ATTEMPTS = 5; // wrong guesses before a code is burned
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const COOKIE = "gn_session";
 
@@ -78,6 +82,23 @@ async function startSession(res: Response, userId: string) {
     maxAge: SESSION_TTL_MS,
     path: "/",
   });
+}
+
+/**
+ * Find or create the user for a verified email, then start their session.
+ * Shared by the magic-link POST /verify and the code POST /verify-code so
+ * both log in identically. New users get a name from their email prefix and
+ * can change it on the home screen.
+ */
+async function loginVerifiedEmail(res: Response, email: string) {
+  const db = getDb();
+  let user = (await db.select().from(users).where(eq(users.email, email)).limit(1))[0];
+  if (!user) {
+    const defaultName = email.split("@")[0] ?? "Player";
+    user = (await db.insert(users).values({ email, displayName: defaultName }).returning())[0]!;
+  }
+  await startSession(res, user.id);
+  return user;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -150,7 +171,13 @@ authRouter.patch("/password", requireAuth, async (req: AuthedRequest, res) => {
   res.json({ ok: true });
 });
 
-/** Step 1: user submits an email, we create a one-time token and send it. */
+/**
+ * Step 1: user submits an email, we create a one-time row carrying BOTH a
+ * 6-digit code (the primary path) and a magic-link token (desktop
+ * fallback), and email them. A malformed address still gets a 400 so a
+ * typo is caught; but whether the address has an account is never revealed,
+ * and the send throttle is never revealed either.
+ */
 authRouter.post("/request-link", async (req, res) => {
   const email = String(req.body?.email ?? "").trim().toLowerCase();
   const redirect = safeRedirect(req.body?.redirect);
@@ -159,19 +186,112 @@ authRouter.post("/request-link", async (req, res) => {
     return;
   }
 
-  const token = crypto.randomBytes(32).toString("hex");
   const db = getDb();
+
+  // Throttle: one send per email per minute. If a still-live, unused row was
+  // created under a minute ago, silently succeed without sending another.
+  // Same { ok: true } either way, so the throttle can't be probed.
+  const recent = (
+    await db
+      .select({ token: magicLinkTokens.token })
+      .from(magicLinkTokens)
+      .where(
+        and(
+          eq(magicLinkTokens.email, email),
+          isNull(magicLinkTokens.usedAt),
+          gt(magicLinkTokens.expiresAt, new Date()),
+          gt(magicLinkTokens.createdAt, new Date(Date.now() - RESEND_THROTTLE_MS)),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (recent) {
+    res.json({ ok: true });
+    return;
+  }
+
+  const token = crypto.randomBytes(32).toString("hex");
+  // Cryptographically random, zero-padded so codes like 004217 are valid.
+  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
   await db.insert(magicLinkTokens).values({
     token,
     email,
-    expiresAt: new Date(Date.now() + TOKEN_TTL_MS),
+    code,
+    expiresAt: new Date(Date.now() + CODE_TTL_MS),
   });
 
   const base = `${req.protocol}://${req.get("host")}`;
   const url = `${base}/api/auth/verify?token=${token}&redirect=${encodeURIComponent(redirect)}`;
-  await sendMagicLink(email, url);
+  await sendMagicLink(email, url, code);
 
   res.json({ ok: true });
+});
+
+/**
+ * The code path. The typed code never leaves the app, so the session cookie
+ * lands in the same browser context the user is in, which the emailed link
+ * can't guarantee for an installed iOS PWA. One generic error for every
+ * failure mode; a per-row attempt cap kills a code that's being guessed.
+ */
+authRouter.post("/verify-code", async (req, res) => {
+  const email = String(req.body?.email ?? "").trim().toLowerCase();
+  const code = String(req.body?.code ?? "").replace(/\D/g, "");
+  const redirect = safeRedirect(req.body?.redirect);
+  const db = getDb();
+  const now = new Date();
+
+  const match = (
+    await db
+      .select()
+      .from(magicLinkTokens)
+      .where(
+        and(
+          eq(magicLinkTokens.email, email),
+          eq(magicLinkTokens.code, code),
+          isNull(magicLinkTokens.usedAt),
+          gt(magicLinkTokens.expiresAt, now),
+        ),
+      )
+      .orderBy(desc(magicLinkTokens.createdAt))
+      .limit(1)
+  )[0];
+
+  if (!match) {
+    // Wrong / expired / no such email all land here. Burn an attempt against
+    // the newest live row for this email so the code can't be guessed
+    // indefinitely; at the cap, mark it used so it's dead.
+    const live = (
+      await db
+        .select()
+        .from(magicLinkTokens)
+        .where(
+          and(
+            eq(magicLinkTokens.email, email),
+            isNull(magicLinkTokens.usedAt),
+            gt(magicLinkTokens.expiresAt, now),
+          ),
+        )
+        .orderBy(desc(magicLinkTokens.createdAt))
+        .limit(1)
+    )[0];
+    if (live) {
+      const attempts = live.attempts + 1;
+      await db
+        .update(magicLinkTokens)
+        .set({ attempts, usedAt: attempts >= MAX_CODE_ATTEMPTS ? new Date() : null })
+        .where(eq(magicLinkTokens.token, live.token));
+    }
+    res.status(400).json({ error: "Invalid or expired code" });
+    return;
+  }
+
+  await db
+    .update(magicLinkTokens)
+    .set({ usedAt: new Date() })
+    .where(eq(magicLinkTokens.token, match.token));
+
+  const user = await loginVerifiedEmail(res, match.email);
+  res.json({ id: user.id, email: user.email, displayName: user.displayName });
 });
 
 /**
@@ -234,17 +354,7 @@ authRouter.post("/verify", async (req, res) => {
     .set({ usedAt: new Date() })
     .where(eq(magicLinkTokens.token, token));
 
-  // Find or create the user. New users get a name from their email prefix;
-  // they can change it on the home screen.
-  let user = (await db.select().from(users).where(eq(users.email, link.email)).limit(1))[0];
-  if (!user) {
-    const defaultName = link.email.split("@")[0] ?? "Player";
-    user = (
-      await db.insert(users).values({ email: link.email, displayName: defaultName }).returning()
-    )[0]!;
-  }
-
-  await startSession(res, user.id);
+  await loginVerifiedEmail(res, link.email);
   res.redirect(redirect);
 });
 

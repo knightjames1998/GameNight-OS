@@ -26,14 +26,30 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// Magic link auth. A token is emailed, consumed once, then dead.
-export const magicLinkTokens = pgTable("magic_link_tokens", {
-  token: text("token").primaryKey(),
-  email: text("email").notNull(),
-  expiresAt: timestamp("expires_at").notNull(),
-  usedAt: timestamp("used_at"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+// Passwordless auth. One row backs BOTH ways in for a request: the emailed
+// magic link (token) and a 6-digit code typed into the app. The code is the
+// primary path because an installed iOS PWA has its own cookie jar: a link
+// tapped in Mail logs Safari in, not the app, but a typed code never leaves
+// the app so the session cookie lands in the right context. The link stays
+// as a desktop fallback. Rows are consumed once, then dead.
+export const magicLinkTokens = pgTable(
+  "magic_link_tokens",
+  {
+    token: text("token").primaryKey(),
+    email: text("email").notNull(),
+    // 6-digit code (with leading zeros). Nullable because rows created
+    // before this column existed have no code, and link-only flows never
+    // need one.
+    code: text("code"),
+    // Wrong-code guesses against this row. Capped server-side so a code
+    // can't be brute forced; hitting the cap marks the row used.
+    attempts: integer("attempts").notNull().default(0),
+    expiresAt: timestamp("expires_at").notNull(),
+    usedAt: timestamp("used_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("magic_link_tokens_email_code_idx").on(t.email, t.code)],
+);
 
 
 // A successful magic link verification creates a session; the session id
