@@ -22,7 +22,7 @@ const ZONES = [
     x: 40, y: 95, h: 540,
     title: "SHIPPED — FOUNDATION", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
-      { t: "Auth: magic links + password accounts" },
+      { t: "(NEW) Auth: 6-digit codes + links + passwords", bg: "#c3fae8" },
       { t: "Crews: invites, roles, join / leave / delete" },
       { t: "Events + RSVPs with live updates" },
       { t: "Bracket engine: single + double elim, undo" },
@@ -30,8 +30,8 @@ const ZONES = [
       { t: "Lifetime stats ledger + recap share cards" },
       { t: "Quick play via hidden personal crews" },
       { t: "Arcade theme + PWA install; profiles + rivalry cards" },
-      { t: "(NEW) Show-up check-in + event date editing + UI cleanup pass 2", bg: "#c3fae8", h: 52 },
-      { t: "(NEW) Flake tracking + streaks, Friends, tabbed member pages", bg: "#c3fae8", h: 52 },
+      { t: "Show-up check-in + event date editing + UI cleanup pass 2", h: 52 },
+      { t: "Flake tracking + streaks, Friends, tabbed member pages", h: 52 },
     ],
   },
   {
@@ -80,10 +80,9 @@ const ZONES = [
     x: 560, y: 660, h: 530,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
-      { t: "OPEN: magic link emails not sending on Render", h: 52, sw: 2 },
-      { t: "FIX PLANNED: login CODE instead of emailed link", bg: "#ffd8a8", h: 52, sw: 2 },
-      { t: "Watch: Resend only delivers to owner email", bg: "#fff3bf" },
-      { t: "Watch: drizzle push can no-op in CI — check build log", bg: "#fff3bf", h: 52 },
+      { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
+      { t: "Watch: drizzle push can no-op in CI, check build log", bg: "#fff3bf", h: 52 },
+      { t: "FIXED: RESEND_API_KEY never set on Render after move", bg: "#b2f2bb", h: 52 },
       { t: "FIXED: Firefox double-back as Beerio spectator", bg: "#b2f2bb" },
       { t: "FIXED: Mario Party tie placements shared", bg: "#b2f2bb" },
       { t: "FIXED: PWA standalone + safe-area insets", bg: "#b2f2bb" },

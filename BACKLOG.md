@@ -75,7 +75,8 @@ regenerated file in the same commit as the reconcile. If the MCP canvas is unava
 session, regenerating the committed file alone still counts as the redraw.
 
 ## SHIPPED — FOUNDATION
-- [x] Magic link auth + password accounts, 30-day session cookies
+- [x] Auth: 6-digit email login codes (primary) + magic links + password accounts, 30-day session cookies
+- [x] 6-digit login codes (2026-07-20). Login now emails a 6-digit code with the magic link kept below it as a desktop fallback, because an installed iOS PWA runs in a browser context whose cookie jar is separate from Safari's: a link tapped in Mail logged the session into Safari and left the installed app logged out, while a typed code never leaves the app. Code TTL 10 minutes; 5 wrong attempts per code then it dies; 60 second resend throttle; one generic "Invalid or expired code" for every failure mode so accounts can't be probed. Schema: magic_link_tokens gained code + attempts columns and an (email, code) index; the token column stayed, so links already in flight kept working.
 - [x] Crew: groups, invite links, join flow, roles, member removal, self-leave, crew deletion
 - [x] Events + RSVPs with live updates, event deletion (cascades)
 - [x] Bracket engine: single elim (derive-from-results), byes, undo cascade, scoring lock; double elim with losers bracket + grand-final reset (packages/shared/src/bracket.ts, tests via `pnpm test:bracket`)
