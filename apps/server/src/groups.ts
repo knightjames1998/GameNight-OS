@@ -213,6 +213,37 @@ groupsRouter.get("/:id", async (req: AuthedRequest, res) => {
   res.json({ ...group, members, myRole: mine[0].role });
 });
 
+/** Rename a crew. Owners and admins can; the same people who run it. */
+groupsRouter.patch("/:id", async (req: AuthedRequest, res) => {
+  const db = getDb();
+  const groupId = String(req.params.id);
+  const name = String(req.body?.name ?? "").trim();
+  if (name.length < 1 || name.length > 50) {
+    res.status(400).json({ error: "Crew name must be 1-50 characters" });
+    return;
+  }
+
+  const mine = (
+    await db
+      .select({ role: memberships.role })
+      .from(memberships)
+      .where(and(eq(memberships.groupId, groupId), eq(memberships.userId, req.user!.id)))
+      .limit(1)
+  )[0];
+  if (!mine) {
+    res.status(404).json({ error: "Group not found" });
+    return;
+  }
+  if (mine.role !== "owner" && mine.role !== "admin") {
+    res.status(403).json({ error: "Only crew owners and admins can rename the crew" });
+    return;
+  }
+
+  await db.update(groups).set({ name }).where(eq(groups.id, groupId));
+  broadcast({ type: "group_members_changed", groupId }, req.get("x-gn-client"));
+  res.json({ ok: true, name });
+});
+
 /**
  * Remove a member. Owners can remove anyone but themselves; admins can
  * remove plain members. Removal revokes access going forward only: the

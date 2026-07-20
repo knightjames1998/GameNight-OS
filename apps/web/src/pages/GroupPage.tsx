@@ -20,6 +20,8 @@ export default function GroupPage({
   const [title, setTitle] = useState("");
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(me?.displayName ?? "");
+  const [editingCrew, setEditingCrew] = useState(false);
+  const [crewDraft, setCrewDraft] = useState("");
   const [when, setWhen] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -108,7 +110,58 @@ export default function GroupPage({
   return (
     <Shell>
       <div className="space-y-1">
-        <h1 className="gn-title text-2xl">{group.name}</h1>
+        {editingCrew ? (
+          <span className="flex gap-2 items-center flex-wrap">
+            <input
+              value={crewDraft}
+              onChange={(e) => setCrewDraft(e.target.value)}
+              maxLength={50}
+              className="gn-input"
+              style={{ minHeight: "40px", maxWidth: "14rem" }}
+              autoFocus
+            />
+            <button
+              className="gn-textbtn"
+              onClick={async () => {
+                const name = crewDraft.trim();
+                setEditingCrew(false);
+                if (!name || name === group.name) return;
+                const prev = group.name;
+                setGroup({ ...group, name }); // optimistic
+                try {
+                  await api(`/api/groups/${group.id}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({ name }),
+                  });
+                } catch (e) {
+                  setGroup({ ...group, name: prev }); // rollback
+                  window.alert(e instanceof Error ? e.message : "Couldn't rename the crew");
+                }
+              }}
+            >
+              save
+            </button>
+            <button className="gn-textbtn" onClick={() => setEditingCrew(false)}>
+              cancel
+            </button>
+          </span>
+        ) : (
+          <h1 className="gn-title text-2xl flex items-center gap-2 flex-wrap">
+            {group.name}
+            {canManage && (
+              <button
+                className="gn-textbtn"
+                style={{ fontSize: "13px" }}
+                onClick={() => {
+                  setCrewDraft(group.name);
+                  setEditingCrew(true);
+                }}
+              >
+                edit
+              </button>
+            )}
+          </h1>
+        )}
         {me && (
           <div className="gn-hint">
             {editingName ? (
