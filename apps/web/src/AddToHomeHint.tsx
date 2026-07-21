@@ -1,10 +1,10 @@
 import { useState } from "react";
 
 /**
- * Small "add this to your home screen" tip for Safari, Chrome and Firefox.
- * Collapsed to one line so it stays out of the way; renders nothing when
- * the app is already running FROM the home screen (standalone mode), which
- * is exactly the case where the tip has done its job.
+ * Small "install as an app" tip for Android (Chrome) and iPhone/iPad
+ * (Safari). Collapsed to one line so it stays out of the way; renders
+ * nothing when the app is already running FROM the home screen (standalone
+ * mode), which is exactly the case where the tip has done its job.
  */
 export default function AddToHomeHint() {
   const [open, setOpen] = useState(false);
@@ -13,7 +13,7 @@ export default function AddToHomeHint() {
   return (
     <div>
       <button className="gn-textbtn" style={{ padding: "4px 0" }} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-        📲 Tip: add GameNight to your home screen {open ? "▴" : "▾"}
+        📲 Tip: install GameNight as an app {open ? "▴" : "▾"}
       </button>
       {open && (
         <div
@@ -27,16 +27,12 @@ export default function AddToHomeHint() {
           }}
         >
           <p>
-            <b style={{ color: "var(--gn-ink)" }}>Safari</b> (iPhone/iPad): tap the Share button
-            (the square with the up arrow), then <b>Add to Home Screen</b>.
+            <b style={{ color: "var(--gn-ink)" }}>Android</b>: open GameNight in <b>Chrome</b> (it
+            handles web apps and links best), tap the <b>⋮</b> menu, then <b>Install app</b>.
           </p>
           <p>
-            <b style={{ color: "var(--gn-ink)" }}>Chrome</b>: tap the <b>⋮</b> menu, then{" "}
-            <b>Add to Home screen</b> (on iPhone: Share, then Add to Home Screen).
-          </p>
-          <p>
-            <b style={{ color: "var(--gn-ink)" }}>Firefox</b>: tap the <b>⋮</b> menu, then{" "}
-            <b>Add to Home screen</b> (on iPhone: Share, then Add to Home Screen).
+            <b style={{ color: "var(--gn-ink)" }}>iPhone/iPad</b>: in <b>Safari</b>, tap the Share
+            button (the square with the up arrow), then <b>Add to Home Screen</b>.
           </p>
           <p style={{ opacity: 0.8 }}>It opens full-screen, like a real app. This tip disappears once you're in it.</p>
         </div>
