@@ -441,6 +441,11 @@ function LivePlay({
             </button>
             <button className="pp-btn pp-btn--go" disabled={busy} onClick={() => call(`/api/pingpong/${eventId}/complete`)}>End session</button>
           </div>
+          {!freePlay && cur && cur.games.length > 0 && wins.a !== wins.b && (
+            <p className="pp-hint" style={{ marginTop: 8 }}>
+              Ending now records this match for {nameOf.get(wins.a > wins.b ? cur.aId : cur.bId)} ({Math.max(wins.a, wins.b)}&ndash;{Math.min(wins.a, wins.b)}).
+            </p>
+          )}
         </div>
       )}
     </>

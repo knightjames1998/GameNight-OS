@@ -175,6 +175,28 @@ export function recordGame(
 }
 
 /**
+ * Finalize an in-progress match when the night is called (the host ends the
+ * session). Best-of matches only materialize on a decisive finish, so a match
+ * abandoned mid-set would otherwise lose every game played in it. This awards
+ * the match to whoever leads on games so those results survive to the ledger.
+ * An exact game tie (e.g. 2-2 in a bo5) has no fair winner and stays
+ * unrecorded. Returns the finalized match to materialize, or null when there
+ * is nothing to finalize (no current match, no games played, or a dead tie).
+ */
+export function finalizeCurrent(state: PpSessionState): PpMatch | null {
+  const m = state.current;
+  if (!m || m.games.length === 0) return null;
+  const { a, b } = gameWins(m);
+  if (a === b) return null;
+  m.winnerId = a > b ? m.aId : m.bId;
+  m.at = new Date().toISOString();
+  m.idx = state.matches.length;
+  state.matches.push(m);
+  state.current = null;
+  return m;
+}
+
+/**
  * Undo one step. If a match is in progress with games, drop the last game
  * (nothing was materialized). Otherwise pop the last completed match and
  * report its idx so the server can un-materialize it; KOTH state is rebuilt

@@ -32,6 +32,7 @@ import {
   newPingPongState,
   recordGame,
   startFfaMatch,
+  finalizeCurrent,
   undoLast,
   neededWins,
   summarizePingPong,
@@ -476,7 +477,18 @@ pingPongRouter.post("/pingpong/:eventId/complete", requireAuth, async (req: Auth
     res.status(403).json({ error: "Host only" });
     return;
   }
-  await saveState(eventId, loaded.state, "completed", req.get("x-gn-client"));
+  // An in-progress best-of match would otherwise lose every game played in it
+  // when the night is called. Finalize it to the game leader so those results
+  // reach the ledger (and thus the recap and leaderboard) just like a match
+  // that ran to its natural finish. A dead tie stays unrecorded.
+  const origin = req.get("x-gn-client");
+  const finalized = finalizeCurrent(loaded.state);
+  if (finalized) {
+    const gameId = await ensureGame(loaded.row.groupId);
+    await materializeMatch(loaded.row.groupId, eventId, gameId, finalized, loaded.state);
+  }
+  await saveState(eventId, loaded.state, "completed", origin);
+  if (finalized) broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json(await sessionView(eventId));
 });
 

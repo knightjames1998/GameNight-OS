@@ -410,9 +410,13 @@ export function drawNightRecapCard(recap: EventRecap): HTMLCanvasElement {
     ctx.font = `700 15px ${FONT_HEAD}`;
     ctx.fillText("GAMES PLAYED", PAD, gy + 24);
     ctx.font = `700 15px ${FONT_BODY}`;
+    // Ping Pong rides the match length in the label (bo1/bo3/bo5/bo7); show it
+    // in words rather than the raw token.
+    const PP_FMT: Record<string, string> = { bo1: "Free play", bo3: "Best of 3", bo5: "Best of 5", bo7: "Best of 7" };
     gamesList.forEach((g, i) => {
       const top = gy + GHEAD + i * GROW;
-      const name = g.label ? `${g.gameName}: ${g.label}` : g.gameName;
+      const label = g.label && g.pack === "pingpong" ? PP_FMT[g.label] ?? g.label : g.label;
+      const name = label ? `${g.gameName}: ${label}` : g.gameName;
       ctx.fillStyle = ink;
       ctx.fillText(name.slice(0, 40), PAD, top);
       ctx.fillStyle = dim;
