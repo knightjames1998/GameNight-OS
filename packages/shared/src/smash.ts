@@ -158,6 +158,12 @@ export interface KothState {
 }
 
 export interface SmashSessionState {
+  // Unique per session start. The ledger keys each materialized game
+  // {pack}:{eventId}:{sessionKey}:{idx}; without it a second session on the
+  // same event resets idx to 0,1,2... and collides with the first session's
+  // keys, so the dedup check silently drops every new game. (Shared by Smash
+  // and Mario Kart, which both build state from newSmashState.)
+  sessionKey: string;
   // Which title in the series is being played. Scopes the roster and the
   // random pool; null means the pack's default (widest) title.
   titleId: string | null;
@@ -180,6 +186,7 @@ export function newSmashState(opts: {
   roster: SmashPlayer[];
 }): SmashSessionState {
   return {
+    sessionKey: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
     titleId: opts.titleId ?? null,
     mode: opts.mode,
     assignment: opts.assignment,

@@ -172,6 +172,11 @@ export interface MpGame {
   at: string; // ISO
 }
 export interface MpSessionState {
+  // Unique per session start. The ledger keys each materialized game
+  // mp:{eventId}:{sessionKey}:{idx}; without it a second session on the same
+  // event resets idx to 0,1,2... and collides with the first session's keys,
+  // so the dedup check silently drops every new game.
+  sessionKey: string;
   titleId: string | null;
   assignment: SmashAssignment;
   openScoring: boolean;
@@ -185,6 +190,7 @@ export function newMpState(opts: {
   roster: SmashPlayer[];
 }): MpSessionState {
   return {
+    sessionKey: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
     titleId: opts.titleId ?? null,
     assignment: opts.assignment,
     openScoring: false,

@@ -115,15 +115,26 @@ async function ensureSmashGame(groupId: string): Promise<string> {
  * flag, and the fighter played. Guests (no userId) are skipped but
  * counted, and we report the count rather than dropping them silently.
  */
+/**
+ * The ledger externalKey for one game. Namespaced by the session's
+ * sessionKey so a later session on the same event (idx restarts at 0) can't
+ * collide with an earlier session's keys and get dropped as a duplicate.
+ * Legacy sessions with no sessionKey keep the old shape and never collide.
+ */
+function ledgerKey(eventId: string, sessionKey: string | undefined, idx: number): string {
+  return sessionKey ? `smash:${eventId}:${sessionKey}:${idx}` : `smash:${eventId}:${idx}`;
+}
+
 async function materializeGame(
   groupId: string,
   eventId: string,
   gameId: string,
   game: SmashGame,
   roster: SmashPlayer[],
+  sessionKey: string,
 ): Promise<{ recorded: number; guests: number }> {
   const db = getDb();
-  const key = `smash:${eventId}:${game.idx}`;
+  const key = ledgerKey(eventId, sessionKey, game.idx);
   const dupe = await db
     .select({ id: matches.id })
     .from(matches)
@@ -171,9 +182,9 @@ async function materializeGame(
   return { recorded, guests };
 }
 
-async function deleteMaterialized(eventId: string, idx: number) {
+async function deleteMaterialized(eventId: string, sessionKey: string | undefined, idx: number) {
   const db = getDb();
-  const key = `smash:${eventId}:${idx}`;
+  const key = ledgerKey(eventId, sessionKey, idx);
   const m = (
     await db
       .select({ id: matches.id })
@@ -487,7 +498,7 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
   state.games.push(game);
 
   const gameId = await ensureSmashGame(row.groupId);
-  const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster);
+  const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster, state.sessionKey);
 
   const origin = req.get("x-gn-client");
   await saveState(eventId, row.groupId, state, "live", origin);
@@ -514,7 +525,7 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
     res.json({ ...(await sessionView(eventId)), empty: true });
     return;
   }
-  await deleteMaterialized(eventId, last.idx);
+  await deleteMaterialized(eventId, state.sessionKey, last.idx);
 
   if (state.mode === "koth") {
     // Rebuild from the opening throne (roster[0]) by replaying survivors.

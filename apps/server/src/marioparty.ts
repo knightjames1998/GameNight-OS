@@ -110,16 +110,26 @@ async function ensureGame(groupId: string): Promise<string> {
   return created.id;
 }
 
-/** Materialize one recorded board into the ledger. Keyed mp:{eventId}:{idx}. */
+/**
+ * The ledger externalKey for one game. Namespaced by the session's
+ * sessionKey so a later session on the same event (idx restarts at 0) can't
+ * collide with an earlier session's keys and get dropped as a duplicate.
+ * Legacy sessions with no sessionKey keep the old shape and never collide.
+ */
+function ledgerKey(eventId: string, sessionKey: string | undefined, idx: number): string {
+  return sessionKey ? `mp:${eventId}:${sessionKey}:${idx}` : `mp:${eventId}:${idx}`;
+}
+
 async function materializeGame(
   groupId: string,
   eventId: string,
   gameId: string,
   game: MpGame,
   roster: SmashPlayer[],
+  sessionKey: string,
 ): Promise<{ recorded: number; guests: number }> {
   const db = getDb();
-  const key = `mp:${eventId}:${game.idx}`;
+  const key = ledgerKey(eventId, sessionKey, game.idx);
   const dupe = await db
     .select({ id: matches.id })
     .from(matches)
@@ -170,9 +180,9 @@ async function materializeGame(
   return { recorded, guests };
 }
 
-async function deleteMaterialized(eventId: string, idx: number) {
+async function deleteMaterialized(eventId: string, sessionKey: string | undefined, idx: number) {
   const db = getDb();
-  const key = `mp:${eventId}:${idx}`;
+  const key = ledgerKey(eventId, sessionKey, idx);
   const m = (
     await db
       .select({ id: matches.id })
@@ -451,7 +461,7 @@ marioPartyRouter.post("/marioparty/:eventId/record", requireAuth, async (req: Au
   state.games.push(game);
 
   const gameId = await ensureGame(row.groupId);
-  const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster);
+  const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster, state.sessionKey);
 
   const origin = req.get("x-gn-client");
   await saveState(eventId, state, "live", origin);
@@ -476,7 +486,7 @@ marioPartyRouter.post("/marioparty/:eventId/undo", requireAuth, async (req: Auth
     res.json({ ...(await sessionView(eventId)), empty: true });
     return;
   }
-  await deleteMaterialized(eventId, last.idx);
+  await deleteMaterialized(eventId, state.sessionKey, last.idx);
   const origin = req.get("x-gn-client");
   await saveState(eventId, state, "live", origin);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
