@@ -495,8 +495,9 @@ function eventGames(
       emoji: "🏓",
       cabClass: "gn-cab--pp",
       formats: [
-        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => navigate(`/pingpong?event=${id}&mode=koth`) },
-        { key: "ffa", label: "Singles", sub: "one match at a time", onPick: () => navigate(`/pingpong?event=${id}&mode=ffa`) },
+        { key: "free", label: "Free Play", sub: "single games, one tap each", onPick: () => navigate(`/pingpong?event=${id}&format=free`) },
+        { key: "bestof", label: "Best Of", sub: "3, 5 or 7 game series", onPick: () => navigate(`/pingpong?event=${id}&format=bestof`) },
+        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => navigate(`/pingpong?event=${id}&format=koth`) },
       ],
     },
     {
