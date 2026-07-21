@@ -141,6 +141,16 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-cab--pp{border-color:#1f6b46;background:linear-gradient(180deg,#0f3826,#241a30)}
 .gn-cab--pp .gn-cab__name{color:#ff9a4d}
 
+/* Shared on/off pill toggle (the "let members record results" control in
+   every pack). The label is the current state; green = on, red = off. */
+.gn-toggle{
+  border:2px solid;border-radius:999px;padding:6px 18px;min-width:64px;
+  font-family:inherit;font-weight:800;font-size:13px;letter-spacing:1px;
+  text-align:center;cursor:pointer;white-space:nowrap;
+}
+.gn-toggle--on{background:rgba(58,208,122,.16);color:#3ad07a;border-color:#3ad07a}
+.gn-toggle--off{background:rgba(255,90,95,.16);color:#ff6a6f;border-color:#ff5a5f}
+
 /* format rows under an expanded game in the game>format picker */
 .gn-fmts{margin:8px 0 2px;padding-left:14px;border-left:2px solid var(--gn-line);
   display:flex;flex-direction:column;gap:8px}

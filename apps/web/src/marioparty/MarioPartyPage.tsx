@@ -376,8 +376,12 @@ function LivePlay({
           <div className="mp-h">Host controls</div>
           <div className="mp-row">
             <span style={{ flex: 1 }}>Let members record results</span>
-            <button className="mp-textbtn" onClick={() => call(`/api/marioparty/${eventId}/open-scoring`, { open: !session.openScoring })}>
-              {session.openScoring ? "ON — turn off" : "OFF — turn on"}
+            <button
+              className={`gn-toggle ${session.openScoring ? "gn-toggle--on" : "gn-toggle--off"}`}
+              aria-pressed={session.openScoring}
+              onClick={() => call(`/api/marioparty/${eventId}/open-scoring`, { open: !session.openScoring })}
+            >
+              {session.openScoring ? "ON" : "OFF"}
             </button>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>

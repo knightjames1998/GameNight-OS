@@ -405,8 +405,12 @@ function LivePlay({
           <div className="pp-h">Host controls</div>
           <div className="pp-row">
             <span style={{ flex: 1 }}>Let members record results</span>
-            <button className="pp-textbtn" onClick={() => call(`/api/pingpong/${eventId}/open-scoring`, { open: !session.openScoring })}>
-              {session.openScoring ? "ON, tap to turn off" : "OFF, tap to turn on"}
+            <button
+              className={`gn-toggle ${session.openScoring ? "gn-toggle--on" : "gn-toggle--off"}`}
+              aria-pressed={session.openScoring}
+              onClick={() => call(`/api/pingpong/${eventId}/open-scoring`, { open: !session.openScoring })}
+            >
+              {session.openScoring ? "ON" : "OFF"}
             </button>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>

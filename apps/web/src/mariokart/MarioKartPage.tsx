@@ -383,8 +383,12 @@ function LivePlay({
           <div className="mk-h">Host controls</div>
           <div className="mk-row">
             <span style={{ flex: 1 }}>Let members record results</span>
-            <button className="mk-textbtn" onClick={() => call(`/api/mariokart/${eventId}/open-scoring`, { open: !session.openScoring })}>
-              {session.openScoring ? "ON — turn off" : "OFF — turn on"}
+            <button
+              className={`gn-toggle ${session.openScoring ? "gn-toggle--on" : "gn-toggle--off"}`}
+              aria-pressed={session.openScoring}
+              onClick={() => call(`/api/mariokart/${eventId}/open-scoring`, { open: !session.openScoring })}
+            >
+              {session.openScoring ? "ON" : "OFF"}
             </button>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
