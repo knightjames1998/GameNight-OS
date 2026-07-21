@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, CLIENT_ID } from "../api";
+import { api, ApiError, CLIENT_ID } from "../api";
 import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
 import { SMASH_TITLES, rosterForTitle } from "@gamenight/shared";
 import "./smash.css";
 
 type Mode = "ffa" | "koth";
+type Format = "ffa" | "koth" | "bestof";
+type BestOf = 3 | 5 | 7;
 type Assignment = "self" | "random" | "host";
 type Detail = "winner" | "placement";
 
@@ -24,9 +26,15 @@ interface Koth {
   bestStreak: { playerId: string; streak: number } | null;
 }
 interface GameLine { playerId: string; character: string | null; placement: number; isWinner: boolean }
+interface SeriesT { idx: number; aId: string; bId: string; games: { winnerId: string }[]; winnerId: string | null; at: string | null }
+interface SeriesStanding {
+  slotId: string; name: string; seriesWins: number; seriesPlayed: number;
+  gameWins: number; gamesPlayed: number; currentStreak: number; bestStreak: number;
+}
 interface Session {
   status: "setup" | "live" | "completed";
   groupId: string;
+  format: Format;
   titleId: string | null;
   mode: Mode;
   assignment: Assignment;
@@ -35,6 +43,10 @@ interface Session {
   roster: Slot[];
   games: { idx: number; mode: Mode; lines: GameLine[]; at: string }[];
   koth: Koth | null;
+  bestOf: BestOf;
+  series: SeriesT | null;
+  seriesLog: SeriesT[];
+  seriesStandings: SeriesStanding[];
   summary: {
     characters: { character: string; played: number; wins: number }[];
     players: { playerId: string; name: string; played: number; wins: number; mainCharacter: string | null }[];
@@ -126,6 +138,32 @@ export default function SmashPage() {
     }
   }
 
+  // Start a format. A live session 409s; confirm a replace with the host, then
+  // resend with force (standing rule 8: confirm-and-replace, never a silent
+  // clobber).
+  async function startSession(payload: Record<string, unknown>) {
+    setErr(null);
+    setBusy(true);
+    try {
+      const r = await api<{ session: Session | null }>(`/api/events/${eventId}/smash`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (r && typeof r === "object" && "session" in r) setSession(r.session);
+    } catch (e: any) {
+      if (e instanceof ApiError && e.status === 409) {
+        setBusy(false);
+        if (window.confirm("A session is already in progress on this event. Replace it? Any unfinished game or set is lost.")) {
+          await startSession({ ...payload, force: true });
+        }
+        return;
+      }
+      setErr(e?.message ?? "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!eventId) {
     return (
       <div className="sm-root"><div className="sm-wrap"><p className="sm-hint">No event specified.</p><BackButton /></div></div>
@@ -154,7 +192,7 @@ export default function SmashPage() {
             ctx={ctx}
             completed={session?.status === "completed"}
             busy={busy}
-            onStart={(payload) => call(`/api/events/${eventId}/smash`, payload)}
+            onStart={(payload) => startSession(payload)}
           />
         ) : (
           <LivePlay
@@ -181,12 +219,20 @@ function SetupOrWaiting({
   ctx: Ctx | null;
   completed: boolean;
   busy: boolean;
-  onStart: (p: unknown) => void;
+  onStart: (p: Record<string, unknown>) => void;
 }) {
-  // A format chosen upstream (the game>format picker) arrives as ?mode=.
-  const initialMode: Mode =
-    new URLSearchParams(window.location.search).get("mode") === "koth" ? "koth" : "ffa";
-  const [mode, setMode] = useState<Mode>(initialMode);
+  // A format chosen upstream (the game>format picker) arrives as ?format=
+  // (older links used ?mode=).
+  const qs = new URLSearchParams(window.location.search);
+  const qFormat = qs.get("format");
+  const initialFormat: Format =
+    qFormat === "koth" || qFormat === "bestof" || qFormat === "ffa"
+      ? qFormat
+      : qs.get("mode") === "koth"
+      ? "koth"
+      : "ffa";
+  const [format, setFormat] = useState<Format>(initialFormat);
+  const [bestOf, setBestOf] = useState<BestOf>(3);
   const [titleId, setTitleId] = useState<string>(SMASH_TITLES[0]!.id);
   const [assignment, setAssignment] = useState<Assignment>("self");
   const [detail, setDetail] = useState<Detail>("winner");
@@ -245,12 +291,28 @@ function SetupOrWaiting({
       <div className="sm-card">
         <div className="sm-h">Format</div>
         <div className="sm-seg">
-          <button className={mode === "ffa" ? "on" : ""} onClick={() => setMode("ffa")}>Free-for-all</button>
-          <button className={mode === "koth" ? "on" : ""} onClick={() => setMode("koth")}>King of the Hill</button>
+          <button className={format === "ffa" ? "on" : ""} onClick={() => setFormat("ffa")}>Free-for-all</button>
+          <button className={format === "koth" ? "on" : ""} onClick={() => setFormat("koth")}>King of the Hill</button>
+          <button className={format === "bestof" ? "on" : ""} onClick={() => setFormat("bestof")}>Best Of</button>
         </div>
         <p className="sm-hint" style={{ marginTop: 8 }}>
-          {mode === "ffa" ? "2 to 8 players per game, played across the night." : "Winner stays on, loser rotates out. First up is first in the list."}
+          {format === "ffa"
+            ? "2 to 8 players per game, played across the night."
+            : format === "koth"
+            ? "Winner stays on, loser rotates out. First up is first in the list."
+            : "1v1 sets. Pick two players; a set records once, when it is won."}
         </p>
+        {format === "bestof" && (
+          <>
+            <div className="sm-h" style={{ marginTop: 14 }}>Set length</div>
+            <div className="sm-seg">
+              {[3, 5, 7].map((n) => (
+                <button key={n} className={bestOf === n ? "on" : ""} onClick={() => setBestOf(n as BestOf)}>Best of {n}</button>
+              ))}
+            </div>
+            <p className="sm-hint" style={{ marginTop: 8 }}>First to {Math.floor(bestOf / 2) + 1} games wins the set.</p>
+          </>
+        )}
       </div>
 
       <div className="sm-card">
@@ -260,12 +322,16 @@ function SetupOrWaiting({
           <button className={assignment === "random" ? "on" : ""} onClick={() => setAssignment("random")}>Random</button>
           <button className={assignment === "host" ? "on" : ""} onClick={() => setAssignment("host")}>Host picks</button>
         </div>
-        <div className="sm-h" style={{ marginTop: 14 }}>Result detail</div>
-        <div className="sm-seg">
-          <button className={detail === "winner" ? "on" : ""} onClick={() => setDetail("winner")}>Winner only</button>
-          <button className={detail === "placement" ? "on" : ""} onClick={() => setDetail("placement")}>Full placement</button>
-        </div>
-        <p className="sm-hint" style={{ marginTop: 8 }}>Winner-only is one tap. Full placement records the whole 1-2-3 order.</p>
+        {format !== "bestof" && (
+          <>
+            <div className="sm-h" style={{ marginTop: 14 }}>Result detail</div>
+            <div className="sm-seg">
+              <button className={detail === "winner" ? "on" : ""} onClick={() => setDetail("winner")}>Winner only</button>
+              <button className={detail === "placement" ? "on" : ""} onClick={() => setDetail("placement")}>Full placement</button>
+            </div>
+            <p className="sm-hint" style={{ marginTop: 8 }}>Winner-only is one tap. Full placement records the whole 1-2-3 order.</p>
+          </>
+        )}
       </div>
 
       <div className="sm-card">
@@ -307,9 +373,11 @@ function SetupOrWaiting({
         className="sm-btn"
         style={{ marginTop: 12 }}
         disabled={busy || roster.length < 2}
-        onClick={() => onStart({ titleId, mode, assignment, resultDetail: detail, roster })}
+        onClick={() => onStart({ titleId, format, bestOf, assignment, resultDetail: detail, roster })}
       >
-        {roster.length < 2 ? "Add at least 2 players" : `Start ${mode === "ffa" ? "FFA" : "King of the Hill"}`}
+        {roster.length < 2
+          ? "Add at least 2 players"
+          : `Start ${format === "ffa" ? "FFA" : format === "koth" ? "King of the Hill" : "Best Of"}`}
       </button>
     </>
   );
@@ -378,7 +446,15 @@ function LivePlay({
 
       {/* Play area */}
       {canScore ? (
-        session.mode === "koth" ? (
+        session.format === "bestof" ? (
+          <BestOfPlay
+            session={session}
+            nameOf={nameOf}
+            busy={busy}
+            onStartSet={(aId, bId) => call(`/api/smash/${eventId}/start-series`, { aId, bId })}
+            onWin={(winnerId) => call(`/api/smash/${eventId}/record`, { winnerId })}
+          />
+        ) : session.mode === "koth" ? (
           <KothPlay session={session} nameOf={nameOf} busy={busy} onWin={(winnerId) => call(`/api/smash/${eventId}/record`, { winnerId })} />
         ) : (
           <FfaPlay session={session} busy={busy} onRecord={(lines) => call(`/api/smash/${eventId}/record`, { lines })} />
@@ -390,33 +466,52 @@ function LivePlay({
       )}
 
       {/* Night summary */}
-      <div className="sm-card">
-        <div className="sm-h">Tonight ({session.games.length} game{session.games.length === 1 ? "" : "s"})</div>
-        {session.summary.players.length === 0 ? (
-          <p className="sm-hint">No games recorded yet.</p>
-        ) : (
-          <>
-            <div className="sm-lab">Players</div>
-            {session.summary.players.map((p) => (
-              <div className="sm-row" key={p.playerId}>
-                <span style={{ flex: 1 }} className="sm-name">{p.name}</span>
-                <span className="sm-char">{p.wins}W / {p.played} · {p.mainCharacter ?? "-"}</span>
+      {session.format === "bestof" ? (
+        <div className="sm-card">
+          <div className="sm-h">Tonight ({session.seriesLog.length} set{session.seriesLog.length === 1 ? "" : "s"})</div>
+          {session.seriesStandings.length === 0 ? (
+            <p className="sm-hint">No sets finished yet.</p>
+          ) : (
+            session.seriesStandings.map((p) => (
+              <div className="sm-row" key={p.slotId}>
+                <span style={{ flex: 1 }} className="sm-name">
+                  {p.name}
+                  {p.currentStreak >= 2 ? ` 🔥${p.currentStreak}` : ""}
+                </span>
+                <span className="sm-char">{p.seriesWins}W / {p.seriesPlayed} sets · {p.gameWins} game W</span>
               </div>
-            ))}
-            {session.summary.characters.length > 0 && (
-              <>
-                <div className="sm-lab" style={{ marginTop: 12 }}>Fighters</div>
-                {session.summary.characters.slice(0, 6).map((c) => (
-                  <div className="sm-row" key={c.character}>
-                    <span style={{ flex: 1 }} className="sm-name">{c.character}</span>
-                    <span className="sm-char">{c.wins}W / {c.played}</span>
-                  </div>
-                ))}
-              </>
-            )}
-          </>
-        )}
-      </div>
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="sm-card">
+          <div className="sm-h">Tonight ({session.games.length} game{session.games.length === 1 ? "" : "s"})</div>
+          {session.summary.players.length === 0 ? (
+            <p className="sm-hint">No games recorded yet.</p>
+          ) : (
+            <>
+              <div className="sm-lab">Players</div>
+              {session.summary.players.map((p) => (
+                <div className="sm-row" key={p.playerId}>
+                  <span style={{ flex: 1 }} className="sm-name">{p.name}</span>
+                  <span className="sm-char">{p.wins}W / {p.played} · {p.mainCharacter ?? "-"}</span>
+                </div>
+              ))}
+              {session.summary.characters.length > 0 && (
+                <>
+                  <div className="sm-lab" style={{ marginTop: 12 }}>Fighters</div>
+                  {session.summary.characters.slice(0, 6).map((c) => (
+                    <div className="sm-row" key={c.character}>
+                      <span style={{ flex: 1 }} className="sm-name">{c.character}</span>
+                      <span className="sm-char">{c.wins}W / {c.played}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Host controls */}
       {canHost && (
@@ -433,7 +528,18 @@ function LivePlay({
             </button>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-            <button className="sm-btn sm-btn--ghost" disabled={busy || session.games.length === 0} onClick={() => call(`/api/smash/${eventId}/undo`)}>↶ Undo last</button>
+            <button
+              className="sm-btn sm-btn--ghost"
+              disabled={
+                busy ||
+                (session.format === "bestof"
+                  ? (session.series?.games.length ?? 0) === 0 && session.seriesLog.length === 0
+                  : session.games.length === 0)
+              }
+              onClick={() => call(`/api/smash/${eventId}/undo`)}
+            >
+              ↶ Undo last
+            </button>
             <button className="sm-btn sm-btn--go" disabled={busy} onClick={() => call(`/api/smash/${eventId}/complete`)}>End format</button>
           </div>
           <p className="sm-hint" style={{ marginTop: 8 }}>
@@ -576,6 +682,96 @@ function FfaPlay({
       <button className="sm-btn" style={{ marginTop: 12 }} disabled={busy || !ready} onClick={record}>
         {active.length < 2 ? "Pick at least 2 players" : "Record game"}
       </button>
+    </div>
+  );
+}
+
+// ---------- Best Of play (1v1 sets) ----------
+
+function BestOfPlay({
+  session,
+  nameOf,
+  busy,
+  onStartSet,
+  onWin,
+}: {
+  session: Session;
+  nameOf: Map<string, string>;
+  busy: boolean;
+  onStartSet: (aId: string, bId: string) => void;
+  onWin: (winnerId: string) => void;
+}) {
+  const charOf = useMemo(() => new Map(session.roster.map((p) => [p.id, p.character])), [session.roster]);
+  const [pickA, setPickA] = useState("");
+  const [pickB, setPickB] = useState("");
+  const [showPicker, setShowPicker] = useState(false);
+  const cur = session.series;
+  const need = Math.floor(session.bestOf / 2) + 1;
+
+  const wins = cur
+    ? cur.games.reduce(
+        (acc, g) => {
+          if (g.winnerId === cur.aId) acc.a++;
+          else if (g.winnerId === cur.bId) acc.b++;
+          return acc;
+        },
+        { a: 0, b: 0 },
+      )
+    : { a: 0, b: 0 };
+
+  if (!cur || showPicker) {
+    return (
+      <div className="sm-card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <div className="sm-h">Start a set</div>
+          {cur && <button className="sm-textbtn" onClick={() => setShowPicker(false)}>cancel</button>}
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <select className="sm-select" value={pickA} onChange={(e) => setPickA(e.target.value)}>
+            <option value="">Player 1</option>
+            {session.roster.map((p) => <option key={p.id} value={p.id} disabled={p.id === pickB}>{p.name}</option>)}
+          </select>
+          <select className="sm-select" value={pickB} onChange={(e) => setPickB(e.target.value)}>
+            <option value="">Player 2</option>
+            {session.roster.map((p) => <option key={p.id} value={p.id} disabled={p.id === pickA}>{p.name}</option>)}
+          </select>
+        </div>
+        <button
+          className="sm-btn"
+          style={{ marginTop: 10 }}
+          disabled={busy || !pickA || !pickB || pickA === pickB}
+          onClick={() => { onStartSet(pickA, pickB); setPickA(""); setPickB(""); setShowPicker(false); }}
+        >
+          Start best of {session.bestOf}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="sm-card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <div className="sm-h" style={{ margin: 0 }}>On the setup · first to {need}</div>
+        <span className="sm-hint">best of {session.bestOf}</span>
+      </div>
+      <div className="sm-score" style={{ margin: "8px 0 12px" }}>{wins.a} &ndash; {wins.b}</div>
+      <div className="sm-vs">
+        <button className="sm-fighter" disabled={busy} onClick={() => onWin(cur.aId)}>
+          <div className="sm-fighter__n">{nameOf.get(cur.aId)}</div>
+          <div className="sm-fighter__c">{charOf.get(cur.aId) ?? "no fighter"}</div>
+        </button>
+        <div className="sm-vsbadge">VS</div>
+        <button className="sm-fighter" disabled={busy} onClick={() => onWin(cur.bId)}>
+          <div className="sm-fighter__n">{nameOf.get(cur.bId)}</div>
+          <div className="sm-fighter__c">{charOf.get(cur.bId) ?? "no fighter"}</div>
+        </button>
+      </div>
+      <p className="sm-hint" style={{ marginTop: 10 }}>Tap the winner of each game. The set records when someone reaches {need}.</p>
+      {cur.games.length === 0 && (
+        <button className="sm-textbtn" style={{ marginTop: 4 }} onClick={() => { setPickA(""); setPickB(""); setShowPicker(true); }}>
+          Change players
+        </button>
+      )}
     </div>
   );
 }

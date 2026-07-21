@@ -75,6 +75,7 @@
 .sm-fighter__n { font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 18px; }
 .sm-fighter__c { color: var(--gn-dim); font-size: 12px; margin-top: 2px; }
 .sm-vsbadge { align-self: center; font-family: "Luckiest Guy", cursive; color: #ff4a3d; font-size: 22px; }
+.sm-score { text-align: center; font-family: "Luckiest Guy", cursive; font-size: 26px; color: var(--gn-ink); letter-spacing: 2px; }
 
 .sm-err { color: var(--gn-danger); font-size: 13px; margin-top: 8px; }
 .sm-textbtn { background: none; border: none; color: var(--gn-dim); font-weight: 700; cursor: pointer; padding: 6px 0; }

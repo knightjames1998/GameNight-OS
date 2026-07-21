@@ -130,6 +130,7 @@ type WsEvent =
 // treats the message normally.
 export type WsMessage = WsEvent & { origin?: string };
 export * from "./bracket.js";
+export * from "./series.js";
 export * from "./smash.js";
 export * from "./mariokart.js";
 export * from "./marioparty.js";

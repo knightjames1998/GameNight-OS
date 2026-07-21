@@ -37,13 +37,21 @@ import {
   validateFfa,
   isFighter,
   summarizeNight,
+  newSeries,
+  recordSeriesGame,
+  finalizeSeries,
+  seriesGameTally,
+  summarizeSeriesLog,
   type SmashSessionState,
   type SmashPlayer,
   type SmashMode,
+  type SmashFormat,
   type SmashAssignment,
   type SmashResultDetail,
   type SmashResultLine,
   type SmashGame,
+  type Series,
+  type SeriesBestOf,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { broadcast } from "./ws.js";
@@ -182,6 +190,86 @@ async function materializeGame(
   return { recorded, guests };
 }
 
+/**
+ * Materialize one completed best-of SERIES (match-as-unit, like Ping Pong):
+ * one matches row (label bo{N}), winner placement 1 / loser 2, each player's
+ * fighter on character, per-player game wins/played in meta. Shares the same
+ * sessionKey-namespaced ledger key as games; a bestof session only produces
+ * series (no games) so idx never collides within it.
+ */
+async function materializeSeries(
+  groupId: string,
+  eventId: string,
+  gameId: string,
+  series: Series,
+  bestOf: SeriesBestOf,
+  roster: SmashPlayer[],
+  sessionKey: string,
+): Promise<{ recorded: number; guests: number }> {
+  if (!series.winnerId) return { recorded: 0, guests: 0 };
+  const db = getDb();
+  const key = ledgerKey(eventId, sessionKey, series.idx);
+  const dupe = await db
+    .select({ id: matches.id })
+    .from(matches)
+    .where(and(eq(matches.eventId, eventId), eq(matches.externalKey, key)))
+    .limit(1);
+  if (dupe[0]) return { recorded: 0, guests: 0 };
+
+  const match = (
+    await db
+      .insert(matches)
+      .values({
+        groupId,
+        gameId,
+        eventId,
+        externalKey: key,
+        label: `bo${bestOf}`,
+        round: 1,
+        position: series.idx,
+        status: "completed",
+      })
+      .returning()
+  )[0]!;
+
+  const tally = seriesGameTally(series);
+  const loserId = series.winnerId === series.aId ? series.bId : series.aId;
+  const slotById = new Map(roster.map((p) => [p.id, p]));
+  let recorded = 0;
+  let guests = 0;
+  for (const slotId of [series.winnerId, loserId]) {
+    const slot = slotById.get(slotId);
+    if (!slot || slot.kind === "guest" || !slot.userId) {
+      guests++;
+      continue;
+    }
+    const g = tally.get(slotId) ?? { wins: 0, played: 0 };
+    await db
+      .insert(matchParticipants)
+      .values({
+        groupId,
+        matchId: match.id,
+        userId: slot.userId,
+        placement: slotId === series.winnerId ? 1 : 2,
+        isWinner: slotId === series.winnerId,
+        character: slot.character ?? null,
+        meta: { gameWins: g.wins, gamesPlayed: g.played },
+      })
+      .onConflictDoNothing();
+    recorded++;
+  }
+  return { recorded, guests };
+}
+
+/** Per-player best-of standings with names, for the live page + TV. */
+function seriesStandings(state: SmashSessionState) {
+  const nameOf = new Map(state.roster.map((p) => [p.id, p.name]));
+  return [...summarizeSeriesLog(state.seriesLog ?? []).values()]
+    .filter((s) => s.seriesPlayed > 0)
+    .map((s) => ({ ...s, name: nameOf.get(s.slotId) ?? "?" }))
+    .sort((a, b) => b.seriesWins - a.seriesWins || b.gameWins - a.gameWins || b.seriesPlayed - a.seriesPlayed);
+}
+
 async function deleteMaterialized(eventId: string, sessionKey: string | undefined, idx: number) {
   const db = getDb();
   const key = ledgerKey(eventId, sessionKey, idx);
@@ -260,6 +348,7 @@ async function sessionView(eventId: string) {
       groupId: loaded.row.groupId,
       ...loaded.state,
       summary: summarizeNight(loaded.state),
+      seriesStandings: loaded.state.format === "bestof" ? seriesStandings(loaded.state) : [],
     },
   };
 }
@@ -301,21 +390,41 @@ smashRouter.post("/events/:eventId/smash", requireAuth, async (req: AuthedReques
     return;
   }
 
-  const mode = req.body?.mode as SmashMode;
+  // New clients send an explicit format; older ones send mode. bestof is a
+  // 1v1 series (mode is ffa under the hood, the series path drives it).
+  const rawFormat = req.body?.format;
+  let format: SmashFormat;
+  let mode: SmashMode;
+  if (rawFormat === "ffa" || rawFormat === "koth" || rawFormat === "bestof") {
+    format = rawFormat;
+    mode = format === "koth" ? "koth" : "ffa";
+  } else {
+    mode = req.body?.mode as SmashMode;
+    if (mode !== "ffa" && mode !== "koth") {
+      res.status(400).json({ error: "format must be ffa, koth, or bestof" });
+      return;
+    }
+    format = mode;
+  }
+  const bestOf: SeriesBestOf = [3, 5, 7].includes(Number(req.body?.bestOf))
+    ? (Number(req.body.bestOf) as SeriesBestOf)
+    : 3;
   const assignment = req.body?.assignment as SmashAssignment;
   const resultDetail = (req.body?.resultDetail ?? "winner") as SmashResultDetail;
-  if (mode !== "ffa" && mode !== "koth") {
-    res.status(400).json({ error: "mode must be ffa or koth" });
-    return;
-  }
   if (!["self", "random", "host"].includes(assignment)) {
     res.status(400).json({ error: "invalid assignment" });
     return;
   }
 
-  // Don't clobber a session already in progress (standing rule 8).
+  // Don't clobber a session already in progress (standing rule 8) unless the
+  // host confirmed a replace (client resends force after a 409). A session is
+  // "in progress" if it has recorded games (ffa/koth) or series (bestof).
   const existing = await loadState(eventId);
-  if (existing && existing.row.status !== "completed" && existing.state.games.length > 0) {
+  const inProgress =
+    !!existing &&
+    existing.row.status !== "completed" &&
+    (existing.state.games.length > 0 || (existing.state.seriesLog?.length ?? 0) > 0);
+  if (!req.body?.force && inProgress) {
     res.status(409).json({ error: "A session is already in progress for this event" });
     return;
   }
@@ -346,7 +455,7 @@ smashRouter.post("/events/:eventId/smash", requireAuth, async (req: AuthedReques
     : SMASH_TITLES[0]!.id;
   const pool = rosterForTitle(SMASH_TITLES, titleId);
 
-  let state = newSmashState({ titleId, mode, assignment, resultDetail, roster });
+  let state = newSmashState({ format, titleId, mode, assignment, resultDetail, roster, bestOf });
   if (assignment === "random") state.roster = assignRandomFighters(state.roster, pool);
 
   await db
@@ -422,6 +531,50 @@ smashRouter.post("/smash/:eventId/randomize", requireAuth, async (req: AuthedReq
   res.json(await sessionView(eventId));
 });
 
+// ---------- best of: start the next set (host picks two players) ----------
+
+smashRouter.post("/smash/:eventId/start-series", requireAuth, async (req: AuthedRequest, res) => {
+  const eventId = String(req.params.eventId);
+  const loaded = await loadState(eventId);
+  if (!loaded) {
+    res.status(404).json({ error: "No session" });
+    return;
+  }
+  const { state, row } = loaded;
+  const role = await roleOf(row.groupId, req.user!.id);
+  if (!role) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  if (!isHostRole(role) && !state.openScoring) {
+    res.status(403).json({ error: "Only the host starts sets (open scoring is off)" });
+    return;
+  }
+  if (state.format !== "bestof") {
+    res.status(400).json({ error: "Not a Best Of session" });
+    return;
+  }
+  if (state.series && state.series.games.length > 0) {
+    res.status(409).json({ error: "Finish the current set first" });
+    return;
+  }
+  const ids = new Set(state.roster.map((p) => p.id));
+  const aId = String(req.body?.aId ?? "");
+  const bId = String(req.body?.bId ?? "");
+  if (!ids.has(aId) || !ids.has(bId) || aId === bId) {
+    res.status(400).json({ error: "Pick two different players" });
+    return;
+  }
+  const s = newSeries(aId, bId);
+  if (!s) {
+    res.status(400).json({ error: "Pick two different players" });
+    return;
+  }
+  state.series = s;
+  await saveState(eventId, row.groupId, state, "live", req.get("x-gn-client"));
+  res.json(await sessionView(eventId));
+});
+
 // ---------- record a game / round ----------
 
 smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedRequest, res) => {
@@ -439,6 +592,35 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
   }
   if (!isHostRole(role) && !state.openScoring) {
     res.status(403).json({ error: "Only the host records results (open scoring is off)" });
+    return;
+  }
+
+  // Best Of: record one game into the current 1v1 series. The series (not the
+  // game) is the ledger unit, so it materializes only when the set is won.
+  if (state.format === "bestof") {
+    if (!state.series) {
+      res.status(409).json({ error: "Pick two players and start a set first" });
+      return;
+    }
+    const winnerId = String(req.body?.winnerId ?? "");
+    if (winnerId !== state.series.aId && winnerId !== state.series.bId) {
+      res.status(400).json({ error: "Winner must be one of the two playing" });
+      return;
+    }
+    const { completed } = recordSeriesGame(state.series, state.bestOf, winnerId);
+    const origin = req.get("x-gn-client");
+    let report: { recorded: number; guests: number } | null = null;
+    if (completed) {
+      const done = state.series;
+      done.idx = state.seriesLog.length;
+      state.seriesLog.push(done);
+      state.series = null;
+      const gameId = await ensureSmashGame(row.groupId);
+      report = await materializeSeries(row.groupId, eventId, gameId, done, state.bestOf, state.roster, state.sessionKey);
+    }
+    await saveState(eventId, row.groupId, state, "live", origin);
+    if (completed) broadcast({ type: "leaderboard_updated", eventId }, origin);
+    res.json({ ...(await sessionView(eventId)), ...(report ?? {}) });
     return;
   }
 
@@ -520,6 +702,35 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
     res.status(403).json({ error: "Host only" });
     return;
   }
+
+  // Best Of: drop the last game of the in-progress set, or if none, un-record
+  // the last completed set (drop its ledger rows).
+  if (state.format === "bestof") {
+    const origin = req.get("x-gn-client");
+    if (state.series && state.series.games.length > 0) {
+      state.series.games.pop();
+      await saveState(eventId, row.groupId, state, "live", origin);
+      res.json(await sessionView(eventId));
+      return;
+    }
+    const lastSet = state.seriesLog.pop();
+    if (!lastSet) {
+      res.json({ ...(await sessionView(eventId)), empty: true });
+      return;
+    }
+    await deleteMaterialized(eventId, state.sessionKey, lastSet.idx);
+    // Re-open the undone set so its games can be replayed, matching how the
+    // KOTH undo leaves the state ready to continue.
+    lastSet.winnerId = null;
+    lastSet.at = null;
+    lastSet.idx = -1;
+    state.series = lastSet;
+    await saveState(eventId, row.groupId, state, "live", origin);
+    broadcast({ type: "leaderboard_updated", eventId }, origin);
+    res.json(await sessionView(eventId));
+    return;
+  }
+
   const last = state.games.pop();
   if (!last) {
     res.json({ ...(await sessionView(eventId)), empty: true });
@@ -577,7 +788,23 @@ smashRouter.post("/smash/:eventId/complete", requireAuth, async (req: AuthedRequ
     res.status(403).json({ error: "Host only" });
     return;
   }
-  await saveState(eventId, loaded.row.groupId, loaded.state, "completed", req.get("x-gn-client"));
+  const { state, row } = loaded;
+  const origin = req.get("x-gn-client");
+  // Best Of: an in-progress set would lose its games when the night ends;
+  // finalize it to the game leader so those results reach the ledger (a dead
+  // tie has no fair winner and stays unrecorded).
+  let finalized = false;
+  if (state.format === "bestof" && finalizeSeries(state.series)) {
+    const done = state.series!;
+    done.idx = state.seriesLog.length;
+    state.seriesLog.push(done);
+    state.series = null;
+    const gameId = await ensureSmashGame(row.groupId);
+    await materializeSeries(row.groupId, eventId, gameId, done, state.bestOf, state.roster, state.sessionKey);
+    finalized = true;
+  }
+  await saveState(eventId, row.groupId, state, "completed", origin);
+  if (finalized) broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json(await sessionView(eventId));
 });
 

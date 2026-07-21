@@ -115,7 +115,15 @@ export const SMASH_TITLES: GameTitle[] = [
 
 // ---------- Session shapes ----------
 
+import type { Series, SeriesBestOf } from "./series.js";
+
 export type SmashMode = "ffa" | "koth";
+// User-facing FORMAT chosen at start. "ffa" and "koth" record each game (the
+// mode of the same name); "bestof" is a 1v1 head-to-head series that records
+// once, when the set is won. mode carries the ffa/koth engine behavior;
+// format distinguishes bestof, which uses the shared series primitive instead
+// of the games log.
+export type SmashFormat = "ffa" | "koth" | "bestof";
 // How fighters get onto players. self: each member picks their own on their
 // device. random: host taps once, everyone gets a random fighter. host:
 // only the host assigns (for when that's needed).
@@ -164,6 +172,9 @@ export interface SmashSessionState {
   // keys, so the dedup check silently drops every new game. (Shared by Smash
   // and Mario Kart, which both build state from newSmashState.)
   sessionKey: string;
+  // User-facing format. ffa/koth record each game (below); bestof records
+  // 1v1 series (series/seriesLog below) and leaves games empty.
+  format: SmashFormat;
   // Which title in the series is being played. Scopes the roster and the
   // random pool; null means the pack's default (widest) title.
   titleId: string | null;
@@ -176,17 +187,27 @@ export interface SmashSessionState {
   roster: SmashPlayer[];
   games: SmashGame[];
   koth: KothState | null;
+  // Best Of format only. bestOf is the set length; series is the in-progress
+  // set (host picks two players); seriesLog is the completed, materialized
+  // sets. Null/empty for ffa and koth.
+  bestOf: SeriesBestOf;
+  series: Series | null;
+  seriesLog: Series[];
 }
 
 export function newSmashState(opts: {
+  format?: SmashFormat;
   titleId?: string | null;
   mode: SmashMode;
   assignment: SmashAssignment;
   resultDetail: SmashResultDetail;
   roster: SmashPlayer[];
+  bestOf?: SeriesBestOf;
 }): SmashSessionState {
+  const format: SmashFormat = opts.format ?? (opts.mode === "koth" ? "koth" : "ffa");
   return {
     sessionKey: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+    format,
     titleId: opts.titleId ?? null,
     mode: opts.mode,
     assignment: opts.assignment,
@@ -203,6 +224,9 @@ export function newSmashState(opts: {
             bestStreak: null,
           }
         : null,
+    bestOf: opts.bestOf ?? 3,
+    series: null,
+    seriesLog: [],
   };
 }
 

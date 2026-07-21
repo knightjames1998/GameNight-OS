@@ -476,8 +476,9 @@ function eventGames(
       emoji: "🥊",
       cabClass: "gn-cab--smash",
       formats: [
-        { key: "ffa", label: "Free-for-all", sub: "2–8 players a game", onPick: () => navigate(`/smash?event=${id}&mode=ffa`) },
-        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => navigate(`/smash?event=${id}&mode=koth`) },
+        { key: "ffa", label: "Free-for-all", sub: "2–8 players a game", onPick: () => navigate(`/smash?event=${id}&format=ffa`) },
+        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => navigate(`/smash?event=${id}&format=koth`) },
+        { key: "bestof", label: "Best Of", sub: "1v1 sets, best of 3/5/7", onPick: () => navigate(`/smash?event=${id}&format=bestof`) },
       ],
     },
     {
