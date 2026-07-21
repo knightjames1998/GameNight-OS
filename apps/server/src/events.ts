@@ -283,13 +283,17 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
 }
 
 // MVP of the night rule (documented in BACKLOG decision log): most wins,
-// full stop. Ties fall to alphabetical name only so the pick is stable, not
-// a real ranking tier.
+// tiebreak by best (lowest) average placement. A player with no ranked
+// placement sorts last on the tiebreak; a remaining exact tie falls to
+// alphabetical name only so the pick stays stable.
 function rankMvp(
-  a: { wins: number; name: string },
-  b: { wins: number; name: string },
+  a: { wins: number; avgPlacement: number | null; name: string },
+  b: { wins: number; avgPlacement: number | null; name: string },
 ): number {
   if (b.wins !== a.wins) return b.wins - a.wins;
+  const ap = a.avgPlacement ?? Infinity;
+  const bp = b.avgPlacement ?? Infinity;
+  if (ap !== bp) return ap - bp;
   return a.name.localeCompare(b.name);
 }
 
