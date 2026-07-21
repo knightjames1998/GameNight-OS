@@ -20,6 +20,21 @@ export type PpMode = "koth" | "ffa";
 // best-of matches.
 export type PpBestOf = 1 | 3 | 5 | 7;
 
+// The user-facing FORMAT chosen at session start. This is the explicit picker
+// value; mode + bestOf are its mechanical expansion (kept because the engine
+// and ledger key off them):
+//   free   -> mode ffa, bestOf 1  (singles, one game per result)
+//   bestof -> mode ffa, bestOf 3/5/7
+//   koth   -> mode koth, bestOf 1/3/5/7 (match length still applies)
+export type PpFormat = "free" | "bestof" | "koth";
+
+/** Expand a picked format + match length into the engine's mode + bestOf. */
+export function ppModeBestOf(format: PpFormat, length: PpBestOf): { mode: PpMode; bestOf: PpBestOf } {
+  if (format === "koth") return { mode: "koth", bestOf: length };
+  if (format === "bestof") return { mode: "ffa", bestOf: length === 1 ? 3 : length };
+  return { mode: "ffa", bestOf: 1 };
+}
+
 // A roster slot. Members carry a userId (stats accrue); guests are typed
 // names (no lifetime stats until linked to a member, a backlog item).
 export interface PpPlayer {
@@ -63,6 +78,8 @@ export interface PpSessionState {
   // is exactly the "set up another one below" replay a crew does on a
   // recurring event.
   sessionKey: string;
+  // User-facing format chosen at start; mode + bestOf are its expansion.
+  format: PpFormat;
   mode: PpMode;
   bestOf: PpBestOf;
   // When false, only owners/admins record results (standing rule 1). Host
@@ -96,12 +113,14 @@ function makeMatch(aId: string | null, bId: string | null): PpMatch | null {
 }
 
 export function newPingPongState(opts: {
+  format: PpFormat;
   mode: PpMode;
   bestOf: PpBestOf;
   roster: PpPlayer[];
 }): PpSessionState {
   const state: PpSessionState = {
     sessionKey: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+    format: opts.format,
     mode: opts.mode,
     bestOf: opts.bestOf,
     openScoring: false,

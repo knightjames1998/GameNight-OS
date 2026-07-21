@@ -130,8 +130,9 @@ function Groups({
       emoji: "🏓",
       cabClass: "gn-cab--pp",
       formats: [
-        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => startSession("pingpong", "&mode=koth") },
-        { key: "ffa", label: "Singles", sub: "one match at a time", onPick: () => startSession("pingpong", "&mode=ffa") },
+        { key: "free", label: "Free Play", sub: "single games, one tap each", onPick: () => startSession("pingpong", "&format=free") },
+        { key: "bestof", label: "Best Of", sub: "3, 5 or 7 game series", onPick: () => startSession("pingpong", "&format=bestof") },
+        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => startSession("pingpong", "&format=koth") },
       ],
     },
     {

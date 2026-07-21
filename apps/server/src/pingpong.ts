@@ -30,6 +30,7 @@ import {
 } from "@gamenight/db";
 import {
   newPingPongState,
+  ppModeBestOf,
   recordGame,
   startFfaMatch,
   finalizeCurrent,
@@ -41,6 +42,7 @@ import {
   type PpPlayer,
   type PpMode,
   type PpBestOf,
+  type PpFormat,
   type PpMatch,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
@@ -319,18 +321,39 @@ pingPongRouter.post("/events/:eventId/pingpong", requireAuth, async (req: Authed
     return;
   }
 
-  const mode = req.body?.mode as PpMode;
-  if (mode !== "koth" && mode !== "ffa") {
-    res.status(400).json({ error: "mode must be koth or ffa" });
-    return;
-  }
-  const bestOf: PpBestOf = [1, 3, 5, 7].includes(Number(req.body?.bestOf))
+  // New clients send an explicit format; older ones send mode + bestOf. The
+  // format is the source of truth going forward and mode/bestOf are its
+  // mechanical expansion (ppModeBestOf).
+  const rawFormat = req.body?.format;
+  const length: PpBestOf = [1, 3, 5, 7].includes(Number(req.body?.bestOf))
     ? (Number(req.body.bestOf) as PpBestOf)
     : 3;
+  let format: PpFormat;
+  let mode: PpMode;
+  let bestOf: PpBestOf;
+  if (rawFormat === "free" || rawFormat === "bestof" || rawFormat === "koth") {
+    format = rawFormat;
+    ({ mode, bestOf } = ppModeBestOf(format, length));
+  } else {
+    // Legacy body: derive the format back out of mode + bestOf.
+    mode = req.body?.mode as PpMode;
+    if (mode !== "koth" && mode !== "ffa") {
+      res.status(400).json({ error: "format must be free, bestof, or koth" });
+      return;
+    }
+    bestOf = length;
+    format = mode === "koth" ? "koth" : bestOf === 1 ? "free" : "bestof";
+  }
 
-  // Don't clobber a session already in progress (standing rule 8).
+  // Don't clobber a session already in progress (standing rule 8) unless the
+  // host explicitly confirmed a replace (client sends force after a 409).
   const existing = await loadState(eventId);
-  if (existing && existing.row.status !== "completed" && existing.state.matches.length > 0) {
+  if (
+    !req.body?.force &&
+    existing &&
+    existing.row.status !== "completed" &&
+    existing.state.matches.length > 0
+  ) {
     res.status(409).json({ error: "A session is already in progress for this event" });
     return;
   }
@@ -350,7 +373,7 @@ pingPongRouter.post("/events/:eventId/pingpong", requireAuth, async (req: Authed
     return;
   }
 
-  const state = newPingPongState({ mode, bestOf, roster });
+  const state = newPingPongState({ format, mode, bestOf, roster });
   await db
     .insert(gameSessions)
     .values({ eventId, pack: PACK, groupId: event.groupId, status: "live", state: state as any })

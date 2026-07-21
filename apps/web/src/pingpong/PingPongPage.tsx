@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, CLIENT_ID } from "../api";
+import { api, ApiError, CLIENT_ID } from "../api";
 import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
 import { recordGame, gameWins, type PpSessionState, type PpMatch } from "@gamenight/shared";
@@ -8,6 +8,7 @@ import "./pingpong.css";
 
 type Mode = "koth" | "ffa";
 type BestOf = 1 | 3 | 5 | 7;
+type Format = "free" | "bestof" | "koth";
 
 interface Slot { id: string; kind: "member" | "guest"; userId: string | null; name: string }
 interface Game { winnerId: string; loserPoints: number | null }
@@ -21,6 +22,7 @@ interface PlayerStat {
 interface Session {
   status: "setup" | "live" | "completed";
   groupId: string;
+  format: Format;
   mode: Mode;
   bestOf: BestOf;
   openScoring: boolean;
@@ -95,6 +97,32 @@ export default function PingPongPage() {
     }
   }
 
+  // Start a session. If one is already live on this event the server 409s;
+  // confirm a replace with the host, then resend with force (standing rule 8:
+  // confirm-and-replace, never a silent clobber).
+  async function startSession(payload: Record<string, unknown>) {
+    setErr(null);
+    setBusy(true);
+    try {
+      const r = await api<{ session: Session | null }>(`/api/events/${eventId}/pingpong`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (r && typeof r === "object" && "session" in r) setSession(r.session);
+    } catch (e: any) {
+      if (e instanceof ApiError && e.status === 409) {
+        setBusy(false);
+        if (window.confirm("A session is already in progress on this event. Replace it? Any unfinished match in the current session is lost.")) {
+          await startSession({ ...payload, force: true });
+        }
+        return;
+      }
+      setErr(e?.message ?? "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!eventId) {
     return <div className="pp-root"><div className="pp-wrap"><p className="pp-hint">No event specified.</p><BackButton /></div></div>;
   }
@@ -121,7 +149,7 @@ export default function PingPongPage() {
             ctx={ctx}
             completed={session?.status === "completed"}
             busy={busy}
-            onStart={(payload) => call(`/api/events/${eventId}/pingpong`, payload)}
+            onStart={(payload) => startSession(payload)}
           />
         ) : (
           <LivePlay eventId={eventId} ctx={ctx} session={session} busy={busy} call={call} />
@@ -142,11 +170,14 @@ function SetupOrWaiting({
   ctx: Ctx | null;
   completed: boolean;
   busy: boolean;
-  onStart: (p: unknown) => void;
+  onStart: (p: Record<string, unknown>) => void;
 }) {
-  const initialMode: Mode = new URLSearchParams(window.location.search).get("mode") === "ffa" ? "ffa" : "koth";
-  const [mode, setMode] = useState<Mode>(initialMode);
-  const [bestOf, setBestOf] = useState<BestOf>(3);
+  const q = new URLSearchParams(window.location.search).get("format");
+  const initialFormat: Format = q === "free" || q === "bestof" || q === "koth" ? q : "koth";
+  const [format, setFormat] = useState<Format>(initialFormat);
+  // Series/match length for Best Of (3/5/7) and KOTH (1/3/5/7). Free Play is
+  // always single games, so length is ignored there.
+  const [length, setLength] = useState<BestOf>(3);
   const [roster, setRoster] = useState<{ userId: string | null; name: string }[]>([]);
   const [guest, setGuest] = useState("");
 
@@ -187,26 +218,46 @@ function SetupOrWaiting({
       <div className="pp-card" style={{ marginTop: 16 }}>
         <div className="pp-h">Format</div>
         <div className="pp-seg">
-          <button className={mode === "koth" ? "on" : ""} onClick={() => setMode("koth")}>King of the Hill</button>
-          <button className={mode === "ffa" ? "on" : ""} onClick={() => setMode("ffa")}>Singles</button>
+          <button className={format === "free" ? "on" : ""} onClick={() => setFormat("free")}>Free Play</button>
+          <button className={format === "bestof" ? "on" : ""} onClick={() => { setFormat("bestof"); if (length === 1) setLength(3); }}>Best Of</button>
+          <button className={format === "koth" ? "on" : ""} onClick={() => setFormat("koth")}>King of the Hill</button>
         </div>
         <p className="pp-hint" style={{ marginTop: 8 }}>
-          {mode === "koth"
-            ? "Winner stays on, loser rotates to the back of the line. First up is first in the list."
-            : "One match at a time between any two players. You pick the two each match."}
+          {format === "free"
+            ? "Singles, one game per result. One tap logs a game; the same two stay on until you change players."
+            : format === "bestof"
+            ? "Singles head-to-head. A match is a best-of series; it records once, when the series is won."
+            : "Winner stays on, loser rotates to the back of the line. First up is first in the list."}
         </p>
-        <div className="pp-h" style={{ marginTop: 14 }}>Match length</div>
-        <div className="pp-seg">
-          <button className={bestOf === 1 ? "on" : ""} onClick={() => setBestOf(1)}>Free play</button>
-          {[3, 5, 7].map((n) => (
-            <button key={n} className={bestOf === n ? "on" : ""} onClick={() => setBestOf(n as BestOf)}>Best of {n}</button>
-          ))}
-        </div>
-        <p className="pp-hint" style={{ marginTop: 8 }}>
-          {bestOf === 1
-            ? "Free play: one tap logs one game. The same two stay on until you change players."
-            : `A match is best of ${bestOf}; first to ${Math.floor(bestOf / 2) + 1} games wins it.`}
-        </p>
+
+        {format === "bestof" && (
+          <>
+            <div className="pp-h" style={{ marginTop: 14 }}>Series length</div>
+            <div className="pp-seg">
+              {[3, 5, 7].map((n) => (
+                <button key={n} className={length === n ? "on" : ""} onClick={() => setLength(n as BestOf)}>Best of {n}</button>
+              ))}
+            </div>
+            <p className="pp-hint" style={{ marginTop: 8 }}>First to {Math.floor(length / 2) + 1} games wins the match.</p>
+          </>
+        )}
+
+        {format === "koth" && (
+          <>
+            <div className="pp-h" style={{ marginTop: 14 }}>Match length</div>
+            <div className="pp-seg">
+              <button className={length === 1 ? "on" : ""} onClick={() => setLength(1)}>Single game</button>
+              {[3, 5, 7].map((n) => (
+                <button key={n} className={length === n ? "on" : ""} onClick={() => setLength(n as BestOf)}>Best of {n}</button>
+              ))}
+            </div>
+            <p className="pp-hint" style={{ marginTop: 8 }}>
+              {length === 1
+                ? "Each match is a single game; winner stays on."
+                : `Each match is best of ${length}; first to ${Math.floor(length / 2) + 1} games wins and stays on.`}
+            </p>
+          </>
+        )}
       </div>
 
       <div className="pp-card">
@@ -242,9 +293,11 @@ function SetupOrWaiting({
         className="pp-btn"
         style={{ marginTop: 12 }}
         disabled={busy || roster.length < 2}
-        onClick={() => onStart({ mode, bestOf, roster })}
+        onClick={() => onStart({ format, bestOf: length, roster })}
       >
-        {roster.length < 2 ? "Add at least 2 players" : `Start ${mode === "koth" ? "King of the Hill" : "Singles"}`}
+        {roster.length < 2
+          ? "Add at least 2 players"
+          : `Start ${format === "free" ? "Free Play" : format === "bestof" ? "Best Of" : "King of the Hill"}`}
       </button>
     </>
   );
