@@ -36,7 +36,7 @@
    CONTENT with the device's safe-area values while the shell's own
    background still bleeds edge to edge. Mode TV classes with their own
    padding handle this via calc() in their mode css. */
-.gn-app, .gn-tv, .beerio-root, .mk-root, .mp-root, .sm-root{
+.gn-app, .gn-tv, .beerio-root, .mk-root, .mp-root, .sm-root, .pp-root{
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px);
