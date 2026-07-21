@@ -56,6 +56,13 @@ export interface PpKothState {
 }
 
 export interface PpSessionState {
+  // Unique per session start. The ledger keys each materialized match
+  // pp:{eventId}:{sessionKey}:{idx}; without the sessionKey a second session
+  // on the SAME event resets idx to 0,1,2... and collides with the first
+  // session's keys, so the dedup check silently drops every new match. That
+  // is exactly the "set up another one below" replay a crew does on a
+  // recurring event.
+  sessionKey: string;
   mode: PpMode;
   bestOf: PpBestOf;
   // When false, only owners/admins record results (standing rule 1). Host
@@ -94,6 +101,7 @@ export function newPingPongState(opts: {
   roster: PpPlayer[];
 }): PpSessionState {
   const state: PpSessionState = {
+    sessionKey: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
     mode: opts.mode,
     bestOf: opts.bestOf,
     openScoring: false,

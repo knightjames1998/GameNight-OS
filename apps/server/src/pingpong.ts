@@ -128,7 +128,7 @@ async function materializeMatch(
 ): Promise<{ recorded: number; guests: number }> {
   if (!match.winnerId) return { recorded: 0, guests: 0 };
   const db = getDb();
-  const key = `pp:${eventId}:${match.idx}`;
+  const key = ledgerKey(eventId, state, match.idx);
   const dupe = await db
     .select({ id: matches.id })
     .from(matches)
@@ -195,9 +195,21 @@ async function materializeMatch(
   return { recorded, guests };
 }
 
-async function deleteMaterialized(eventId: string, idx: number) {
+/**
+ * The ledger externalKey for one match. Namespaced by the session's
+ * sessionKey so a later session on the same event (idx restarts at 0) can't
+ * collide with an earlier session's keys and get dropped as a duplicate.
+ * Legacy sessions started before sessionKey existed fall back to a fixed
+ * suffix; their keys keep the old shape and never collide with new ones.
+ */
+function ledgerKey(eventId: string, state: PpSessionState, idx: number): string {
+  const sk = state.sessionKey;
+  return sk ? `pp:${eventId}:${sk}:${idx}` : `pp:${eventId}:${idx}`;
+}
+
+async function deleteMaterialized(eventId: string, state: PpSessionState, idx: number) {
   const db = getDb();
-  const key = `pp:${eventId}:${idx}`;
+  const key = ledgerKey(eventId, state, idx);
   const m = (
     await db
       .select({ id: matches.id })
@@ -439,7 +451,7 @@ pingPongRouter.post("/pingpong/:eventId/undo", requireAuth, async (req: AuthedRe
   const { unmaterializeIdx } = undoLast(state);
   const origin = req.get("x-gn-client");
   if (unmaterializeIdx != null) {
-    await deleteMaterialized(eventId, unmaterializeIdx);
+    await deleteMaterialized(eventId, state, unmaterializeIdx);
     await saveState(eventId, state, "live", origin);
     broadcast({ type: "leaderboard_updated", eventId }, origin);
   } else {
