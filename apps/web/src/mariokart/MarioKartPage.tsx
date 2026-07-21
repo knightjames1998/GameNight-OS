@@ -1,18 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, CLIENT_ID } from "../api";
+import { api, ApiError, CLIENT_ID } from "../api";
 import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
 import { MARIO_KART_TITLES, rosterForTitle } from "@gamenight/shared";
 import "./mariokart.css";
 
-// Mario Kart "general tracking": FFA races. Pick a racer, then each race
-// records the winner (one tap) or the full finishing order. Session-based
-// like Smash (host's live session, materializes to lifetime stats, own TV
-// mode). Beerio Kart is the other Mario Kart format and stays separate.
+// Mario Kart race night. Four formats: Free Play (single races), Grand Prix
+// (a cup of N races scored on cumulative points), Best Of (1v1 series), and
+// King of the Hill. Session-based like Smash (host's live session,
+// materializes to lifetime stats, own TV mode), and it reuses the shared
+// best-of + KOTH primitives. Beerio Kart is a separate pack and stays put.
 
 type Assignment = "self" | "random" | "host";
 type Detail = "winner" | "placement";
+type Format = "free" | "grandprix" | "bestof" | "koth";
+type BestOf = 3 | 5 | 7;
 
 interface Slot {
   id: string;
@@ -22,15 +25,31 @@ interface Slot {
   character: string | null;
 }
 interface GameLine { playerId: string; character: string | null; placement: number; isWinner: boolean }
+interface SeriesT { idx: number; aId: string; bId: string; games: { winnerId: string }[]; winnerId: string | null; at: string | null }
+interface SeriesStanding {
+  slotId: string; name: string; seriesWins: number; seriesPlayed: number;
+  gameWins: number; gamesPlayed: number; currentStreak: number; bestStreak: number;
+}
+interface CupStanding { playerId: string; name: string; points: number; wins: number; races: number }
+interface Cup { standings: CupStanding[]; cupNo: number; racesDone: number; raceCount: number; complete: boolean }
+interface Koth { kingId: string | null; queue: string[]; streak: number }
 interface Session {
   status: "setup" | "live" | "completed";
   groupId: string;
+  format: Format;
   titleId: string | null;
+  mode: "ffa" | "koth";
   assignment: Assignment;
   resultDetail: Detail;
   openScoring: boolean;
   roster: Slot[];
   games: { idx: number; lines: GameLine[]; at: string }[];
+  koth: Koth | null;
+  bestOf: BestOf;
+  series: SeriesT | null;
+  seriesLog: SeriesT[];
+  seriesStandings: SeriesStanding[];
+  cup: Cup | null;
   summary: {
     characters: { character: string; played: number; wins: number }[];
     players: { playerId: string; name: string; played: number; wins: number; mainCharacter: string | null }[];
@@ -122,6 +141,32 @@ export default function MarioKartPage() {
     }
   }
 
+  // Start a format. A live session 409s; confirm a replace with the host, then
+  // resend with force (standing rule 8: confirm-and-replace, never a silent
+  // clobber).
+  async function startSession(payload: Record<string, unknown>) {
+    setErr(null);
+    setBusy(true);
+    try {
+      const r = await api<{ session: Session | null }>(`/api/events/${eventId}/mariokart`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (r && typeof r === "object" && "session" in r) setSession(r.session);
+    } catch (e: any) {
+      if (e instanceof ApiError && e.status === 409) {
+        setBusy(false);
+        if (window.confirm("A session is already in progress on this event. Replace it? Any unfinished race or set is lost.")) {
+          await startSession({ ...payload, force: true });
+        }
+        return;
+      }
+      setErr(e?.message ?? "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!eventId) {
     return <div className="mk-root"><div className="mk-wrap"><p className="mk-hint">No event specified.</p><BackButton /></div></div>;
   }
@@ -148,7 +193,7 @@ export default function MarioKartPage() {
             ctx={ctx}
             completed={session?.status === "completed"}
             busy={busy}
-            onStart={(payload) => call(`/api/events/${eventId}/mariokart`, payload)}
+            onStart={(payload) => startSession(payload)}
           />
         ) : (
           <LivePlay eventId={eventId} ctx={ctx} session={session} busy={busy} call={call} />
@@ -169,8 +214,14 @@ function SetupOrWaiting({
   ctx: Ctx | null;
   completed: boolean;
   busy: boolean;
-  onStart: (p: unknown) => void;
+  onStart: (p: Record<string, unknown>) => void;
 }) {
+  const qFormat = new URLSearchParams(window.location.search).get("format");
+  const initialFormat: Format =
+    qFormat === "grandprix" || qFormat === "bestof" || qFormat === "koth" || qFormat === "free" ? qFormat : "free";
+  const [format, setFormat] = useState<Format>(initialFormat);
+  const [bestOf, setBestOf] = useState<BestOf>(3);
+  const [raceCount, setRaceCount] = useState(4);
   const [titleId, setTitleId] = useState<string>(MARIO_KART_TITLES[0]!.id);
   const [assignment, setAssignment] = useState<Assignment>("self");
   const [detail, setDetail] = useState<Detail>("winner");
@@ -227,18 +278,66 @@ function SetupOrWaiting({
       </div>
 
       <div className="mk-card">
+        <div className="mk-h">Format</div>
+        <div className="mk-seg">
+          <button className={format === "free" ? "on" : ""} onClick={() => setFormat("free")}>Free Play</button>
+          <button className={format === "grandprix" ? "on" : ""} onClick={() => setFormat("grandprix")}>Grand Prix</button>
+          <button className={format === "bestof" ? "on" : ""} onClick={() => setFormat("bestof")}>Best Of</button>
+          <button className={format === "koth" ? "on" : ""} onClick={() => setFormat("koth")}>King of the Hill</button>
+        </div>
+        <p className="mk-hint" style={{ marginTop: 8 }}>
+          {format === "free"
+            ? "Single races, logged one at a time."
+            : format === "grandprix"
+            ? "A cup of races scored on cumulative Mario Kart points. Each race still counts on its own."
+            : format === "bestof"
+            ? "1v1 sets. Pick two players; a set records once, when it is won."
+            : "Winner stays on, loser rotates out. First up is first in the list."}
+        </p>
+        {format === "grandprix" && (
+          <>
+            <div className="mk-h" style={{ marginTop: 14 }}>Races per cup</div>
+            <div className="mk-seg">
+              {[3, 4, 6, 8].map((n) => (
+                <button key={n} className={raceCount === n ? "on" : ""} onClick={() => setRaceCount(n)}>{n}</button>
+              ))}
+            </div>
+          </>
+        )}
+        {format === "bestof" && (
+          <>
+            <div className="mk-h" style={{ marginTop: 14 }}>Set length</div>
+            <div className="mk-seg">
+              {[3, 5, 7].map((n) => (
+                <button key={n} className={bestOf === n ? "on" : ""} onClick={() => setBestOf(n as BestOf)}>Best of {n}</button>
+              ))}
+            </div>
+            <p className="mk-hint" style={{ marginTop: 8 }}>First to {Math.floor(bestOf / 2) + 1} races wins the set.</p>
+          </>
+        )}
+      </div>
+
+      <div className="mk-card">
         <div className="mk-h">Racers</div>
         <div className="mk-seg">
           <button className={assignment === "self" ? "on" : ""} onClick={() => setAssignment("self")}>Players pick</button>
           <button className={assignment === "random" ? "on" : ""} onClick={() => setAssignment("random")}>Random</button>
           <button className={assignment === "host" ? "on" : ""} onClick={() => setAssignment("host")}>Host picks</button>
         </div>
-        <div className="mk-h" style={{ marginTop: 14 }}>Result detail</div>
-        <div className="mk-seg">
-          <button className={detail === "winner" ? "on" : ""} onClick={() => setDetail("winner")}>Winner only</button>
-          <button className={detail === "placement" ? "on" : ""} onClick={() => setDetail("placement")}>Full placement</button>
-        </div>
-        <p className="mk-hint" style={{ marginTop: 8 }}>Winner-only is one tap. Full placement records the whole finishing order.</p>
+        {(format === "free" || format === "grandprix") && (
+          <>
+            <div className="mk-h" style={{ marginTop: 14 }}>Result detail</div>
+            <div className="mk-seg">
+              <button className={detail === "winner" ? "on" : ""} onClick={() => setDetail("winner")}>Winner only</button>
+              <button className={detail === "placement" ? "on" : ""} onClick={() => setDetail("placement")}>Full placement</button>
+            </div>
+            <p className="mk-hint" style={{ marginTop: 8 }}>
+              {format === "grandprix"
+                ? "Full placement is recommended for Grand Prix so every position scores points."
+                : "Winner-only is one tap. Full placement records the whole finishing order."}
+            </p>
+          </>
+        )}
       </div>
 
       <div className="mk-card">
@@ -280,9 +379,11 @@ function SetupOrWaiting({
         className="mk-btn"
         style={{ marginTop: 12 }}
         disabled={busy || roster.length < 2}
-        onClick={() => onStart({ titleId, assignment, resultDetail: detail, roster })}
+        onClick={() => onStart({ titleId, format, bestOf, raceCount, assignment, resultDetail: detail, roster })}
       >
-        {roster.length < 2 ? "Add at least 2 players" : "Start race night"}
+        {roster.length < 2
+          ? "Add at least 2 players"
+          : `Start ${format === "free" ? "Free Play" : format === "grandprix" ? "Grand Prix" : format === "bestof" ? "Best Of" : "King of the Hill"}`}
       </button>
     </>
   );
@@ -343,40 +444,91 @@ function LivePlay({
       </div>
 
       {canScore ? (
-        <RacePlay session={session} busy={busy} onRecord={(lines) => call(`/api/mariokart/${eventId}/record`, { lines })} />
+        session.format === "bestof" ? (
+          <BestOfPlay
+            session={session}
+            busy={busy}
+            onStartSet={(aId, bId) => call(`/api/mariokart/${eventId}/start-series`, { aId, bId })}
+            onWin={(winnerId) => call(`/api/mariokart/${eventId}/record`, { winnerId })}
+          />
+        ) : session.format === "koth" ? (
+          <KothPlay session={session} busy={busy} onWin={(winnerId) => call(`/api/mariokart/${eventId}/record`, { winnerId })} />
+        ) : (
+          <RacePlay session={session} busy={busy} onRecord={(lines) => call(`/api/mariokart/${eventId}/record`, { lines })} />
+        )
       ) : (
         <div className="mk-card">
           <p className="mk-hint">The host is recording results. Standings update live below.</p>
         </div>
       )}
 
-      <div className="mk-card">
-        <div className="mk-h">Tonight ({session.games.length} race{session.games.length === 1 ? "" : "s"})</div>
-        {session.summary.players.length === 0 ? (
-          <p className="mk-hint">No races recorded yet.</p>
-        ) : (
-          <>
-            <div className="mk-lab">Players</div>
-            {session.summary.players.map((p) => (
-              <div className="mk-row" key={p.playerId}>
-                <span style={{ flex: 1 }} className="mk-name">{p.name}</span>
-                <span className="mk-char">{p.wins}W / {p.played} · {p.mainCharacter ?? "-"}</span>
+      {/* Grand Prix cup standings (derived, no ledger row) */}
+      {session.format === "grandprix" && session.cup && (
+        <div className="mk-card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <div className="mk-h" style={{ margin: 0 }}>Cup {session.cup.cupNo}</div>
+            <span className="mk-hint">
+              {session.cup.complete ? "cup complete" : `race ${session.cup.racesDone + 1} of ${session.cup.raceCount}`}
+            </span>
+          </div>
+          {session.cup.standings.length === 0 ? (
+            <p className="mk-hint" style={{ marginTop: 8 }}>No races in this cup yet.</p>
+          ) : (
+            session.cup.standings.map((s, i) => (
+              <div className="mk-row" key={s.playerId}>
+                <span style={{ flex: 1 }} className="mk-name">{i === 0 && s.points > 0 ? "🏆 " : ""}{s.name}</span>
+                <span className="mk-char">{s.points} pts · {s.wins}W</span>
               </div>
-            ))}
-            {session.summary.characters.length > 0 && (
-              <>
-                <div className="mk-lab" style={{ marginTop: 12 }}>Racers used</div>
-                {session.summary.characters.slice(0, 6).map((c) => (
-                  <div className="mk-row" key={c.character}>
-                    <span style={{ flex: 1 }} className="mk-name">{c.character}</span>
-                    <span className="mk-char">{c.wins}W / {c.played}</span>
-                  </div>
-                ))}
-              </>
-            )}
-          </>
-        )}
-      </div>
+            ))
+          )}
+          {session.cup.complete && <p className="mk-hint" style={{ marginTop: 8 }}>Next race starts Cup {session.cup.cupNo + 1}.</p>}
+        </div>
+      )}
+
+      {/* Night summary */}
+      {session.format === "bestof" ? (
+        <div className="mk-card">
+          <div className="mk-h">Tonight ({session.seriesLog.length} set{session.seriesLog.length === 1 ? "" : "s"})</div>
+          {session.seriesStandings.length === 0 ? (
+            <p className="mk-hint">No sets finished yet.</p>
+          ) : (
+            session.seriesStandings.map((p) => (
+              <div className="mk-row" key={p.slotId}>
+                <span style={{ flex: 1 }} className="mk-name">{p.name}{p.currentStreak >= 2 ? ` 🔥${p.currentStreak}` : ""}</span>
+                <span className="mk-char">{p.seriesWins}W / {p.seriesPlayed} sets · {p.gameWins} race W</span>
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="mk-card">
+          <div className="mk-h">Tonight ({session.games.length} race{session.games.length === 1 ? "" : "s"})</div>
+          {session.summary.players.length === 0 ? (
+            <p className="mk-hint">No races recorded yet.</p>
+          ) : (
+            <>
+              <div className="mk-lab">Players</div>
+              {session.summary.players.map((p) => (
+                <div className="mk-row" key={p.playerId}>
+                  <span style={{ flex: 1 }} className="mk-name">{p.name}</span>
+                  <span className="mk-char">{p.wins}W / {p.played} · {p.mainCharacter ?? "-"}</span>
+                </div>
+              ))}
+              {session.summary.characters.length > 0 && (
+                <>
+                  <div className="mk-lab" style={{ marginTop: 12 }}>Racers used</div>
+                  {session.summary.characters.slice(0, 6).map((c) => (
+                    <div className="mk-row" key={c.character}>
+                      <span style={{ flex: 1 }} className="mk-name">{c.character}</span>
+                      <span className="mk-char">{c.wins}W / {c.played}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {canHost && (
         <div className="mk-card">
@@ -392,7 +544,18 @@ function LivePlay({
             </button>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-            <button className="mk-btn mk-btn--ghost" disabled={busy || session.games.length === 0} onClick={() => call(`/api/mariokart/${eventId}/undo`)}>↶ Undo last</button>
+            <button
+              className="mk-btn mk-btn--ghost"
+              disabled={
+                busy ||
+                (session.format === "bestof"
+                  ? (session.series?.games.length ?? 0) === 0 && session.seriesLog.length === 0
+                  : session.games.length === 0)
+              }
+              onClick={() => call(`/api/mariokart/${eventId}/undo`)}
+            >
+              ↶ Undo last
+            </button>
             <button className="mk-btn mk-btn--go" disabled={busy} onClick={() => call(`/api/mariokart/${eventId}/complete`)}>End race night</button>
           </div>
         </div>
@@ -483,6 +646,137 @@ function RacePlay({
       <button className="mk-btn" style={{ marginTop: 12 }} disabled={busy || !ready} onClick={record}>
         {active.length < 2 ? "Pick at least 2 players" : "Record race"}
       </button>
+    </div>
+  );
+}
+
+// ---------- KOTH play ----------
+
+function KothPlay({
+  session,
+  busy,
+  onWin,
+}: {
+  session: Session;
+  busy: boolean;
+  onWin: (winnerId: string) => void;
+}) {
+  const koth = session.koth;
+  const kingId = koth?.kingId ?? null;
+  const challengerId = koth?.queue[0] ?? null;
+  const nameOf = new Map(session.roster.map((p) => [p.id, p.name]));
+  const charOf = new Map(session.roster.map((p) => [p.id, p.character]));
+
+  if (!kingId || !challengerId) {
+    return <div className="mk-card"><p className="mk-hint">Need at least two players queued to race.</p></div>;
+  }
+  return (
+    <div className="mk-card">
+      <div className="mk-h">Next race {koth && koth.streak > 0 ? `· king on a ${koth.streak} streak` : ""}</div>
+      <div className="mk-vs">
+        <button className="mk-fighter" disabled={busy} onClick={() => onWin(kingId)}>
+          <div className="mk-fighter__n">{nameOf.get(kingId)}</div>
+          <div className="mk-fighter__c">{charOf.get(kingId) ?? "no racer"} · 👑 king</div>
+        </button>
+        <div className="mk-vsbadge">VS</div>
+        <button className="mk-fighter" disabled={busy} onClick={() => onWin(challengerId)}>
+          <div className="mk-fighter__n">{nameOf.get(challengerId)}</div>
+          <div className="mk-fighter__c">{charOf.get(challengerId) ?? "no racer"} · challenger</div>
+        </button>
+      </div>
+      <p className="mk-hint" style={{ marginTop: 10 }}>Tap the winner. Loser goes to the back of the line.</p>
+      {koth && koth.queue.length > 1 ? (
+        <p className="mk-hint">Up next: {koth.queue.slice(1).map((id) => nameOf.get(id)).join(", ")}</p>
+      ) : null}
+    </div>
+  );
+}
+
+// ---------- Best Of play (1v1 sets) ----------
+
+function BestOfPlay({
+  session,
+  busy,
+  onStartSet,
+  onWin,
+}: {
+  session: Session;
+  busy: boolean;
+  onStartSet: (aId: string, bId: string) => void;
+  onWin: (winnerId: string) => void;
+}) {
+  const nameOf = new Map(session.roster.map((p) => [p.id, p.name]));
+  const charOf = new Map(session.roster.map((p) => [p.id, p.character]));
+  const [pickA, setPickA] = useState("");
+  const [pickB, setPickB] = useState("");
+  const [showPicker, setShowPicker] = useState(false);
+  const cur = session.series;
+  const need = Math.floor(session.bestOf / 2) + 1;
+
+  const wins = cur
+    ? cur.games.reduce(
+        (acc, g) => {
+          if (g.winnerId === cur.aId) acc.a++;
+          else if (g.winnerId === cur.bId) acc.b++;
+          return acc;
+        },
+        { a: 0, b: 0 },
+      )
+    : { a: 0, b: 0 };
+
+  if (!cur || showPicker) {
+    return (
+      <div className="mk-card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <div className="mk-h">Start a set</div>
+          {cur && <button className="mk-textbtn" onClick={() => setShowPicker(false)}>cancel</button>}
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <select className="mk-select" value={pickA} onChange={(e) => setPickA(e.target.value)}>
+            <option value="">Player 1</option>
+            {session.roster.map((p) => <option key={p.id} value={p.id} disabled={p.id === pickB}>{p.name}</option>)}
+          </select>
+          <select className="mk-select" value={pickB} onChange={(e) => setPickB(e.target.value)}>
+            <option value="">Player 2</option>
+            {session.roster.map((p) => <option key={p.id} value={p.id} disabled={p.id === pickA}>{p.name}</option>)}
+          </select>
+        </div>
+        <button
+          className="mk-btn"
+          style={{ marginTop: 10 }}
+          disabled={busy || !pickA || !pickB || pickA === pickB}
+          onClick={() => { onStartSet(pickA, pickB); setPickA(""); setPickB(""); setShowPicker(false); }}
+        >
+          Start best of {session.bestOf}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mk-card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <div className="mk-h" style={{ margin: 0 }}>On the grid · first to {need}</div>
+        <span className="mk-hint">best of {session.bestOf}</span>
+      </div>
+      <div className="mk-score" style={{ margin: "8px 0 12px" }}>{wins.a} &ndash; {wins.b}</div>
+      <div className="mk-vs">
+        <button className="mk-fighter" disabled={busy} onClick={() => onWin(cur.aId)}>
+          <div className="mk-fighter__n">{nameOf.get(cur.aId)}</div>
+          <div className="mk-fighter__c">{charOf.get(cur.aId) ?? "no racer"}</div>
+        </button>
+        <div className="mk-vsbadge">VS</div>
+        <button className="mk-fighter" disabled={busy} onClick={() => onWin(cur.bId)}>
+          <div className="mk-fighter__n">{nameOf.get(cur.bId)}</div>
+          <div className="mk-fighter__c">{charOf.get(cur.bId) ?? "no racer"}</div>
+        </button>
+      </div>
+      <p className="mk-hint" style={{ marginTop: 10 }}>Tap the winner of each race. The set records when someone reaches {need}.</p>
+      {cur.games.length === 0 && (
+        <button className="mk-textbtn" style={{ marginTop: 4 }} onClick={() => { setPickA(""); setPickB(""); setShowPicker(true); }}>
+          Change players
+        </button>
+      )}
     </div>
   );
 }

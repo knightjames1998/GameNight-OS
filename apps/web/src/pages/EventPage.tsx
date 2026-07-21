@@ -467,7 +467,10 @@ function eventGames(
       cabClass: "gn-cab--mk",
       formats: [
         { key: "beerio", label: "🍺 Beerio Kart", sub: beerioSub, onPick: () => navigate(`/beerio?event=${id}`) },
-        { key: "general", label: "🏁 General tracking", sub: "pick a racer, log races", onPick: () => navigate(`/mariokart?event=${id}`) },
+        { key: "free", label: "🏁 Free Play", sub: "single races", onPick: () => navigate(`/mariokart?event=${id}&format=free`) },
+        { key: "grandprix", label: "🏆 Grand Prix", sub: "a cup on points", onPick: () => navigate(`/mariokart?event=${id}&format=grandprix`) },
+        { key: "bestof", label: "Best Of", sub: "1v1 race sets", onPick: () => navigate(`/mariokart?event=${id}&format=bestof`) },
+        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => navigate(`/mariokart?event=${id}&format=koth`) },
       ],
     },
     {

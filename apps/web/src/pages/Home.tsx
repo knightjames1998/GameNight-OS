@@ -102,7 +102,10 @@ function Groups({
       cabClass: "gn-cab--mk",
       formats: [
         { key: "beerio", label: "🍺 Beerio Kart", sub: "double elim & grand prix", onPick: () => navigate("/beerio") },
-        { key: "general", label: "🏁 General tracking", sub: "pick a racer, log races", onPick: () => startSession("mariokart") },
+        { key: "free", label: "🏁 Free Play", sub: "single races", onPick: () => startSession("mariokart", "&format=free") },
+        { key: "grandprix", label: "🏆 Grand Prix", sub: "a cup on points", onPick: () => startSession("mariokart", "&format=grandprix") },
+        { key: "bestof", label: "Best Of", sub: "1v1 race sets", onPick: () => startSession("mariokart", "&format=bestof") },
+        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => startSession("mariokart", "&format=koth") },
       ],
     },
     {
