@@ -222,12 +222,6 @@ function Groups({
         <YourStats />
 
         <section className="space-y-3">
-          <h2 className="gn-h2">Games</h2>
-          <p className="gn-hint">Playable standalone, no event needed; fill in names manually.</p>
-          <GamePicker games={quickGames} />
-        </section>
-
-        <section className="space-y-3">
           <h2 className="gn-h2">Your crews</h2>
           {groups === null && <p className="gn-hint">Loading...</p>}
           {groups?.length === 0 && (
@@ -262,6 +256,12 @@ function Groups({
               Create
             </button>
           </div>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="gn-h2">Quick play</h2>
+          <p className="gn-hint">Playable standalone, no event needed; fill in names manually.</p>
+          <GamePicker games={quickGames} />
         </section>
 
         <Friends />
