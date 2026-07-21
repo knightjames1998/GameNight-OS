@@ -25,12 +25,12 @@ export type PpBestOf = 1 | 3 | 5 | 7;
 // and ledger key off them):
 //   free   -> mode ffa, bestOf 1  (singles, one game per result)
 //   bestof -> mode ffa, bestOf 3/5/7
-//   koth   -> mode koth, bestOf 1/3/5/7 (match length still applies)
+//   koth   -> mode koth, bestOf 1  (single game per match, winner stays on)
 export type PpFormat = "free" | "bestof" | "koth";
 
-/** Expand a picked format + match length into the engine's mode + bestOf. */
+/** Expand a picked format + series length into the engine's mode + bestOf. */
 export function ppModeBestOf(format: PpFormat, length: PpBestOf): { mode: PpMode; bestOf: PpBestOf } {
-  if (format === "koth") return { mode: "koth", bestOf: length };
+  if (format === "koth") return { mode: "koth", bestOf: 1 };
   if (format === "bestof") return { mode: "ffa", bestOf: length === 1 ? 3 : length };
   return { mode: "ffa", bestOf: 1 };
 }

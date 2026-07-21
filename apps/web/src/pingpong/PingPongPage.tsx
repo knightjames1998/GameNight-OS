@@ -242,22 +242,6 @@ function SetupOrWaiting({
           </>
         )}
 
-        {format === "koth" && (
-          <>
-            <div className="pp-h" style={{ marginTop: 14 }}>Match length</div>
-            <div className="pp-seg">
-              <button className={length === 1 ? "on" : ""} onClick={() => setLength(1)}>Single game</button>
-              {[3, 5, 7].map((n) => (
-                <button key={n} className={length === n ? "on" : ""} onClick={() => setLength(n as BestOf)}>Best of {n}</button>
-              ))}
-            </div>
-            <p className="pp-hint" style={{ marginTop: 8 }}>
-              {length === 1
-                ? "Each match is a single game; winner stays on."
-                : `Each match is best of ${length}; first to ${Math.floor(length / 2) + 1} games wins and stays on.`}
-            </p>
-          </>
-        )}
       </div>
 
       <div className="pp-card">
