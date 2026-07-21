@@ -7,7 +7,7 @@ import { recordGame, gameWins, type PpSessionState, type PpMatch } from "@gameni
 import "./pingpong.css";
 
 type Mode = "koth" | "ffa";
-type BestOf = 3 | 5 | 7;
+type BestOf = 1 | 3 | 5 | 7;
 
 interface Slot { id: string; kind: "member" | "guest"; userId: string | null; name: string }
 interface Game { winnerId: string; loserPoints: number | null }
@@ -196,10 +196,16 @@ function SetupOrWaiting({
         </p>
         <div className="pp-h" style={{ marginTop: 14 }}>Match length</div>
         <div className="pp-seg">
+          <button className={bestOf === 1 ? "on" : ""} onClick={() => setBestOf(1)}>Free play</button>
           {[3, 5, 7].map((n) => (
             <button key={n} className={bestOf === n ? "on" : ""} onClick={() => setBestOf(n as BestOf)}>Best of {n}</button>
           ))}
         </div>
+        <p className="pp-hint" style={{ marginTop: 8 }}>
+          {bestOf === 1
+            ? "Free play: one tap logs one game. The same two stay on until you change players."
+            : `A match is best of ${bestOf}; first to ${Math.floor(bestOf / 2) + 1} games wins it.`}
+        </p>
       </div>
 
       <div className="pp-card">
@@ -264,8 +270,10 @@ function LivePlay({
   const [pointsDraft, setPointsDraft] = useState("");
   const [pickA, setPickA] = useState("");
   const [pickB, setPickB] = useState("");
+  const [showPicker, setShowPicker] = useState(false);
 
   const cur = session.current;
+  const freePlay = session.bestOf === 1;
   const wins = cur ? gameWins(cur as unknown as PpMatch) : { a: 0, b: 0 };
 
   function tapWinner(winnerId: string) {
@@ -282,17 +290,18 @@ function LivePlay({
 
   return (
     <>
-      {/* Current match */}
-      {cur ? (
+      {/* Current match. In free-play singles a "Change players" tap reopens
+          the picker (showPicker) so the same pair doesn't stay on forever. */}
+      {cur && !(showPicker && session.mode === "ffa") ? (
         <div className="pp-card" style={{ marginTop: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
             <div className="pp-h" style={{ margin: 0 }}>
               {session.mode === "koth" ? "On the table" : "Current match"}
             </div>
-            <span className="pp-hint">first to {session.needed} · best of {session.bestOf}</span>
+            <span className="pp-hint">{freePlay ? "Free play · single game" : `first to ${session.needed} · best of ${session.bestOf}`}</span>
           </div>
 
-          <div className="pp-score" style={{ margin: "8px 0 12px" }}>{wins.a} &ndash; {wins.b}</div>
+          {!freePlay && <div className="pp-score" style={{ margin: "8px 0 12px" }}>{wins.a} &ndash; {wins.b}</div>}
 
           {canScore ? (
             <>
@@ -324,6 +333,11 @@ function LivePlay({
                 />
                 <p className="pp-hint" style={{ marginTop: 6 }}>Type the loser's points if you want, then tap the winner. Skip it to just tap.</p>
               </div>
+              {session.mode === "ffa" && (
+                <button className="pp-textbtn" style={{ marginTop: 8 }} onClick={() => { setPickA(""); setPickB(""); setShowPicker(true); }}>
+                  Change players
+                </button>
+              )}
             </>
           ) : (
             <p className="pp-hint">The host is recording. Standings update live below.</p>
@@ -346,8 +360,11 @@ function LivePlay({
         </div>
       ) : session.mode === "ffa" && canScore ? (
         <div className="pp-card" style={{ marginTop: 16 }}>
-          <div className="pp-h">Start a match</div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <div className="pp-h" style={{ margin: 0 }}>Start a match</div>
+            {cur && <button className="pp-textbtn" onClick={() => setShowPicker(false)}>cancel</button>}
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
             <select className="pp-select" value={pickA} onChange={(e) => setPickA(e.target.value)}>
               <option value="">Player 1</option>
               {session.roster.map((p) => <option key={p.id} value={p.id} disabled={p.id === pickB}>{p.name}</option>)}
@@ -361,7 +378,7 @@ function LivePlay({
             className="pp-btn"
             style={{ marginTop: 10 }}
             disabled={busy || !pickA || !pickB || pickA === pickB}
-            onClick={() => { call(`/api/pingpong/${eventId}/start-match`, { aId: pickA, bId: pickB }); setPickA(""); setPickB(""); }}
+            onClick={() => { call(`/api/pingpong/${eventId}/start-match`, { aId: pickA, bId: pickB }); setPickA(""); setPickB(""); setShowPicker(false); }}
           >
             Start match
           </button>

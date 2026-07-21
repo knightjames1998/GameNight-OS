@@ -16,7 +16,9 @@
 // live only in this session state.
 
 export type PpMode = "koth" | "ffa";
-export type PpBestOf = 3 | 5 | 7;
+// 1 = free play: every single game is its own recorded result. 3/5/7 are
+// best-of matches.
+export type PpBestOf = 1 | 3 | 5 | 7;
 
 // A roster slot. Members carry a userId (stats accrue); guests are typed
 // names (no lifetime stats until linked to a member, a backlog item).
@@ -162,6 +164,10 @@ export function recordGame(
     const queue = [...k.queue.filter((id) => id !== m.winnerId && id !== loserId), loserId];
     state.koth = { kingId: m.winnerId, queue, reign, bestReign };
     state.current = makeMatch(m.winnerId, queue[0] ?? null);
+  } else if (state.bestOf === 1) {
+    // Free play singles: keep the same two teed up so the host can log the
+    // next game with one tap. "Change players" starts a fresh matchup.
+    state.current = makeMatch(m.aId, m.bId);
   } else {
     state.current = null;
   }

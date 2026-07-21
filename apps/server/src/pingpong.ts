@@ -304,7 +304,7 @@ pingPongRouter.post("/events/:eventId/pingpong", requireAuth, async (req: Authed
     res.status(400).json({ error: "mode must be koth or ffa" });
     return;
   }
-  const bestOf: PpBestOf = [3, 5, 7].includes(Number(req.body?.bestOf))
+  const bestOf: PpBestOf = [1, 3, 5, 7].includes(Number(req.body?.bestOf))
     ? (Number(req.body.bestOf) as PpBestOf)
     : 3;
 

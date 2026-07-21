@@ -73,20 +73,20 @@ export default function PingPongTvPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div className="pp-tv__brand">Ping Pong</div>
         <div className="pp-tv__muted" style={{ fontSize: "2.4vmin" }}>
-          {session.mode === "koth" ? "King of the Hill" : "Singles"} · best of {session.bestOf} · {session.matches.length} matches
+          {session.mode === "koth" ? "King of the Hill" : "Singles"} · {session.bestOf === 1 ? "free play" : `best of ${session.bestOf}`} · {session.matches.length} {session.bestOf === 1 ? "games" : "matches"}
         </div>
       </div>
 
       {cur ? (
         <div className="pp-tv__now">
           <div className="pp-tv__muted" style={{ fontSize: "2.4vmin", textTransform: "uppercase", letterSpacing: "0.3vmin" }}>
-            On the table · first to {session.needed}
+            {session.bestOf === 1 ? "On the table · free play" : `On the table · first to ${session.needed}`}
           </div>
           <div className="pp-tv__vs">
             <span className="pp-tv__pl">
               {nameOf.get(cur.aId)} {session.mode === "koth" && session.koth?.kingId === cur.aId ? "👑" : ""}
             </span>
-            <span className="pp-tv__sc">{wins.a} - {wins.b}</span>
+            <span className="pp-tv__sc">{session.bestOf === 1 ? "VS" : `${wins.a} - ${wins.b}`}</span>
             <span className="pp-tv__pl">
               {nameOf.get(cur.bId)} {session.mode === "koth" && session.koth?.kingId === cur.bId ? "👑" : ""}
             </span>
