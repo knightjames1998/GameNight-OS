@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, type Me } from "../api";
 import Login from "./Login";
 
 // The invite link flow. Logged out: show login with a redirect back here,
-// so the emailed magic link lands the new member right back on this page.
+// so login lands the new member right back on this page. A shared event link
+// (?event=ID) routes through here too: after join we redirect to the event.
 
 export default function JoinPage({ me }: { me: Me | null }) {
   const { code } = useParams();
+  const { search } = useLocation();
   const navigate = useNavigate();
+  const eventId = new URLSearchParams(search).get("event");
   const [groupName, setGroupName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -25,7 +28,9 @@ export default function JoinPage({ me }: { me: Me | null }) {
       const { groupId } = await api<{ groupId: string }>(`/api/join/${code}`, {
         method: "POST",
       });
-      navigate(`/g/${groupId}`);
+      // A shared event link lands you on the event; a plain invite lands you
+      // on the crew. Replace so Back doesn't return to this join screen.
+      navigate(eventId ? `/e/${eventId}` : `/g/${groupId}`, { replace: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't join");
       setBusy(false);
@@ -52,7 +57,9 @@ export default function JoinPage({ me }: { me: Me | null }) {
               </button>
             ) : (
               <div className="w-full">
-                <Login redirect={`/join/${code}`} />
+                {/* Carry ?event= through login so we return here and then
+                    redirect to the event after joining. */}
+                <Login redirect={`/join/${code}${search}`} />
               </div>
             )}
           </>

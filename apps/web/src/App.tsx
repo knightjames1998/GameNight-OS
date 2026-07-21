@@ -5,6 +5,7 @@ import Home from "./pages/Home";
 import GroupPage from "./pages/GroupPage";
 import JoinPage from "./pages/JoinPage";
 import EventPage from "./pages/EventPage";
+import RecapPage from "./pages/RecapPage";
 import BracketPage from "./pages/BracketPage";
 import TvPage from "./pages/TvPage";
 import BeerioApp, { setBeerioNavigator } from "./beerio/BeerioApp";
@@ -101,6 +102,7 @@ export default function App() {
           }
         />
         <Route path="/e/:id" element={<EventPage me={me} />} />
+        <Route path="/e/:id/recap" element={<RecapPage me={me} />} />
         <Route path="/b/:id" element={<BracketPage />} />
         <Route path="/tv/:id" element={<TvPage />} />
         <Route path="/beerio" element={<BeerioRoute />} />

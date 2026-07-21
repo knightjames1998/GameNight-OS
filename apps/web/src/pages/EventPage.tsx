@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, CLIENT_ID, type EventDetail, type Me, type RsvpStatus } from "../api";
+import { shareLink } from "../share";
 import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
 import GamePicker, { type PickerGame, type PickerFormat } from "../GamePicker";
@@ -14,6 +15,7 @@ export default function EventPage({ me }: { me: Me | null }) {
   const [editRsvp, setEditRsvp] = useState(false);
   const [editDate, setEditDate] = useState(false);
   const [whenDraft, setWhenDraft] = useState("");
+  const [shareToast, setShareToast] = useState("");
   // Guards out-of-order mutation responses: only the newest request may
   // write its result into state (rapid taps race otherwise).
   const reqSeq = useRef(0);
@@ -114,6 +116,32 @@ export default function EventPage({ me }: { me: Me | null }) {
       window.alert(e instanceof Error ? e.message : "Couldn't change the date");
     } finally {
       setBusy(false);
+    }
+  }
+
+  // Share the event through the existing invite/join flow: the link is a
+  // crew invite carrying the event id, so a logged-out tap lands on the join
+  // page and, after join/login, redirects to this event.
+  async function shareEvent() {
+    if (!event) return;
+    const url = `${window.location.origin}/join/${event.inviteCode}?event=${event.id}`;
+    const bits = [event.title];
+    if (event.scheduledFor) {
+      bits.push(
+        new Date(event.scheduledFor).toLocaleString([], {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        }),
+      );
+    }
+    if (event.groupName) bits.push(event.groupName);
+    const r = await shareLink({ title: `${event.title} · GameNight OS`, text: bits.join(" · "), url });
+    if (r === "copied") {
+      setShareToast("Link copied");
+      setTimeout(() => setShareToast(""), 2000);
     }
   }
 
@@ -232,6 +260,17 @@ export default function EventPage({ me }: { me: Me | null }) {
             </span>
           </button>
         )}
+      </div>
+
+      {/* Low-key controls: share the event, or open the night recap card. */}
+      <div className="flex items-center gap-4">
+        <button className="gn-textbtn" onClick={shareEvent}>
+          Share
+        </button>
+        <Link to={`/e/${id}/recap`} className="gn-textbtn" style={{ display: "inline-block" }}>
+          Night recap
+        </Link>
+        {shareToast && <span className="gn-hint">{shareToast}</span>}
       </div>
 
       {(!event.myStatus || editRsvp) && (

@@ -76,6 +76,8 @@ export interface EventDetail {
   beerioCode: string | null;
   myRole: "owner" | "admin" | "member";
   createdBy: string;
+  groupName: string;
+  inviteCode: string;
   scheduledFor: string | null;
   status: "draft" | "scheduled" | "live" | "completed" | "cancelled";
   rsvps: { userId: string; displayName: string; status: RsvpStatus }[];
@@ -102,6 +104,19 @@ export interface Friend {
   userId: string;
   displayName: string;
   crews: string[];
+}
+
+// Night recap: every completed game under an event, rolled up across packs.
+// Members only; guests are never in the materialized ledger.
+export interface EventRecap {
+  eventId: string;
+  title: string;
+  scheduledFor: string | null;
+  groupName: string;
+  totalGames: number;
+  games: { gameName: string; label: string | null; pack: string; winnerName: string | null }[];
+  players: { userId: string; name: string; games: number; wins: number; avgPlacement: number | null }[];
+  mvp: { userId: string; name: string } | null;
 }
 
 export type BracketSlot =

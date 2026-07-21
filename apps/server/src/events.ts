@@ -2,6 +2,8 @@ import { Router } from "express";
 import {
   getDb,
   events,
+  groups,
+  games,
   rsvps,
   eventAttendance,
   memberships,
@@ -257,16 +259,148 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
       .limit(1)
   )[0];
 
+  // groupName + inviteCode ride along so the event page can build a share
+  // link (through the existing invite/join flow) without a second request.
+  const group = (
+    await db
+      .select({ name: groups.name, inviteCode: groups.inviteCode })
+      .from(groups)
+      .where(eq(groups.id, found.groupId))
+      .limit(1)
+  )[0];
+
   return {
     ...found,
     bracket: bracket ?? null,
     myRole,
+    groupName: group?.name ?? "",
+    inviteCode: group?.inviteCode ?? "",
     rsvps: responses,
     noResponse: members.filter((m) => !answered.has(m.userId)),
     myStatus: responses.find((r) => r.userId === userId)?.status ?? null,
     myAttendance: attendance ? attendance.showed : null,
   };
 }
+
+// MVP of the night rule (documented in BACKLOG decision log): most wins,
+// tiebreak by best (lowest) average placement, tiebreak by most games
+// played. A player with no ranked placement sorts last on the tiebreak.
+function rankMvp(
+  a: { wins: number; avgPlacement: number | null; games: number },
+  b: { wins: number; avgPlacement: number | null; games: number },
+): number {
+  if (b.wins !== a.wins) return b.wins - a.wins;
+  const ap = a.avgPlacement ?? Infinity;
+  const bp = b.avgPlacement ?? Infinity;
+  if (ap !== bp) return ap - bp;
+  return b.games - a.games;
+}
+
+/**
+ * Night recap: every completed game under this event across every pack,
+ * rolled up. The materialized ledger (matches/match_participants) is the one
+ * cross-pack source, so Beerio, Smash, Mario Kart, Mario Party and brackets
+ * all land here through the same query. Guests are not in the ledger (they're
+ * never materialized), so the recap is members only.
+ */
+eventsRouter.get("/events/:id/recap", async (req: AuthedRequest, res) => {
+  const found = await loadEventForMember(String(req.params.id), req.user!.id);
+  if (!found) {
+    res.status(404).json({ error: "Event not found" });
+    return;
+  }
+  const db = getDb();
+
+  const groupName =
+    (
+      await db
+        .select({ name: groups.name })
+        .from(groups)
+        .where(eq(groups.id, found.groupId))
+        .limit(1)
+    )[0]?.name ?? "";
+
+  const rows = await db
+    .select({
+      matchId: matchParticipants.matchId,
+      position: matches.position,
+      label: matches.label,
+      gameName: games.name,
+      pack: games.pack,
+      userId: matchParticipants.userId,
+      displayName: users.displayName,
+      placement: matchParticipants.placement,
+      isWinner: matchParticipants.isWinner,
+    })
+    .from(matches)
+    .innerJoin(matchParticipants, eq(matchParticipants.matchId, matches.id))
+    .innerJoin(users, eq(matchParticipants.userId, users.id))
+    .leftJoin(games, eq(matches.gameId, games.id))
+    .where(and(eq(matches.eventId, found.id), eq(matches.status, "completed")));
+
+  // One entry per match (a game/board/race), in play order.
+  const byMatch = new Map<
+    string,
+    { position: number; label: string | null; gameName: string; pack: string; winnerName: string | null }
+  >();
+  // Per-player rollup across every game.
+  const byUser = new Map<
+    string,
+    { userId: string; name: string; games: number; wins: number; placedSum: number; placed: number }
+  >();
+
+  for (const r of rows) {
+    let g = byMatch.get(r.matchId);
+    if (!g) {
+      g = {
+        position: r.position ?? 0,
+        label: r.label,
+        gameName: r.gameName ?? "Game",
+        pack: r.pack ?? "generic",
+        winnerName: null,
+      };
+      byMatch.set(r.matchId, g);
+    }
+    if (r.isWinner) g.winnerName = r.displayName;
+
+    let p = byUser.get(r.userId);
+    if (!p) {
+      p = { userId: r.userId, name: r.displayName, games: 0, wins: 0, placedSum: 0, placed: 0 };
+      byUser.set(r.userId, p);
+    }
+    p.games++;
+    if (r.isWinner) p.wins++;
+    if (r.placement && r.placement >= 1) {
+      p.placedSum += r.placement;
+      p.placed++;
+    }
+  }
+
+  const gamesList = [...byMatch.values()]
+    .sort((a, b) => a.position - b.position)
+    .map((g) => ({ gameName: g.gameName, label: g.label, pack: g.pack, winnerName: g.winnerName }));
+
+  const players = [...byUser.values()]
+    .map((p) => ({
+      userId: p.userId,
+      name: p.name,
+      games: p.games,
+      wins: p.wins,
+      avgPlacement: p.placed ? p.placedSum / p.placed : null,
+    }))
+    .sort(rankMvp);
+
+  res.json({
+    eventId: found.id,
+    title: found.title,
+    scheduledFor: found.scheduledFor,
+    groupName,
+    totalGames: byMatch.size,
+    games: gamesList,
+    players,
+    mvp: gamesList.length && players[0] ? { userId: players[0].userId, name: players[0].name } : null,
+  });
+});
 
 /** Event detail: full RSVP breakdown with names, plus who hasn't answered. */
 eventsRouter.get("/events/:id", async (req: AuthedRequest, res) => {
