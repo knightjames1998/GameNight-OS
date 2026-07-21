@@ -19,6 +19,8 @@ import MarioKartPage from "./mariokart/MarioKartPage";
 import MarioKartTvPage from "./mariokart/MarioKartTvPage";
 import MarioPartyPage from "./marioparty/MarioPartyPage";
 import MarioPartyTvPage from "./marioparty/MarioPartyTvPage";
+import PingPongPage from "./pingpong/PingPongPage";
+import PingPongTvPage from "./pingpong/PingPongTvPage";
 
 function BeerioRoute() {
   // Hand the vendored app a router-aware navigate(), so its internal links
@@ -49,6 +51,11 @@ function MarioKartSearchKeyed() {
 function MarioPartySearchKeyed() {
   const location = useLocation();
   return <MarioPartyPage key={location.search} />;
+}
+
+function PingPongSearchKeyed() {
+  const location = useLocation();
+  return <PingPongPage key={location.search} />;
 }
 
 export default function App() {
@@ -117,6 +124,8 @@ export default function App() {
         <Route path="/mariokart/tv/:eventId" element={<MarioKartTvPage />} />
         <Route path="/marioparty" element={<MarioPartySearchKeyed />} />
         <Route path="/marioparty/tv/:eventId" element={<MarioPartyTvPage />} />
+        <Route path="/pingpong" element={<PingPongSearchKeyed />} />
+        <Route path="/pingpong/tv/:eventId" element={<PingPongTvPage />} />
         <Route path="/join/:code" element={<JoinPage me={me} />} />
       </Routes>
     </BrowserRouter>

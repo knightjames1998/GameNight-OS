@@ -121,6 +121,7 @@ type WsEvent =
   | { type: "smash_updated"; eventId: string }
   | { type: "mario_kart_updated"; eventId: string }
   | { type: "mario_party_updated"; eventId: string }
+  | { type: "ping_pong_updated"; eventId: string }
   | { type: "ping" };
 
 // origin: the per-tab client id of whoever caused the write (from the
@@ -132,3 +133,4 @@ export * from "./bracket.js";
 export * from "./smash.js";
 export * from "./mariokart.js";
 export * from "./marioparty.js";
+export * from "./pingpong.js";

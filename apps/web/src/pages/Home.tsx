@@ -80,7 +80,7 @@ function Groups({
 
   // Session packs need a (personal) event to hang the live session on; spin
   // one up, then drop into the pack's own setup screen.
-  async function startSession(pack: "smash" | "mariokart" | "marioparty", suffix = "") {
+  async function startSession(pack: "smash" | "mariokart" | "marioparty" | "pingpong", suffix = "") {
     if (busy) return;
     setBusy(true);
     try {
@@ -122,6 +122,16 @@ function Groups({
       cabClass: "gn-cab--mp",
       formats: [
         { key: "board", label: "🎲 Board night", sub: "stars, boards, bonus stars", onPick: () => startSession("marioparty") },
+      ],
+    },
+    {
+      key: "pingpong",
+      name: "Ping Pong",
+      emoji: "🏓",
+      cabClass: "gn-cab--pp",
+      formats: [
+        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => startSession("pingpong", "&mode=koth") },
+        { key: "ffa", label: "Singles", sub: "one match at a time", onPick: () => startSession("pingpong", "&mode=ffa") },
       ],
     },
     {

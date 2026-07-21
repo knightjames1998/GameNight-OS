@@ -490,6 +490,16 @@ function eventGames(
       ],
     },
     {
+      key: "pingpong",
+      name: "Ping Pong",
+      emoji: "🏓",
+      cabClass: "gn-cab--pp",
+      formats: [
+        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => navigate(`/pingpong?event=${id}&mode=koth`) },
+        { key: "ffa", label: "Singles", sub: "one match at a time", onPick: () => navigate(`/pingpong?event=${id}&mode=ffa`) },
+      ],
+    },
+    {
       key: "tournament",
       name: "Tournament",
       emoji: "🏆",

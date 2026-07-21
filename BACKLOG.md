@@ -13,7 +13,7 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-07-20
-    Shipped sessions since that redraw: 2
+    Shipped sessions since that redraw: 3
     Redraw due at:                      3
 
 **Every session that ships anything (feature, pack, or fix set) increments the counter by 1
@@ -102,6 +102,7 @@ session, regenerating the committed file alone still counts as the redraw.
 - [x] Mario Party pack: one recorded game = one board. Pick the board, enter each player's total stars, winner is the most stars (a top tie prompts the host to tap the winner, since coins aren't tracked); optional per-player bonus stars with one exclusive owner each. Own theme, own TV view, stats tab. Schema: matches.label = board, match_participants.meta = bonus stars.
 - [x] Title-scoped character selection (cross-pack): a "Which game?" selector scopes both the picker and the random pool to that title's roster. Smash: 64, Melee, Brawl, Smash 4, Ultimate. Mario Kart: MK8 Deluxe, Mario Kart World, Wii, Double Dash, MK64. Stats stay unified by character name. No schema change (titleId lives in session jsonb).
 - [x] Generic bracket tracker + its TV mode + recap card (the pack-agnostic path).
+- [x] Ping Pong pack (2026-07-20). Two formats: King of the Hill (winner stays, challenger line rotates per match) and Singles (host picks the two players each match). A match is best-of-3/5/7, chosen at start; recording a game is one tap on the winner, the loser's points are optional (typed then tapped, never a blocking field). Match ends automatically at the required game wins. Its own green-felt/orange-ball theme and its own TV view. Night stats: matches, wins, win rate, current + best win streak, and KOTH longest king reign. No character selector (no characters in ping pong). Doubles is explicitly out (no team model). Storage: generic game_sessions keyed by (eventId, pack='pingpong'), no schema change.
 - Shared primitives available to any new pack: FFA/placement roster, King of the Hill rotation, single + double elim bracket engine.
 
 ## NEXT UP (queued)
@@ -139,7 +140,7 @@ Not committed, no design decided.
 - [ ] Wager ledger (bragging-rights bets, confirmations, outstanding debts). Bragging rights only, never money.
 - [ ] Achievements/badges, including group-created custom badges
 - [ ] Beer pong pack. Would force the one missing primitive, a team model (2v2), which then unlocks cornhole, foosball and doubles ping pong cheaply.
-- [ ] Pool / ping pong. Fastest possible ship: rides the existing KOTH engine almost unchanged.
+- [ ] Pool pack. Rides the same KOTH/singles match engine ping pong now uses.
 - [ ] Cornhole, darts, poker night. Poker needs a new session ledger engine (buy-ins, net results) but has the highest stat payoff.
 - [ ] Capacitor native wrapper: packages this web app as a real iOS/Android app (same code, native shell, push notifications). Not needed while the PWA works.
 - [ ] Offline score entry sync (PWA background sync)
@@ -167,6 +168,9 @@ Not committed, no design decided.
 - Any pack with character selection has a "Which game?" title selector on its front page. The chosen title scopes the character picker AND the random pool to that title's roster (never assign a character that isn't in the game being played). Titles are subsets/variants of the series; stats stay unified across titles by character name. New character packs follow this: define the series' titles as GameTitle[] in the pack's shared module, thread titleId through the session state, and scope the picker + random with rosterForTitle().
 
 ## DECISION LOG
+- Ping Pong ledger unit is the MATCH (2026-07-20): one completed best-of-N match materializes one matches row plus two match_participants rows (winner placement 1, loser 2). The individual games and any optional points live only in the session jsonb. Rationale: in KOTH the challenger line rotates per match, not per game, so match-as-unit keeps win rate, streaks, and king reigns meaning what people say out loud. This deliberately differs from Smash/Mario Kart, which record each game. Match length rides matches.label (bo3/bo5/bo7); each player's optional points ride match_participants.score (their total points in games they lost, the only points captured; null when none entered). No schema change: additive use of game_sessions + matches/match_participants, same path Mario Kart uses. (This was the ledger-unit decision flagged for James to confirm; the interactive confirm was declined with "continue", so I proceeded with the proposed default and am recording it here.)
+- Ping Pong doubles is explicitly out (2026-07-20): 2v2 needs a team model the per-player match_participants ledger does not have. Nothing in the pack builds toward it, no half a team model was added "for later". Doubles ping pong stays parked behind the Beer pong pack's team-model work.
+- Ping Pong optional points are entered then tapped (2026-07-20): the loser-points input sits with the two one-tap winner buttons and is submitted together with the winning tap, rather than editing a game after it is recorded. This keeps recording to one endpoint and one tap with zero friction to skip (leave the field empty), and avoids editing a completed match's frozen games. Points are optional flavor and are not used in any stat (no point differential, no ELO, per scope). Minor deviation from a literal "tap first, then optionally enter" flow, flagged here.
 - Night recap MVP rule (2026-07-20, confirmed by James): MVP of the night is most wins, tiebreak by best (lowest) average placement (the avg stat shown on the card). A player with no ranked placement sorts last on the tiebreak; a remaining exact tie falls to alphabetical name only as a stable, non-ranking fallback. Implemented in rankMvp() in apps/server/src/events.ts. (The games-played tertiary tiebreak from the original proposal is not used.)
 - Night recap is ledger-based, members only (2026-07-20): the recap aggregates the materialized matches/match_participants ledger, which is the single cross-pack source every pack writes into on completion. Guests are never materialized (they have no userId to credit, existing rule), so they do not appear on the recap. Showing guests would require reading each pack's live jsonb session (smash_sessions, game_sessions, beerio_sessions) with three different shapes; deferred rather than built this session. Flagged as scope, not silently dropped.
 - Event share routes through the existing invite/join flow (2026-07-20): rather than a new public event route or a schema change, the share link is the crew invite link with an event id query param (/join/:code?event=:id). JoinPage reads ?event= and, after the idempotent join, redirects (replace navigation) to /e/:id; the event param is carried through login so a logged-out user returns to the join page and then the event. The invite code already identifies the crew, so no token schema change was needed.

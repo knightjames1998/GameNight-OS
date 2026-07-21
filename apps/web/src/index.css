@@ -138,6 +138,8 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-cab--mk .gn-cab__name{color:#7fb0ff}
 .gn-cab--mp{border-color:#4d3573;background:linear-gradient(180deg,#241539,#2a1a30)}
 .gn-cab--mp .gn-cab__name{color:#ffd24a}
+.gn-cab--pp{border-color:#1f6b46;background:linear-gradient(180deg,#0f3826,#241a30)}
+.gn-cab--pp .gn-cab__name{color:#ff9a4d}
 
 /* format rows under an expanded game in the game>format picker */
 .gn-fmts{margin:8px 0 2px;padding-left:14px;border-left:2px solid var(--gn-line);
