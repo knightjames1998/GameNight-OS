@@ -35,6 +35,7 @@ import {
   undoLast,
   neededWins,
   summarizePingPong,
+  matchGameTally,
   type PpSessionState,
   type PpPlayer,
   type PpMode,
@@ -161,6 +162,10 @@ async function materializeMatch(
     }
   }
 
+  // Per-player game wins/played, so lifetime "single game" totals survive
+  // to the ledger (the games themselves are not materialized as rows).
+  const tally = matchGameTally(match);
+
   const loserId = match.winnerId === match.aId ? match.bId : match.aId;
   const slotById = new Map(state.roster.map((p) => [p.id, p]));
   let recorded = 0;
@@ -171,6 +176,7 @@ async function materializeMatch(
       guests++;
       continue;
     }
+    const g = tally.get(slotId) ?? { wins: 0, played: 0 };
     await db
       .insert(matchParticipants)
       .values({
@@ -180,6 +186,7 @@ async function materializeMatch(
         placement: slotId === match.winnerId ? 1 : 2,
         isWinner: slotId === match.winnerId,
         score: anyPoints ? points.get(slotId) ?? 0 : null,
+        meta: { gameWins: g.wins, gamesPlayed: g.played },
       })
       .onConflictDoNothing();
     recorded++;
@@ -471,4 +478,112 @@ pingPongRouter.post("/pingpong/:eventId/complete", requireAuth, async (req: Auth
   }
   await saveState(eventId, loaded.state, "completed", req.get("x-gn-client"));
   res.json(await sessionView(eventId));
+});
+
+// ---------- lifetime crew stats ----------
+// Reads the materialized ledger. A ping pong MATCH is one matches row, so
+// match wins split by format come from matches.label (bo1 = free play, bo3
+// /bo5/bo7). Individual game wins ride match_participants.meta.gameWins,
+// which is why they can total the four games in a won bo7 plus every free
+// play game. Kept separate from the generic aggregator like the other packs.
+
+const FORMAT_LABELS: Record<string, string> = {
+  bo1: "Free play",
+  bo3: "Best of 3",
+  bo5: "Best of 5",
+  bo7: "Best of 7",
+};
+
+pingPongRouter.get("/groups/:id/pingpong-stats", requireAuth, async (req: AuthedRequest, res) => {
+  const db = getDb();
+  const groupId = String(req.params.id);
+  if (!(await roleOf(groupId, req.user!.id))) {
+    res.status(404).json({ error: "Group not found" });
+    return;
+  }
+  const game = (
+    await db
+      .select({ id: games.id })
+      .from(games)
+      .where(and(eq(games.groupId, groupId), eq(games.pack, PACK)))
+      .limit(1)
+  )[0];
+  if (!game) {
+    res.json({ matches: 0, formats: [], byPlayer: [] });
+    return;
+  }
+
+  const rows = await db
+    .select({
+      userId: matchParticipants.userId,
+      displayName: users.displayName,
+      isWinner: matchParticipants.isWinner,
+      meta: matchParticipants.meta,
+      label: matches.label,
+      matchId: matchParticipants.matchId,
+    })
+    .from(matchParticipants)
+    .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
+    .innerJoin(users, eq(matchParticipants.userId, users.id))
+    .where(and(eq(matches.groupId, groupId), eq(matches.gameId, game.id), eq(matches.status, "completed")));
+
+  const matchIds = new Set<string>();
+  const formatsSeen = new Set<string>();
+  const byUser = new Map<
+    string,
+    {
+      userId: string;
+      name: string;
+      matches: number;
+      matchWins: number;
+      gameWins: number;
+      gamesPlayed: number;
+      byFormat: Map<string, { wins: number; played: number }>;
+    }
+  >();
+
+  for (const r of rows) {
+    matchIds.add(r.matchId);
+    const fmt = FORMAT_LABELS[r.label ?? ""] ?? "Other";
+    formatsSeen.add(fmt);
+    const meta = (r.meta as { gameWins?: number; gamesPlayed?: number } | null) ?? {};
+    const p =
+      byUser.get(r.userId) ??
+      {
+        userId: r.userId,
+        name: r.displayName,
+        matches: 0,
+        matchWins: 0,
+        gameWins: 0,
+        gamesPlayed: 0,
+        byFormat: new Map<string, { wins: number; played: number }>(),
+      };
+    p.matches++;
+    if (r.isWinner) p.matchWins++;
+    p.gameWins += meta.gameWins ?? 0;
+    p.gamesPlayed += meta.gamesPlayed ?? 0;
+    const f = p.byFormat.get(fmt) ?? { wins: 0, played: 0 };
+    f.played++;
+    if (r.isWinner) f.wins++;
+    p.byFormat.set(fmt, f);
+    byUser.set(r.userId, p);
+  }
+
+  // Stable format ordering for the columns.
+  const ORDER = ["Free play", "Best of 3", "Best of 5", "Best of 7", "Other"];
+  const formats = ORDER.filter((f) => formatsSeen.has(f));
+
+  const byPlayer = [...byUser.values()]
+    .map((p) => ({
+      userId: p.userId,
+      name: p.name,
+      matches: p.matches,
+      matchWins: p.matchWins,
+      gameWins: p.gameWins,
+      gamesPlayed: p.gamesPlayed,
+      byFormat: formats.map((f) => ({ format: f, ...(p.byFormat.get(f) ?? { wins: 0, played: 0 }) })),
+    }))
+    .sort((a, b) => b.gameWins - a.gameWins || b.matchWins - a.matchWins);
+
+  res.json({ matches: matchIds.size, formats, byPlayer });
 });

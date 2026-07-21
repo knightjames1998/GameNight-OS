@@ -15,6 +15,7 @@ interface Match { idx: number; aId: string; bId: string; games: Game[]; winnerId
 interface Koth { kingId: string | null; queue: string[]; reign: number; bestReign: { playerId: string; reign: number } | null }
 interface PlayerStat {
   playerId: string; name: string; matches: number; wins: number; winRate: number;
+  gameWins: number; gamesPlayed: number;
   currentStreak: number; bestStreak: number; longestReign: number;
 }
 interface Session {
@@ -407,7 +408,7 @@ function LivePlay({
             <div className="pp-row" key={p.playerId}>
               <span className="pp-name" style={{ flex: 1 }}>{p.name}</span>
               <span className="pp-hint">
-                {p.wins}W / {p.matches}
+                {freePlay ? `${p.gameWins}W / ${p.matches} games` : `${p.wins}W / ${p.matches} · ${p.gameWins} game W`}
                 {p.currentStreak >= 2 ? ` · 🔥${p.currentStreak}` : ""}
                 {session.mode === "koth" && p.longestReign >= 2 ? ` · reign ${p.longestReign}` : ""}
               </span>

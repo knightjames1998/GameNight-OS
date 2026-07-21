@@ -223,19 +223,41 @@ export interface PpPlayerStat {
   playerId: string;
   name: string;
   matches: number;
-  wins: number;
+  wins: number; // match wins
   winRate: number;
+  gameWins: number; // individual games won (the 4 games in a won bo7, etc.)
+  gamesPlayed: number;
   currentStreak: number; // consecutive match wins right now
   bestStreak: number; // best consecutive match wins tonight
   longestReign: number; // KOTH only: longest run defended as king (else 0)
 }
 
+/** Per-player game wins/played for one match, keyed by playerId. */
+export function matchGameTally(match: PpMatch): Map<string, { wins: number; played: number }> {
+  const t = new Map<string, { wins: number; played: number }>();
+  const bump = (id: string, won: boolean) => {
+    const e = t.get(id) ?? { wins: 0, played: 0 };
+    e.played++;
+    if (won) e.wins++;
+    t.set(id, e);
+  };
+  for (const g of match.games) {
+    const loserId = g.winnerId === match.aId ? match.bId : match.aId;
+    bump(g.winnerId, true);
+    bump(loserId, false);
+  }
+  return t;
+}
+
 export function summarizePingPong(state: PpSessionState): { players: PpPlayerStat[] } {
-  const acc = new Map<string, { matches: number; wins: number; cur: number; best: number }>();
+  const acc = new Map<
+    string,
+    { matches: number; wins: number; cur: number; best: number; gw: number; gp: number }
+  >();
   const ensure = (id: string) => {
     let s = acc.get(id);
     if (!s) {
-      s = { matches: 0, wins: 0, cur: 0, best: 0 };
+      s = { matches: 0, wins: 0, cur: 0, best: 0, gw: 0, gp: 0 };
       acc.set(id, s);
     }
     return s;
@@ -257,6 +279,13 @@ export function summarizePingPong(state: PpSessionState): { players: PpPlayerSta
     if (w.cur > w.best) w.best = w.cur;
     l.cur = 0;
 
+    // Individual games within the match.
+    for (const [id, g] of matchGameTally(m)) {
+      const e = ensure(id);
+      e.gw += g.wins;
+      e.gp += g.played;
+    }
+
     if (m.winnerId === curKing) run++;
     else {
       curKing = m.winnerId;
@@ -266,13 +295,15 @@ export function summarizePingPong(state: PpSessionState): { players: PpPlayerSta
   }
 
   const players: PpPlayerStat[] = state.roster.map((p) => {
-    const s = acc.get(p.id) ?? { matches: 0, wins: 0, cur: 0, best: 0 };
+    const s = acc.get(p.id) ?? { matches: 0, wins: 0, cur: 0, best: 0, gw: 0, gp: 0 };
     return {
       playerId: p.id,
       name: p.name,
       matches: s.matches,
       wins: s.wins,
       winRate: s.matches ? s.wins / s.matches : 0,
+      gameWins: s.gw,
+      gamesPlayed: s.gp,
       currentStreak: s.cur,
       bestStreak: s.best,
       longestReign: state.mode === "koth" ? bestReign.get(p.id) ?? 0 : 0,

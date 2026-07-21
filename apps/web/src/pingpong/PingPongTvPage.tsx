@@ -8,7 +8,7 @@ import "./pingpong.css";
 interface Slot { id: string; name: string }
 interface Game { winnerId: string }
 interface Match { aId: string; bId: string; games: Game[]; winnerId: string | null }
-interface PlayerStat { playerId: string; name: string; matches: number; wins: number; currentStreak: number; longestReign: number }
+interface PlayerStat { playerId: string; name: string; matches: number; wins: number; gameWins: number; currentStreak: number; longestReign: number }
 interface TvSession {
   status: string;
   mode: "koth" | "ffa";
@@ -107,7 +107,7 @@ export default function PingPongTvPage() {
                 {p.currentStreak >= 2 ? ` 🔥${p.currentStreak}` : ""}
                 {session.mode === "koth" && p.longestReign >= 2 ? ` · reign ${p.longestReign}` : ""}
               </span>
-              <span>{p.wins}W · {p.matches}</span>
+              <span>{session.bestOf === 1 ? `${p.gameWins}W` : `${p.wins}W · ${p.gameWins}g`}</span>
             </div>
           ))}
         </div>

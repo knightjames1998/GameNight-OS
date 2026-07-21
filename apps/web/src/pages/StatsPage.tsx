@@ -251,6 +251,75 @@ function MarioPartyPanel({ groupId }: { groupId: string }) {
   );
 }
 
+// The generic aggregator names the Ping Pong pack's game this.
+const PING_PONG_GAME_NAME = "Ping Pong";
+
+interface PpStats {
+  matches: number;
+  formats: string[];
+  byPlayer: {
+    userId: string;
+    name: string;
+    matches: number;
+    matchWins: number;
+    gameWins: number;
+    gamesPlayed: number;
+    byFormat: { format: string; wins: number; played: number }[];
+  }[];
+}
+
+// Ping Pong lifetime panel. A match is the ledger unit, so match wins split
+// by format (free play / best of 3 / 5 / 7) come from the stored match
+// length; single-game wins total the individual games, including the four
+// won inside a best-of-seven plus every free-play game.
+function PingPongPanel({ groupId }: { groupId: string }) {
+  const [data, setData] = useState<PpStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api<PpStats>(`/api/groups/${groupId}/pingpong-stats`)
+      .then(setData)
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
+  }, [groupId]);
+
+  if (error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
+  if (!data) return <p className="gn-hint">Loading...</p>;
+  if (data.matches === 0) {
+    return <p className="gn-hint">No ping pong recorded yet. Play a King of the Hill or Singles night and it fills in here.</p>;
+  }
+
+  const accent = "#3ad07a";
+  return (
+    <div className="space-y-2">
+      <p className="gn-hint">
+        Single-game wins count every individual game (the four inside a won best of seven, and each free-play game). Match wins split by match length.
+      </p>
+      <ul className="space-y-2">
+        {data.byPlayer.map((p, i) => (
+          <li key={p.userId} className={i === 0 ? "gn-champ" : "gn-card"} style={{ padding: "12px 16px" }}>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="flex items-baseline gap-2 min-w-0">
+                <span className={`gn-rank ${i === 0 ? "gn-rank--top" : ""}`} style={{ fontSize: "16px", width: "22px", flexShrink: 0 }}>{i + 1}</span>
+                <span className="font-bold truncate" style={i === 0 ? { color: "var(--gn-gold)" } : undefined}>{p.name}</span>
+              </span>
+              <span className="text-sm" style={{ color: accent, fontWeight: 800, flexShrink: 0 }}>
+                {p.gameWins} <span className="gn-hint" style={{ fontWeight: 400 }}>game wins</span>
+              </span>
+            </div>
+            <div className="gn-hint mt-1" style={{ fontSize: "12px" }}>
+              {p.matchWins}W / {p.matches} matches
+              {p.byFormat
+                .filter((f) => f.played > 0)
+                .map((f) => ` · ${f.format}: ${f.wins}/${f.played}`)
+                .join("")}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function StatsPage() {
   const { id } = useParams();
   const [stats, setStats] = useState<StatsView | null>(null);
@@ -282,6 +351,8 @@ export default function StatsPage() {
                 ? `${count} ${count === 1 ? "game" : "games"} of Smash Bros`
                 : tab === MARIO_PARTY_GAME_NAME
                 ? `${count} ${count === 1 ? "board" : "boards"} of Mario Party`
+                : tab === PING_PONG_GAME_NAME
+                ? `${count} ${count === 1 ? "match" : "matches"} of Ping Pong`
                 : `${count} ${count === 1 ? "tournament" : "tournaments"}${active ? ` of ${active.name}` : " across all game modes"}`}
             </p>
           )}
@@ -318,6 +389,8 @@ export default function StatsPage() {
           <SmashPanel groupId={id} />
         ) : tab === MARIO_PARTY_GAME_NAME && id ? (
           <MarioPartyPanel groupId={id} />
+        ) : tab === PING_PONG_GAME_NAME && id ? (
+          <PingPongPanel groupId={id} />
         ) : (
         <ul className="space-y-2">
           {shown?.map((r, i) => {
