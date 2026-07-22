@@ -54,18 +54,53 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
 
   const rows = await db
     .select({
+      matchId: matchParticipants.matchId,
       userId: matchParticipants.userId,
       displayName: users.displayName,
       placement: matchParticipants.placement,
       isWinner: matchParticipants.isWinner,
       gameName: games.name,
       pack: games.pack,
+      format: matches.format,
     })
     .from(matchParticipants)
     .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
     .innerJoin(users, eq(matchParticipants.userId, users.id))
     .leftJoin(games, eq(matches.gameId, games.id))
     .where(and(eq(matchParticipants.groupId, groupId), eq(matches.status, "completed")));
+
+  // Per-game, per-format, per-player wins so the stats screen can split a
+  // pack into its formats (Free Play / Best Of / KOTH / Grand Prix / FFA).
+  // Rows with no format tag (legacy, or brackets) bucket under "Other".
+  type FmtCell = { name: string; wins: number; played: number };
+  type FmtBucket = { byUser: Map<string, FmtCell>; matchIds: Set<string> };
+  const fmtByGame = new Map<string, Map<string, FmtBucket>>();
+  for (const r of rows) {
+    const game = r.gameName ?? "Unknown";
+    const fmt = r.format ?? "other";
+    const byFmt = fmtByGame.get(game) ?? new Map<string, FmtBucket>();
+    fmtByGame.set(game, byFmt);
+    const bucket = byFmt.get(fmt) ?? { byUser: new Map<string, FmtCell>(), matchIds: new Set<string>() };
+    byFmt.set(fmt, bucket);
+    bucket.matchIds.add(r.matchId);
+    const cell = bucket.byUser.get(r.userId) ?? { name: r.displayName, wins: 0, played: 0 };
+    cell.played++;
+    if (r.isWinner) cell.wins++;
+    bucket.byUser.set(r.userId, cell);
+  }
+  const FORMAT_ORDER = ["free", "ffa", "grandprix", "bestof", "koth", "board", "other"];
+  const formatsFor = (game: string) => {
+    const byFmt = fmtByGame.get(game);
+    if (!byFmt) return [];
+    return [...byFmt.entries()]
+      .sort((a, b) => FORMAT_ORDER.indexOf(a[0]) - FORMAT_ORDER.indexOf(b[0]))
+      .map(([format, bucket]) => ({
+        format,
+        // Count of results (matches/races/sets/boards) played in this format.
+        played: bucket.matchIds.size,
+        players: [...bucket.byUser.values()].sort((a, b) => b.wins - a.wins || b.played - a.played),
+      }));
+  };
 
   const byUser = new Map<string, Row>();
   for (const r of rows) {
@@ -163,6 +198,7 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
       name,
       tournaments: countByGame.get(name) ?? 0,
       leaderboard: rank([...bucket.values()].map(finish)),
+      formats: formatsFor(name),
     }))
     .sort((a, b) => b.tournaments - a.tournaments || a.name.localeCompare(b.name));
 

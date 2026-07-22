@@ -15,11 +15,33 @@ interface StatRow {
   byGame: { name: string; played: number; wins: number }[];
 }
 
+interface FormatStat {
+  format: string;
+  played: number;
+  players: { name: string; wins: number; played: number }[];
+}
 interface GameStats {
   name: string;
   tournaments: number;
   leaderboard: StatRow[];
+  formats: FormatStat[];
 }
+
+const FORMAT_LABEL: Record<string, string> = {
+  free: "Free Play",
+  ffa: "Free-for-all",
+  grandprix: "Grand Prix",
+  bestof: "Best Of",
+  koth: "King of the Hill",
+  board: "Board night",
+  other: "Other",
+};
+const formatLabel = (f: string) => FORMAT_LABEL[f] ?? f;
+const FORMAT_UNIT: Record<string, string> = { grandprix: "races", bestof: "sets", board: "boards", other: "results" };
+const formatUnit = (f: string, n: number) => {
+  const base = FORMAT_UNIT[f] ?? "games";
+  return n === 1 ? base.replace(/s$/, "") : base;
+};
 
 interface StatsView {
   tournaments: number;
@@ -293,7 +315,7 @@ function PingPongPanel({ groupId }: { groupId: string }) {
   return (
     <div className="space-y-2">
       <p className="gn-hint">
-        Single-game wins count every individual game (the four inside a won best of seven, and each free-play game). Match wins split by match length.
+        Single-game wins count every individual game, including the four inside a won best of seven and each free-play game. Wins by format are below.
       </p>
       <ul className="space-y-2">
         {data.byPlayer.map((p, i) => (
@@ -309,10 +331,6 @@ function PingPongPanel({ groupId }: { groupId: string }) {
             </div>
             <div className="gn-hint mt-1" style={{ fontSize: "12px" }}>
               {p.matchWins}W / {p.matches} matches
-              {p.byFormat
-                .filter((f) => f.played > 0)
-                .map((f) => ` · ${f.format}: ${f.wins}/${f.played}`)
-                .join("")}
             </div>
           </li>
         ))}
@@ -443,6 +461,33 @@ export default function StatsPage() {
             );
           })}
         </ul>
+        )}
+
+        {active && active.formats.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="gn-h2">Wins by format</h2>
+            {active.formats.map((f) => (
+              <div key={f.format} className="gn-card" style={{ padding: "12px 16px" }}>
+                <div className="flex items-baseline justify-between">
+                  <span className="font-bold">{formatLabel(f.format)}</span>
+                  <span className="gn-hint" style={{ fontSize: "12px" }}>{f.played} {formatUnit(f.format, f.played)}</span>
+                </div>
+                <ul className="space-y-1" style={{ marginTop: 6 }}>
+                  {f.players.slice(0, 5).map((p, i) => (
+                    <li key={p.name} className="flex justify-between" style={{ fontSize: "13px" }}>
+                      <span className="flex gap-2 min-w-0">
+                        <span className="gn-hint" style={{ width: 16, flexShrink: 0 }}>{i + 1}</span>
+                        <span className="truncate" style={i === 0 ? { color: "var(--gn-gold)", fontWeight: 700 } : undefined}>{p.name}</span>
+                      </span>
+                      <span className="gn-hint" style={{ flexShrink: 0 }}>
+                        <span style={{ color: "var(--gn-ink)", fontWeight: 700 }}>{p.wins}</span> / {p.played}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </section>
         )}
       </div>
     </main>
