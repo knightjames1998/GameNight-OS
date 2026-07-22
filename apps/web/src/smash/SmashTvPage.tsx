@@ -78,7 +78,7 @@ export default function SmashTvPage() {
 
       {bestOf && cur && (
         <div style={{ marginTop: "2vmin" }}>
-          <div className="sm-tv__muted" style={{ fontSize: "2.6vmin", textTransform: "uppercase", letterSpacing: "0.3vmin" }}>On the setup</div>
+          <div className="sm-tv__muted" style={{ fontSize: "2.6vmin", textTransform: "uppercase", letterSpacing: "0.3vmin" }}>On stage</div>
           <div className="sm-tv__king" style={{ display: "flex", alignItems: "center", gap: "2vmin" }}>
             <span>{nameOf.get(cur.aId)}</span>
             <span className="sm-tv__muted">{setWins.a} - {setWins.b}</span>

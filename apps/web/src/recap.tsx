@@ -300,6 +300,22 @@ export function drawRecapCard(view: BracketView): HTMLCanvasElement {
 // palette, same webfonts, same rounded-row drawing. Different data (games
 // list + player rollups + MVP) so it gets its own draw function, not a
 // second renderer.
+
+/**
+ * Turn a raw ledger label into words: bo1 -> Free play, bo{N} -> Best of N,
+ * gp{N} -> Cup N (Grand Prix). Anything else (a Mario Party board name) is
+ * shown as-is. null when the pack stores no label.
+ */
+function humanizeLabel(label: string | null): string | null {
+  if (!label) return null;
+  if (label === "bo1") return "Free play";
+  const bo = /^bo(\d+)$/.exec(label);
+  if (bo) return `Best of ${bo[1]}`;
+  const gp = /^gp(\d+)$/.exec(label);
+  if (gp) return `Cup ${gp[1]}`;
+  return label;
+}
+
 export function drawNightRecapCard(recap: EventRecap): HTMLCanvasElement {
   const scale = 2;
   const W = 800;
@@ -410,12 +426,9 @@ export function drawNightRecapCard(recap: EventRecap): HTMLCanvasElement {
     ctx.font = `700 15px ${FONT_HEAD}`;
     ctx.fillText("GAMES PLAYED", PAD, gy + 24);
     ctx.font = `700 15px ${FONT_BODY}`;
-    // Ping Pong rides the match length in the label (bo1/bo3/bo5/bo7); show it
-    // in words rather than the raw token.
-    const PP_FMT: Record<string, string> = { bo1: "Free play", bo3: "Best of 3", bo5: "Best of 5", bo7: "Best of 7" };
     gamesList.forEach((g, i) => {
       const top = gy + GHEAD + i * GROW;
-      const label = g.label && g.pack === "pingpong" ? PP_FMT[g.label] ?? g.label : g.label;
+      const label = humanizeLabel(g.label);
       const name = label ? `${g.gameName}: ${label}` : g.gameName;
       ctx.fillStyle = ink;
       ctx.fillText(name.slice(0, 40), PAD, top);

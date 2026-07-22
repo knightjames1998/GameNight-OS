@@ -183,7 +183,7 @@ export default function MarioKartPage() {
         </div>
         <div>
           <div className="mk-brand">Mario Kart</div>
-          <div className="mk-sub">Race night · free-for-all tracking</div>
+          <div className="mk-sub">Free Play · Grand Prix · Best Of · King of the Hill</div>
         </div>
 
         {err && <p className="mk-err">{err}</p>}

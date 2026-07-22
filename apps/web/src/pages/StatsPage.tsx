@@ -253,6 +253,7 @@ function MarioPartyPanel({ groupId }: { groupId: string }) {
 
 // The generic aggregator names the Ping Pong pack's game this.
 const PING_PONG_GAME_NAME = "Ping Pong";
+const MARIO_KART_GAME_NAME = "Mario Kart";
 
 interface PpStats {
   matches: number;
@@ -353,7 +354,9 @@ export default function StatsPage() {
                 ? `${count} ${count === 1 ? "board" : "boards"} of Mario Party`
                 : tab === PING_PONG_GAME_NAME
                 ? `${count} ${count === 1 ? "match" : "matches"} of Ping Pong`
-                : `${count} ${count === 1 ? "tournament" : "tournaments"}${active ? ` of ${active.name}` : " across all game modes"}`}
+                : tab === MARIO_KART_GAME_NAME
+                ? `${count} ${count === 1 ? "race" : "races"} of Mario Kart`
+                : `${count} ${count === 1 ? "result" : "results"}${active ? ` of ${active.name}` : " across all game modes"}`}
             </p>
           )}
         </div>

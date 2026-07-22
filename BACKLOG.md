@@ -13,7 +13,7 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-07-21
-    Shipped sessions since that redraw: 0
+    Shipped sessions since that redraw: 1
     Redraw due at:                      3
 
 **Every session that ships anything (feature, pack, or fix set) increments the counter by 1

@@ -182,7 +182,7 @@ export default function SmashPage() {
         </div>
         <div>
           <div className="sm-brand">Smash <em>Night</em></div>
-          <div className="sm-sub">Free-for-all &amp; King of the Hill</div>
+          <div className="sm-sub">Free-for-all, King of the Hill &amp; Best Of</div>
         </div>
 
         {err && <p className="sm-err">{err}</p>}
@@ -751,7 +751,7 @@ function BestOfPlay({
   return (
     <div className="sm-card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <div className="sm-h" style={{ margin: 0 }}>On the setup · first to {need}</div>
+        <div className="sm-h" style={{ margin: 0 }}>On stage · first to {need}</div>
         <span className="sm-hint">best of {session.bestOf}</span>
       </div>
       <div className="sm-score" style={{ margin: "8px 0 12px" }}>{wins.a} &ndash; {wins.b}</div>
