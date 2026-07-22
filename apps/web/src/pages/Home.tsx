@@ -45,6 +45,9 @@ function Groups({
   const [pw, setPw] = useState("");
   const [pwSaved, setPwSaved] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  // Local mirror of "has a password" so setting one for the first time sticks
+  // even though the me prop doesn't refetch.
+  const [hasPw, setHasPw] = useState(me.hasPassword);
 
   useEffect(() => {
     api<GroupSummary[]>("/api/groups").then(setGroups).catch(() => setGroups([]));
@@ -75,7 +78,12 @@ function Groups({
   async function savePassword() {
     await api("/api/auth/password", { method: "PATCH", body: JSON.stringify({ password: pw }) });
     setPw("");
+    setShowPw(false);
+    setHasPw(true);
+    // Flash "Password set." for a few seconds, then it collapses back to just
+    // the "Change password" button.
     setPwSaved(true);
+    setTimeout(() => setPwSaved(false), 5000);
   }
 
   // Session packs need a (personal) event to hang the live session on; spin
@@ -163,20 +171,21 @@ function Groups({
 
         <AddToHomeHint />
 
-        {/* Account on the left two-thirds, detailed personal stats on the
-            right third. Stacks on narrow screens. */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 items-start">
-          <section className="space-y-2 md:col-span-2">
+        {/* Account on the left two-thirds, collapsed personal stats on the
+            right third, on the same row at every width. */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 items-start">
+          <section className="space-y-2 col-span-2 min-w-0">
             <label className="gn-lab" htmlFor="home-name">
               Your name (what your crew sees)
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 min-w-0">
               <input
                 id="home-name"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 maxLength={30}
                 className="gn-input"
+                style={{ minWidth: 0 }}
               />
               <button
                 onClick={saveName}
@@ -187,19 +196,21 @@ function Groups({
               </button>
             </div>
 
-            {/* Password lives right under the name field: prominent prompt when
-                unset, collapses to a small "Change password" once one exists. */}
-            {me.hasPassword && !showPw ? (
-              <div className="flex items-center justify-between">
-                <span className="gn-hint">Password set.</span>
-                <button className="gn-actionbtn" onClick={() => setShowPw(true)}>
+            {/* Password lives right under the name field: prompt when unset,
+                collapses to just "Change password" once one exists. The
+                "Password set" confirmation only flashes for a few seconds
+                right after saving. */}
+            {hasPw && !showPw ? (
+              <div className="flex items-center gap-2">
+                {pwSaved && <span className="gn-hint" style={{ color: "var(--gn-p2)" }}>✓ Password set</span>}
+                <button className="gn-actionbtn" style={{ marginLeft: "auto" }} onClick={() => setShowPw(true)}>
                   🔑 Change password
                 </button>
               </div>
             ) : (
               <div className="space-y-2">
                 <label className="gn-lab" htmlFor="home-pw">
-                  {me.hasPassword ? "New password" : "Set a password (skip the email link next time)"}
+                  {hasPw ? "New password" : "Set a password (skip the email link next time)"}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -214,7 +225,7 @@ function Groups({
                   <button onClick={savePassword} disabled={pw.length < 8} className="gn-btn gn-btn--go">
                     {pwSaved ? "Saved" : "Save"}
                   </button>
-                  {me.hasPassword && (
+                  {hasPw && (
                     <button
                       className="gn-textbtn"
                       onClick={() => { setShowPw(false); setPw(""); setPwSaved(false); }}
@@ -386,24 +397,24 @@ function PersonalStats() {
 
   const has = stats && stats.played > 0;
   return (
-    <section className="gn-card md:col-span-1" style={{ alignSelf: "start", padding: "10px 14px" }}>
+    <section className="gn-card col-span-1 min-w-0" style={{ alignSelf: "start", padding: "10px 12px" }}>
       <button
         onClick={() => has && setOpen((o) => !o)}
         className="w-full text-left"
         style={{ background: "transparent", border: 0, color: "var(--gn-ink)", font: "inherit", cursor: has ? "pointer" : "default", padding: 0 }}
         aria-expanded={open}
       >
-        <div className="flex items-center justify-between gap-2">
-          <span className="gn-h2" style={{ whiteSpace: "nowrap" }}>Your stats</span>
+        <div className="flex items-center justify-between gap-1">
+          <span className="gn-h2" style={{ whiteSpace: "nowrap", fontSize: 15 }}>Your stats</span>
           {has ? (
             <span aria-hidden="true" className="gn-hint" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s", fontSize: 12 }}>▾</span>
           ) : (
-            <span className="gn-hint" style={{ fontSize: 12 }}>no games yet</span>
+            <span className="gn-hint" style={{ fontSize: 11 }}>none yet</span>
           )}
         </div>
         {has && !open && (
-          <div className="gn-hint" style={{ fontSize: 12.5, marginTop: 3 }}>
-            <b style={{ color: "var(--gn-gold)" }}>{stats!.wins}</b>W · {stats!.played} games · {Math.round(stats!.winRate * 100)}%
+          <div className="gn-hint" style={{ fontSize: 12, marginTop: 3 }}>
+            <b style={{ color: "var(--gn-gold)" }}>{stats!.wins}</b>W · {Math.round(stats!.winRate * 100)}%
           </div>
         )}
       </button>
