@@ -378,18 +378,38 @@ function StatTile({ n, label, accent }: { n: string; label: string; accent?: str
 
 function PersonalStats() {
   const [stats, setStats] = useState<MyStats | null>(null);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     api<MyStats>("/api/me/stats").then(setStats).catch(() => {});
   }, []);
 
+  const has = stats && stats.played > 0;
   return (
-    <section className="gn-card space-y-3 md:col-span-1" style={{ alignSelf: "start" }}>
-      <h2 className="gn-h2">Your stats</h2>
-      {!stats || stats.played === 0 ? (
-        <p className="gn-hint">Play a game night and your lifetime record shows up here.</p>
-      ) : (
-        <>
+    <section className="gn-card md:col-span-1" style={{ alignSelf: "start", padding: "10px 14px" }}>
+      <button
+        onClick={() => has && setOpen((o) => !o)}
+        className="w-full text-left"
+        style={{ background: "transparent", border: 0, color: "var(--gn-ink)", font: "inherit", cursor: has ? "pointer" : "default", padding: 0 }}
+        aria-expanded={open}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="gn-h2" style={{ whiteSpace: "nowrap" }}>Your stats</span>
+          {has ? (
+            <span aria-hidden="true" className="gn-hint" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s", fontSize: 12 }}>▾</span>
+          ) : (
+            <span className="gn-hint" style={{ fontSize: 12 }}>no games yet</span>
+          )}
+        </div>
+        {has && !open && (
+          <div className="gn-hint" style={{ fontSize: 12.5, marginTop: 3 }}>
+            <b style={{ color: "var(--gn-gold)" }}>{stats!.wins}</b>W · {stats!.played} games · {Math.round(stats!.winRate * 100)}%
+          </div>
+        )}
+      </button>
+
+      {open && stats && stats.played > 0 && (
+        <div className="space-y-3" style={{ marginTop: 12 }}>
           <div className="flex gap-2">
             <StatTile n={String(stats.wins)} label="wins" accent="var(--gn-gold)" />
             <StatTile n={String(stats.played)} label="games" />
@@ -452,7 +472,7 @@ function PersonalStats() {
               </ul>
             </div>
           )}
-        </>
+        </div>
       )}
     </section>
   );

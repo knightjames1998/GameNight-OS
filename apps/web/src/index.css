@@ -122,20 +122,20 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-textbtn--danger:hover{color:#ffb7ba}
 
 /* Compact secondary action that reads as a real button (Share, Night recap,
-   change date, Change password, Log out). Outlined tinted pill, barely
-   larger than the old text link it replaces. */
+   change date, Change password). Same soft outlined-pill style as Log out but
+   in a light blue, small and tidy. */
 .gn-actionbtn{
-  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;text-decoration:none;
-  background:var(--gn-raise);border:1.5px solid var(--gn-line);color:var(--gn-ink);
-  font-family:inherit;font-weight:700;font-size:13px;line-height:1;
-  padding:8px 13px;border-radius:10px;min-height:38px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:5px;white-space:nowrap;text-decoration:none;
+  background:rgba(140,170,255,.10);border:1.5px solid rgba(140,170,255,.34);color:#aec6ff;
+  font-family:inherit;font-weight:700;font-size:12.5px;line-height:1;
+  padding:6px 11px;border-radius:9px;min-height:32px;cursor:pointer;
   transition:border-color .12s, background .12s, transform .08s;
 }
-.gn-actionbtn:hover{border-color:var(--gn-p2);background:var(--gn-surf)}
+.gn-actionbtn:hover{border-color:rgba(140,170,255,.7);background:rgba(140,170,255,.18)}
 .gn-actionbtn:active{transform:translateY(1px)}
 .gn-actionbtn:disabled{opacity:.45;cursor:default}
-.gn-actionbtn--danger{color:#ff8b8f;border-color:rgba(255,90,95,.35)}
-.gn-actionbtn--danger:hover{border-color:var(--gn-danger);background:rgba(255,90,95,.1)}
+.gn-actionbtn--danger{color:#ff8b8f;border-color:rgba(255,90,95,.34);background:rgba(255,90,95,.08)}
+.gn-actionbtn--danger:hover{border-color:var(--gn-danger);background:rgba(255,90,95,.15)}
 
 /* ---- card / panel -------------------------------------------- */
 .gn-card{background:var(--gn-surf);border:2px solid var(--gn-line);border-radius:16px;padding:14px 16px}
