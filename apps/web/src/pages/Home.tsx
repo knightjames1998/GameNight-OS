@@ -171,75 +171,77 @@ function Groups({
 
         <AddToHomeHint />
 
-        {/* Account on the left two-thirds, collapsed personal stats on the
-            right third, on the same row at every width. */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 items-start">
-          <section className="space-y-2 col-span-2 min-w-0">
-            <label className="gn-lab" htmlFor="home-name">
-              Your name (what your crew sees)
-            </label>
-            <div className="flex gap-2 min-w-0">
-              <input
-                id="home-name"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                maxLength={30}
-                className="gn-input"
-                style={{ minWidth: 0 }}
-              />
-              <button
-                onClick={saveName}
-                disabled={displayName.trim() === me.displayName || !displayName.trim()}
-                className="gn-btn gn-btn--ghost"
-              >
-                Save
-              </button>
-            </div>
-
-            {/* Password lives right under the name field: prompt when unset,
-                collapses to just "Change password" once one exists. The
-                "Password set" confirmation only flashes for a few seconds
-                right after saving. */}
-            {hasPw && !showPw ? (
-              <div className="flex items-center gap-2">
-                {pwSaved && <span className="gn-hint" style={{ color: "var(--gn-p2)" }}>✓ Password set</span>}
-                <button className="gn-actionbtn" style={{ marginLeft: "auto" }} onClick={() => setShowPw(true)}>
-                  🔑 Change password
+        {/* Account on the left two-thirds; the "Your stats" button fills the
+            right third, its top aligned with the name field and its bottom
+            with the Change password button. The label sits above the grid so
+            the button doesn't stretch up over it. */}
+        <section className="space-y-2">
+          <label className="gn-lab" htmlFor="home-name">
+            Your name (what your crew sees)
+          </label>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="col-span-2 space-y-2 min-w-0">
+              <div className="flex gap-2 min-w-0">
+                <input
+                  id="home-name"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  maxLength={30}
+                  className="gn-input"
+                  style={{ minWidth: 0 }}
+                />
+                <button
+                  onClick={saveName}
+                  disabled={displayName.trim() === me.displayName || !displayName.trim()}
+                  className="gn-btn gn-btn--ghost"
+                >
+                  Save
                 </button>
               </div>
-            ) : (
-              <div className="space-y-2">
-                <label className="gn-lab" htmlFor="home-pw">
-                  {hasPw ? "New password" : "Set a password (skip the email link next time)"}
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="home-pw"
-                    type="password"
-                    autoComplete="new-password"
-                    value={pw}
-                    onChange={(e) => { setPw(e.target.value); setPwSaved(false); }}
-                    placeholder="8+ characters"
-                    className="gn-input"
-                  />
-                  <button onClick={savePassword} disabled={pw.length < 8} className="gn-btn gn-btn--go">
-                    {pwSaved ? "Saved" : "Save"}
-                  </button>
-                  {hasPw && (
-                    <button
-                      className="gn-textbtn"
-                      onClick={() => { setShowPw(false); setPw(""); setPwSaved(false); }}
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </section>
 
-          <PersonalStats />
-        </div>
+              {/* Change password sits left; the "Password set" confirmation
+                  flashes to its right for a few seconds after saving. */}
+              {hasPw && !showPw ? (
+                <div className="flex items-center gap-2">
+                  <button className="gn-actionbtn" onClick={() => setShowPw(true)}>
+                    🔑 Change password
+                  </button>
+                  {pwSaved && <span className="gn-hint" style={{ color: "var(--gn-p2)" }}>✓ Password set</span>}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="gn-lab" htmlFor="home-pw">
+                    {hasPw ? "New password" : "Set a password (skip the email link next time)"}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="home-pw"
+                      type="password"
+                      autoComplete="new-password"
+                      value={pw}
+                      onChange={(e) => { setPw(e.target.value); setPwSaved(false); }}
+                      placeholder="8+ characters"
+                      className="gn-input"
+                    />
+                    <button onClick={savePassword} disabled={pw.length < 8} className="gn-btn gn-btn--go">
+                      {pwSaved ? "Saved" : "Save"}
+                    </button>
+                    {hasPw && (
+                      <button
+                        className="gn-textbtn"
+                        onClick={() => { setShowPw(false); setPw(""); setPwSaved(false); }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <StatsButton />
+          </div>
+        </section>
 
         <Friends />
 
@@ -356,135 +358,40 @@ function Friends() {
   );
 }
 
-// Detailed personal stats, top-right on Home. Lifetime totals across every
-// crew (quick play included), broken down by game and by format.
-interface MyStats {
+// The "Your stats" button on Home: fills the right third of the account row
+// and opens the full stats page. Shows a headline (wins + win rate) once the
+// player has a record.
+interface StatsHeadline {
   played: number;
   wins: number;
   winRate: number;
-  podiums: number;
-  byGame: { name: string; played: number; wins: number }[];
-  byFormat: { format: string; played: number; wins: number }[];
-  byCrew: { groupId: string; name: string; played: number; wins: number; personal: boolean }[];
 }
 
-const FORMAT_LABEL: Record<string, string> = {
-  free: "Free Play",
-  ffa: "Free-for-all",
-  grandprix: "Grand Prix",
-  bestof: "Best Of",
-  koth: "King of the Hill",
-  board: "Board night",
-  other: "Other",
-};
-
-function StatTile({ n, label, accent }: { n: string; label: string; accent?: string }) {
-  return (
-    <div style={{ flex: 1, textAlign: "center", background: "var(--gn-surf)", border: "1.5px solid var(--gn-line)", borderRadius: 12, padding: "10px 4px" }}>
-      <div style={{ fontFamily: "Fredoka, system-ui, sans-serif", fontWeight: 800, fontSize: 22, lineHeight: 1, color: accent ?? "var(--gn-ink)" }}>{n}</div>
-      <div className="gn-hint" style={{ fontSize: 11, marginTop: 3 }}>{label}</div>
-    </div>
-  );
-}
-
-function PersonalStats() {
-  const [stats, setStats] = useState<MyStats | null>(null);
-  const [open, setOpen] = useState(false);
+function StatsButton() {
+  const [stats, setStats] = useState<StatsHeadline | null>(null);
 
   useEffect(() => {
-    api<MyStats>("/api/me/stats").then(setStats).catch(() => {});
+    api<StatsHeadline>("/api/me/stats").then(setStats).catch(() => {});
   }, []);
 
-  const has = stats && stats.played > 0;
+  const has = !!stats && stats.played > 0;
   return (
-    <section className="gn-card col-span-1 min-w-0" style={{ alignSelf: "start", padding: "10px 12px" }}>
-      <button
-        onClick={() => has && setOpen((o) => !o)}
-        className="w-full text-left"
-        style={{ background: "transparent", border: 0, color: "var(--gn-ink)", font: "inherit", cursor: has ? "pointer" : "default", padding: 0 }}
-        aria-expanded={open}
-      >
-        <div className="flex items-center justify-between gap-1">
-          <span className="gn-h2" style={{ whiteSpace: "nowrap", fontSize: 15 }}>Your stats</span>
-          {has ? (
-            <span aria-hidden="true" className="gn-hint" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s", fontSize: 12 }}>▾</span>
-          ) : (
-            <span className="gn-hint" style={{ fontSize: 11 }}>none yet</span>
-          )}
-        </div>
-        {has && !open && (
-          <div className="gn-hint" style={{ fontSize: 12, marginTop: 3 }}>
-            <b style={{ color: "var(--gn-gold)" }}>{stats!.wins}</b>W · {Math.round(stats!.winRate * 100)}%
-          </div>
+    <Link
+      to="/me/stats"
+      className="gn-card col-span-1 min-w-0 flex flex-col justify-center"
+      style={{ height: "100%", padding: "10px 12px", textDecoration: "none", color: "var(--gn-ink)" }}
+    >
+      <div className="flex items-center justify-between gap-1">
+        <span className="gn-h2" style={{ whiteSpace: "nowrap", fontSize: 15 }}>Your stats</span>
+        <span aria-hidden="true" className="gn-hint" style={{ fontSize: 14, color: "var(--gn-p2)" }}>›</span>
+      </div>
+      <div className="gn-hint" style={{ fontSize: 12, marginTop: 3 }}>
+        {has ? (
+          <><b style={{ color: "var(--gn-gold)" }}>{stats!.wins}</b>W · {Math.round(stats!.winRate * 100)}%</>
+        ) : (
+          "see details"
         )}
-      </button>
-
-      {open && stats && stats.played > 0 && (
-        <div className="space-y-3" style={{ marginTop: 12 }}>
-          <div className="flex gap-2">
-            <StatTile n={String(stats.wins)} label="wins" accent="var(--gn-gold)" />
-            <StatTile n={String(stats.played)} label="games" />
-            <StatTile n={`${Math.round(stats.winRate * 100)}%`} label="win rate" accent="var(--gn-p2)" />
-          </div>
-          {stats.podiums > 0 && (
-            <p className="gn-hint" style={{ fontSize: 12 }}>
-              🏅 {stats.podiums} top-3 finish{stats.podiums === 1 ? "" : "es"}
-            </p>
-          )}
-
-          {stats.byGame.length > 0 && (
-            <div>
-              <div className="gn-lab" style={{ fontSize: 12, marginBottom: 4 }}>By game</div>
-              <ul className="space-y-1">
-                {stats.byGame.slice(0, 4).map((g) => (
-                  <li key={g.name} className="flex justify-between" style={{ fontSize: 13 }}>
-                    <span className="truncate" style={{ marginRight: 8 }}>{g.name}</span>
-                    <span className="gn-hint" style={{ flexShrink: 0 }}>
-                      <span style={{ color: "var(--gn-ink)", fontWeight: 700 }}>{g.wins}</span>W / {g.played}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {stats.byFormat.length > 0 && (
-            <div>
-              <div className="gn-lab" style={{ fontSize: 12, marginBottom: 4 }}>By format</div>
-              <ul className="space-y-1">
-                {stats.byFormat.slice(0, 4).map((f) => (
-                  <li key={f.format} className="flex justify-between" style={{ fontSize: 13 }}>
-                    <span className="truncate" style={{ marginRight: 8 }}>{FORMAT_LABEL[f.format] ?? f.format}</span>
-                    <span className="gn-hint" style={{ flexShrink: 0 }}>
-                      <span style={{ color: "var(--gn-ink)", fontWeight: 700 }}>{f.wins}</span>W / {f.played}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {stats.byCrew.some((c) => !c.personal) && (
-            <div style={{ borderTop: "1.5px solid var(--gn-line)", paddingTop: 8 }}>
-              <div className="gn-lab" style={{ fontSize: 12, marginBottom: 4 }}>By crew</div>
-              <ul className="space-y-1">
-                {stats.byCrew.map((c) => (
-                  <li key={c.groupId} className="flex justify-between items-baseline" style={{ fontSize: 13 }}>
-                    {c.personal ? (
-                      <span className="gn-hint">Quick play</span>
-                    ) : (
-                      <Link to={`/g/${c.groupId}/stats`} className="truncate" style={{ marginRight: 8, color: "var(--gn-p2)", fontWeight: 700, textDecoration: "none" }}>
-                        {c.name}
-                      </Link>
-                    )}
-                    <span className="gn-hint" style={{ flexShrink: 0 }}>{c.wins}W / {c.played}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-    </section>
+      </div>
+    </Link>
   );
 }
