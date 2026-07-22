@@ -147,6 +147,7 @@ async function materializeMatch(
         eventId,
         externalKey: key,
         label: `bo${state.bestOf}`,
+        format: state.format,
         round: 1,
         position: match.idx,
         status: "completed",

@@ -136,7 +136,8 @@ async function materializeGame(
   game: SmashGame,
   roster: SmashPlayer[],
   sessionKey: string,
-  label: string | null = null,
+  label: string | null,
+  format: MkFormat,
 ): Promise<{ recorded: number; guests: number }> {
   const db = getDb();
   const key = ledgerKey(eventId, sessionKey, game.idx);
@@ -156,6 +157,7 @@ async function materializeGame(
         eventId,
         externalKey: key,
         label,
+        format,
         round: 1,
         position: game.idx,
         status: "completed",
@@ -237,6 +239,7 @@ async function materializeSeries(
         eventId,
         externalKey: key,
         label: `bo${bestOf}`,
+        format: "bestof",
         round: 1,
         position: series.idx,
         status: "completed",
@@ -622,7 +625,7 @@ marioKartRouter.post("/mariokart/:eventId/record", requireAuth, async (req: Auth
   state.games.push(game);
 
   const gameId = await ensureGame(row.groupId);
-  const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster, state.sessionKey, label);
+  const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster, state.sessionKey, label, state.format);
 
   await saveState(eventId, state, "live", origin);
   broadcast({ type: "leaderboard_updated", eventId }, origin);

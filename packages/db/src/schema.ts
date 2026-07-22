@@ -221,6 +221,12 @@ export const matches = pgTable(
     // stores the board/map played here so "wins on <board>" survives into
     // the lifetime ledger. Null for packs that don't use it.
     label: text("label"),
+    // The pack FORMAT this result was played under (free / bestof / koth /
+    // ffa / grandprix / board). Distinct from label because label can't tell
+    // formats apart (Ping Pong free play and KOTH both label bo1). Feeds the
+    // per-format lifetime stats and the night recap's grouping. Null on
+    // pre-existing rows and on brackets.
+    format: text("format"),
     round: integer("round").notNull(),
     position: integer("position").notNull(),
     status: text("status", { enum: ["pending", "live", "completed"] })

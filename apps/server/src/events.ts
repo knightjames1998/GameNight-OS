@@ -326,6 +326,8 @@ eventsRouter.get("/events/:id/recap", async (req: AuthedRequest, res) => {
       matchId: matchParticipants.matchId,
       position: matches.position,
       label: matches.label,
+      format: matches.format,
+      externalKey: matches.externalKey,
       gameName: games.name,
       pack: games.pack,
       userId: matchParticipants.userId,
@@ -342,12 +344,35 @@ eventsRouter.get("/events/:id/recap", async (req: AuthedRequest, res) => {
   // One entry per match (a game/board/race), in play order.
   const byMatch = new Map<
     string,
-    { position: number; label: string | null; gameName: string; pack: string; winnerName: string | null }
+    { position: number; label: string | null; format: string | null; gameName: string; pack: string; winnerName: string | null }
   >();
   // Per-player rollup across every game.
   const byUser = new Map<
     string,
     { userId: string; name: string; games: number; wins: number; placedSum: number; placed: number }
+  >();
+
+  // Session units: group matches into the thing that was actually played (one
+  // Best Of session, one KOTH run, one Grand Prix cup), so the recap shows a
+  // line per format-run instead of one per race. The sessionKey lives in the
+  // externalKey ({pack}:{eventId}:{sessionKey}:{idx}); Grand Prix additionally
+  // splits by its cup label so each cup is its own row.
+  const sessionKeyOf = (externalKey: string | null, matchId: string): string => {
+    if (!externalKey) return `m:${matchId}`;
+    const parts = externalKey.split(":");
+    return parts.length >= 4 ? parts[2]! : `legacy:${parts[0]}`;
+  };
+  const units = new Map<
+    string,
+    {
+      pack: string;
+      format: string | null;
+      gameName: string;
+      label: string | null;
+      order: number;
+      matchIds: Set<string>;
+      wins: Map<string, { name: string; wins: number }>;
+    }
   >();
 
   for (const r of rows) {
@@ -356,6 +381,7 @@ eventsRouter.get("/events/:id/recap", async (req: AuthedRequest, res) => {
       g = {
         position: r.position ?? 0,
         label: r.label,
+        format: r.format,
         gameName: r.gameName ?? "Game",
         pack: r.pack ?? "generic",
         winnerName: null,
@@ -375,11 +401,51 @@ eventsRouter.get("/events/:id/recap", async (req: AuthedRequest, res) => {
       p.placedSum += r.placement;
       p.placed++;
     }
+
+    const sk = sessionKeyOf(r.externalKey, r.matchId);
+    const unitKey = `${r.pack}|${r.format}|${sk}` + (r.format === "grandprix" ? `|${r.label ?? ""}` : "");
+    let u = units.get(unitKey);
+    if (!u) {
+      u = {
+        pack: r.pack ?? "generic",
+        format: r.format,
+        gameName: r.gameName ?? "Game",
+        label: r.label,
+        order: r.position ?? 0,
+        matchIds: new Set(),
+        wins: new Map(),
+      };
+      units.set(unitKey, u);
+    }
+    u.matchIds.add(r.matchId);
+    u.order = Math.min(u.order, r.position ?? 0);
+    if (r.isWinner) {
+      const w = u.wins.get(r.userId) ?? { name: r.displayName, wins: 0 };
+      w.wins++;
+      u.wins.set(r.userId, w);
+    }
   }
 
   const gamesList = [...byMatch.values()]
     .sort((a, b) => a.position - b.position)
-    .map((g) => ({ gameName: g.gameName, label: g.label, pack: g.pack, winnerName: g.winnerName }));
+    .map((g) => ({ gameName: g.gameName, label: g.label, format: g.format, pack: g.pack, winnerName: g.winnerName }));
+
+  // One row per thing played, with its top winner and how dominant (won X of Y).
+  const sessions = [...units.values()]
+    .sort((a, b) => a.order - b.order)
+    .map((u) => {
+      let top: { name: string; wins: number } | null = null;
+      for (const w of u.wins.values()) if (!top || w.wins > top.wins) top = w;
+      return {
+        gameName: u.gameName,
+        pack: u.pack,
+        format: u.format,
+        label: u.label,
+        matches: u.matchIds.size,
+        winnerName: top?.name ?? null,
+        winnerWins: top?.wins ?? 0,
+      };
+    });
 
   const players = [...byUser.values()]
     .map((p) => ({
@@ -398,6 +464,7 @@ eventsRouter.get("/events/:id/recap", async (req: AuthedRequest, res) => {
     groupName,
     totalGames: byMatch.size,
     games: gamesList,
+    sessions,
     players,
     mvp: gamesList.length && players[0] ? { userId: players[0].userId, name: players[0].name } : null,
   });

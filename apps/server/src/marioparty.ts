@@ -146,6 +146,7 @@ async function materializeGame(
         eventId,
         externalKey: key,
         label: game.map,
+        format: "board",
         round: 1,
         position: game.idx,
         status: "completed",

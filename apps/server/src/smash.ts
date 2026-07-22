@@ -140,6 +140,7 @@ async function materializeGame(
   game: SmashGame,
   roster: SmashPlayer[],
   sessionKey: string,
+  format: SmashFormat,
 ): Promise<{ recorded: number; guests: number }> {
   const db = getDb();
   const key = ledgerKey(eventId, sessionKey, game.idx);
@@ -158,6 +159,7 @@ async function materializeGame(
         gameId,
         eventId,
         externalKey: key,
+        format,
         round: 1,
         position: game.idx,
         status: "completed",
@@ -225,6 +227,7 @@ async function materializeSeries(
         eventId,
         externalKey: key,
         label: `bo${bestOf}`,
+        format: "bestof",
         round: 1,
         position: series.idx,
         status: "completed",
@@ -680,7 +683,7 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
   state.games.push(game);
 
   const gameId = await ensureSmashGame(row.groupId);
-  const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster, state.sessionKey);
+  const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster, state.sessionKey, state.format);
 
   const origin = req.get("x-gn-client");
   await saveState(eventId, row.groupId, state, "live", origin);

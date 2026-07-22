@@ -114,7 +114,18 @@ export interface EventRecap {
   scheduledFor: string | null;
   groupName: string;
   totalGames: number;
-  games: { gameName: string; label: string | null; pack: string; winnerName: string | null }[];
+  games: { gameName: string; label: string | null; format: string | null; pack: string; winnerName: string | null }[];
+  // One entry per thing actually played (a Best Of session, a KOTH run, a
+  // Grand Prix cup), with its top winner and how many of its games they took.
+  sessions: {
+    gameName: string;
+    pack: string;
+    format: string | null;
+    label: string | null;
+    matches: number;
+    winnerName: string | null;
+    winnerWins: number;
+  }[];
   players: { userId: string; name: string; games: number; wins: number; avgPlacement: number | null }[];
   mvp: { userId: string; name: string } | null;
 }
