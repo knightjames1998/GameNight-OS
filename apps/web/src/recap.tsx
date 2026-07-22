@@ -316,21 +316,60 @@ function humanizeLabel(label: string | null): string | null {
   return label;
 }
 
+const PACK_EMOJI: Record<string, string> = {
+  pingpong: "\u{1F3D3}", // 🏓
+  smash: "\u{1F94A}", // 🥊
+  mario_kart: "\u{1F3CE}\u{FE0F}", // 🏎️
+  mario_party: "\u{1F3B2}", // 🎲
+  beerio: "\u{1F37A}", // 🍺
+};
+const packEmoji = (pack: string): string => PACK_EMOJI[pack] ?? "\u{1F3C6}"; // 🏆
+
+const FORMAT_NAME: Record<string, string> = {
+  free: "Free Play",
+  bestof: "Best Of",
+  koth: "King of the Hill",
+  ffa: "Free-for-all",
+  grandprix: "Grand Prix",
+  board: "Board night",
+};
+const unitNoun: Record<string, string> = { grandprix: "races", bestof: "sets", board: "boards" };
+const sessionUnit = (format: string | null): string => (format && unitNoun[format]) || "games";
+
+/** Title line for one session row: "Ping Pong · King of the Hill". */
+function sessionTitle(s: EventRecap["sessions"][number]): string {
+  if (s.format === "board") return s.gameName;
+  const fmt = s.format ? FORMAT_NAME[s.format] : null;
+  return fmt ? `${s.gameName} · ${fmt}` : s.gameName;
+}
+
+/** Detail line for one session row (cup / board / how dominant). */
+function sessionSub(s: EventRecap["sessions"][number]): string {
+  const parts: string[] = [];
+  if (s.format === "grandprix") parts.push(humanizeLabel(s.label) ?? "Cup");
+  else if (s.format === "board" && s.label) parts.push(s.label);
+  else if (s.format === "bestof" && s.matches === 1) parts.push(humanizeLabel(s.label) ?? "");
+  if (s.matches > 1 && s.winnerName) parts.push(`won ${s.winnerWins} of ${s.matches} ${sessionUnit(s.format)}`);
+  return parts.filter(Boolean).join(" · ");
+}
+
+// Style A "Podium Night": MVP hero, a 1-2-3 podium, then a line per thing
+// actually played (grouped by session/cup) with its winner.
 export function drawNightRecapCard(recap: EventRecap): HTMLCanvasElement {
   const scale = 2;
   const W = 800;
-  const PAD = 40;
-  const HEAD = 128;
-  const MVP = recap.mvp ? 132 : 40;
-  const PROW = 50; // player rollup row
-  const GHEAD = 44; // "GAMES PLAYED" heading
-  const GROW = 34; // one game line
-  const FOOT = 70;
-
+  const PAD = 44;
+  const HEAD = 122;
+  const MVPH = recap.mvp ? 122 : 24;
   const players = recap.players.slice(0, 8);
-  const gamesList = recap.games.slice(0, 12);
-  const H =
-    HEAD + MVP + players.length * PROW + (gamesList.length ? GHEAD + gamesList.length * GROW : 0) + FOOT + PAD;
+  const podiumPeople = players.slice(0, 3);
+  const PODH = podiumPeople.length ? 196 : 0;
+  const sessions = recap.sessions.slice(0, 8);
+  const SHEAD = 42;
+  const SROW = 50;
+  const SECTION = sessions.length ? SHEAD + sessions.length * SROW : 0;
+  const FOOT = 60;
+  const H = HEAD + MVPH + PODH + SECTION + FOOT;
 
   const cv = document.createElement("canvas");
   cv.width = W * scale;
@@ -340,6 +379,8 @@ export function drawNightRecapCard(recap: EventRecap): HTMLCanvasElement {
   ctx.scale(scale, scale);
 
   const { ink, dim, gold, surf, line, teal } = RECAP;
+  const SILVER = "#c9d2e0";
+  const BRONZE = "#e0a06a";
 
   const rowRadius = (x: number, y: number, w: number, h: number, r: number) => {
     ctx.beginPath();
@@ -351,98 +392,144 @@ export function drawNightRecapCard(recap: EventRecap): HTMLCanvasElement {
     ctx.closePath();
   };
 
-  // Background + coral glow (identical to the bracket card).
+  // Background + violet glow.
   ctx.fillStyle = RECAP.bg;
   ctx.fillRect(0, 0, W, H);
-  const glow = ctx.createRadialGradient(W / 2, -60, 40, W / 2, -60, 520);
-  glow.addColorStop(0, "rgba(255,90,95,0.16)");
-  glow.addColorStop(1, "rgba(255,90,95,0)");
+  const glow = ctx.createRadialGradient(W / 2, -60, 40, W / 2, -60, 560);
+  glow.addColorStop(0, "rgba(120,70,210,0.28)");
+  glow.addColorStop(1, "rgba(120,70,210,0)");
   ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, W, 260);
+  ctx.fillRect(0, 0, W, 300);
 
-  // Wordmark + title
+  // Header: title left, wordmark right, meta under.
   ctx.textAlign = "right";
+  ctx.fillStyle = teal;
+  ctx.font = `700 13px ${FONT_HEAD}`;
+  ctx.fillText("NIGHT RECAP", W - PAD, 40);
   ctx.fillStyle = gold;
   ctx.font = `400 20px ${FONT_DISPLAY}`;
-  ctx.fillText("GAMENIGHT OS", W - PAD, 44);
+  ctx.fillText("GAMENIGHT OS", W - PAD, 66);
   ctx.textAlign = "left";
 
   ctx.fillStyle = ink;
-  ctx.font = `700 42px ${FONT_HEAD}`;
-  ctx.fillText(recap.title.slice(0, 22), PAD, 62);
+  ctx.font = `700 40px ${FONT_HEAD}`;
+  ctx.fillText(recap.title.slice(0, 24), PAD, 60);
   ctx.fillStyle = dim;
-  ctx.font = `700 17px ${FONT_BODY}`;
+  ctx.font = `700 16px ${FONT_BODY}`;
   const date = recap.scheduledFor
-    ? new Date(recap.scheduledFor).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+    ? new Date(recap.scheduledFor).toLocaleDateString(undefined, { month: "short", day: "numeric" })
     : "Date TBD";
-  const gCount = `${recap.totalGames} game${recap.totalGames === 1 ? "" : "s"}`;
-  ctx.fillText(`${recap.groupName} · ${date} · ${gCount}`, PAD, 94);
+  const packs = new Set(recap.sessions.map((s) => s.pack)).size;
+  const meta = `${recap.groupName} · ${date} · ${recap.totalGames} game${recap.totalGames === 1 ? "" : "s"}${packs ? ` across ${packs} pack${packs === 1 ? "" : "s"}` : ""}`;
+  ctx.fillText(meta, PAD, 90);
 
-  // Divider
-  ctx.fillStyle = gold;
-  ctx.fillRect(PAD, HEAD - 12, W - PAD * 2, 3);
-  ctx.fillStyle = teal;
-  ctx.fillRect(PAD, HEAD - 12, 54, 3);
+  ctx.fillStyle = line;
+  ctx.fillRect(PAD, HEAD - 14, W - PAD * 2, 2);
 
-  // MVP block
+  // MVP hero.
   if (recap.mvp) {
-    ctx.fillStyle = gold;
-    ctx.font = `700 15px ${FONT_HEAD}`;
-    ctx.fillText("MVP OF THE NIGHT", PAD, HEAD + 32);
-    ctx.fillStyle = ink;
-    ctx.font = `400 46px ${FONT_DISPLAY}`;
-    ctx.fillText(`\u{1F3C6} ${recap.mvp.name.slice(0, 18)}`, PAD, HEAD + 88);
-  }
-
-  // Player rollup rows
-  const py = HEAD + MVP;
-  players.forEach((p, i) => {
-    const top = py + i * PROW;
-    const isMvp = recap.mvp?.userId === p.userId;
-    ctx.fillStyle = isMvp ? "rgba(255,207,63,0.12)" : surf;
-    ctx.strokeStyle = isMvp ? gold : line;
+    const my = HEAD;
+    ctx.fillStyle = "rgba(255,207,63,0.10)";
+    ctx.strokeStyle = "rgba(255,207,63,0.45)";
     ctx.lineWidth = 2;
-    rowRadius(PAD, top, W - PAD * 2, PROW - 10, 12);
+    rowRadius(PAD, my, W - PAD * 2, 98, 16);
     ctx.fill();
     ctx.stroke();
-
-    ctx.fillStyle = isMvp ? gold : ink;
-    ctx.font = `700 21px ${FONT_HEAD}`;
-    ctx.fillText(p.name.slice(0, 20), PAD + 20, top + 27);
-
-    ctx.fillStyle = dim;
-    ctx.font = `700 15px ${FONT_BODY}`;
-    const avg = p.avgPlacement != null ? ` · avg ${p.avgPlacement.toFixed(1)}` : "";
-    const label = `${p.wins}W / ${p.games} played${avg}`;
-    ctx.textAlign = "right";
-    ctx.fillText(label, W - PAD - 20, top + 26);
-    ctx.textAlign = "left";
-  });
-
-  // Games played list
-  if (gamesList.length) {
-    const gy = py + players.length * PROW;
-    ctx.fillStyle = teal;
-    ctx.font = `700 15px ${FONT_HEAD}`;
-    ctx.fillText("GAMES PLAYED", PAD, gy + 24);
-    ctx.font = `700 15px ${FONT_BODY}`;
-    gamesList.forEach((g, i) => {
-      const top = gy + GHEAD + i * GROW;
-      const label = humanizeLabel(g.label);
-      const name = label ? `${g.gameName}: ${label}` : g.gameName;
-      ctx.fillStyle = ink;
-      ctx.fillText(name.slice(0, 40), PAD, top);
+    ctx.textAlign = "center";
+    ctx.fillStyle = gold;
+    ctx.font = `700 13px ${FONT_HEAD}`;
+    ctx.fillText("M V P   O F   T H E   N I G H T", W / 2, my + 30);
+    ctx.fillStyle = ink;
+    ctx.font = `400 40px ${FONT_DISPLAY}`;
+    ctx.fillText(`\u{1F3C6} ${recap.mvp.name.slice(0, 18)}`, W / 2, my + 70);
+    const mvpP = players.find((p) => p.userId === recap.mvp!.userId);
+    if (mvpP) {
       ctx.fillStyle = dim;
-      ctx.textAlign = "right";
-      ctx.fillText(g.winnerName ? `\u{1F947} ${g.winnerName.slice(0, 18)}` : "no winner", W - PAD, top);
+      ctx.font = `700 15px ${FONT_BODY}`;
+      const fmts = new Set(recap.sessions.map((s) => s.format).filter(Boolean)).size;
+      ctx.fillText(`${mvpP.wins} wins${fmts ? ` across ${fmts} format${fmts === 1 ? "" : "s"}` : ""}`, W / 2, my + 90);
+    }
+    ctx.textAlign = "left";
+  }
+
+  // Podium (2nd, 1st, 3rd).
+  if (podiumPeople.length) {
+    const order = [podiumPeople[1], podiumPeople[0], podiumPeople[2]]; // left, mid, right
+    const ranks = [2, 1, 3];
+    const barH = [78, 108, 62];
+    const colors = [SILVER, gold, BRONZE];
+    const gap = 16;
+    const colW = (W - PAD * 2 - gap * 2) / 3;
+    const py0 = HEAD + MVPH;
+    const baseline = py0 + 150;
+    order.forEach((p, i) => {
+      if (!p) return;
+      const x = PAD + i * (colW + gap);
+      const h = barH[i]!;
+      const top = baseline - h;
+      // name above the bar
+      ctx.textAlign = "center";
+      ctx.fillStyle = i === 1 ? gold : ink;
+      ctx.font = `700 17px ${FONT_HEAD}`;
+      ctx.fillText(p.name.slice(0, 14), x + colW / 2, top - 10);
+      // bar
+      const grad = ctx.createLinearGradient(0, top, 0, baseline);
+      grad.addColorStop(0, colors[i]!);
+      grad.addColorStop(1, "rgba(0,0,0,0.25)");
+      ctx.fillStyle = colors[i]!;
+      rowRadius(x, top, colW, h, 12);
+      ctx.fill();
+      ctx.fillStyle = "#241a30";
+      ctx.font = `400 30px ${FONT_DISPLAY}`;
+      ctx.fillText(String(ranks[i]), x + colW / 2, top + 34);
+      ctx.font = `700 14px ${FONT_BODY}`;
+      ctx.fillText(`${p.wins} win${p.wins === 1 ? "" : "s"}`, x + colW / 2, top + 56);
       ctx.textAlign = "left";
     });
   }
 
-  // Footer
+  // How the night played out (per session/cup).
+  if (sessions.length) {
+    const sy = HEAD + MVPH + PODH;
+    ctx.fillStyle = teal;
+    ctx.font = `700 14px ${FONT_HEAD}`;
+    ctx.fillText("HOW THE NIGHT PLAYED OUT", PAD, sy + 24);
+    sessions.forEach((s, i) => {
+      const top = sy + SHEAD + i * SROW;
+      if (i > 0) {
+        ctx.fillStyle = line;
+        ctx.fillRect(PAD, top - 8, W - PAD * 2, 1);
+      }
+      ctx.textAlign = "left";
+      ctx.font = `400 22px ${FONT_BODY}`;
+      ctx.fillText(packEmoji(s.pack), PAD, top + 18);
+      ctx.fillStyle = ink;
+      ctx.font = `700 18px ${FONT_HEAD}`;
+      ctx.fillText(sessionTitle(s).slice(0, 34), PAD + 40, top + 12);
+      const sub = sessionSub(s);
+      if (sub) {
+        ctx.fillStyle = dim;
+        ctx.font = `700 13px ${FONT_BODY}`;
+        ctx.fillText(sub.slice(0, 46), PAD + 40, top + 32);
+      }
+      ctx.textAlign = "right";
+      ctx.fillStyle = gold;
+      ctx.font = `700 17px ${FONT_HEAD}`;
+      ctx.fillText(s.winnerName ? `\u{1F947} ${s.winnerName.slice(0, 14)}` : "no winner", W - PAD, top + 16);
+      ctx.textAlign = "left";
+    });
+  }
+
+  // Footer.
   ctx.fillStyle = dim;
-  ctx.font = `700 14px ${FONT_BODY}`;
-  ctx.fillText("made with GameNight OS", PAD, H - 28);
+  ctx.font = `700 13px ${FONT_BODY}`;
+  ctx.fillText("gamenightos.app", PAD, H - 24);
+  if (recap.mvp) {
+    ctx.textAlign = "right";
+    ctx.fillStyle = gold;
+    ctx.fillText(`\u{1F3C6} ${recap.mvp.name.slice(0, 16)}'s night`, W - PAD, H - 24);
+    ctx.textAlign = "left";
+  }
 
   return cv;
 }
