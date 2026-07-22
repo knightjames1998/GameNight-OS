@@ -60,6 +60,9 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 }
 .gn-app > *{position:relative;z-index:1}
 .gn-wrap{max-width:28rem;margin:0 auto;padding:20px 18px 48px}
+/* Home runs wider so the account can sit beside the personal-stats panel;
+   still centered and mobile-first (single column until the md breakpoint). */
+.gn-wrap--wide{max-width:46rem}
 
 /* visible keyboard focus for everything interactive in a themed screen */
 .gn-app a:focus-visible,
@@ -72,12 +75,14 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   color:#fff;letter-spacing:.5px;line-height:1;
   text-shadow:0 0 14px rgba(255,90,95,.45), 2px 3px 0 rgba(0,0,0,.35);
 }
-.gn-title{font-family:Fredoka, system-ui, sans-serif;font-weight:700;color:var(--gn-ink);line-height:1.1}
+/* Section titles get a subtle version of the wordmark's neon glow so they
+   feel part of the arcade world without competing with the .gn-brand. */
+.gn-title{font-family:Fredoka, system-ui, sans-serif;font-weight:700;color:var(--gn-ink);line-height:1.1;text-shadow:0 0 14px rgba(255,90,95,.24)}
 
 /* ---- text bits ------------------------------------------------ */
 .gn-lab{color:var(--gn-dim);font-size:13px;font-weight:700}
 .gn-hint{color:var(--gn-dim);font-size:13px}
-.gn-h2{font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:17px;color:var(--gn-ink);margin:0}
+.gn-h2{font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:17px;color:var(--gn-ink);margin:0;text-shadow:0 0 11px rgba(255,90,95,.18)}
 
 /* ---- inputs --------------------------------------------------- */
 .gn-input{
@@ -115,6 +120,22 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-textbtn:hover{color:var(--gn-ink)}
 .gn-textbtn--danger{color:var(--gn-danger)}
 .gn-textbtn--danger:hover{color:#ffb7ba}
+
+/* Compact secondary action that reads as a real button (Share, Night recap,
+   change date, Change password, Log out). Outlined tinted pill, barely
+   larger than the old text link it replaces. */
+.gn-actionbtn{
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;text-decoration:none;
+  background:var(--gn-raise);border:1.5px solid var(--gn-line);color:var(--gn-ink);
+  font-family:inherit;font-weight:700;font-size:13px;line-height:1;
+  padding:8px 13px;border-radius:10px;min-height:38px;cursor:pointer;
+  transition:border-color .12s, background .12s, transform .08s;
+}
+.gn-actionbtn:hover{border-color:var(--gn-p2);background:var(--gn-surf)}
+.gn-actionbtn:active{transform:translateY(1px)}
+.gn-actionbtn:disabled{opacity:.45;cursor:default}
+.gn-actionbtn--danger{color:#ff8b8f;border-color:rgba(255,90,95,.35)}
+.gn-actionbtn--danger:hover{border-color:var(--gn-danger);background:rgba(255,90,95,.1)}
 
 /* ---- card / panel -------------------------------------------- */
 .gn-card{background:var(--gn-surf);border:2px solid var(--gn-line);border-radius:16px;padding:14px 16px}

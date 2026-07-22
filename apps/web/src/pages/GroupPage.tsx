@@ -150,14 +150,14 @@ export default function GroupPage({
             {group.name}
             {canManage && (
               <button
-                className="gn-textbtn"
-                style={{ fontSize: "13px" }}
+                className="gn-actionbtn"
+                style={{ minHeight: 30, padding: "4px 11px", fontSize: 12 }}
                 onClick={() => {
                   setCrewDraft(group.name);
                   setEditingCrew(true);
                 }}
               >
-                edit
+                ✏️ Edit
               </button>
             )}
           </h1>
@@ -202,13 +202,14 @@ export default function GroupPage({
               <span>
                 Playing as <span style={{ color: "var(--gn-ink)", fontWeight: 700 }}>{me.displayName}</span>{" "}
                 <button
-                  className="gn-textbtn"
+                  className="gn-actionbtn"
+                  style={{ minHeight: 28, padding: "3px 10px", fontSize: 12 }}
                   onClick={() => {
                     setNameDraft(me.displayName);
                     setEditingName(true);
                   }}
                 >
-                  edit
+                  ✏️ Edit
                 </button>
               </span>
             )}

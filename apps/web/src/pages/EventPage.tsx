@@ -222,8 +222,8 @@ export default function EventPage({ me }: { me: Me | null }) {
                 className="gn-input"
                 style={{ minHeight: "40px", maxWidth: "13rem" }}
               />
-              <button className="gn-textbtn" onClick={saveDate} disabled={busy}>
-                save
+              <button className="gn-actionbtn" onClick={saveDate} disabled={busy}>
+                Save date
               </button>
               <button className="gn-textbtn" onClick={() => setEditDate(false)}>
                 cancel
@@ -234,14 +234,14 @@ export default function EventPage({ me }: { me: Me | null }) {
               {when}
               {canEditDate && (
                 <button
-                  className="gn-textbtn"
-                  style={{ minHeight: 0, padding: "0 0 0 8px" }}
+                  className="gn-actionbtn"
+                  style={{ minHeight: 32, padding: "5px 10px", marginLeft: 8, verticalAlign: "middle" }}
                   onClick={() => {
                     setWhenDraft(event.scheduledFor ? toLocalInput(event.scheduledFor) : "");
                     setEditDate(true);
                   }}
                 >
-                  change
+                  📅 Change date
                 </button>
               )}
             </p>
@@ -263,12 +263,12 @@ export default function EventPage({ me }: { me: Me | null }) {
       </div>
 
       {/* Low-key controls: share the event, or open the night recap card. */}
-      <div className="flex items-center gap-4">
-        <button className="gn-textbtn" onClick={shareEvent}>
-          Share
+      <div className="flex items-center gap-2 flex-wrap">
+        <button className="gn-actionbtn" onClick={shareEvent}>
+          <span aria-hidden="true">📤</span> Share
         </button>
-        <Link to={`/e/${id}/recap`} className="gn-textbtn" style={{ display: "inline-block" }}>
-          Night recap
+        <Link to={`/e/${id}/recap`} className="gn-actionbtn">
+          <span aria-hidden="true">🏆</span> Night recap
         </Link>
         {shareToast && <span className="gn-hint">{shareToast}</span>}
       </div>

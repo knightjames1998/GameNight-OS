@@ -477,6 +477,7 @@ statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
       placement: matchParticipants.placement,
       isWinner: matchParticipants.isWinner,
       gameName: games.name,
+      format: matches.format,
     })
     .from(matchParticipants)
     .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
@@ -485,9 +486,16 @@ statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
     .where(and(eq(matchParticipants.userId, req.user!.id), eq(matches.status, "completed")));
 
   const total = newAgg();
+  const byFormat = new Map<string, { format: string; played: number; wins: number }>();
   const byCrew = new Map<string, { groupId: string; name: string; played: number; wins: number; personal: boolean }>();
   for (const r of rows) {
     feedAgg(total, r.placement, r.isWinner, r.gameName);
+    if (r.format) {
+      const f = byFormat.get(r.format) ?? { format: r.format, played: 0, wins: 0 };
+      f.played++;
+      if (r.isWinner) f.wins++;
+      byFormat.set(r.format, f);
+    }
     let c = byCrew.get(r.groupId);
     if (!c) {
       // Quick-play's hidden personal crew still counts toward totals but is
@@ -511,6 +519,7 @@ statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
 
   res.json({
     ...finishAgg(total),
+    byFormat: [...byFormat.values()].sort((x, y) => y.wins - x.wins || y.played - x.played),
     byCrew: [...byCrew.values()].sort((x, y) => y.played - x.played),
   });
 });
