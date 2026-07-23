@@ -4,15 +4,36 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#17111f" />
+    <meta name="description" content="Run game nights with your crew: brackets, RSVPs, live scoring and TV views." />
     <!-- Standalone web app: the manifest tells the phone to launch without
          browser chrome; the apple-* tags are what iOS actually reads. -->
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" type="image/png" href="/icon-192.png" />
+    <!-- Favicons: .ico for older browsers/bookmark bars, then the 32 (downscaled
+         mark) and 16 (simplified shape) PNGs. icon-192 kept as a larger fallback. -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="GameNight" />
+    <!-- Link preview (Open Graph). Absolute https URLs are required: relative
+         paths fail silently in iMessage, Slack and Discord. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="GameNight OS" />
+    <meta property="og:title" content="GameNight OS" />
+    <meta property="og:description" content="Run game nights with your crew: brackets, RSVPs, live scoring and TV views." />
+    <meta property="og:url" content="https://gamenightos.app/" />
+    <meta property="og:image" content="https://gamenightos.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="GameNight OS: the coral GN badge with its teal underline, beside the wordmark." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="GameNight OS" />
+    <meta name="twitter:description" content="Run game nights with your crew: brackets, RSVPs, live scoring and TV views." />
+    <meta name="twitter:image" content="https://gamenightos.app/og-image.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
