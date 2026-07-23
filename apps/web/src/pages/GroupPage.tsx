@@ -24,6 +24,7 @@ export default function GroupPage({
   const [crewDraft, setCrewDraft] = useState("");
   const [when, setWhen] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pastOpen, setPastOpen] = useState(false);
 
   const loadGroup = useCallback(() => {
     api<GroupDetail>(`/api/groups/${id}`)
@@ -106,6 +107,60 @@ export default function GroupPage({
       </Shell>
     );
   }
+
+  // One game-night tile, shared by the upcoming list and the collapsed past list.
+  const eventTile = (e: EventSummary) => (
+    <li key={e.id}>
+      <Link to={`/e/${e.id}`} className="gn-cab" style={{ display: "block" }}>
+        <div className="flex justify-between items-center gap-2">
+          <span className="gn-cab__name" style={{ fontSize: "16px" }}>{e.title}</span>
+          {canManage && (
+            <button
+              className="gn-chipbtn gn-chipbtn--danger"
+              onClick={async (ev) => {
+                // Inside the card's Link: don't navigate, just delete.
+                ev.preventDefault();
+                ev.stopPropagation();
+                if (!window.confirm(`Delete "${e.title}"? Its RSVPs, brackets and recorded stats go with it. This can't be undone.`)) return;
+                try {
+                  await api(`/api/events/${e.id}`, { method: "DELETE" });
+                  setEvents((events ?? []).filter((x) => x.id !== e.id));
+                } catch (err) {
+                  window.alert(err instanceof Error ? err.message : "Couldn't delete");
+                }
+              }}
+            >
+              delete
+            </button>
+          )}
+        </div>
+        {/* Your own RSVP rides the same info line as everyone else's. */}
+        <div className="gn-cab__sub">
+          {e.scheduledFor
+            ? new Date(e.scheduledFor).toLocaleString([], {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })
+            : "Date TBD"}
+          {" · "}
+          {e.counts.yes} in / {e.counts.maybe} maybe / {e.counts.no} out
+          {e.myStatus && ` · you: ${e.myStatus}`}
+        </div>
+      </Link>
+    </li>
+  );
+
+  // A night is "past" once it is more than 24h beyond its scheduled time (the
+  // same grace window flake tracking uses). Dateless (TBD) nights are never
+  // past. Past nights collapse into one cabinet tile, like Friends on Home.
+  const pastCutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const isPast = (e: EventSummary) =>
+    !!e.scheduledFor && new Date(e.scheduledFor).getTime() < pastCutoff;
+  const upcomingEvents = (events ?? []).filter((e) => !isPast(e));
+  const pastEvents = (events ?? []).filter(isPast);
 
   return (
     <Shell>
@@ -229,52 +284,32 @@ export default function GroupPage({
         {events?.length === 0 && (
           <p className="gn-hint">Nothing scheduled yet. Start one below.</p>
         )}
-        {!!events?.length && (
-          <ul className="space-y-2">
-            {events.map((e) => (
-              <li key={e.id}>
-                <Link to={`/e/${e.id}`} className="gn-cab" style={{ display: "block" }}>
-                  <div className="flex justify-between items-center gap-2">
-                    <span className="gn-cab__name" style={{ fontSize: "16px" }}>{e.title}</span>
-                    {canManage && (
-                      <button
-                        className="gn-chipbtn gn-chipbtn--danger"
-                        onClick={async (ev) => {
-                          // Inside the card's Link: don't navigate, just delete.
-                          ev.preventDefault();
-                          ev.stopPropagation();
-                          if (!window.confirm(`Delete "${e.title}"? Its RSVPs, brackets and recorded stats go with it. This can't be undone.`)) return;
-                          try {
-                            await api(`/api/events/${e.id}`, { method: "DELETE" });
-                            setEvents((events ?? []).filter((x) => x.id !== e.id));
-                          } catch (err) {
-                            window.alert(err instanceof Error ? err.message : "Couldn't delete");
-                          }
-                        }}
-                      >
-                        delete
-                      </button>
-                    )}
-                  </div>
-                  {/* Your own RSVP rides the same info line as everyone else's. */}
-                  <div className="gn-cab__sub">
-                    {e.scheduledFor
-                      ? new Date(e.scheduledFor).toLocaleString([], {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })
-                      : "Date TBD"}
-                    {" · "}
-                    {e.counts.yes} in / {e.counts.maybe} maybe / {e.counts.no} out
-                    {e.myStatus && ` · you: ${e.myStatus}`}
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
+
+        {upcomingEvents.length > 0 && (
+          <ul className="space-y-2">{upcomingEvents.map(eventTile)}</ul>
+        )}
+        {!!events?.length && upcomingEvents.length === 0 && (
+          <p className="gn-hint">Nothing coming up. Start one below.</p>
+        )}
+
+        {/* Past nights collapse into one cabinet tile, exactly like Friends. */}
+        {pastEvents.length > 0 && (
+          <section className="space-y-3">
+            <button
+              className="gn-cab"
+              style={{ width: "100%", textAlign: "left", cursor: "pointer", font: "inherit" }}
+              onClick={() => setPastOpen((o) => !o)}
+              aria-expanded={pastOpen}
+            >
+              <span className="gn-cab__name">
+                🗓️ Past game nights <span className="gn-hint" style={{ fontWeight: 400 }}>({pastEvents.length})</span>
+              </span>
+              <span className="gn-cab__sub">
+                {pastOpen ? "tap to hide" : "wrapped nights · recaps & results"}
+              </span>
+            </button>
+            {pastOpen && <ul className="space-y-2">{pastEvents.map(eventTile)}</ul>}
+          </section>
         )}
 
         <div className="gn-divider">Schedule a new one</div>
