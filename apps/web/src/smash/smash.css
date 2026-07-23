@@ -48,7 +48,8 @@
 
 .sm-input, .sm-select {
   width: 100%; padding: 10px; border-radius: 3px; border: 1px solid #5a2026;
-  background: #140a0d; color: var(--gn-ink); font-size: 15px;
+  /* 16px min avoids iOS Safari's zoom-on-focus that leaves the app enlarged. */
+  background: #140a0d; color: var(--gn-ink); font-size: 16px;
 }
 
 .sm-btn {

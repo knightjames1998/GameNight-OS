@@ -46,7 +46,8 @@
 
 .mk-input, .mk-select {
   width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #2a3f70;
-  background: #0c1220; color: var(--gn-ink); font-size: 15px;
+  /* 16px min avoids iOS Safari's zoom-on-focus that leaves the app enlarged. */
+  background: #0c1220; color: var(--gn-ink); font-size: 16px;
 }
 
 .mk-btn {

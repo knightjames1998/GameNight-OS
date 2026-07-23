@@ -88,7 +88,9 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-input{
   width:100%;min-height:48px;border-radius:12px;background:var(--gn-surf);
   border:2px solid var(--gn-line);color:var(--gn-ink);padding:0 14px;
-  font-size:15px;font-family:inherit;color-scheme:dark;
+  /* 16px min: iOS Safari auto-zooms the page on focus of any text field under
+     16px and often does not zoom back out, leaving the app slightly enlarged. */
+  font-size:16px;font-family:inherit;color-scheme:dark;
 }
 .gn-input::placeholder{color:var(--gn-place)}
 .gn-input:focus{outline:none;border-color:var(--gn-p2)}
