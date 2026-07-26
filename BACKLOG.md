@@ -12,13 +12,12 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-07-21
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-07-25
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
-    >> Counter has REACHED 3. The NEXT session's FIRST task is to reconcile this
-    >> file and redraw the project map (MAP PROTOCOL) BEFORE any feature work,
-    >> then reset "Last map redraw" to today and the counter to 0.
+    Counter is below 3: continue with the requested work and increment it by 1 in the
+    same commit as any session that ships. Map reconciled + redrawn on 2026-07-25.
 
 **Every session that ships anything (feature, pack, or fix set) increments the counter by 1
 as part of its delivery, in the same commit as its other changes.** Doc-only sessions do not

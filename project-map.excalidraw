@@ -335,13 +335,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Events + RSVPs with live updates",
+   "text": "Events + RSVPs, event share, night recap",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z0i2",
-   "originalText": "Events + RSVPs with live updates",
+   "originalText": "Events + RSVPs, event share, night recap",
    "lineHeight": 1.25
   },
   {
@@ -749,13 +749,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Show-up check-in + event date editing + UI cleanup pass 2",
+   "text": "Flake tracking, streaks, Friends; show-up + date editing",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z0i8",
-   "originalText": "Show-up check-in + event date editing + UI cleanup pass 2",
+   "originalText": "Flake tracking, streaks, Friends; show-up + date editing",
    "lineHeight": 1.25
   },
   {
@@ -767,7 +767,7 @@
    "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#b2f2bb",
+   "backgroundColor": "#c3fae8",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -818,13 +818,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Flake tracking + streaks, Friends, tabbed member pages",
+   "text": "Link previews, favicons + past-nights cabinet",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z0i9",
-   "originalText": "Flake tracking + streaks, Friends, tabbed member pages",
+   "originalText": "Link previews, favicons + past-nights cabinet",
    "lineHeight": 1.25
   },
   {
@@ -969,7 +969,7 @@
    "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#c3fae8",
+   "backgroundColor": "#b2f2bb",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -1038,7 +1038,7 @@
    "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#c3fae8",
+   "backgroundColor": "#b2f2bb",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -1107,7 +1107,7 @@
    "height": 40,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#c3fae8",
+   "backgroundColor": "#b2f2bb",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -2114,13 +2114,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Mario Kart character-stats panel (like Smash)",
+   "text": "Unified event TV + single active pack",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z3i0",
-   "originalText": "Mario Kart character-stats panel (like Smash)",
+   "originalText": "Unified event TV + single active pack",
    "lineHeight": 1.25
   },
   {
@@ -2183,13 +2183,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Mario Party minigame head-to-heads",
+   "text": "Double elim TV up-next ordering",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z3i1",
-   "originalText": "Mario Party minigame head-to-heads",
+   "originalText": "Double elim TV up-next ordering",
    "lineHeight": 1.25
   },
   {
@@ -2252,13 +2252,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Link a guest to a crew member (rebind)",
+   "text": "Double elim: losers finalist wins twice",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z3i2",
-   "originalText": "Link a guest to a crew member (rebind)",
+   "originalText": "Double elim: losers finalist wins twice",
    "lineHeight": 1.25
   },
   {
@@ -2321,13 +2321,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Smack talk feed (TV and/or in-app)",
+   "text": "Podium stat: remove or redefine",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z3i3",
-   "originalText": "Smack talk feed (TV and/or in-app)",
+   "originalText": "Podium stat: remove or redefine",
    "lineHeight": 1.25
   },
   {
@@ -2390,13 +2390,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Stats on the TV view between matches",
+   "text": "Detailed personal stats block on Home",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z3i4",
-   "originalText": "Stats on the TV view between matches",
+   "originalText": "Detailed personal stats block on Home",
    "lineHeight": 1.25
   },
   {
@@ -2459,13 +2459,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Spectator predictions on generic Broadcast",
+   "text": "Link a guest to a crew member (rebind)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z3i5",
-   "originalText": "Spectator predictions on generic Broadcast",
+   "originalText": "Link a guest to a crew member (rebind)",
    "lineHeight": 1.25
   },
   {
@@ -2528,13 +2528,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Seasons: 8-12 week arcs + offseason",
+   "text": "Per-route dynamic link previews",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z3i6",
-   "originalText": "Seasons: 8-12 week arcs + offseason",
+   "originalText": "Per-route dynamic link previews",
    "lineHeight": 1.25
   },
   {
@@ -2597,13 +2597,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Round robin format",
+   "text": "Mario Kart char-stats; MP minigame H2H",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z3i7",
-   "originalText": "Round robin format",
+   "originalText": "Mario Kart char-stats; MP minigame H2H",
    "lineHeight": 1.25
   },
   {
@@ -2612,7 +2612,7 @@
    "x": 60,
    "y": 1078,
    "width": 440,
-   "height": 40,
+   "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#a5d8ff",
@@ -2646,7 +2646,7 @@
    "x": 70,
    "y": 1086,
    "width": 420,
-   "height": 24,
+   "height": 36,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -2666,13 +2666,82 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Availability polling, auto-pick the night",
+   "text": "Smack talk feed; TV stats + predictions ticker",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z3i8",
-   "originalText": "Availability polling, auto-pick the night",
+   "originalText": "Smack talk feed; TV stats + predictions ticker",
+   "lineHeight": 1.25
+  },
+  {
+   "id": "z3i9",
+   "type": "rectangle",
+   "x": 60,
+   "y": 1136,
+   "width": 440,
+   "height": 52,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "#a5d8ff",
+   "fillStyle": "solid",
+   "strokeWidth": 1,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "groupIds": [],
+   "frameId": null,
+   "roundness": {
+    "type": 3
+   },
+   "seed": 1078,
+   "version": 1,
+   "versionNonce": 8544601,
+   "isDeleted": false,
+   "boundElements": [
+    {
+     "type": "text",
+     "id": "z3i9-label"
+    }
+   ],
+   "updated": 1,
+   "link": null,
+   "locked": false
+  },
+  {
+   "id": "z3i9-label",
+   "type": "text",
+   "x": 70,
+   "y": 1144,
+   "width": 420,
+   "height": 36,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "transparent",
+   "fillStyle": "solid",
+   "strokeWidth": 1,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "groupIds": [],
+   "frameId": null,
+   "roundness": null,
+   "seed": 1079,
+   "version": 1,
+   "versionNonce": 8552520,
+   "isDeleted": false,
+   "boundElements": null,
+   "updated": 1,
+   "link": null,
+   "locked": false,
+   "text": "Seasons; round robin; availability polling",
+   "fontSize": 14,
+   "fontFamily": 1,
+   "textAlign": "center",
+   "verticalAlign": "middle",
+   "containerId": "z3i9",
+   "originalText": "Seasons; round robin; availability polling",
    "lineHeight": 1.25
   },
   {
@@ -2695,9 +2764,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1078,
+   "seed": 1080,
    "version": 1,
-   "versionNonce": 8544601,
+   "versionNonce": 8560439,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2722,9 +2791,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1079,
+   "seed": 1081,
    "version": 1,
-   "versionNonce": 8552520,
+   "versionNonce": 8568358,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2759,9 +2828,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1080,
+   "seed": 1082,
    "version": 1,
-   "versionNonce": 8560439,
+   "versionNonce": 8576277,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2791,9 +2860,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1081,
+   "seed": 1083,
    "version": 1,
-   "versionNonce": 8568358,
+   "versionNonce": 8584196,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2828,9 +2897,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1082,
+   "seed": 1084,
    "version": 1,
-   "versionNonce": 8576277,
+   "versionNonce": 8592115,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2860,9 +2929,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1083,
+   "seed": 1085,
    "version": 1,
-   "versionNonce": 8584196,
+   "versionNonce": 8600034,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2897,9 +2966,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1084,
+   "seed": 1086,
    "version": 1,
-   "versionNonce": 8592115,
+   "versionNonce": 8607953,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2929,21 +2998,21 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1085,
+   "seed": 1087,
    "version": 1,
-   "versionNonce": 8600034,
+   "versionNonce": 8615872,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "FIXED: same-event replays dropped ledger rows (per-session key)",
+   "text": "FIXED: iOS launched app zoomed in (inputs < 16px)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z4i2",
-   "originalText": "FIXED: same-event replays dropped ledger rows (per-session key)",
+   "originalText": "FIXED: iOS launched app zoomed in (inputs < 16px)",
    "lineHeight": 1.25
   },
   {
@@ -2966,9 +3035,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1086,
+   "seed": 1088,
    "version": 1,
-   "versionNonce": 8607953,
+   "versionNonce": 8623791,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2998,75 +3067,6 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1087,
-   "version": 1,
-   "versionNonce": 8615872,
-   "isDeleted": false,
-   "boundElements": null,
-   "updated": 1,
-   "link": null,
-   "locked": false,
-   "text": "FIXED: best-of results lost when night ended mid-set",
-   "fontSize": 14,
-   "fontFamily": 1,
-   "textAlign": "center",
-   "verticalAlign": "middle",
-   "containerId": "z4i3",
-   "originalText": "FIXED: best-of results lost when night ended mid-set",
-   "lineHeight": 1.25
-  },
-  {
-   "id": "z4i4",
-   "type": "rectangle",
-   "x": 580,
-   "y": 942,
-   "width": 440,
-   "height": 52,
-   "angle": 0,
-   "strokeColor": "#1e1e1e",
-   "backgroundColor": "#b2f2bb",
-   "fillStyle": "solid",
-   "strokeWidth": 1,
-   "strokeStyle": "solid",
-   "roughness": 1,
-   "opacity": 100,
-   "groupIds": [],
-   "frameId": null,
-   "roundness": {
-    "type": 3
-   },
-   "seed": 1088,
-   "version": 1,
-   "versionNonce": 8623791,
-   "isDeleted": false,
-   "boundElements": [
-    {
-     "type": "text",
-     "id": "z4i4-label"
-    }
-   ],
-   "updated": 1,
-   "link": null,
-   "locked": false
-  },
-  {
-   "id": "z4i4-label",
-   "type": "text",
-   "x": 590,
-   "y": 950,
-   "width": 420,
-   "height": 36,
-   "angle": 0,
-   "strokeColor": "#1e1e1e",
-   "backgroundColor": "transparent",
-   "fillStyle": "solid",
-   "strokeWidth": 1,
-   "strokeStyle": "solid",
-   "roughness": 1,
-   "opacity": 100,
-   "groupIds": [],
-   "frameId": null,
-   "roundness": null,
    "seed": 1089,
    "version": 1,
    "versionNonce": 8631710,
@@ -3080,15 +3080,15 @@
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i4",
+   "containerId": "z4i3",
    "originalText": "FIXED: RESEND_API_KEY never set on Render after move",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i5",
+   "id": "z4i4",
    "type": "rectangle",
    "x": 580,
-   "y": 1000,
+   "y": 942,
    "width": 440,
    "height": 40,
    "angle": 0,
@@ -3111,7 +3111,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i5-label"
+     "id": "z4i4-label"
     }
    ],
    "updated": 1,
@@ -3119,10 +3119,10 @@
    "locked": false
   },
   {
-   "id": "z4i5-label",
+   "id": "z4i4-label",
    "type": "text",
    "x": 590,
-   "y": 1008,
+   "y": 950,
    "width": 420,
    "height": 24,
    "angle": 0,
@@ -3149,15 +3149,15 @@
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i5",
+   "containerId": "z4i4",
    "originalText": "FIXED: Firefox double-back as Beerio spectator",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i6",
+   "id": "z4i5",
    "type": "rectangle",
    "x": 580,
-   "y": 1046,
+   "y": 988,
    "width": 440,
    "height": 40,
    "angle": 0,
@@ -3180,7 +3180,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i6-label"
+     "id": "z4i5-label"
     }
    ],
    "updated": 1,
@@ -3188,10 +3188,10 @@
    "locked": false
   },
   {
-   "id": "z4i6-label",
+   "id": "z4i5-label",
    "type": "text",
    "x": 590,
-   "y": 1054,
+   "y": 996,
    "width": 420,
    "height": 24,
    "angle": 0,
@@ -3218,15 +3218,15 @@
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i6",
+   "containerId": "z4i5",
    "originalText": "FIXED: Mario Party tie placements shared",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i7",
+   "id": "z4i6",
    "type": "rectangle",
    "x": 580,
-   "y": 1092,
+   "y": 1034,
    "width": 440,
    "height": 40,
    "angle": 0,
@@ -3249,7 +3249,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i7-label"
+     "id": "z4i6-label"
     }
    ],
    "updated": 1,
@@ -3257,10 +3257,10 @@
    "locked": false
   },
   {
-   "id": "z4i7-label",
+   "id": "z4i6-label",
    "type": "text",
    "x": 590,
-   "y": 1100,
+   "y": 1042,
    "width": 420,
    "height": 24,
    "angle": 0,
@@ -3287,7 +3287,7 @@
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i7",
+   "containerId": "z4i6",
    "originalText": "FIXED: PWA standalone + safe-area insets",
    "lineHeight": 1.25
   },
@@ -3691,13 +3691,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Pool / ping pong (rides KOTH engine)",
+   "text": "Pool pack (rides ping pong's KOTH engine)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z5i4",
-   "originalText": "Pool / ping pong (rides KOTH engine)",
+   "originalText": "Pool pack (rides ping pong's KOTH engine)",
    "lineHeight": 1.25
   },
   {
