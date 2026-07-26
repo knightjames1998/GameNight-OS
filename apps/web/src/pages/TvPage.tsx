@@ -11,7 +11,8 @@ import BackButton from "../BackButton";
 // the Arcade language; branded packs bring their own TV mode.
 
 type TvView = BracketView & { groupName: string };
-type FlatMatch = BracketMatchView & { round: string };
+type Side = BracketView["rounds"][number]["side"];
+type FlatMatch = BracketMatchView & { round: string; side: Side; depth: number };
 
 export default function TvPage() {
   const { id } = useParams();
@@ -80,13 +81,29 @@ export default function TvPage() {
   }
 
   const scoreUrl = `${window.location.origin}/b/${bracket.id}`;
-  const all: FlatMatch[] = bracket.rounds.flatMap((r) =>
-    r.matches.map((m) => ({ ...m, round: r.title })),
-  );
-  // On deck: both seats filled, nobody's won yet. Decided: real results
-  // (skip bye walkovers). "Latest" leans on structure order — later rounds
-  // sit last — which reads as recency closely enough without timestamps.
-  const live = all.filter((m) => m.playable);
+
+  // Flatten every round into one list, carrying each match's bracket side and
+  // its round depth within that side, so the on-deck list can be ordered.
+  const all: FlatMatch[] = [];
+  const depthSeen: Record<string, number> = {};
+  for (const r of bracket.rounds) {
+    const depth = (depthSeen[r.side] = (depthSeen[r.side] ?? 0) + 1);
+    for (const m of r.matches) all.push({ ...m, round: r.title, side: r.side, depth });
+  }
+
+  // On deck: both seats filled, nobody has won yet. Order it by depth then
+  // side (winners round 1, losers round 1, winners round 2, losers round 2,
+  // and so on) with the grand final last, so the losers path never reads as
+  // an afterthought.
+  const sideRank: Record<Side, number> = { W: 0, L: 1, GF: 2 };
+  const depthKey = (m: FlatMatch) => (m.side === "GF" ? 9999 : m.depth);
+  const live = all
+    .filter((m) => m.playable)
+    .sort((x, y) => depthKey(x) - depthKey(y) || sideRank[x.side] - sideRank[y.side]);
+
+  // Decided: real results (skip bye walkovers). "Latest" leans on structure
+  // order (later rounds sit last), which reads as recency closely enough
+  // without timestamps.
   const decided = all.filter((m) => m.decided && !m.auto);
   const latest = decided.slice(-6).reverse();
   const isChamp = bracket.champion?.kind === "player";
@@ -158,12 +175,24 @@ export default function TvPage() {
 
 function TvMatch({ m, live }: { m: FlatMatch; live?: boolean }) {
   const winnerSeed = m.winner?.kind === "player" ? m.winner.seed : null;
+  // Slot B of the grand final is always the losers-bracket finalist, who has
+  // to win the first set AND the reset. Make that visible on the big screen.
+  const isFirstGf = m.side === "GF" && !m.reset;
+  const isReset = m.side === "GF" && !!m.reset;
+  const lbName = m.b.kind === "player" ? m.b.displayName : "the losers finalist";
+  const rt = m.side === "GF" ? (isReset ? "Grand Final · Reset" : "Grand Final · Set 1") : m.round;
   return (
     <div className={`gn-tvm ${live ? "gn-tvm--live" : ""}`}>
-      <div className="gn-tvm__rt">{m.round}</div>
+      <div className="gn-tvm__rt">{rt}</div>
       <TvRow slot={m.a} decided={m.decided} winnerSeed={winnerSeed} />
       <div className="gn-tvm__div" />
-      <TvRow slot={m.b} decided={m.decided} winnerSeed={winnerSeed} />
+      <TvRow slot={m.b} decided={m.decided} winnerSeed={winnerSeed} needs2={!!live && isFirstGf} />
+      {live && isFirstGf && (
+        <div className="gn-tvm__note">
+          {lbName} came up through the losers bracket and must win twice: win this set to force a reset game for the title.
+        </div>
+      )}
+      {live && isReset && <div className="gn-tvm__note">Reset game: winner takes the title.</div>}
     </div>
   );
 }
@@ -172,10 +201,12 @@ function TvRow({
   slot,
   decided,
   winnerSeed,
+  needs2,
 }: {
   slot: BracketMatchView["a"];
   decided: boolean;
   winnerSeed: number | null;
+  needs2?: boolean;
 }) {
   const isPlayer = slot.kind === "player";
   const label = isPlayer ? slot.displayName : slot.kind === "bye" ? "bye" : "TBD";
@@ -185,7 +216,13 @@ function TvRow({
   return (
     <div className={`gn-tvm__row ${tone}`}>
       <span className="gn-tvm__nm">{label}</span>
-      {won ? <span>🏆</span> : isPlayer ? <span className="gn-tvm__seed">#{slot.seed}</span> : null}
+      {won ? (
+        <span>🏆</span>
+      ) : needs2 && isPlayer ? (
+        <span className="gn-tvm__needs2">needs 2</span>
+      ) : isPlayer ? (
+        <span className="gn-tvm__seed">#{slot.seed}</span>
+      ) : null}
     </div>
   );
 }

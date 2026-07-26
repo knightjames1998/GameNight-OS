@@ -324,6 +324,17 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-bkt-meta{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .gn-bkt-seed{font-size:10px;color:#8a7ca2;font-weight:800}
 .gn-bkt-div{height:2px;background:var(--gn-line);flex-shrink:0}
+/* Grand-final "needs 2" clarity: the losers finalist must win the set and the reset. */
+.gn-bkt-gf2{
+  margin-top:8px;font-family:Fredoka, system-ui, sans-serif;font-weight:800;font-size:11px;
+  letter-spacing:.3px;color:var(--gn-gold);background:rgba(255,207,63,.10);
+  border:1px dashed rgba(255,207,63,.5);border-radius:9px;padding:6px 9px;line-height:1.3;
+}
+.gn-bkt-gfnote{
+  font-family:Nunito, system-ui, sans-serif;font-weight:700;font-size:11px;line-height:1.35;
+  color:var(--gn-dim);background:var(--gn-surf);border:1px dashed var(--gn-line);
+  border-radius:9px;padding:7px 9px;
+}
 
 /* ---- TV / broadcast (big screen, Arcade) ---- */
 .gn-tv{
@@ -371,4 +382,16 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-tvm__seed{font-size:1.7vmin;color:#8a7ca2;font-weight:800;flex-shrink:0}
 .gn-tvm__vs{font-family:"Luckiest Guy",system-ui,cursive;color:var(--gn-p1);font-size:2vmin;text-align:center;padding:.2vmin 0;letter-spacing:.1vmin}
 .gn-tvm__div{height:3px;background:var(--gn-line)}
+/* Grand-final "needs 2" clarity on the big screen. */
+.gn-tvm__needs2{
+  font-family:Fredoka, system-ui, sans-serif;font-weight:800;font-size:1.5vmin;letter-spacing:.1vmin;
+  text-transform:uppercase;color:var(--gn-gold);background:rgba(255,207,63,.14);
+  border:.25vmin solid rgba(255,207,63,.55);border-radius:999px;padding:.3vmin 1.1vmin;
+  flex-shrink:0;white-space:nowrap;
+}
+.gn-tvm__note{
+  font-family:Nunito, system-ui, sans-serif;font-weight:700;font-size:1.7vmin;line-height:1.3;
+  color:var(--gn-gold);background:rgba(255,207,63,.08);padding:1vmin 1.8vmin;
+  border-top:.25vmin dashed rgba(255,207,63,.35);
+}
 .gn-tv-empty{font-family:Fredoka,system-ui,sans-serif;font-weight:700;font-size:2.2vmin;color:var(--gn-dim);opacity:.7}

@@ -366,18 +366,48 @@ function GrandFinal({
   onPick: (matchId: string, winner: "A" | "B") => void;
   onUndo: (matchId: string) => void;
 }) {
+  // Slot A of the grand final is always the winners-bracket finalist (needs
+  // one win); slot B is always the losers-bracket finalist, who has to win
+  // this set AND the reset. The engine only surfaces GF2 once the losers
+  // finalist takes the first set, so until then we show the reset as a
+  // conditional rather than as an equal, decisive game.
+  const firstSet = matches.find((m) => !m.reset) ?? matches[0]!;
+  const resetGame = matches.find((m) => m.reset) ?? null;
+  const lbName = firstSet.b.kind === "player" ? firstSet.b.displayName : "the losers finalist";
+  const wbName = firstSet.a.kind === "player" ? firstSet.a.displayName : "the winners finalist";
+  const winnerSeed = firstSet.winner?.kind === "player" ? firstSet.winner.seed : null;
+  const winnersHeld =
+    winnerSeed !== null && firstSet.a.kind === "player" && winnerSeed === firstSet.a.seed;
+
   return (
     <section className="gn-bkt-sec">
       <div className="gn-bkt-tag" style={{ color: GOLD, borderColor: GOLD }}>Grand Final</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12, width: CARD_W }}>
-        {matches.map((m) => (
-          <div key={m.id}>
-            <div className="gn-bkt-rt" style={{ width: CARD_W }}>
-              {m.reset ? "Reset · winner takes all" : "Game 1"}
-            </div>
-            <MatchCard m={m} canScore={canScore} onPick={onPick} onUndo={onUndo} />
+        <div>
+          <div className="gn-bkt-rt" style={{ width: CARD_W }}>Set 1</div>
+          <MatchCard m={firstSet} canScore={canScore} onPick={onPick} onUndo={onUndo} />
+          {!winnersHeld && (
+            <div className="gn-bkt-gf2">🔁 {lbName} must win twice: this set and the reset</div>
+          )}
+        </div>
+
+        {resetGame ? (
+          <div>
+            <div className="gn-bkt-rt" style={{ width: CARD_W }}>Reset &middot; winner takes all</div>
+            <MatchCard m={resetGame} canScore={canScore} onPick={onPick} onUndo={onUndo} />
           </div>
-        ))}
+        ) : winnersHeld ? (
+          <div className="gn-bkt-gfnote">
+            No reset needed: {wbName} won Set 1 from the winners bracket and takes the title.
+          </div>
+        ) : (
+          <div>
+            <div className="gn-bkt-rt" style={{ width: CARD_W }}>Reset game</div>
+            <div className="gn-bkt-gfnote">
+              Only if {lbName} wins Set 1. If {wbName} wins Set 1, they take the title.
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
