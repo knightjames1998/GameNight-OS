@@ -27,6 +27,7 @@ import {
   type Slot,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
+import { insertParticipants } from "./participants.js";
 import { broadcast } from "./ws.js";
 import { type GuestCreditResult } from "./guest-link-util.js";
 
@@ -314,24 +315,27 @@ async function materialize(
           .returning()
       )[0]!.id;
 
+  const rows = new Map<string, typeof matchParticipants.$inferInsert>();
   for (const [seed, p] of place) {
     const e = loaded.entrants[seed - 1];
     if (!e) continue;
     // Members always credit; a guest credits only when linked (backfill).
     const userId = e.kind === "member" ? e.userId : linkMap?.get(e.name);
     if (!userId) continue;
-    await db
-      .insert(matchParticipants)
-      .values({
-        groupId: loaded.groupId,
-        matchId,
-        userId,
-        seed,
-        placement: p,
-        isWinner: p === 1,
-      })
-      .onConflictDoNothing();
+    // Two guest entrants typed with the same name link to one member, so
+    // dedupe before the single insert. Best (lowest) seed wins the row,
+    // which is the one the old sequential loop wrote first.
+    if (rows.has(userId)) continue;
+    rows.set(userId, {
+      groupId: loaded.groupId,
+      matchId,
+      userId,
+      seed,
+      placement: p,
+      isWinner: p === 1,
+    });
   }
+  await insertParticipants(db, [...rows.values()]);
 }
 
 // ---------- guest -> member backfill (see guest-link.ts) ----------

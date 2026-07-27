@@ -18,6 +18,7 @@ import {
   isNotNull,
 } from "@gamenight/db";
 import { requireAuth, type AuthedRequest } from "./auth.js";
+import { insertParticipants } from "./participants.js";
 import { broadcast } from "./ws.js";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
@@ -50,7 +51,7 @@ export async function creditBeerioPlacements(
   linkMap?: Map<string, string>,
 ): Promise<{ recorded: number; guests: number }> {
   const db = getDb();
-  let recorded = 0;
+  const rows = new Map<string, typeof matchParticipants.$inferInsert>();
   let guests = 0;
   for (const p of placements) {
     const userId = byName.get(p.name.toLowerCase()) ?? linkMap?.get(p.name.toLowerCase());
@@ -58,19 +59,20 @@ export async function creditBeerioPlacements(
       guests++;
       continue;
     }
-    await db
-      .insert(matchParticipants)
-      .values({
-        groupId,
-        matchId,
-        userId,
-        placement: p.place,
-        isWinner: p.place === 1,
-      })
-      .onConflictDoNothing();
-    recorded++;
+    // Two racers typed with the same name resolve to one member, so this
+    // dedupes before the single insert. First placement listed wins, which
+    // is the row the old sequential loop wrote.
+    if (rows.has(userId)) continue;
+    rows.set(userId, {
+      groupId,
+      matchId,
+      userId,
+      placement: p.place,
+      isWinner: p.place === 1,
+    });
   }
-  return { recorded, guests };
+  await insertParticipants(db, [...rows.values()]);
+  return { recorded: rows.size, guests };
 }
 
 /** The crew's current members, keyed by lowercased display name. */

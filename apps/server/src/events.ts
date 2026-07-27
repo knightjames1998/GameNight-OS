@@ -217,57 +217,59 @@ eventsRouter.get("/groups/:groupId/events", async (req: AuthedRequest, res) => {
  */
 async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEventForMember>>>, userId: string) {
   const db = getDb();
-  const responses = await db
-    .select({
-      userId: rsvps.userId,
-      status: rsvps.status,
-      displayName: users.displayName,
-    })
-    .from(rsvps)
-    .innerJoin(users, eq(rsvps.userId, users.id))
-    .where(eq(rsvps.eventId, found.id));
+  // All six only need the already-loaded event row and the userId, so they
+  // are independent of each other and go out together. Run in series this
+  // was six sequential Neon round trips on the event page load AND on every
+  // RSVP, attendance and date mutation response, which all end here.
+  const [responses, members, bracketRows, myRoleRows, attendanceRows, groupRows] = await Promise.all([
+    db
+      .select({
+        userId: rsvps.userId,
+        status: rsvps.status,
+        displayName: users.displayName,
+      })
+      .from(rsvps)
+      .innerJoin(users, eq(rsvps.userId, users.id))
+      .where(eq(rsvps.eventId, found.id)),
 
-  const members = await db
-    .select({ userId: users.id, displayName: users.displayName })
-    .from(memberships)
-    .innerJoin(users, eq(memberships.userId, users.id))
-    .where(eq(memberships.groupId, found.groupId));
+    db
+      .select({ userId: users.id, displayName: users.displayName })
+      .from(memberships)
+      .innerJoin(users, eq(memberships.userId, users.id))
+      .where(eq(memberships.groupId, found.groupId)),
 
-  const answered = new Set(responses.map((r) => r.userId));
-
-  const bracket = (
-    await db
+    db
       .select({ id: brackets.id, status: brackets.status })
       .from(brackets)
       .where(eq(brackets.eventId, found.id))
-      .limit(1)
-  )[0];
+      .limit(1),
 
-  const myRole = (
-    await db
+    db
       .select({ role: memberships.role })
       .from(memberships)
       .where(and(eq(memberships.groupId, found.groupId), eq(memberships.userId, userId)))
-      .limit(1)
-  )[0]?.role;
+      .limit(1),
 
-  const attendance = (
-    await db
+    db
       .select({ showed: eventAttendance.showed })
       .from(eventAttendance)
       .where(and(eq(eventAttendance.eventId, found.id), eq(eventAttendance.userId, userId)))
-      .limit(1)
-  )[0];
+      .limit(1),
 
-  // groupName + inviteCode ride along so the event page can build a share
-  // link (through the existing invite/join flow) without a second request.
-  const group = (
-    await db
+    // groupName + inviteCode ride along so the event page can build a share
+    // link (through the existing invite/join flow) without a second request.
+    db
       .select({ name: groups.name, inviteCode: groups.inviteCode })
       .from(groups)
       .where(eq(groups.id, found.groupId))
-      .limit(1)
-  )[0];
+      .limit(1),
+  ]);
+
+  const answered = new Set(responses.map((r) => r.userId));
+  const bracket = bracketRows[0];
+  const myRole = myRoleRows[0]?.role;
+  const attendance = attendanceRows[0];
+  const group = groupRows[0];
 
   return {
     ...found,

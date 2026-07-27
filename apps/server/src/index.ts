@@ -31,7 +31,13 @@ app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(attachUser);
+// API only, deliberately. attachUser runs a sessions x users join whenever a
+// session cookie is present, and a browser sends that cookie with EVERY
+// request: index.html, the JS bundle, the CSS, five favicons, the manifest,
+// the apple-touch-icon, the OG image. Mounted globally it fired roughly ten
+// needless Neon round trips per cold page load, before a pixel rendered.
+// Every router that reads req.user is under /api, so nothing else needs it.
+app.use("/api", attachUser);
 
 // ---------- API ----------
 

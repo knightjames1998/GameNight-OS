@@ -46,6 +46,7 @@ import {
   type PpMatch,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
+import { insertParticipants } from "./participants.js";
 import { broadcast } from "./ws.js";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
@@ -180,7 +181,7 @@ async function materializeMatch(
 
   const loserId = match.winnerId === match.aId ? match.bId : match.aId;
   const slotById = new Map(state.roster.map((p) => [p.id, p]));
-  let recorded = 0;
+  const rows = new Map<string, typeof matchParticipants.$inferInsert>();
   let guests = 0;
   for (const slotId of [match.winnerId, loserId]) {
     const slot = slotById.get(slotId);
@@ -189,22 +190,23 @@ async function materializeMatch(
       guests++;
       continue;
     }
+    // Keyed by userId so one INSERT can never carry the same (matchId,
+    // userId) twice, which two guest slots sharing a linked name would do.
+    // First occurrence wins, matching the old sequential loop.
+    if (rows.has(userId)) continue;
     const g = tally.get(slotId) ?? { wins: 0, played: 0 };
-    await db
-      .insert(matchParticipants)
-      .values({
-        groupId,
-        matchId,
-        userId,
-        placement: slotId === match.winnerId ? 1 : 2,
-        isWinner: slotId === match.winnerId,
-        score: anyPoints ? points.get(slotId) ?? 0 : null,
-        meta: { gameWins: g.wins, gamesPlayed: g.played },
-      })
-      .onConflictDoNothing();
-    recorded++;
+    rows.set(userId, {
+      groupId,
+      matchId,
+      userId,
+      placement: slotId === match.winnerId ? 1 : 2,
+      isWinner: slotId === match.winnerId,
+      score: anyPoints ? points.get(slotId) ?? 0 : null,
+      meta: { gameWins: g.wins, gamesPlayed: g.played },
+    });
   }
-  return { recorded, guests };
+  await insertParticipants(db, [...rows.values()]);
+  return { recorded: rows.size, guests };
 }
 
 /**
@@ -314,26 +316,30 @@ pingPongRouter.get("/pingpong-context/:eventId", requireAuth, async (req: Authed
     res.status(404).json({ error: "Event not found" });
     return;
   }
-  const role = await roleOf(event.groupId, req.user!.id);
+  // Role, RSVPs, members and any live session all depend only on the event
+  // row, so they go out together: 5 sequential round trips become 2. The
+  // role gate still runs before anything is returned; the other three reads
+  // are just discarded when it fails, which costs nothing on a 404.
+  const [role, yes, members, existing] = await Promise.all([
+    roleOf(event.groupId, req.user!.id),
+    db
+      .select({ userId: rsvps.userId, displayName: users.displayName })
+      .from(rsvps)
+      .innerJoin(users, eq(rsvps.userId, users.id))
+      .where(and(eq(rsvps.eventId, event.id), eq(rsvps.status, "yes")))
+      .orderBy(rsvps.respondedAt),
+    db
+      .select({ userId: memberships.userId, displayName: users.displayName })
+      .from(memberships)
+      .innerJoin(users, eq(memberships.userId, users.id))
+      .where(eq(memberships.groupId, event.groupId)),
+    loadState(event.id),
+  ]);
   if (!role) {
     res.status(404).json({ error: "Event not found" });
     return;
   }
 
-  const yes = await db
-    .select({ userId: rsvps.userId, displayName: users.displayName })
-    .from(rsvps)
-    .innerJoin(users, eq(rsvps.userId, users.id))
-    .where(and(eq(rsvps.eventId, event.id), eq(rsvps.status, "yes")))
-    .orderBy(rsvps.respondedAt);
-
-  const members = await db
-    .select({ userId: memberships.userId, displayName: users.displayName })
-    .from(memberships)
-    .innerJoin(users, eq(memberships.userId, users.id))
-    .where(eq(memberships.groupId, event.groupId));
-
-  const existing = await loadState(event.id);
   res.json({
     groupId: event.groupId,
     canHost: isHostRole(role),
@@ -351,8 +357,13 @@ pingPongRouter.get("/pingpong-context/:eventId", requireAuth, async (req: Authed
  * the acting client applies the response instead of refetching; the GETs
  * serve the same shape so the two can never disagree.
  */
-async function sessionView(eventId: string) {
-  const loaded = await loadState(eventId);
+type Loaded = Awaited<ReturnType<typeof loadState>>;
+
+async function sessionView(eventId: string, preloaded?: Loaded) {
+  // A caller that already holds the row and state passes it in rather than
+  // making this re-SELECT the row it just read or wrote. `null` is a real
+  // answer (no session), so the check is for `undefined`, not falsiness.
+  const loaded = preloaded !== undefined ? preloaded : await loadState(eventId);
   if (!loaded) return { session: null };
   return {
     session: {
@@ -365,8 +376,12 @@ async function sessionView(eventId: string) {
   };
 }
 
-async function respondState(eventId: string, res: import("express").Response) {
-  res.json(await sessionView(eventId));
+async function respondState(
+  eventId: string,
+  res: import("express").Response,
+  preloaded?: Loaded,
+) {
+  res.json(await sessionView(eventId, preloaded));
 }
 
 pingPongRouter.get("/pingpong/:eventId", requireAuth, async (req: AuthedRequest, res) => {
@@ -376,7 +391,8 @@ pingPongRouter.get("/pingpong/:eventId", requireAuth, async (req: AuthedRequest,
     res.status(404).json({ error: "Not found" });
     return;
   }
-  await respondState(eventId, res);
+  // Reuse the row the role check just read instead of selecting it twice.
+  await respondState(eventId, res, loaded);
 });
 
 // Public big-screen read. Event UUID is the access key. Mounted before the
