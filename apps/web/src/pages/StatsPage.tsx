@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api";
 import BackButton from "../BackButton";
@@ -83,7 +83,162 @@ interface SmashStats {
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
-function SmashPanel({ groupId }: { groupId: string }) {
+// ---------- the one player row every tab uses ----------
+//
+// Each pack used to draw its own player list, so the same person read
+// differently depending on which tab you were on: different headline number,
+// different subline, and only the generic list expanded. This is that list,
+// once. A pack keeps its own sections (fighters, boards, bonus stars, head to
+// head) below it, since those are genuinely pack-specific, but the PLAYER
+// ranking is identical everywhere and always expands to the same detail.
+
+/** The affordance for anything that opens. Matches the app's existing ▾. */
+function Caret({ open }: { open: boolean }) {
+  return (
+    <span className="gn-hint" style={{ fontSize: 11, flexShrink: 0, marginLeft: 2 }} aria-hidden="true">
+      {open ? "▴" : "▾"}
+    </span>
+  );
+}
+
+function ExpandedStats({ r, showByGame }: { r: StatRow; showByGame: boolean }) {
+  return (
+    <div
+      className="space-y-2"
+      style={{ margin: "0 16px 12px", paddingLeft: "30px", borderTop: "2px solid var(--gn-line)", paddingTop: "8px" }}
+    >
+      {/* By game only on the overall tab: inside a game tab it would be one
+          line repeating the tab's own name. */}
+      {showByGame && r.byGame.length > 0 && (
+        <ul className="space-y-1">
+          {r.byGame.map((g) => (
+            <li key={g.name} className="gn-hint flex justify-between" style={{ fontSize: "12px" }}>
+              <span>{g.name}</span>
+              <span style={{ color: "var(--gn-dim)" }}>
+                {g.wins}/{g.played} won
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {r.form && r.form.tracked > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ display: "flex", gap: 4 }}>
+            {r.form.last5.map((x, j) => (
+              <Pip key={j} r={x} size={20} />
+            ))}
+          </span>
+          <span className="gn-hint" style={{ fontSize: "12px" }}>
+            streak {r.form.currentStreak >= 3 ? `${r.form.currentStreak} 🔥` : r.form.currentStreak}
+            {" · "}best {r.form.longestStreak}
+            {r.nightsPlayed ? ` · ${r.nightsPlayed} night${r.nightsPlayed === 1 ? "" : "s"}` : ""}
+          </span>
+        </div>
+      )}
+
+      {r.characters && r.characters.byCharacter.length > 0 && (
+        <div className="gn-hint" style={{ fontSize: "12px" }}>
+          {r.characters.mostPlayed && (
+            <>
+              main <b style={{ color: "var(--gn-p2)" }}>{r.characters.mostPlayed}</b>
+            </>
+          )}
+          {r.characters.best && r.characters.best !== r.characters.mostPlayed && (
+            <>
+              {" · "}best <b style={{ color: "var(--gn-gold)" }}>{r.characters.best}</b>
+            </>
+          )}
+          <span style={{ color: "var(--gn-dim)" }}>
+            {" · "}
+            {r.characters.byCharacter
+              .slice(0, 3)
+              .map((c) => `${c.name} ${c.wins}/${c.played}`)
+              .join(" · ")}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlayerRows({
+  rows,
+  open,
+  setOpen,
+  showByGame = false,
+  extras,
+}: {
+  rows: StatRow[];
+  open: string | null;
+  setOpen: (id: string | null) => void;
+  showByGame?: boolean;
+  /** Pack-specific tail for the subline, keyed by userId (stars, game wins). */
+  extras?: Map<string, ReactNode>;
+}) {
+  return (
+    <ul className="space-y-2">
+      {rows.map((r, i) => {
+        const expanded = open === r.userId;
+        const top = i === 0;
+        return (
+          <li key={r.userId} className={top ? "gn-champ" : "gn-card"} style={{ padding: 0 }}>
+            <button
+              className="w-full text-left"
+              style={{ padding: "12px 16px", background: "transparent", border: 0, color: "var(--gn-ink)" }}
+              onClick={() => setOpen(expanded ? null : r.userId)}
+              aria-expanded={expanded}
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="flex items-baseline gap-2 min-w-0">
+                  <span className={`gn-rank ${top ? "gn-rank--top" : ""}`} style={{ fontSize: "16px", width: "22px", flexShrink: 0 }}>
+                    {i + 1}
+                  </span>
+                  <span className="font-bold truncate" style={top ? { color: "var(--gn-gold)" } : undefined}>
+                    {r.displayName}
+                  </span>
+                </span>
+                <span className="text-sm shrink-0 flex items-baseline gap-1">
+                  <span className="font-bold">{r.wins}</span>
+                  <span className="gn-hint">{r.wins === 1 ? "win" : "wins"}</span>
+                  <Caret open={expanded} />
+                </span>
+              </div>
+              <div className="gn-hint mt-1" style={{ fontSize: "12px", paddingLeft: "30px" }}>
+                {r.played} played &middot; {pct(r.winRate)} win rate
+                {r.avgPlacement !== null && ` · avg finish ${r.avgPlacement.toFixed(1)}`}
+                {extras?.get(r.userId)}
+              </div>
+            </button>
+
+            {expanded && <ExpandedStats r={r} showByGame={showByGame} />}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Shared heading for a pack panel's own extra sections. */
+const packHead = (label: string, accent: string) => (
+  <h2 className="gn-h2" style={{ color: accent, marginBottom: 8 }}>
+    {label}
+  </h2>
+);
+
+/**
+ * What every pack panel needs: its own groupId for its bespoke endpoint,
+ * plus the shared per-game leaderboard rows so the PLAYER list is identical
+ * across tabs.
+ */
+interface PackPanelProps {
+  groupId: string;
+  rows: StatRow[];
+  open: string | null;
+  setOpen: (id: string | null) => void;
+}
+
+function SmashPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
   const [data, setData] = useState<SmashStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,37 +255,27 @@ function SmashPanel({ groupId }: { groupId: string }) {
   }
 
   const accent = "#ff6a5a";
-  const sectionHead = (label: string) => (
-    <h2 className="gn-h2" style={{ color: accent, marginBottom: 8 }}>{label}</h2>
+  const sectionHead = (label: string) => packHead(label, accent);
+
+  // Main lives in the shared expanded block now, so it is not repeated here.
+  // Fighter variety and the best streak are kept: the streak is scoped to a
+  // single NIGHT (a hot run, or a KOTH king reign), which is a different
+  // thing from the lifetime best streak the expanded block shows.
+  const extras = new Map(
+    data.byPlayer.map((p) => [
+      p.userId,
+      <>
+        {" "}&middot; {p.variety} {p.variety === 1 ? "fighter" : "fighters"}
+        {p.bestStreak > 1 && <> &middot; 🔥 {p.bestStreak} in a night</>}
+      </>,
+    ]),
   );
 
   return (
     <div className="space-y-6">
-      {/* Players */}
       <section>
         {sectionHead("Players")}
-        <ul className="space-y-2">
-          {data.byPlayer.map((p, i) => (
-            <li key={p.userId} className={i === 0 ? "gn-champ" : "gn-card"} style={{ padding: "12px 16px" }}>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="flex items-baseline gap-2 min-w-0">
-                  <span className={`gn-rank ${i === 0 ? "gn-rank--top" : ""}`} style={{ fontSize: "16px", width: "22px", flexShrink: 0 }}>{i + 1}</span>
-                  <span className="font-bold truncate" style={i === 0 ? { color: "var(--gn-gold)" } : undefined}>{p.name}</span>
-                </span>
-                <span className="text-sm shrink-0">
-                  <span className="font-bold">{p.wins}</span>
-                  <span className="gn-hint"> / {p.played}</span>
-                </span>
-              </div>
-              <div className="gn-hint mt-1" style={{ fontSize: "12px", paddingLeft: "30px" }}>
-                {pct(p.winRate)} win rate
-                {p.main && <> &middot; main {p.main}</>}
-                {" "}&middot; {p.variety} {p.variety === 1 ? "fighter" : "fighters"}
-                {p.bestStreak > 1 && <> &middot; 🔥 {p.bestStreak} in a row</>}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <PlayerRows rows={rows} open={open} setOpen={setOpen} extras={extras} />
       </section>
 
       {/* Fighters */}
@@ -192,7 +337,7 @@ interface MpStats {
   bonusLeaders: { star: string; name: string | null; count: number }[];
 }
 
-function MarioPartyPanel({ groupId }: { groupId: string }) {
+function MarioPartyPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
   const [data, setData] = useState<MpStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -209,29 +354,22 @@ function MarioPartyPanel({ groupId }: { groupId: string }) {
   }
 
   const accent = "#ffd24a";
-  const head = (label: string) => <h2 className="gn-h2" style={{ color: accent, marginBottom: 8 }}>{label}</h2>;
+  const head = (label: string) => packHead(label, accent);
+
+  // Stars are the one per-player number no other pack has, so they ride the
+  // shared row as a subline tail rather than justifying a bespoke list.
+  const extras = new Map(
+    data.byPlayer.map((p) => [
+      p.userId,
+      <> &middot; {p.totalStars}★ total ({p.avgStars.toFixed(1)} avg)</>,
+    ]),
+  );
 
   return (
     <div className="space-y-6">
       <section>
         {head("Players")}
-        <ul className="space-y-2">
-          {data.byPlayer.map((p, i) => (
-            <li key={p.userId} className={i === 0 ? "gn-champ" : "gn-card"} style={{ padding: "12px 16px" }}>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="flex items-baseline gap-2 min-w-0">
-                  <span className={`gn-rank ${i === 0 ? "gn-rank--top" : ""}`} style={{ fontSize: "16px", width: "22px", flexShrink: 0 }}>{i + 1}</span>
-                  <span className="font-bold truncate" style={i === 0 ? { color: "var(--gn-gold)" } : undefined}>{p.name}</span>
-                </span>
-                <span className="text-sm shrink-0"><span className="font-bold">{p.wins}</span><span className="gn-hint"> / {p.games}</span></span>
-              </div>
-              <div className="gn-hint mt-1" style={{ fontSize: "12px", paddingLeft: "30px" }}>
-                {pct(p.winRate)} win rate &middot; {p.totalStars}★ total ({p.avgStars.toFixed(1)} avg)
-                {p.main && <> &middot; main {p.main}</>}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <PlayerRows rows={rows} open={open} setOpen={setOpen} extras={extras} />
       </section>
 
       <section>
@@ -299,7 +437,7 @@ interface PpStats {
 // by format (free play / best of 3 / 5 / 7) come from the stored match
 // length; single-game wins total the individual games, including the four
 // won inside a best-of-seven plus every free-play game.
-function PingPongPanel({ groupId }: { groupId: string }) {
+function PingPongPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
   const [data, setData] = useState<PpStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -315,30 +453,19 @@ function PingPongPanel({ groupId }: { groupId: string }) {
     return <p className="gn-hint">No ping pong recorded yet. Play a King of the Hill or Singles night and it fills in here.</p>;
   }
 
-  const accent = "#3ad07a";
+  // The ledger unit here is the MATCH, so the shared row's wins are match
+  // wins like every other pack. Individual game wins are the pack-specific
+  // number and ride the subline.
+  const extras = new Map(
+    data.byPlayer.map((p) => [p.userId, <> &middot; {p.gameWins} game wins</>]),
+  );
+
   return (
     <div className="space-y-2">
       <p className="gn-hint">
-        Single-game wins count every individual game, including the four inside a won best of seven and each free-play game. Wins by format are below.
+        Wins are MATCH wins. Single-game wins count every individual game, including the four inside a won best of seven and each free-play game.
       </p>
-      <ul className="space-y-2">
-        {data.byPlayer.map((p, i) => (
-          <li key={p.userId} className={i === 0 ? "gn-champ" : "gn-card"} style={{ padding: "12px 16px" }}>
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="flex items-baseline gap-2 min-w-0">
-                <span className={`gn-rank ${i === 0 ? "gn-rank--top" : ""}`} style={{ fontSize: "16px", width: "22px", flexShrink: 0 }}>{i + 1}</span>
-                <span className="font-bold truncate" style={i === 0 ? { color: "var(--gn-gold)" } : undefined}>{p.name}</span>
-              </span>
-              <span className="text-sm" style={{ color: accent, fontWeight: 800, flexShrink: 0 }}>
-                {p.gameWins} <span className="gn-hint" style={{ fontWeight: 400 }}>game wins</span>
-              </span>
-            </div>
-            <div className="gn-hint mt-1" style={{ fontSize: "12px" }}>
-              {p.matchWins}W / {p.matches} matches
-            </div>
-          </li>
-        ))}
-      </ul>
+      <PlayerRows rows={rows} open={open} setOpen={setOpen} extras={extras} />
     </div>
   );
 }
@@ -411,105 +538,13 @@ export default function StatsPage() {
         )}
 
         {tab === SMASH_GAME_NAME && id ? (
-          <SmashPanel groupId={id} />
+          <SmashPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : tab === MARIO_PARTY_GAME_NAME && id ? (
-          <MarioPartyPanel groupId={id} />
+          <MarioPartyPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : tab === PING_PONG_GAME_NAME && id ? (
-          <PingPongPanel groupId={id} />
+          <PingPongPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : (
-        <ul className="space-y-2">
-          {shown?.map((r, i) => {
-            const expanded = open === r.userId;
-            const top = i === 0;
-            return (
-              <li key={r.userId} className={top ? "gn-champ" : "gn-card"} style={{ padding: 0 }}>
-                <button
-                  className="w-full text-left"
-                  style={{ padding: "12px 16px", background: "transparent", border: 0, color: "var(--gn-ink)" }}
-                  onClick={() => setOpen(expanded ? null : r.userId)}
-                >
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="flex items-baseline gap-2 min-w-0">
-                      <span className={`gn-rank ${top ? "gn-rank--top" : ""}`} style={{ fontSize: "16px", width: "22px", flexShrink: 0 }}>
-                        {i + 1}
-                      </span>
-                      <span className="font-bold truncate" style={top ? { color: "var(--gn-gold)" } : undefined}>
-                        {r.displayName}
-                      </span>
-                    </span>
-                    <span className="text-sm shrink-0">
-                      <span className="font-bold">{r.wins}</span>
-                      <span className="gn-hint"> {r.wins === 1 ? "win" : "wins"}</span>
-                    </span>
-                  </div>
-                  <div className="gn-hint mt-1" style={{ fontSize: "12px", paddingLeft: "30px" }}>
-                    {r.played} played &middot; {Math.round(r.winRate * 100)}% win rate
-                    {r.avgPlacement !== null && ` · avg finish ${r.avgPlacement.toFixed(1)}`}
-                  </div>
-                </button>
-
-                {expanded && (
-                  <div
-                    className="space-y-2"
-                    style={{ margin: "0 16px 12px", paddingLeft: "30px", borderTop: "2px solid var(--gn-line)", paddingTop: "8px" }}
-                  >
-                    {/* By game only on the overall tab: inside a game tab it
-                        would be one line repeating the tab's own name. */}
-                    {tab === null && (
-                      <ul className="space-y-1">
-                        {r.byGame.map((g) => (
-                          <li key={g.name} className="gn-hint flex justify-between" style={{ fontSize: "12px" }}>
-                            <span>{g.name}</span>
-                            <span style={{ color: "var(--gn-dim)" }}>
-                              {g.wins}/{g.played} won
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-
-                    {r.form && r.form.tracked > 0 && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <span style={{ display: "flex", gap: 4 }}>
-                          {r.form.last5.map((x, j) => (
-                            <Pip key={j} r={x} size={20} />
-                          ))}
-                        </span>
-                        <span className="gn-hint" style={{ fontSize: "12px" }}>
-                          streak {r.form.currentStreak >= 3 ? `${r.form.currentStreak} 🔥` : r.form.currentStreak}
-                          {" · "}best {r.form.longestStreak}
-                          {r.nightsPlayed ? ` · ${r.nightsPlayed} night${r.nightsPlayed === 1 ? "" : "s"}` : ""}
-                        </span>
-                      </div>
-                    )}
-
-                    {r.characters && r.characters.byCharacter.length > 0 && (
-                      <div className="gn-hint" style={{ fontSize: "12px" }}>
-                        {r.characters.mostPlayed && (
-                          <>
-                            main <b style={{ color: "var(--gn-p2)" }}>{r.characters.mostPlayed}</b>
-                          </>
-                        )}
-                        {r.characters.best && r.characters.best !== r.characters.mostPlayed && (
-                          <>
-                            {" · "}best <b style={{ color: "var(--gn-gold)" }}>{r.characters.best}</b>
-                          </>
-                        )}
-                        <span style={{ color: "var(--gn-dim)" }}>
-                          {" · "}
-                          {r.characters.byCharacter
-                            .slice(0, 3)
-                            .map((c) => `${c.name} ${c.wins}/${c.played}`)
-                            .join(" · ")}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+          <PlayerRows rows={shown ?? []} open={open} setOpen={setOpen} showByGame={tab === null} />
         )}
 
         {active && active.formats.length > 0 && (

@@ -303,6 +303,9 @@ export default function GroupPage({
             >
               <span className="gn-cab__name">
                 🗓️ Past game nights <span className="gn-hint" style={{ fontWeight: 400 }}>({pastEvents.length})</span>
+                <span className="gn-hint" style={{ fontSize: 11, fontWeight: 400 }} aria-hidden="true">
+                  {pastOpen ? "▴" : "▾"}
+                </span>
               </span>
               <span className="gn-cab__sub">
                 {pastOpen ? "tap to hide" : "wrapped nights · recaps & results"}

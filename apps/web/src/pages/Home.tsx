@@ -318,6 +318,9 @@ function Friends() {
       >
         <span className="gn-cab__name">
           👥 Friends <span className="gn-hint" style={{ fontWeight: 400 }}>({friends.length})</span>
+          <span className="gn-hint" style={{ fontSize: 11, fontWeight: 400 }} aria-hidden="true">
+            {open ? "▴" : "▾"}
+          </span>
         </span>
         <span className="gn-cab__sub">
           {open ? "tap to hide" : "everyone you've crewed with · stats & rivalries"}
