@@ -15,19 +15,26 @@ export interface FormStats {
   tracked: number;
 }
 
-function Pip({ r }: { r: { isWinner: boolean; placement: number | null } }) {
+export function Pip({
+  r,
+  size = 26,
+}: {
+  r: { isWinner: boolean; placement: number | null };
+  /** Smaller on the crew leaderboard, where pips sit inside a list row. */
+  size?: number;
+}) {
   const color = r.isWinner ? "var(--gn-gold)" : "var(--gn-dim)";
   return (
     <span
       title={r.isWinner ? "win" : r.placement ? `finished #${r.placement}` : "loss"}
       style={{
-        width: 26,
-        height: 26,
-        borderRadius: 8,
+        width: size,
+        height: size,
+        borderRadius: size >= 26 ? 8 : 6,
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: 11,
+        fontSize: size >= 26 ? 11 : 9,
         fontWeight: 800,
         color: r.isWinner ? "var(--gn-bg)" : color,
         background: r.isWinner ? color : "transparent",

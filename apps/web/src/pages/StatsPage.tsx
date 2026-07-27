@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api";
 import BackButton from "../BackButton";
+import { type CharacterStats } from "../CharacterStats";
+import { Pip, type FormStats } from "../FormStats";
 
 interface StatRow {
   userId: string;
@@ -12,6 +14,9 @@ interface StatRow {
   winRate: number;
   avgPlacement: number | null;
   byGame: { name: string; played: number; wins: number }[];
+  characters?: CharacterStats;
+  form?: FormStats;
+  nightsPlayed?: number;
 }
 
 interface FormatStat {
@@ -421,7 +426,7 @@ export default function StatsPage() {
                 <button
                   className="w-full text-left"
                   style={{ padding: "12px 16px", background: "transparent", border: 0, color: "var(--gn-ink)" }}
-                  onClick={() => tab === null && setOpen(expanded ? null : r.userId)}
+                  onClick={() => setOpen(expanded ? null : r.userId)}
                 >
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="flex items-baseline gap-2 min-w-0">
@@ -443,17 +448,63 @@ export default function StatsPage() {
                   </div>
                 </button>
 
-                {expanded && tab === null && (
-                  <ul className="space-y-1" style={{ margin: "0 16px 12px", paddingLeft: "30px", borderTop: "2px solid var(--gn-line)", paddingTop: "8px" }}>
-                    {r.byGame.map((g) => (
-                      <li key={g.name} className="gn-hint flex justify-between" style={{ fontSize: "12px" }}>
-                        <span>{g.name}</span>
-                        <span style={{ color: "var(--gn-dim)" }}>
-                          {g.wins}/{g.played} won
+                {expanded && (
+                  <div
+                    className="space-y-2"
+                    style={{ margin: "0 16px 12px", paddingLeft: "30px", borderTop: "2px solid var(--gn-line)", paddingTop: "8px" }}
+                  >
+                    {/* By game only on the overall tab: inside a game tab it
+                        would be one line repeating the tab's own name. */}
+                    {tab === null && (
+                      <ul className="space-y-1">
+                        {r.byGame.map((g) => (
+                          <li key={g.name} className="gn-hint flex justify-between" style={{ fontSize: "12px" }}>
+                            <span>{g.name}</span>
+                            <span style={{ color: "var(--gn-dim)" }}>
+                              {g.wins}/{g.played} won
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {r.form && r.form.tracked > 0 && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <span style={{ display: "flex", gap: 4 }}>
+                          {r.form.last5.map((x, j) => (
+                            <Pip key={j} r={x} size={20} />
+                          ))}
                         </span>
-                      </li>
-                    ))}
-                  </ul>
+                        <span className="gn-hint" style={{ fontSize: "12px" }}>
+                          streak {r.form.currentStreak >= 3 ? `${r.form.currentStreak} 🔥` : r.form.currentStreak}
+                          {" · "}best {r.form.longestStreak}
+                          {r.nightsPlayed ? ` · ${r.nightsPlayed} night${r.nightsPlayed === 1 ? "" : "s"}` : ""}
+                        </span>
+                      </div>
+                    )}
+
+                    {r.characters && r.characters.byCharacter.length > 0 && (
+                      <div className="gn-hint" style={{ fontSize: "12px" }}>
+                        {r.characters.mostPlayed && (
+                          <>
+                            main <b style={{ color: "var(--gn-p2)" }}>{r.characters.mostPlayed}</b>
+                          </>
+                        )}
+                        {r.characters.best && r.characters.best !== r.characters.mostPlayed && (
+                          <>
+                            {" · "}best <b style={{ color: "var(--gn-gold)" }}>{r.characters.best}</b>
+                          </>
+                        )}
+                        <span style={{ color: "var(--gn-dim)" }}>
+                          {" · "}
+                          {r.characters.byCharacter
+                            .slice(0, 3)
+                            .map((c) => `${c.name} ${c.wins}/${c.played}`)
+                            .join(" · ")}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 )}
               </li>
             );

@@ -27,14 +27,15 @@ import { requireAuth, type AuthedRequest } from "./auth.js";
 export const statsRouter = Router();
 statsRouter.use(requireAuth);
 
+/**
+ * One player's bucket on the crew leaderboard. The tallying itself is the
+ * shared Agg the profile views use, so the crew page and a profile can never
+ * disagree about the same player's numbers.
+ */
 interface Row {
   userId: string;
   displayName: string;
-  played: number;
-  wins: number;
-  placementSum: number;
-  best: number | null;
-  byGame: Record<string, { played: number; wins: number }>;
+  agg: Agg;
 }
 
 statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
@@ -61,6 +62,9 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
       gameName: games.name,
       pack: games.pack,
       format: matches.format,
+      character: matchParticipants.character,
+      playedAt: matches.playedAt,
+      eventId: matches.eventId,
     })
     .from(matchParticipants)
     .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
@@ -105,41 +109,16 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
   for (const r of rows) {
     let row = byUser.get(r.userId);
     if (!row) {
-      row = {
-        userId: r.userId,
-        displayName: r.displayName,
-        played: 0,
-        wins: 0,
-        placementSum: 0,
-        best: null,
-        byGame: {},
-      };
+      row = { userId: r.userId, displayName: r.displayName, agg: newAgg() };
       byUser.set(r.userId, row);
     }
-    const place = r.placement ?? 0;
-    row.played++;
-    if (r.isWinner) row.wins++;
-    if (place >= 1) {
-      row.placementSum += place;
-      row.best = row.best === null ? place : Math.min(row.best, place);
-    }
-    const key = r.gameName ?? "Unknown";
-    const g = (row.byGame[key] ??= { played: 0, wins: 0 });
-    g.played++;
-    if (r.isWinner) g.wins++;
+    feedAgg(row.agg, r);
   }
 
   const finish = (r: Row) => ({
     userId: r.userId,
     displayName: r.displayName,
-    played: r.played,
-    wins: r.wins,
-    best: r.best,
-    winRate: r.played ? r.wins / r.played : 0,
-    avgPlacement: r.played ? r.placementSum / r.played : null,
-    byGame: Object.entries(r.byGame)
-      .map(([name, v]) => ({ name, ...v }))
-      .sort((a, b) => b.played - a.played),
+    ...finishAgg(r.agg),
   });
   // Most wins first; ties broken by win rate, then by who showed up more.
   const rank = <T extends { wins: number; winRate: number; played: number }>(list: T[]) =>
@@ -155,24 +134,10 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
     perGame.set(game, bucket);
     let row = bucket.get(r.userId);
     if (!row) {
-      row = {
-        userId: r.userId,
-        displayName: r.displayName,
-        played: 0,
-        wins: 0,
-        placementSum: 0,
-        best: null,
-        byGame: {},
-      };
+      row = { userId: r.userId, displayName: r.displayName, agg: newAgg() };
       bucket.set(r.userId, row);
     }
-    const place = r.placement ?? 0;
-    row.played++;
-    if (r.isWinner) row.wins++;
-    if (place >= 1) {
-      row.placementSum += place;
-      row.best = row.best === null ? place : Math.min(row.best, place);
-    }
+    feedAgg(row.agg, r);
   }
 
   const tournamentRows = await db
