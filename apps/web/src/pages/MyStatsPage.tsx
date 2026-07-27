@@ -4,6 +4,8 @@ import { api } from "../api";
 import BackButton from "../BackButton";
 import CharacterStatsCard, { type CharacterStats } from "../CharacterStats";
 import FormStatsCard, { type FormStats } from "../FormStats";
+import Disclosure from "../Disclosure";
+import DeepStats, { type PlacementStats, type HistoryStats, type GameExtreme } from "../DeepStats";
 
 // The full personal-stats page, opened from the "Your stats" button on Home.
 // Lifetime totals across every crew (quick play included), broken down by
@@ -18,6 +20,12 @@ interface MyStats {
   characters?: CharacterStats;
   form?: FormStats;
   nightsPlayed?: number;
+  placements?: PlacementStats;
+  history?: HistoryStats;
+  bestGame?: GameExtreme | null;
+  worstGame?: GameExtreme | null;
+  minGamesForExtremes?: number;
+  lastPlaceCount?: number;
 }
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -121,6 +129,17 @@ export default function MyStatsPage() {
                 </ul>
               </section>
             )}
+
+            <Disclosure label="More stats">
+              <DeepStats
+                placements={stats.placements}
+                history={stats.history}
+                bestGame={stats.bestGame}
+                worstGame={stats.worstGame}
+                lastPlaceCount={stats.lastPlaceCount}
+                minGamesForExtremes={stats.minGamesForExtremes}
+              />
+            </Disclosure>
 
             {stats.byCrew.length > 0 && (
               <section className="space-y-2">

@@ -21,6 +21,7 @@ import {
   and,
   eq,
   inArray,
+  sql,
 } from "@gamenight/db";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 
@@ -183,17 +184,38 @@ const MIN_CHAR_GAMES = 3;
 const FORM_LENGTH = 5;
 
 /**
+ * Games in one game/pack before it can be called someone's best or worst.
+ * Same reasoning as MIN_CHAR_GAMES: one game played once at 100% or 0% is
+ * not a verdict. Separate constant because a game is a bigger unit than a
+ * character and the two floors should be free to move apart.
+ */
+const MIN_GAME_GAMES = 3;
+
+/** How many months of history the games-per-month series covers. */
+const HISTORY_MONTHS = 12;
+
+/**
  * One ledger result, exactly as the profile queries select it. Passed as an
  * object rather than positionally: there are five like-typed fields and a
  * swapped pair would be silent.
  */
 interface ResultRow {
+  matchId: string;
   placement: number | null;
   isWinner: boolean;
   gameName: string | null;
   character: string | null;
   playedAt: Date | null;
   eventId: string | null;
+}
+
+/** Per-character tallies. Placement fields ignore results with no placement. */
+interface CharTally {
+  played: number;
+  wins: number;
+  placementSum: number;
+  placed: number;
+  best: number | null;
 }
 
 interface Agg {
@@ -207,13 +229,28 @@ interface Agg {
   // played across different titles (standing rule: stats unify by name).
   // Packs with no characters (Beerio, Ping Pong, brackets) store null here
   // and never reach this map.
-  byCharacter: Record<string, { played: number; wins: number }>;
+  byCharacter: Record<string, CharTally>;
   // Every result with its time, unordered as it arrives; finishForm sorts.
   // Streaks and recent form have no other way to order results, which is
-  // why matches.playedAt exists.
-  timeline: { playedAt: Date | null; isWinner: boolean; placement: number | null }[];
+  // why matches.playedAt exists. matchId rides along so last-place finishes
+  // can be worked out later against each match's field size.
+  timeline: {
+    matchId: string;
+    playedAt: Date | null;
+    isWinner: boolean;
+    placement: number | null;
+  }[];
   // Distinct nights this user actually played a game on.
   eventIds: Set<string>;
+  // Per night, for the best-night pick. Same key as eventIds.
+  byEvent: Map<string, { played: number; wins: number }>;
+  // Finishes at 1st / 2nd / 3rd / 4th or worse. Results with NO placement
+  // are counted in none of them, so the four never silently absorb a pack
+  // that does not rank (they would otherwise all look like last place).
+  firsts: number;
+  seconds: number;
+  thirds: number;
+  fourthPlus: number;
 }
 
 function newAgg(): Agg {
@@ -227,6 +264,11 @@ function newAgg(): Agg {
     byCharacter: {},
     timeline: [],
     eventIds: new Set(),
+    byEvent: new Map(),
+    firsts: 0,
+    seconds: 0,
+    thirds: 0,
+    fourthPlus: 0,
   };
 }
 
@@ -238,6 +280,10 @@ function feedAgg(a: Agg, r: ResultRow) {
     a.placementSum += place;
     a.placed++;
     a.best = a.best === null ? place : Math.min(a.best, place);
+    if (place === 1) a.firsts++;
+    else if (place === 2) a.seconds++;
+    else if (place === 3) a.thirds++;
+    else a.fourthPlus++;
   }
   const key = r.gameName ?? "Unknown";
   const g = (a.byGame[key] ??= { played: 0, wins: 0 });
@@ -246,13 +292,29 @@ function feedAgg(a: Agg, r: ResultRow) {
 
   const char = r.character?.trim();
   if (char) {
-    const c = (a.byCharacter[char] ??= { played: 0, wins: 0 });
+    const c = (a.byCharacter[char] ??= { played: 0, wins: 0, placementSum: 0, placed: 0, best: null });
     c.played++;
     if (r.isWinner) c.wins++;
+    if (place >= 1) {
+      c.placementSum += place;
+      c.placed++;
+      c.best = c.best === null ? place : Math.min(c.best, place);
+    }
   }
 
-  a.timeline.push({ playedAt: r.playedAt, isWinner: r.isWinner, placement: r.placement });
-  if (r.eventId) a.eventIds.add(r.eventId);
+  a.timeline.push({
+    matchId: r.matchId,
+    playedAt: r.playedAt,
+    isWinner: r.isWinner,
+    placement: r.placement,
+  });
+  if (r.eventId) {
+    a.eventIds.add(r.eventId);
+    const e = a.byEvent.get(r.eventId) ?? { played: 0, wins: 0 };
+    e.played++;
+    if (r.isWinner) e.wins++;
+    a.byEvent.set(r.eventId, e);
+  }
 }
 
 /**
@@ -266,17 +328,26 @@ function finishForm(timeline: Agg["timeline"]) {
     .sort((x, y) => x.playedAt.getTime() - y.playedAt.getTime());
 
   // Walking oldest to newest, `run` is the streak ending at the current
-  // result, so when the loop finishes it IS the current streak.
+  // result, so when the loop finishes it IS the current streak. The loss
+  // walk is the same thing inverted: in a field of four only one player
+  // wins, so "loss" here means "did not win", the same sense the win
+  // streak already uses.
   let run = 0;
   let longest = 0;
+  let lossRun = 0;
+  let longestLoss = 0;
   for (const t of dated) {
     run = t.isWinner ? run + 1 : 0;
     if (run > longest) longest = run;
+    lossRun = t.isWinner ? 0 : lossRun + 1;
+    if (lossRun > longestLoss) longestLoss = lossRun;
   }
 
   return {
     currentStreak: run,
     longestStreak: longest,
+    currentLossStreak: lossRun,
+    longestLossStreak: longestLoss,
     last5: dated
       .slice(-FORM_LENGTH)
       .reverse()
@@ -294,7 +365,14 @@ function finishForm(timeline: Agg["timeline"]) {
  */
 function finishCharacters(byCharacter: Agg["byCharacter"]) {
   const list = Object.entries(byCharacter)
-    .map(([name, v]) => ({ name, ...v, winRate: v.played ? v.wins / v.played : 0 }))
+    .map(([name, v]) => ({
+      name,
+      played: v.played,
+      wins: v.wins,
+      winRate: v.played ? v.wins / v.played : 0,
+      bestPlacement: v.best,
+      avgPlacement: v.placed ? v.placementSum / v.placed : null,
+    }))
     .sort((x, y) => y.played - x.played || y.wins - x.wins || x.name.localeCompare(y.name));
 
   const mostPlayed = list[0]?.name ?? null;
@@ -309,6 +387,81 @@ function finishCharacters(byCharacter: Agg["byCharacter"]) {
     mostPlayed,
     best: eligible[0]?.name ?? null,
     minGamesForBest: MIN_CHAR_GAMES,
+    distinctCharacters: list.length,
+  };
+}
+
+/** Share of finishes at each depth. Null shares when nothing was ranked. */
+function finishPlacements(a: Agg) {
+  const ranked = a.placed;
+  const share = (n: number) => (ranked ? n / ranked : null);
+  return {
+    ranked,
+    first: a.firsts,
+    second: a.seconds,
+    third: a.thirds,
+    fourthPlus: a.fourthPlus,
+    firstShare: share(a.firsts),
+    secondShare: share(a.seconds),
+    thirdShare: share(a.thirds),
+    fourthPlusShare: share(a.fourthPlus),
+    // Results the packs never ranked, so the four counts above do not add
+    // up to games played and the client can say why.
+    unranked: a.played - ranked,
+  };
+}
+
+/** Best and worst game by win rate, once a game has enough games behind it. */
+function finishGameExtremes(a: Agg) {
+  const eligible = Object.entries(a.byGame)
+    .map(([name, v]) => ({ name, ...v, winRate: v.played ? v.wins / v.played : 0 }))
+    .filter((g) => g.played >= MIN_GAME_GAMES)
+    .sort((x, y) => y.winRate - x.winRate || y.played - x.played || x.name.localeCompare(y.name));
+
+  return {
+    bestGame: eligible[0] ?? null,
+    // Not simply the array tail: with one eligible game best and worst
+    // would be the same entry, which says nothing.
+    worstGame: eligible.length > 1 ? eligible[eligible.length - 1]! : null,
+    minGamesForExtremes: MIN_GAME_GAMES,
+  };
+}
+
+/** Month key in the user's own terms, e.g. 2026-07. */
+const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+/**
+ * When they started, and the last HISTORY_MONTHS of activity as a series a
+ * sparkline can draw. Empty months are included on purpose: a gap is part
+ * of the shape, and dropping it would draw a lie.
+ */
+function finishHistory(a: Agg) {
+  const dated = a.timeline
+    .filter((t): t is (typeof t) & { playedAt: Date } => t.playedAt != null)
+    .sort((x, y) => x.playedAt.getTime() - y.playedAt.getTime());
+
+  const counts = new Map<string, { played: number; wins: number }>();
+  for (const t of dated) {
+    const k = monthKey(t.playedAt);
+    const c = counts.get(k) ?? { played: 0, wins: 0 };
+    c.played++;
+    if (t.isWinner) c.wins++;
+    counts.set(k, c);
+  }
+
+  const now = new Date();
+  const gamesPerMonth: { month: string; played: number; wins: number }[] = [];
+  for (let i = HISTORY_MONTHS - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const k = monthKey(d);
+    gamesPerMonth.push({ month: k, ...(counts.get(k) ?? { played: 0, wins: 0 }) });
+  }
+
+  const nights = a.eventIds.size;
+  return {
+    playingSince: dated[0]?.playedAt ?? null,
+    gamesPerMonth,
+    gamesPerNight: nights ? a.played / nights : null,
   };
 }
 
@@ -336,19 +489,105 @@ function finishAgg(a: Agg) {
 
 type Db = ReturnType<typeof getDb>;
 
+/**
+ * Finishes where this player came LAST. Field size is not stored anywhere,
+ * so it is derived: one grouped count of participant rows per match, then
+ * compare each placement against its match's size. Deliberately one query
+ * for the whole history rather than one per match. A field of one cannot
+ * have a last place, so those are skipped (the winner would qualify).
+ */
+async function countLastPlace(db: Db, a: Agg) {
+  const ranked = a.timeline.filter((t) => t.placement != null);
+  const matchIds = [...new Set(ranked.map((t) => t.matchId))];
+  if (!matchIds.length) return 0;
+
+  const sizes = await db
+    .select({ matchId: matchParticipants.matchId, size: sql<number>`count(*)::int` })
+    .from(matchParticipants)
+    .where(inArray(matchParticipants.matchId, matchIds))
+    .groupBy(matchParticipants.matchId);
+
+  const sizeById = new Map(sizes.map((s) => [s.matchId, Number(s.size)]));
+  let last = 0;
+  for (const t of ranked) {
+    const size = sizeById.get(t.matchId) ?? 0;
+    if (size > 1 && t.placement === size) last++;
+  }
+  return last;
+}
+
+/**
+ * The night with the most wins. Ties go to the night that took fewer games
+ * to get there, then to the event id so the pick is stable. One query, for
+ * the single winning event's label.
+ */
+async function resolveBestNight(db: Db, a: Agg) {
+  let bestId: string | null = null;
+  let bestVal = { played: 0, wins: 0 };
+  for (const [eventId, v] of a.byEvent) {
+    if (
+      bestId === null ||
+      v.wins > bestVal.wins ||
+      (v.wins === bestVal.wins && v.played < bestVal.played) ||
+      (v.wins === bestVal.wins && v.played === bestVal.played && eventId < bestId)
+    ) {
+      bestId = eventId;
+      bestVal = v;
+    }
+  }
+  if (!bestId || bestVal.wins === 0) return null;
+
+  const row = await db
+    .select({ id: events.id, title: events.title, scheduledFor: events.scheduledFor })
+    .from(events)
+    .where(eq(events.id, bestId))
+    .limit(1);
+  if (!row[0]) return null;
+
+  return {
+    eventId: row[0].id,
+    // Dateless nights fall back to their name, which is all they have.
+    title: row[0].title,
+    date: row[0].scheduledFor,
+    wins: bestVal.wins,
+    played: bestVal.played,
+  };
+}
+
+/**
+ * The profile-only depth: everything finishAgg returns, plus the groups that
+ * are either expensive or only meaningful for one person. Kept OUT of
+ * finishAgg because the crew leaderboard calls that once per player, and
+ * lastPlaceCount / bestNight each cost a query.
+ */
+async function finishAggDeep(db: Db, a: Agg) {
+  const [lastPlaceCount, bestNight] = await Promise.all([countLastPlace(db, a), resolveBestNight(db, a)]);
+  return {
+    ...finishAgg(a),
+    placements: finishPlacements(a),
+    ...finishGameExtremes(a),
+    history: { ...finishHistory(a), bestNight },
+    lastPlaceCount,
+  };
+}
+
+/** The columns every profile-side aggregation needs, in one place. */
+const resultCols = {
+  matchId: matchParticipants.matchId,
+  placement: matchParticipants.placement,
+  isWinner: matchParticipants.isWinner,
+  gameName: games.name,
+  character: matchParticipants.character,
+  playedAt: matches.playedAt,
+  eventId: matches.eventId,
+};
+
 /** One user's ledger stats across a set of crews. */
 async function aggFor(db: Db, groupIds: string[], userId: string) {
   const a = newAgg();
   if (groupIds.length) {
     const rows = await db
-      .select({
-        placement: matchParticipants.placement,
-        isWinner: matchParticipants.isWinner,
-        gameName: games.name,
-        character: matchParticipants.character,
-        playedAt: matches.playedAt,
-        eventId: matches.eventId,
-      })
+      .select(resultCols)
       .from(matchParticipants)
       .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
       .leftJoin(games, eq(matches.gameId, games.id))
@@ -361,7 +600,7 @@ async function aggFor(db: Db, groupIds: string[], userId: string) {
       );
     for (const r of rows) feedAgg(a, r);
   }
-  return finishAgg(a);
+  return finishAggDeep(db, a);
 }
 
 // ---------- Attendance / flake tracking ----------
@@ -473,25 +712,17 @@ async function sharedGroupIds(db: Db, aId: string, bId: string): Promise<string[
 async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: string) {
   const mineAgg = newAgg();
   const theirsAgg = newAgg();
+  type Side = { p: number | null; w: boolean; character: string | null };
   const byMatch = new Map<
     string,
-    { mine?: { p: number | null; w: boolean }; theirs?: { p: number | null; w: boolean }; game: string }
+    { mine?: Side; theirs?: Side; game: string; playedAt: Date | null }
   >();
 
   if (groupIds.length) {
     // Every completed participant row for either of us, in one query;
     // pair them up by matchId in memory.
     const rows = await db
-      .select({
-        matchId: matchParticipants.matchId,
-        userId: matchParticipants.userId,
-        placement: matchParticipants.placement,
-        isWinner: matchParticipants.isWinner,
-        gameName: games.name,
-        character: matchParticipants.character,
-        playedAt: matches.playedAt,
-        eventId: matches.eventId,
-      })
+      .select({ ...resultCols, userId: matchParticipants.userId })
       .from(matchParticipants)
       .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
       .leftJoin(games, eq(matches.gameId, games.id))
@@ -505,9 +736,10 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
     for (const r of rows) {
       const side = r.userId === meId ? mineAgg : theirsAgg;
       feedAgg(side, r);
-      const m = byMatch.get(r.matchId) ?? { game: r.gameName ?? "Unknown" };
-      if (r.userId === meId) m.mine = { p: r.placement, w: r.isWinner };
-      else m.theirs = { p: r.placement, w: r.isWinner };
+      const m = byMatch.get(r.matchId) ?? { game: r.gameName ?? "Unknown", playedAt: r.playedAt };
+      const entry: Side = { p: r.placement, w: r.isWinner, character: r.character };
+      if (r.userId === meId) m.mine = entry;
+      else m.theirs = entry;
       byMatch.set(r.matchId, m);
     }
   }
@@ -516,6 +748,17 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
   let losses = 0;
   let ties = 0;
   const h2hByGame = new Map<string, { meetings: number; myWins: number; theirWins: number }>();
+  // Every meeting with its outcome from MY side, for the ordered items
+  // below. Built in the same pass so the two can never disagree.
+  type Meeting = {
+    playedAt: Date | null;
+    game: string;
+    outcome: "win" | "loss" | "tie";
+  };
+  const meetings: Meeting[] = [];
+  const myChars = new Map<string, number>();
+  const theirChars = new Map<string, number>();
+
   for (const m of byMatch.values()) {
     if (!m.mine || !m.theirs) continue;
     const g = h2hByGame.get(m.game) ?? { meetings: 0, myWins: 0, theirWins: 0 };
@@ -523,26 +766,86 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
     // Placement decides; isWinner breaks a null-placement pair (rare).
     const mp = m.mine.p ?? Infinity;
     const tp = m.theirs.p ?? Infinity;
+    let outcome: Meeting["outcome"];
     if (mp < tp || (mp === tp && m.mine.w && !m.theirs.w)) {
       wins++;
       g.myWins++;
+      outcome = "win";
     } else if (tp < mp || (mp === tp && m.theirs.w && !m.mine.w)) {
       losses++;
       g.theirWins++;
+      outcome = "loss";
     } else {
       ties++;
+      outcome = "tie";
     }
     h2hByGame.set(m.game, g);
+    meetings.push({ playedAt: m.playedAt, game: m.game, outcome });
+
+    // Characters used in SHARED matches only, which is the point: what each
+    // of us reaches for when the other is in the room.
+    const mc = m.mine.character?.trim();
+    if (mc) myChars.set(mc, (myChars.get(mc) ?? 0) + 1);
+    const tc = m.theirs.character?.trim();
+    if (tc) theirChars.set(tc, (theirChars.get(tc) ?? 0) + 1);
   }
 
+  const topChar = (m: Map<string, number>) => {
+    let name: string | null = null;
+    let n = 0;
+    for (const [k, v] of m) {
+      if (v > n || (v === n && name !== null && k < name)) {
+        name = k;
+        n = v;
+      }
+    }
+    return name ? { name, played: n } : null;
+  };
+
+  // Ordering-dependent items use dated meetings only. An undated meeting
+  // cannot be placed in the sequence and is never guessed at.
+  const dated = meetings
+    .filter((m): m is Meeting & { playedAt: Date } => m.playedAt != null)
+    .sort((x, y) => x.playedAt.getTime() - y.playedAt.getTime());
+
+  // One walk, oldest to newest. `run` carries a sign so the client knows
+  // whose streak it is: positive is mine, negative is theirs. A tie breaks
+  // both. When the walk ends, `run` IS the current streak.
+  let run = 0;
+  let myLongest = 0;
+  let theirLongest = 0;
+  for (const m of dated) {
+    if (m.outcome === "win") run = run > 0 ? run + 1 : 1;
+    else if (m.outcome === "loss") run = run < 0 ? run - 1 : -1;
+    else run = 0;
+    if (run > myLongest) myLongest = run;
+    if (-run > theirLongest) theirLongest = -run;
+  }
+
+  const last = dated[dated.length - 1];
+
   return {
-    meStats: finishAgg(mineAgg),
-    themStats: finishAgg(theirsAgg),
+    meStats: await finishAggDeep(db, mineAgg),
+    themStats: await finishAggDeep(db, theirsAgg),
     h2h: {
       meetings: wins + losses + ties,
       wins,
       losses,
       ties,
+      /** Signed: positive is my streak, negative is theirs, 0 is neither. */
+      currentStreak: run,
+      myLongestStreak: myLongest,
+      theirLongestStreak: theirLongest,
+      lastMeeting: last
+        ? { date: last.playedAt, game: last.game, outcome: last.outcome }
+        : null,
+      last5: dated
+        .slice(-FORM_LENGTH)
+        .reverse()
+        .map((m) => ({ outcome: m.outcome, game: m.game, date: m.playedAt })),
+      /** How many meetings could be ordered, so the client can say why. */
+      tracked: dated.length,
+      charactersInMeetings: { mine: topChar(myChars), theirs: topChar(theirChars) },
       byGame: [...h2hByGame.entries()]
         .map(([name, v]) => ({ name, ...v }))
         .sort((x, y) => y.meetings - x.meetings),
@@ -557,6 +860,7 @@ statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
     .select({
       groupId: matches.groupId,
       groupName: groups.name,
+      matchId: matchParticipants.matchId,
       placement: matchParticipants.placement,
       isWinner: matchParticipants.isWinner,
       gameName: games.name,
@@ -604,7 +908,7 @@ statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
   }
 
   res.json({
-    ...finishAgg(total),
+    ...(await finishAggDeep(db, total)),
     byFormat: [...byFormat.values()].sort((x, y) => y.wins - x.wins || y.played - x.played),
     byCrew: [...byCrew.values()].sort((x, y) => y.played - x.played),
   });

@@ -4,6 +4,8 @@ import { api, type AttendanceStats, type Me } from "../api";
 import BackButton from "../BackButton";
 import CharacterStatsCard, { type CharacterStats } from "../CharacterStats";
 import FormStatsCard, { type FormStats } from "../FormStats";
+import Disclosure from "../Disclosure";
+import DeepStats, { type PlacementStats, type HistoryStats, type GameExtreme } from "../DeepStats";
 import { ensureRecapFonts } from "../recap";
 
 // One page, two faces. Tapping yourself shows your profile; tapping anyone
@@ -24,6 +26,12 @@ interface SideStats {
   characters?: CharacterStats;
   form?: FormStats;
   nightsPlayed?: number;
+  placements?: PlacementStats;
+  history?: HistoryStats;
+  bestGame?: GameExtreme | null;
+  worstGame?: GameExtreme | null;
+  minGamesForExtremes?: number;
+  lastPlaceCount?: number;
   attendance?: AttendanceStats;
   /** Friend route only: the crews this view spans. */
   crews?: string[];
@@ -38,10 +46,32 @@ interface Rivalry {
     losses: number;
     ties: number;
     byGame: { name: string; meetings: number; myWins: number; theirWins: number }[];
+    /** Signed: positive is my run, negative is theirs, 0 is neither. */
+    currentStreak: number;
+    myLongestStreak: number;
+    theirLongestStreak: number;
+    lastMeeting: { date: string | null; game: string; outcome: Outcome } | null;
+    last5: { outcome: Outcome; game: string; date: string | null }[];
+    /** Meetings that could be ordered by time. */
+    tracked: number;
+    charactersInMeetings: {
+      mine: { name: string; played: number } | null;
+      theirs: { name: string; played: number } | null;
+    };
   };
 }
 
+type Outcome = "win" | "loss" | "tie";
+
 const pct = (r: number) => `${Math.round(r * 100)}%`;
+
+const shortDay = (iso: string | null) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? null
+    : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+};
 
 /** Crew route: /g/:id/member/:userId — everything scoped to that crew. */
 export default function MemberPage({ me }: { me: Me | null }) {
@@ -167,8 +197,12 @@ function MemberView({
                 </header>
 
                 <RecordBanner r={rivalry} />
+                <H2hExtras r={rivalry} />
                 <Compare r={rivalry} />
                 <H2hByGame r={rivalry} />
+                <Disclosure label="More stats">
+                  <Compare r={rivalry} variant="deep" />
+                </Disclosure>
 
                 <button className="gn-btn gn-btn--p1 w-full" onClick={() => setShowCard(true)}>
                   Share rivalry card
@@ -239,6 +273,18 @@ function Profile({ stats, title, subtitle }: { stats: SideStats; title: string; 
             </div>
           ))}
         </div>
+      )}
+      {stats.played > 0 && (
+        <Disclosure label="More stats">
+          <DeepStats
+            placements={stats.placements}
+            history={stats.history}
+            bestGame={stats.bestGame}
+            worstGame={stats.worstGame}
+            lastPlaceCount={stats.lastPlaceCount}
+            minGamesForExtremes={stats.minGamesForExtremes}
+          />
+        </Disclosure>
       )}
     </section>
   );
@@ -333,25 +379,139 @@ function RecordBanner({ r }: { r: Rivalry }) {
   );
 }
 
-function Compare({ r }: { r: Rivalry }) {
+// The meeting-level detail: who took the last one, who is on a run, and what
+// each of them reaches for when the other is in the room. Sits with the
+// record banner because it is about the rivalry, not about either player.
+function H2hExtras({ r }: { r: Rivalry }) {
+  const { lastMeeting, currentStreak, myLongestStreak, theirLongestStreak, last5, charactersInMeetings, meetings } = r.h2h;
+  if (meetings === 0) return null;
+
+  const mine = charactersInMeetings.mine;
+  const theirs = charactersInMeetings.theirs;
+  const streakName = currentStreak > 0 ? r.me.displayName : r.them.displayName;
+  const streakN = Math.abs(currentStreak);
+
+  return (
+    <div className="gn-card space-y-2" style={{ padding: "12px 16px" }}>
+      {lastMeeting && (
+        <p className="gn-hint" style={{ fontSize: 13 }}>
+          Last meeting{shortDay(lastMeeting.date) ? ` ${shortDay(lastMeeting.date)}` : ""} in{" "}
+          <b style={{ color: "var(--gn-ink)" }}>{lastMeeting.game}</b>
+          {" · "}
+          {lastMeeting.outcome === "tie" ? (
+            "tied"
+          ) : (
+            <b style={{ color: lastMeeting.outcome === "win" ? P1 : P2 }}>
+              {lastMeeting.outcome === "win" ? r.me.displayName : r.them.displayName} took it
+            </b>
+          )}
+        </p>
+      )}
+
+      {streakN > 0 && (
+        <p className="gn-hint" style={{ fontSize: 13 }}>
+          <b style={{ color: currentStreak > 0 ? P1 : P2 }}>{streakName}</b> has won {streakN} in a row
+        </p>
+      )}
+
+      {last5.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span className="gn-hint" style={{ fontSize: 12 }}>last {last5.length}</span>
+          <span style={{ display: "flex", gap: 4 }}>
+            {last5.map((m, i) => {
+              const color = m.outcome === "win" ? P1 : m.outcome === "loss" ? P2 : "var(--gn-dim)";
+              return (
+                <span
+                  key={i}
+                  title={`${m.game}${shortDay(m.date) ? ` · ${shortDay(m.date)}` : ""}`}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: 6,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 9,
+                    fontWeight: 800,
+                    color: "var(--gn-bg)",
+                    background: color,
+                    flexShrink: 0,
+                  }}
+                >
+                  {m.outcome === "win" ? "W" : m.outcome === "loss" ? "L" : "T"}
+                </span>
+              );
+            })}
+          </span>
+        </div>
+      )}
+
+      {(myLongestStreak > 1 || theirLongestStreak > 1) && (
+        <p className="gn-hint" style={{ fontSize: 12 }}>
+          Best run: <b style={{ color: P1 }}>{myLongestStreak}</b> vs{" "}
+          <b style={{ color: P2 }}>{theirLongestStreak}</b>
+        </p>
+      )}
+
+      {(mine || theirs) && (
+        <p className="gn-hint" style={{ fontSize: 12 }}>
+          When they meet:{" "}
+          {mine ? (
+            <>
+              <b style={{ color: P1 }}>{mine.name}</b> ({mine.played})
+            </>
+          ) : (
+            "no character"
+          )}
+          {" vs "}
+          {theirs ? (
+            <>
+              <b style={{ color: P2 }}>{theirs.name}</b> ({theirs.played})
+            </>
+          ) : (
+            "no character"
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Compare({ r, variant = "core" }: { r: Rivalry; variant?: "core" | "deep" }) {
   const rows: { label: string; a: string; b: string; aWins: boolean; bWins: boolean }[] = [];
-  const add = (label: string, av: number | null, bv: number | null, fmt: (n: number) => string, lowerBetter = false) => {
-    const a = av === null ? "-" : fmt(av);
-    const b = bv === null ? "-" : fmt(bv);
+  const add = (label: string, av: number | null | undefined, bv: number | null | undefined, fmt: (n: number) => string, lowerBetter = false) => {
+    const an = av ?? null;
+    const bn = bv ?? null;
+    const a = an === null ? "-" : fmt(an);
+    const b = bn === null ? "-" : fmt(bn);
     let aWins = false;
     let bWins = false;
-    if (av !== null && bv !== null && av !== bv) {
-      const aBetter = lowerBetter ? av < bv : av > bv;
+    if (an !== null && bn !== null && an !== bn) {
+      const aBetter = lowerBetter ? an < bn : an > bn;
       aWins = aBetter;
       bWins = !aBetter;
     }
     rows.push({ label, a, b, aWins, bWins });
   };
-  add("wins", r.me.wins, r.them.wins, String);
-  add("win rate", r.me.winRate, r.them.winRate, pct);
-  add("games", r.me.played, r.them.played, String);
-  add("best finish", r.me.best, r.them.best, (n) => `#${n}`, true);
-  add("avg place", r.me.avgPlacement, r.them.avgPlacement, (n) => n.toFixed(1), true);
+
+  if (variant === "core") {
+    add("wins", r.me.wins, r.them.wins, String);
+    add("win rate", r.me.winRate, r.them.winRate, pct);
+    add("games", r.me.played, r.them.played, String);
+    add("best finish", r.me.best, r.them.best, (n) => `#${n}`, true);
+    add("avg place", r.me.avgPlacement, r.them.avgPlacement, (n) => n.toFixed(1), true);
+  } else {
+    // Both sides come from the same aggregate, so every one of these is a
+    // like-for-like comparison with no extra derivation.
+    add("streak", r.me.form?.currentStreak, r.them.form?.currentStreak, String);
+    add("best streak", r.me.form?.longestStreak, r.them.form?.longestStreak, String);
+    add("worst skid", r.me.form?.longestLossStreak, r.them.form?.longestLossStreak, String, true);
+    add("1st place", r.me.placements?.firstShare, r.them.placements?.firstShare, pct);
+    add("last place", r.me.lastPlaceCount, r.them.lastPlaceCount, String, true);
+    add("nights", r.me.nightsPlayed, r.them.nightsPlayed, String);
+    add("games a night", r.me.history?.gamesPerNight, r.them.history?.gamesPerNight, (n) => n.toFixed(1));
+    add("characters", r.me.characters?.distinctCharacters, r.them.characters?.distinctCharacters, String);
+  }
 
   return (
     <div className="gn-card space-y-2">

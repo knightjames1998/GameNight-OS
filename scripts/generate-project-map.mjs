@@ -20,7 +20,7 @@ const SUBTITLE = "July 2026 · source of truth: BACKLOG.md";
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
-    x: 40, y: 95, h: 540,
+    x: 40, y: 95, h: 730,
     title: "SHIPPED — FOUNDATION", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Auth: 6-digit codes + links + passwords" },
@@ -32,11 +32,15 @@ const ZONES = [
       { t: "Quick play via hidden personal crews" },
       { t: "Arcade theme + PWA install; profiles + rivalry cards" },
       { t: "Flake tracking, streaks, Friends; past nights" },
-      { t: "Guest stat backfill; keep-warm ping; link previews", bg: "#c3fae8", h: 52 },
+      { t: "Guest stat backfill; keep-warm ping; link previews", h: 52 },
+      { t: "Per-character stats; podium stat removed (NEW)", bg: "#c3fae8" },
+      { t: "Time stats: matches.playedAt, streaks, form (NEW)", bg: "#c3fae8" },
+      { t: "Crew leaderboard: shared agg, unified rows (NEW)", bg: "#c3fae8", h: 52 },
+      { t: "Deep profile stats + richer head to head (NEW)", bg: "#c3fae8" },
     ],
   },
   {
-    x: 560, y: 95, h: 540,
+    x: 560, y: 95, h: 730,
     title: "SHIPPED — GAME PACKS", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Beerio Kart: full replica, predictions, TV" },
@@ -47,11 +51,11 @@ const ZONES = [
       { t: "Title-scoped character selection (cross-pack)" },
       { t: "Generic bracket tracker + TV + recap" },
       { t: "Shared primitives: FFA, KOTH, series, brackets" },
-      { t: "Beerio guest linking (forward-only snapshot)", bg: "#c3fae8" },
+      { t: "Beerio guest linking (forward-only snapshot)" },
     ],
   },
   {
-    x: 1080, y: 95, h: 540,
+    x: 1080, y: 95, h: 730,
     title: "NEXT UP (queued)", zoneBg: "#fff3bf", header: "#b45309", itemBg: "#ffd8a8",
     items: [
       { t: "1. (open slot — not committed)", sw: 2 },
@@ -64,11 +68,10 @@ const ZONES = [
     ],
   },
   {
-    x: 40, y: 660, h: 530,
+    x: 40, y: 850, h: 530,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
       { t: "Unified event TV + single active pack" },
-      { t: "Podium stat: remove or redefine" },
       { t: "Detailed personal stats block on Home" },
       { t: "Per-route dynamic link previews" },
       { t: "Mario Kart char-stats; MP minigame H2H" },
@@ -77,20 +80,17 @@ const ZONES = [
     ],
   },
   {
-    x: 560, y: 660, h: 530,
+    x: 560, y: 850, h: 530,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
       { t: "Watch: drizzle push can no-op in CI, check build log", bg: "#fff3bf", h: 52 },
       { t: "FIXED: iOS launched app zoomed in (inputs < 16px)", bg: "#b2f2bb", h: 52 },
       { t: "FIXED: RESEND_API_KEY never set on Render after move", bg: "#b2f2bb", h: 52 },
-      { t: "FIXED: Firefox double-back as Beerio spectator", bg: "#b2f2bb" },
-      { t: "FIXED: Mario Party tie placements shared", bg: "#b2f2bb" },
-      { t: "FIXED: PWA standalone + safe-area insets", bg: "#b2f2bb" },
     ],
   },
   {
-    x: 1080, y: 660, h: 530,
+    x: 1080, y: 850, h: 530,
     title: "IDEAS — NOT SOLIDIFIED", zoneBg: "#e5dbff", header: "#6d28d9", itemBg: "#d0bfff",
     items: [
       { t: "Draft night mode (snake drafts, TV board)" },

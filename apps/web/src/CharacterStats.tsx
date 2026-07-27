@@ -8,12 +8,21 @@
 // hides itself rather than rendering an empty card.
 
 export interface CharacterStats {
-  byCharacter: { name: string; played: number; wins: number; winRate: number }[];
+  byCharacter: {
+    name: string;
+    played: number;
+    wins: number;
+    winRate: number;
+    /** Null in packs that record a winner but no placement. */
+    bestPlacement: number | null;
+    avgPlacement: number | null;
+  }[];
   /** Most games played. Null when nothing character-based has been recorded. */
   mostPlayed: string | null;
   /** Best win rate among characters with at least minGamesForBest games. */
   best: string | null;
   minGamesForBest: number;
+  distinctCharacters: number;
 }
 
 function Chip({ text, color }: { text: string; color: string }) {
@@ -38,7 +47,7 @@ function Chip({ text, color }: { text: string; color: string }) {
 
 export default function CharacterStatsCard({ characters }: { characters?: CharacterStats }) {
   if (!characters || characters.byCharacter.length === 0) return null;
-  const { byCharacter, mostPlayed, best, minGamesForBest } = characters;
+  const { byCharacter, mostPlayed, best, minGamesForBest, distinctCharacters } = characters;
 
   return (
     <section className="space-y-2">
@@ -58,14 +67,24 @@ export default function CharacterStatsCard({ characters }: { characters?: Charac
               {c.name === mostPlayed && <Chip text="main" color="var(--gn-p2)" />}
               {c.name === best && <Chip text="best" color="var(--gn-gold)" />}
             </span>
-            <span className="gn-hint" style={{ flexShrink: 0 }}>
+            <span className="gn-hint" style={{ flexShrink: 0, textAlign: "right" }}>
               <span style={{ color: "var(--gn-ink)", fontWeight: 700 }}>{c.wins}</span>W / {c.played}
               {" · "}
               {Math.round(c.winRate * 100)}%
+              {(c.bestPlacement !== null || c.avgPlacement !== null) && (
+                <span style={{ display: "block", fontSize: 11, color: "var(--gn-dim)" }}>
+                  {c.bestPlacement !== null && <>best #{c.bestPlacement}</>}
+                  {c.bestPlacement !== null && c.avgPlacement !== null && " · "}
+                  {c.avgPlacement !== null && <>avg {c.avgPlacement.toFixed(1)}</>}
+                </span>
+              )}
             </span>
           </li>
         ))}
       </ul>
+      <p className="gn-hint" style={{ fontSize: 12 }}>
+        {distinctCharacters} different {distinctCharacters === 1 ? "character" : "characters"} played.
+      </p>
       {best === null && (
         <p className="gn-hint" style={{ fontSize: 12 }}>
           Best needs {minGamesForBest} games on one character.

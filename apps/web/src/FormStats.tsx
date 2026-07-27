@@ -9,6 +9,9 @@
 export interface FormStats {
   currentStreak: number;
   longestStreak: number;
+  /** The same walk inverted: "did not win" runs, shown under More stats. */
+  currentLossStreak: number;
+  longestLossStreak: number;
   /** Most recent first. Placement is null in packs that don't rank. */
   last5: { isWinner: boolean; placement: number | null }[];
   /** Results that carried a timestamp, so could be ordered at all. */
