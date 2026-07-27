@@ -256,6 +256,8 @@ export const matches = pgTable(
     index("matches_bracket_idx").on(t.bracketId),
     index("matches_group_idx").on(t.groupId),
     uniqueIndex("matches_event_external_uq").on(t.eventId, t.externalKey),
+    // stats.ts joins matches.game_id -> games.id on every leaderboard read.
+    index("matches_game_idx").on(t.gameId),
   ],
 );
 
@@ -283,6 +285,12 @@ export const matchParticipants = pgTable(
   (t) => [
     uniqueIndex("match_participants_match_user_uq").on(t.matchId, t.userId),
     index("match_participants_group_idx").on(t.groupId),
+    // Every personal stats read filters on user_id alone: /me/stats, a member
+    // profile, a rivalry, and both friend endpoints. The unique index above
+    // cannot serve them because match_id leads it, so without this they all
+    // sequential-scan the whole participants table. Added while the table is
+    // small, which is the cheap moment rather than the painful one.
+    index("match_participants_user_idx").on(t.userId),
   ],
 );
 

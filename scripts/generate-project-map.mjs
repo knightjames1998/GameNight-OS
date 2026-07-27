@@ -13,7 +13,7 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "July 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-07-27.
+// Redrawn 2026-07-27 (second pass that day, mid pre-pack cleanup).
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
 // each 480 wide, row 1 y=95 h=540, row 2 y=660 h=530. Items 440x40, 46px
@@ -33,10 +33,9 @@ const ZONES = [
       { t: "Arcade theme + PWA install; profiles + rivalry cards" },
       { t: "Flake tracking, streaks, Friends; past nights" },
       { t: "Guest stat backfill; keep-warm ping; link previews", h: 52 },
-      { t: "Per-character stats; podium stat removed (NEW)", bg: "#c3fae8" },
-      { t: "Time stats: matches.playedAt, streaks, form (NEW)", bg: "#c3fae8" },
-      { t: "Crew leaderboard: shared agg, unified rows (NEW)", bg: "#c3fae8", h: 52 },
-      { t: "Deep profile stats + richer head to head (NEW)", bg: "#c3fae8" },
+      { t: "Stats depth: characters, placements, streaks, history", h: 52 },
+      { t: "Crew leaderboard: shared agg, unified pack rows", h: 52 },
+      { t: "Pre-pack cleanup: hygiene, tests, request cost, indexes", bg: "#c3fae8", h: 52 },
     ],
   },
   {
@@ -84,6 +83,8 @@ const ZONES = [
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
+      { t: "Watch: countLastPlace IN list grows without bound", bg: "#fff3bf", h: 52 },
+      { t: "Watch: ws hub broadcasts everything to everyone (no rooms)", bg: "#fff3bf", h: 52 },
       { t: "Watch: drizzle push can no-op in CI, check build log", bg: "#fff3bf", h: 52 },
       { t: "FIXED: iOS launched app zoomed in (inputs < 16px)", bg: "#b2f2bb", h: 52 },
       { t: "FIXED: RESEND_API_KEY never set on Render after move", bg: "#b2f2bb", h: 52 },
