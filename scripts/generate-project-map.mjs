@@ -13,6 +13,7 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "July 2026 · source of truth: BACKLOG.md";
+// Redrawn 2026-07-27.
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
 // each 480 wide, row 1 y=95 h=540, row 2 y=660 h=530. Items 440x40, 46px
@@ -25,13 +26,13 @@ const ZONES = [
       { t: "Auth: 6-digit codes + links + passwords" },
       { t: "Crews: invites, roles, join / leave / delete" },
       { t: "Events + RSVPs, event share, night recap" },
-      { t: "Bracket engine: single + double elim, undo" },
+      { t: "Bracket engine: single + double elim, undo, GF clarity", h: 52 },
       { t: "WebSocket live sync + TV broadcast views" },
       { t: "Lifetime stats ledger + recap share cards" },
       { t: "Quick play via hidden personal crews" },
       { t: "Arcade theme + PWA install; profiles + rivalry cards" },
-      { t: "Flake tracking, streaks, Friends; show-up + date editing", h: 52 },
-      { t: "Link previews, favicons + past-nights cabinet", bg: "#c3fae8", h: 52 },
+      { t: "Flake tracking, streaks, Friends; past nights" },
+      { t: "Guest stat backfill; keep-warm ping; link previews", bg: "#c3fae8", h: 52 },
     ],
   },
   {
@@ -46,6 +47,7 @@ const ZONES = [
       { t: "Title-scoped character selection (cross-pack)" },
       { t: "Generic bracket tracker + TV + recap" },
       { t: "Shared primitives: FFA, KOTH, series, brackets" },
+      { t: "Beerio guest linking (forward-only snapshot)", bg: "#c3fae8" },
     ],
   },
   {
@@ -66,11 +68,8 @@ const ZONES = [
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
       { t: "Unified event TV + single active pack" },
-      { t: "Double elim TV up-next ordering" },
-      { t: "Double elim: losers finalist wins twice" },
       { t: "Podium stat: remove or redefine" },
       { t: "Detailed personal stats block on Home" },
-      { t: "Link a guest to a crew member (rebind)" },
       { t: "Per-route dynamic link previews" },
       { t: "Mario Kart char-stats; MP minigame H2H" },
       { t: "Smack talk feed; TV stats + predictions ticker", h: 52 },
@@ -102,7 +101,7 @@ const ZONES = [
       { t: "Cornhole, darts, poker night" },
       { t: "Capacitor native wrapper (push notifs)" },
       { t: "Offline score entry sync (PWA)" },
-      { t: "Warm-up ping before game night (Render sleep)" },
+      { t: "Event-aware warm ping (only before a night)" },
     ],
   },
 ];

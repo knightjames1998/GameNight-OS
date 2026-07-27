@@ -227,6 +227,15 @@ export const matches = pgTable(
     // per-format lifetime stats and the night recap's grouping. Null on
     // pre-existing rows and on brackets.
     format: text("format"),
+    // Full completion snapshot, for a pack that reports a finished result
+    // fire-and-forget instead of keeping its session server-side. Only
+    // Beerio Kart populates it today: its vendored engine POSTs the final
+    // placements for EVERY racer, and the completion route used to keep
+    // only the names matching a crew member and discard the rest, so a
+    // guest -> member backfill had nothing to reopen. The other packs
+    // persist their whole session jsonb (brackets, smash_sessions,
+    // game_sessions) and never need this. Null on every pre-existing row.
+    rawResult: jsonb("raw_result").$type<{ placements: { name: string; place: number }[] }>(),
     round: integer("round").notNull(),
     position: integer("position").notNull(),
     status: text("status", { enum: ["pending", "live", "completed"] })

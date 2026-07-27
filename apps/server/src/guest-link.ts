@@ -9,8 +9,12 @@
 // Nothing here can be runtime-tested in CI, so the preview is the safety net:
 // the admin sees every game that would move before anything is written. Each
 // insert reuses the pack's own materializer with ON CONFLICT DO NOTHING, so a
-// re-run is a no-op and existing rows are never disturbed. Beerio is excluded
-// (opaque vendored state, not recoverable); the UI surfaces that.
+// re-run is a no-op and existing rows are never disturbed.
+//
+// Beerio is covered FORWARD-ONLY. It keeps no usable session record, so it
+// only became linkable once completion started storing its full standings on
+// matches.rawResult; nights finished before that discarded their guest names
+// and are unrecoverable, so they never appear. The UI says so.
 
 import { Router } from "express";
 import { getDb, events, memberships, and, eq, inArray } from "@gamenight/db";
@@ -22,6 +26,7 @@ import { guestNamesSmash, creditGuestSmash } from "./smash.js";
 import { guestNamesMarioKart, creditGuestMarioKart } from "./mariokart.js";
 import { guestNamesMarioParty, creditGuestMarioParty } from "./marioparty.js";
 import { guestNamesPingPong, creditGuestPingPong } from "./pingpong.js";
+import { guestNamesBeerio, creditGuestBeerio } from "./beerio-gn.js";
 
 export const guestLinkRouter = Router();
 
@@ -31,6 +36,7 @@ const nameAdapters = [
   guestNamesMarioKart,
   guestNamesMarioParty,
   guestNamesPingPong,
+  guestNamesBeerio,
 ];
 
 const creditAdapters: {
@@ -42,6 +48,7 @@ const creditAdapters: {
   { key: "mario_kart", credit: creditGuestMarioKart },
   { key: "mario_party", credit: creditGuestMarioParty },
   { key: "pingpong", credit: creditGuestPingPong },
+  { key: "beerio", credit: creditGuestBeerio },
 ];
 
 async function roleOf(groupId: string, userId: string): Promise<string | undefined> {
@@ -122,7 +129,9 @@ guestLinkRouter.post("/groups/:id/guest-link/preview", requireAuth, async (req: 
   const g = await guard(req, res);
   if (!g) return;
   const { items } = await scan(g.groupId, g.guestName, g.memberId, true);
-  res.json({ items, total: items.length, beerioExcluded: true });
+  // Beerio is included now, but only from the deploy that started storing its
+  // standings; earlier nights kept no guest names and cannot appear.
+  res.json({ items, total: items.length, beerioForwardOnly: true });
 });
 
 guestLinkRouter.post("/groups/:id/guest-link/confirm", requireAuth, async (req: AuthedRequest, res) => {
