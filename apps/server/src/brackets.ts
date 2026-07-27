@@ -28,6 +28,7 @@ import {
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { broadcast } from "./ws.js";
+import { type GuestCreditResult } from "./guest-link-util.js";
 
 export const bracketsRouter = Router();
 bracketsRouter.use(requireAuth);
@@ -271,14 +272,22 @@ bracketsRouter.patch("/brackets/:id/settings", async (req: AuthedRequest, res) =
  * credit yet; linking guests to members is a backlog item). Idempotent by
  * bracketId.
  */
-async function materialize(loaded: LoadedBracket, structure: BracketStructure) {
+async function materialize(
+  loaded: LoadedBracket,
+  structure: BracketStructure,
+  linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
+) {
   const db = getDb();
-  const existing = await db
-    .select({ id: matches.id })
-    .from(matches)
-    .where(eq(matches.bracketId, loaded.id))
-    .limit(1);
-  if (existing[0]) return;
+  const existing = (
+    await db
+      .select({ id: matches.id })
+      .from(matches)
+      .where(eq(matches.bracketId, loaded.id))
+      .limit(1)
+  )[0];
+  // Live path: already materialized and nothing to link. A guest backfill
+  // reuses the existing row and adds the participant that was skipped.
+  if (existing && !linkMap?.size) return;
 
   const computed = computeBracket(loaded.entrants.length, structure, loaded.results);
   if (!computed.championSeed) return;
@@ -288,36 +297,145 @@ async function materialize(loaded: LoadedBracket, structure: BracketStructure) {
   // double elim a winners-bracket loss just drops you down).
   const place = placements(structure, computed);
 
-  const match = (
-    await db
-      .insert(matches)
-      .values({
-        groupId: loaded.groupId,
-        bracketId: loaded.id,
-        gameId: loaded.gameId,
-        eventId: loaded.eventId,
-        round: 1,
-        position: 0,
-        status: "completed",
-      })
-      .returning()
-  )[0]!;
+  const matchId = existing
+    ? existing.id
+    : (
+        await db
+          .insert(matches)
+          .values({
+            groupId: loaded.groupId,
+            bracketId: loaded.id,
+            gameId: loaded.gameId,
+            eventId: loaded.eventId,
+            round: 1,
+            position: 0,
+            status: "completed",
+          })
+          .returning()
+      )[0]!.id;
 
   for (const [seed, p] of place) {
     const e = loaded.entrants[seed - 1];
-    if (!e || e.kind !== "member") continue; // guests carry no stats
+    if (!e) continue;
+    // Members always credit; a guest credits only when linked (backfill).
+    const userId = e.kind === "member" ? e.userId : linkMap?.get(e.name);
+    if (!userId) continue;
     await db
       .insert(matchParticipants)
       .values({
         groupId: loaded.groupId,
-        matchId: match.id,
-        userId: e.userId,
+        matchId,
+        userId,
         seed,
         placement: p,
         isWinner: p === 1,
       })
       .onConflictDoNothing();
   }
+}
+
+// ---------- guest -> member backfill (see guest-link.ts) ----------
+
+/** Distinct guest display names across this crew's completed brackets. */
+export async function guestNamesBracket(groupId: string): Promise<string[]> {
+  const rows = await getDb()
+    .select({ entrants: brackets.entrants })
+    .from(brackets)
+    .where(and(eq(brackets.groupId, groupId), eq(brackets.status, "completed")));
+  const names = new Set<string>();
+  for (const r of rows) {
+    for (const e of parseEntrants(r.entrants)) if (e.kind === "guest" && e.name) names.add(e.name);
+  }
+  return [...names];
+}
+
+/**
+ * Credit (or preview) the guest's finishing place in every completed bracket
+ * they entered. Reuses the same materializer the live completion uses: it
+ * reopens the already-materialized match and adds the member's row.
+ */
+export async function creditGuestBracket(
+  groupId: string,
+  guestName: string,
+  memberId: string,
+  dryRun: boolean,
+): Promise<GuestCreditResult> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: brackets.id,
+      eventId: brackets.eventId,
+      gameId: brackets.gameId,
+      format: brackets.format,
+      entrants: brackets.entrants,
+      results: brackets.results,
+      gameName: games.name,
+      scheduledFor: events.scheduledFor,
+    })
+    .from(brackets)
+    .innerJoin(games, eq(brackets.gameId, games.id))
+    .innerJoin(events, eq(brackets.eventId, events.id))
+    .where(and(eq(brackets.groupId, groupId), eq(brackets.status, "completed")));
+  const items: GuestCreditResult["items"] = [];
+  const linkMap = new Map([[guestName, memberId]]);
+  let written = 0;
+
+  for (const b of rows) {
+    const entrants = parseEntrants(b.entrants);
+    const seedIdx = entrants.findIndex((e) => e.kind === "guest" && e.name === guestName);
+    if (seedIdx < 0) continue;
+    // A completed bracket materializes exactly one match, keyed by bracketId.
+    const m = (
+      await db.select({ id: matches.id }).from(matches).where(eq(matches.bracketId, b.id)).limit(1)
+    )[0];
+    if (!m) continue;
+    const already = (
+      await db
+        .select({ id: matchParticipants.id })
+        .from(matchParticipants)
+        .where(and(eq(matchParticipants.matchId, m.id), eq(matchParticipants.userId, memberId)))
+        .limit(1)
+    )[0];
+    if (already) continue; // member already has a row in this tournament
+
+    const structure = buildStructure(b.format, entrants.length);
+    const computed = computeBracket(entrants.length, structure, b.results as BracketResults);
+    const placement = placements(structure, computed).get(seedIdx + 1);
+    if (placement == null) continue; // guest never placed (e.g. bye only)
+
+    items.push({
+      pack: "bracket",
+      packLabel: "Tournament",
+      eventId: b.eventId,
+      label: b.gameName ?? "Tournament",
+      date: b.scheduledFor ? b.scheduledFor.toISOString() : null,
+      placement,
+      isWinner: placement === 1,
+    });
+
+    if (!dryRun) {
+      await materialize(
+        {
+          id: b.id,
+          eventId: b.eventId,
+          groupId,
+          gameName: b.gameName ?? "",
+          groupName: "",
+          status: "completed",
+          format: b.format,
+          openScoring: false,
+          gameId: b.gameId,
+          entrants,
+          results: b.results as BracketResults,
+          myRole: "owner",
+        },
+        structure,
+        linkMap,
+      );
+      written++;
+    }
+  }
+  return { items, written: dryRun ? 0 : written };
 }
 
 // ---------- Derivation for the client ----------

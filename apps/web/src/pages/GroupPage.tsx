@@ -456,6 +456,15 @@ export default function GroupPage({
             );
           })}
         </ul>
+        {canManage && (
+          <button
+            onClick={() => navigate(`/g/${group.id}/link-guest`)}
+            className="gn-btn gn-btn--ghost"
+            style={{ minHeight: "40px", width: "100%" }}
+          >
+            Link a past guest to a member
+          </button>
+        )}
       </section>
 
       {/* Compact invite row: one line, the full URL only appears if the

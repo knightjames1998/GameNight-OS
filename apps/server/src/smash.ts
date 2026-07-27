@@ -55,6 +55,7 @@ import {
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { broadcast } from "./ws.js";
+import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
 export const smashRouter = Router();
 export const smashTvRouter = Router();
@@ -141,38 +142,47 @@ async function materializeGame(
   roster: SmashPlayer[],
   sessionKey: string,
   format: SmashFormat,
+  linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
 ): Promise<{ recorded: number; guests: number }> {
   const db = getDb();
   const key = ledgerKey(eventId, sessionKey, game.idx);
-  const dupe = await db
-    .select({ id: matches.id })
-    .from(matches)
-    .where(and(eq(matches.eventId, eventId), eq(matches.externalKey, key)))
-    .limit(1);
-  if (dupe[0]) return { recorded: 0, guests: 0 };
-
-  const match = (
+  const existing = (
     await db
-      .insert(matches)
-      .values({
-        groupId,
-        gameId,
-        eventId,
-        externalKey: key,
-        format,
-        round: 1,
-        position: game.idx,
-        status: "completed",
-      })
-      .returning()
-  )[0]!;
+      .select({ id: matches.id })
+      .from(matches)
+      .where(and(eq(matches.eventId, eventId), eq(matches.externalKey, key)))
+      .limit(1)
+  )[0];
+  // Live path: already materialized and nothing to link -> nothing to do. A
+  // guest backfill (linkMap present) instead reuses the existing row and adds
+  // the participant that was skipped, keyed the same, ON CONFLICT DO NOTHING.
+  if (existing && !linkMap?.size) return { recorded: 0, guests: 0 };
+
+  const matchId = existing
+    ? existing.id
+    : (
+        await db
+          .insert(matches)
+          .values({
+            groupId,
+            gameId,
+            eventId,
+            externalKey: key,
+            format,
+            round: 1,
+            position: game.idx,
+            status: "completed",
+          })
+          .returning()
+      )[0]!.id;
 
   const slotById = new Map(roster.map((p) => [p.id, p]));
   let recorded = 0;
   let guests = 0;
   for (const line of game.lines) {
     const slot = slotById.get(line.playerId);
-    if (!slot || slot.kind === "guest" || !slot.userId) {
+    const userId = slot ? (slot.kind === "guest" ? linkMap?.get(slot.name) : slot.userId) : undefined;
+    if (!userId) {
       guests++;
       continue;
     }
@@ -180,8 +190,8 @@ async function materializeGame(
       .insert(matchParticipants)
       .values({
         groupId,
-        matchId: match.id,
-        userId: slot.userId,
+        matchId,
+        userId,
         placement: line.placement,
         isWinner: line.isWinner,
         character: line.character ?? null,
@@ -207,33 +217,38 @@ async function materializeSeries(
   bestOf: SeriesBestOf,
   roster: SmashPlayer[],
   sessionKey: string,
+  linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
 ): Promise<{ recorded: number; guests: number }> {
   if (!series.winnerId) return { recorded: 0, guests: 0 };
   const db = getDb();
   const key = ledgerKey(eventId, sessionKey, series.idx);
-  const dupe = await db
-    .select({ id: matches.id })
-    .from(matches)
-    .where(and(eq(matches.eventId, eventId), eq(matches.externalKey, key)))
-    .limit(1);
-  if (dupe[0]) return { recorded: 0, guests: 0 };
-
-  const match = (
+  const existing = (
     await db
-      .insert(matches)
-      .values({
-        groupId,
-        gameId,
-        eventId,
-        externalKey: key,
-        label: `bo${bestOf}`,
-        format: "bestof",
-        round: 1,
-        position: series.idx,
-        status: "completed",
-      })
-      .returning()
-  )[0]!;
+      .select({ id: matches.id })
+      .from(matches)
+      .where(and(eq(matches.eventId, eventId), eq(matches.externalKey, key)))
+      .limit(1)
+  )[0];
+  if (existing && !linkMap?.size) return { recorded: 0, guests: 0 };
+
+  const matchId = existing
+    ? existing.id
+    : (
+        await db
+          .insert(matches)
+          .values({
+            groupId,
+            gameId,
+            eventId,
+            externalKey: key,
+            label: `bo${bestOf}`,
+            format: "bestof",
+            round: 1,
+            position: series.idx,
+            status: "completed",
+          })
+          .returning()
+      )[0]!.id;
 
   const tally = seriesGameTally(series);
   const loserId = series.winnerId === series.aId ? series.bId : series.aId;
@@ -242,7 +257,8 @@ async function materializeSeries(
   let guests = 0;
   for (const slotId of [series.winnerId, loserId]) {
     const slot = slotById.get(slotId);
-    if (!slot || slot.kind === "guest" || !slot.userId) {
+    const userId = slot ? (slot.kind === "guest" ? linkMap?.get(slot.name) : slot.userId) : undefined;
+    if (!userId) {
       guests++;
       continue;
     }
@@ -251,11 +267,11 @@ async function materializeSeries(
       .insert(matchParticipants)
       .values({
         groupId,
-        matchId: match.id,
-        userId: slot.userId,
+        matchId,
+        userId,
         placement: slotId === series.winnerId ? 1 : 2,
         isWinner: slotId === series.winnerId,
-        character: slot.character ?? null,
+        character: slot?.character ?? null,
         meta: { gameWins: g.wins, gamesPlayed: g.played },
       })
       .onConflictDoNothing();
@@ -286,6 +302,97 @@ async function deleteMaterialized(eventId: string, sessionKey: string | undefine
   if (!m) return;
   await db.delete(matchParticipants).where(eq(matchParticipants.matchId, m.id));
   await db.delete(matches).where(eq(matches.id, m.id));
+}
+
+// ---------- guest -> member backfill (see guest-link.ts) ----------
+
+/** Distinct guest display names across this crew's Smash sessions. */
+export async function guestNamesSmash(groupId: string): Promise<string[]> {
+  const rows = await getDb()
+    .select({ state: smashSessions.state })
+    .from(smashSessions)
+    .where(eq(smashSessions.groupId, groupId));
+  const names = new Set<string>();
+  for (const r of rows) {
+    for (const p of (r.state as unknown as SmashSessionState).roster ?? []) {
+      if (p.kind === "guest" && p.name) names.add(p.name);
+    }
+  }
+  return [...names];
+}
+
+/**
+ * Credit (or, when dryRun, preview) every recoverable Smash result the guest
+ * played to the member. Reuses the same materializers the live path uses; the
+ * dry run reads the stored lines and skips units the member already has.
+ */
+export async function creditGuestSmash(
+  groupId: string,
+  guestName: string,
+  memberId: string,
+  dryRun: boolean,
+): Promise<GuestCreditResult> {
+  const db = getDb();
+  const rows = await db
+    .select({ eventId: smashSessions.eventId, state: smashSessions.state })
+    .from(smashSessions)
+    .where(eq(smashSessions.groupId, groupId));
+  const items: GuestCreditResult["items"] = [];
+  const linkMap = new Map([[guestName, memberId]]);
+  let gameId: string | null = null;
+
+  for (const row of rows) {
+    const state = row.state as unknown as SmashSessionState;
+    const guestSlots = new Set(
+      (state.roster ?? []).filter((p) => p.kind === "guest" && p.name === guestName).map((p) => p.id),
+    );
+    if (guestSlots.size === 0) continue;
+    const credited = await memberCreditedKeys(row.eventId, memberId);
+
+    for (const g of state.games ?? []) {
+      const line = g.lines.find((l) => guestSlots.has(l.playerId));
+      if (!line) continue;
+      if (credited.has(ledgerKey(row.eventId, state.sessionKey, g.idx))) continue;
+      items.push({
+        pack: "smash",
+        packLabel: "Smash Bros",
+        eventId: row.eventId,
+        label: g.mode === "koth" ? "King of the Hill" : "Free For All",
+        date: g.at ?? null,
+        placement: line.placement,
+        isWinner: line.isWinner,
+      });
+    }
+    for (const ser of state.seriesLog ?? []) {
+      if (!ser.winnerId || !(guestSlots.has(ser.aId) || guestSlots.has(ser.bId))) continue;
+      if (credited.has(ledgerKey(row.eventId, state.sessionKey, ser.idx))) continue;
+      const won = guestSlots.has(ser.winnerId);
+      items.push({
+        pack: "smash",
+        packLabel: "Smash Bros",
+        eventId: row.eventId,
+        label: `Best of ${state.bestOf}`,
+        date: ser.at ?? null,
+        placement: won ? 1 : 2,
+        isWinner: won,
+      });
+    }
+
+    if (!dryRun) {
+      gameId = gameId ?? (await ensureSmashGame(groupId));
+      for (const g of state.games ?? []) {
+        if (g.lines.some((l) => guestSlots.has(l.playerId))) {
+          await materializeGame(groupId, row.eventId, gameId, g, state.roster, state.sessionKey, state.format, linkMap);
+        }
+      }
+      for (const ser of state.seriesLog ?? []) {
+        if (ser.winnerId && (guestSlots.has(ser.aId) || guestSlots.has(ser.bId))) {
+          await materializeSeries(groupId, row.eventId, gameId, ser, state.bestOf, state.roster, state.sessionKey, linkMap);
+        }
+      }
+    }
+  }
+  return { items, written: dryRun ? 0 : items.length };
 }
 
 // ---------- launch context ----------

@@ -18,6 +18,7 @@ import { marioKartRouter, marioKartTvRouter } from "./mariokart.js";
 import { marioPartyRouter, marioPartyTvRouter } from "./marioparty.js";
 import { pingPongRouter, pingPongTvRouter } from "./pingpong.js";
 import { statsRouter } from "./stats.js";
+import { guestLinkRouter } from "./guest-link.js";
 import { setupWebSockets } from "./ws.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -52,6 +53,7 @@ app.use("/api/tv", pingPongTvRouter); // public: big-screen read for Ping Pong
 app.use("/api", beerioRouter); // public: sessions/hof for the Beerio pack
 app.use("/api", beerioGnRouter); // authed per-route: GameNight binding for the pack
 app.use("/api", quickPlayRouter);
+app.use("/api", guestLinkRouter); // authed per-route: guest -> member stat backfill
 app.use("/api", smashRouter); // authed per-route: Smash pack play + stats
 app.use("/api", marioKartRouter); // authed per-route: Mario Kart general tracking
 app.use("/api", marioPartyRouter); // authed per-route: Mario Party play + stats

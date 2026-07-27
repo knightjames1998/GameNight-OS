@@ -11,6 +11,7 @@ import TvPage from "./pages/TvPage";
 import BeerioApp, { setBeerioNavigator } from "./beerio/BeerioApp";
 import QuickPlayPage from "./pages/QuickPlayPage";
 import StatsPage from "./pages/StatsPage";
+import LinkGuestPage from "./pages/LinkGuestPage";
 import MyStatsPage from "./pages/MyStatsPage";
 import MemberPage, { FriendPage } from "./pages/MemberPage";
 import BeerioTvPage from "./beerio/BeerioTvPage";
@@ -116,6 +117,7 @@ export default function App() {
         <Route path="/beerio" element={<BeerioRoute />} />
         <Route path="/quick" element={<QuickPlayPage />} />
         <Route path="/g/:id/stats" element={<StatsPage />} />
+        <Route path="/g/:id/link-guest" element={<LinkGuestPage />} />
         <Route path="/me/stats" element={<MyStatsPage />} />
         <Route path="/g/:id/member/:userId" element={<MemberPage me={me} />} />
         <Route path="/friend/:userId" element={<FriendPage me={me} />} />

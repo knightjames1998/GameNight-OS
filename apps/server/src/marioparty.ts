@@ -44,6 +44,7 @@ import {
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { broadcast } from "./ws.js";
+import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
 const PACK = "mario_party";
 
@@ -127,39 +128,47 @@ async function materializeGame(
   game: MpGame,
   roster: SmashPlayer[],
   sessionKey: string,
+  linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
 ): Promise<{ recorded: number; guests: number }> {
   const db = getDb();
   const key = ledgerKey(eventId, sessionKey, game.idx);
-  const dupe = await db
-    .select({ id: matches.id })
-    .from(matches)
-    .where(and(eq(matches.eventId, eventId), eq(matches.externalKey, key)))
-    .limit(1);
-  if (dupe[0]) return { recorded: 0, guests: 0 };
-
-  const match = (
+  const existing = (
     await db
-      .insert(matches)
-      .values({
-        groupId,
-        gameId,
-        eventId,
-        externalKey: key,
-        label: game.map,
-        format: "board",
-        round: 1,
-        position: game.idx,
-        status: "completed",
-      })
-      .returning()
-  )[0]!;
+      .select({ id: matches.id })
+      .from(matches)
+      .where(and(eq(matches.eventId, eventId), eq(matches.externalKey, key)))
+      .limit(1)
+  )[0];
+  // Live path: already materialized, nothing to link. A guest backfill reuses
+  // the existing row and adds the skipped participant, ON CONFLICT DO NOTHING.
+  if (existing && !linkMap?.size) return { recorded: 0, guests: 0 };
+
+  const matchId = existing
+    ? existing.id
+    : (
+        await db
+          .insert(matches)
+          .values({
+            groupId,
+            gameId,
+            eventId,
+            externalKey: key,
+            label: game.map,
+            format: "board",
+            round: 1,
+            position: game.idx,
+            status: "completed",
+          })
+          .returning()
+      )[0]!.id;
 
   const slotById = new Map(roster.map((p) => [p.id, p]));
   let recorded = 0;
   let guests = 0;
   for (const line of game.lines) {
     const slot = slotById.get(line.playerId);
-    if (!slot || slot.kind === "guest" || !slot.userId) {
+    const userId = slot ? (slot.kind === "guest" ? linkMap?.get(slot.name) : slot.userId) : undefined;
+    if (!userId) {
       guests++;
       continue;
     }
@@ -167,8 +176,8 @@ async function materializeGame(
       .insert(matchParticipants)
       .values({
         groupId,
-        matchId: match.id,
-        userId: slot.userId,
+        matchId,
+        userId,
         score: line.stars,
         placement: line.placement,
         isWinner: line.isWinner,
@@ -194,6 +203,74 @@ async function deleteMaterialized(eventId: string, sessionKey: string | undefine
   if (!m) return;
   await db.delete(matchParticipants).where(eq(matchParticipants.matchId, m.id));
   await db.delete(matches).where(eq(matches.id, m.id));
+}
+
+// ---------- guest -> member backfill (see guest-link.ts) ----------
+
+/** Distinct guest display names across this crew's Mario Party sessions. */
+export async function guestNamesMarioParty(groupId: string): Promise<string[]> {
+  const rows = await getDb()
+    .select({ state: gameSessions.state })
+    .from(gameSessions)
+    .where(and(eq(gameSessions.groupId, groupId), eq(gameSessions.pack, PACK)));
+  const names = new Set<string>();
+  for (const r of rows) {
+    for (const p of (r.state as unknown as MpSessionState).roster ?? []) {
+      if (p.kind === "guest" && p.name) names.add(p.name);
+    }
+  }
+  return [...names];
+}
+
+/** Credit (or preview) every recoverable Mario Party board the guest played. */
+export async function creditGuestMarioParty(
+  groupId: string,
+  guestName: string,
+  memberId: string,
+  dryRun: boolean,
+): Promise<GuestCreditResult> {
+  const db = getDb();
+  const rows = await db
+    .select({ eventId: gameSessions.eventId, state: gameSessions.state })
+    .from(gameSessions)
+    .where(and(eq(gameSessions.groupId, groupId), eq(gameSessions.pack, PACK)));
+  const items: GuestCreditResult["items"] = [];
+  const linkMap = new Map([[guestName, memberId]]);
+  let gameId: string | null = null;
+
+  for (const row of rows) {
+    const state = row.state as unknown as MpSessionState;
+    const guestSlots = new Set(
+      (state.roster ?? []).filter((p) => p.kind === "guest" && p.name === guestName).map((p) => p.id),
+    );
+    if (guestSlots.size === 0) continue;
+    const credited = await memberCreditedKeys(row.eventId, memberId);
+
+    for (const g of state.games ?? []) {
+      const line = g.lines.find((l) => guestSlots.has(l.playerId));
+      if (!line) continue;
+      if (credited.has(ledgerKey(row.eventId, state.sessionKey, g.idx))) continue;
+      items.push({
+        pack: "mario_party",
+        packLabel: "Mario Party",
+        eventId: row.eventId,
+        label: g.map,
+        date: g.at ?? null,
+        placement: line.placement,
+        isWinner: line.isWinner,
+      });
+    }
+
+    if (!dryRun) {
+      gameId = gameId ?? (await ensureGame(groupId));
+      for (const g of state.games ?? []) {
+        if (g.lines.some((l) => guestSlots.has(l.playerId))) {
+          await materializeGame(groupId, row.eventId, gameId, g, state.roster, state.sessionKey, linkMap);
+        }
+      }
+    }
+  }
+  return { items, written: dryRun ? 0 : items.length };
 }
 
 // ---------- launch context ----------
