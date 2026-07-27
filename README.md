@@ -24,7 +24,7 @@ packages/
 - **Beerio Kart**: the first full game pack, a 1:1 port of the standalone Beerio Kart Bracket app, bound to lifetime stats.
 - **Legacy**: lifetime stats per crew, per game mode. Canvas-to-JPG recap card with native share sheet.
 
-See GAMEPLAN.md for what's being built right now, and BACKLOG.md for the standing rules every game mode has to satisfy, the full idea backlog, and the decision log.
+See BACKLOG.md for what's being built right now, the standing rules every game mode has to satisfy, the full idea backlog, and the decision log. It is the single source of truth for scope.
 
 ## Running it locally
 
@@ -47,4 +47,4 @@ GitHub is the source of truth. Push to `main` auto-deploys on **Render**; the da
 
 ## Ground rules
 
-See GAMEPLAN.md for the build order and standing rules, and BACKLOG.md for everything not being built right now. Key principles: every table carries `group_id`, games are generic with packs layered on top, boring beats clever.
+See BACKLOG.md for the build order, the standing rules, and everything not being built right now. Key principles: every table carries `group_id`, games are generic with packs layered on top, boring beats clever.
