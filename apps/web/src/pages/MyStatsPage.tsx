@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import BackButton from "../BackButton";
 import CharacterStatsCard, { type CharacterStats } from "../CharacterStats";
+import FormStatsCard, { type FormStats } from "../FormStats";
 
 // The full personal-stats page, opened from the "Your stats" button on Home.
 // Lifetime totals across every crew (quick play included), broken down by
@@ -15,6 +16,8 @@ interface MyStats {
   byFormat: { format: string; played: number; wins: number }[];
   byCrew: { groupId: string; name: string; played: number; wins: number; personal: boolean }[];
   characters?: CharacterStats;
+  form?: FormStats;
+  nightsPlayed?: number;
 }
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -92,6 +95,8 @@ export default function MyStatsPage() {
               <Tile n={String(stats.played)} label="games" />
               <Tile n={`${Math.round(stats.winRate * 100)}%`} label="win rate" accent="var(--gn-p2)" />
             </div>
+
+            <FormStatsCard form={stats.form} nightsPlayed={stats.nightsPlayed} />
 
             <CharacterStatsCard characters={stats.characters} />
 

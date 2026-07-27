@@ -204,14 +204,32 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
 // Head-to-head definition: any completed match where BOTH players have a
 // participant row. Better (lower) placement wins the encounter; equal
 // placement is a tie. This spans every pack because they all materialize
-// into the same ledger. No "current streak" here: matches carry no
-// timestamp, so encounter order can't be reconstructed reliably.
+// into the same ledger. Results are ordered by matches.playedAt, which is
+// the completion time (every pack writes its row once, when the game is
+// done), so streaks and recent form are real rather than guessed.
 
 /**
  * Games on one character before it can be crowned "best". Without a floor a
  * single lucky win is a 100% character and outranks a real main.
  */
 const MIN_CHAR_GAMES = 3;
+
+/** How many recent results the form pips show, most recent first. */
+const FORM_LENGTH = 5;
+
+/**
+ * One ledger result, exactly as the profile queries select it. Passed as an
+ * object rather than positionally: there are five like-typed fields and a
+ * swapped pair would be silent.
+ */
+interface ResultRow {
+  placement: number | null;
+  isWinner: boolean;
+  gameName: string | null;
+  character: string | null;
+  playedAt: Date | null;
+  eventId: string | null;
+}
 
 interface Agg {
   played: number;
@@ -225,6 +243,12 @@ interface Agg {
   // Packs with no characters (Beerio, Ping Pong, brackets) store null here
   // and never reach this map.
   byCharacter: Record<string, { played: number; wins: number }>;
+  // Every result with its time, unordered as it arrives; finishForm sorts.
+  // Streaks and recent form have no other way to order results, which is
+  // why matches.playedAt exists.
+  timeline: { playedAt: Date | null; isWinner: boolean; placement: number | null }[];
+  // Distinct nights this user actually played a game on.
+  eventIds: Set<string>;
 }
 
 function newAgg(): Agg {
@@ -236,35 +260,66 @@ function newAgg(): Agg {
     best: null,
     byGame: {},
     byCharacter: {},
+    timeline: [],
+    eventIds: new Set(),
   };
 }
 
-function feedAgg(
-  a: Agg,
-  placement: number | null,
-  isWinner: boolean,
-  gameName: string | null,
-  character: string | null,
-) {
-  const place = placement ?? 0;
+function feedAgg(a: Agg, r: ResultRow) {
+  const place = r.placement ?? 0;
   a.played++;
-  if (isWinner) a.wins++;
+  if (r.isWinner) a.wins++;
   if (place >= 1) {
     a.placementSum += place;
     a.placed++;
     a.best = a.best === null ? place : Math.min(a.best, place);
   }
-  const key = gameName ?? "Unknown";
+  const key = r.gameName ?? "Unknown";
   const g = (a.byGame[key] ??= { played: 0, wins: 0 });
   g.played++;
-  if (isWinner) g.wins++;
+  if (r.isWinner) g.wins++;
 
-  const char = character?.trim();
+  const char = r.character?.trim();
   if (char) {
     const c = (a.byCharacter[char] ??= { played: 0, wins: 0 });
     c.played++;
-    if (isWinner) c.wins++;
+    if (r.isWinner) c.wins++;
   }
+
+  a.timeline.push({ playedAt: r.playedAt, isWinner: r.isWinner, placement: r.placement });
+  if (r.eventId) a.eventIds.add(r.eventId);
+}
+
+/**
+ * Streaks and recent form, ordered by when each result was played. Results
+ * with no timestamp cannot be placed in the order and are left out entirely
+ * rather than guessed at.
+ */
+function finishForm(timeline: Agg["timeline"]) {
+  const dated = timeline
+    .filter((t): t is (typeof t) & { playedAt: Date } => t.playedAt != null)
+    .sort((x, y) => x.playedAt.getTime() - y.playedAt.getTime());
+
+  // Walking oldest to newest, `run` is the streak ending at the current
+  // result, so when the loop finishes it IS the current streak.
+  let run = 0;
+  let longest = 0;
+  for (const t of dated) {
+    run = t.isWinner ? run + 1 : 0;
+    if (run > longest) longest = run;
+  }
+
+  return {
+    currentStreak: run,
+    longestStreak: longest,
+    last5: dated
+      .slice(-FORM_LENGTH)
+      .reverse()
+      .map((t) => ({ isWinner: t.isWinner, placement: t.placement })),
+    // How many results could be ordered at all, so the client can tell
+    // "no wins yet" apart from "nothing timestamped yet".
+    tracked: dated.length,
+  };
 }
 
 /**
@@ -305,6 +360,12 @@ function finishAgg(a: Agg) {
     // Nested rather than spread flat: this object has its own `best` (best
     // character) and the response already has one (best placement).
     characters: finishCharacters(a.byCharacter),
+    form: finishForm(a.timeline),
+    // Distinct nights with at least one recorded game. Counted off the
+    // ledger, not off attendance check-ins: this claims "nights played",
+    // and playing a game is proof, whereas a night nobody confirmed
+    // showing up to would read as zero.
+    nightsPlayed: a.eventIds.size,
   };
 }
 
@@ -320,6 +381,8 @@ async function aggFor(db: Db, groupIds: string[], userId: string) {
         isWinner: matchParticipants.isWinner,
         gameName: games.name,
         character: matchParticipants.character,
+        playedAt: matches.playedAt,
+        eventId: matches.eventId,
       })
       .from(matchParticipants)
       .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
@@ -331,7 +394,7 @@ async function aggFor(db: Db, groupIds: string[], userId: string) {
           eq(matches.status, "completed"),
         ),
       );
-    for (const r of rows) feedAgg(a, r.placement, r.isWinner, r.gameName, r.character);
+    for (const r of rows) feedAgg(a, r);
   }
   return finishAgg(a);
 }
@@ -461,6 +524,8 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
         isWinner: matchParticipants.isWinner,
         gameName: games.name,
         character: matchParticipants.character,
+        playedAt: matches.playedAt,
+        eventId: matches.eventId,
       })
       .from(matchParticipants)
       .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
@@ -474,7 +539,7 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
       );
     for (const r of rows) {
       const side = r.userId === meId ? mineAgg : theirsAgg;
-      feedAgg(side, r.placement, r.isWinner, r.gameName, r.character);
+      feedAgg(side, r);
       const m = byMatch.get(r.matchId) ?? { game: r.gameName ?? "Unknown" };
       if (r.userId === meId) m.mine = { p: r.placement, w: r.isWinner };
       else m.theirs = { p: r.placement, w: r.isWinner };
@@ -532,6 +597,8 @@ statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
       gameName: games.name,
       format: matches.format,
       character: matchParticipants.character,
+      playedAt: matches.playedAt,
+      eventId: matches.eventId,
     })
     .from(matchParticipants)
     .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
@@ -543,7 +610,7 @@ statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
   const byFormat = new Map<string, { format: string; played: number; wins: number }>();
   const byCrew = new Map<string, { groupId: string; name: string; played: number; wins: number; personal: boolean }>();
   for (const r of rows) {
-    feedAgg(total, r.placement, r.isWinner, r.gameName, r.character);
+    feedAgg(total, r);
     if (r.format) {
       const f = byFormat.get(r.format) ?? { format: r.format, played: 0, wins: 0 };
       f.played++;

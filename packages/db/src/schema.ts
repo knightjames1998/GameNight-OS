@@ -238,6 +238,14 @@ export const matches = pgTable(
     rawResult: jsonb("raw_result").$type<{ placements: { name: string; place: number }[] }>(),
     round: integer("round").notNull(),
     position: integer("position").notNull(),
+    // When this result was actually played. Every pack writes its matches
+    // row once, at completion (never a pending/live row that is filled in
+    // later), so the default IS play time and no pack sets this by hand.
+    // Feeds the time-based stats: win streaks and recent form, which have
+    // no other way to order results. Rows that predate this column carry
+    // the migration timestamp, which is meaningless but harmless since the
+    // app had no real use before it shipped.
+    playedAt: timestamp("played_at").notNull().defaultNow(),
     status: text("status", { enum: ["pending", "live", "completed"] })
       .notNull()
       .default("pending"),

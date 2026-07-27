@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { api, type AttendanceStats, type Me } from "../api";
 import BackButton from "../BackButton";
 import CharacterStatsCard, { type CharacterStats } from "../CharacterStats";
+import FormStatsCard, { type FormStats } from "../FormStats";
 import { ensureRecapFonts } from "../recap";
 
 // One page, two faces. Tapping yourself shows your profile; tapping anyone
@@ -21,6 +22,8 @@ interface SideStats {
   avgPlacement: number | null;
   byGame: { name: string; played: number; wins: number }[];
   characters?: CharacterStats;
+  form?: FormStats;
+  nightsPlayed?: number;
   attendance?: AttendanceStats;
   /** Friend route only: the crews this view spans. */
   crews?: string[];
@@ -218,6 +221,9 @@ function Profile({ stats, title, subtitle }: { stats: SideStats; title: string; 
             />
           </div>
         </>
+      )}
+      {stats.played > 0 && (
+        <FormStatsCard form={stats.form} nightsPlayed={stats.nightsPlayed} />
       )}
       <ShowUpRecord a={stats.attendance} />
       {stats.played > 0 && <CharacterStatsCard characters={stats.characters} />}
