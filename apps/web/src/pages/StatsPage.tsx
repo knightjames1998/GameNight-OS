@@ -8,7 +8,6 @@ interface StatRow {
   displayName: string;
   played: number;
   wins: number;
-  podiums: number;
   best: number | null;
   winRate: number;
   avgPlacement: number | null;
@@ -439,8 +438,7 @@ export default function StatsPage() {
                     </span>
                   </div>
                   <div className="gn-hint mt-1" style={{ fontSize: "12px", paddingLeft: "30px" }}>
-                    {r.played} played &middot; {Math.round(r.winRate * 100)}% win rate &middot;{" "}
-                    {r.podiums} top 3
+                    {r.played} played &middot; {Math.round(r.winRate * 100)}% win rate
                     {r.avgPlacement !== null && ` · avg finish ${r.avgPlacement.toFixed(1)}`}
                   </div>
                 </button>

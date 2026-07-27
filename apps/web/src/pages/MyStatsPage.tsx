@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import BackButton from "../BackButton";
+import CharacterStatsCard, { type CharacterStats } from "../CharacterStats";
 
 // The full personal-stats page, opened from the "Your stats" button on Home.
 // Lifetime totals across every crew (quick play included), broken down by
@@ -10,10 +11,10 @@ interface MyStats {
   played: number;
   wins: number;
   winRate: number;
-  podiums: number;
   byGame: { name: string; played: number; wins: number }[];
   byFormat: { format: string; played: number; wins: number }[];
   byCrew: { groupId: string; name: string; played: number; wins: number; personal: boolean }[];
+  characters?: CharacterStats;
 }
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -91,9 +92,8 @@ export default function MyStatsPage() {
               <Tile n={String(stats.played)} label="games" />
               <Tile n={`${Math.round(stats.winRate * 100)}%`} label="win rate" accent="var(--gn-p2)" />
             </div>
-            {stats.podiums > 0 && (
-              <p className="gn-hint">🏅 {stats.podiums} top-3 finish{stats.podiums === 1 ? "" : "es"}</p>
-            )}
+
+            <CharacterStatsCard characters={stats.characters} />
 
             {stats.byGame.length > 0 && (
               <section className="space-y-2">

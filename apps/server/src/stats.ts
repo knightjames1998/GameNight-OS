@@ -32,7 +32,6 @@ interface Row {
   displayName: string;
   played: number;
   wins: number;
-  podiums: number;
   placementSum: number;
   best: number | null;
   byGame: Record<string, { played: number; wins: number }>;
@@ -111,7 +110,6 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
         displayName: r.displayName,
         played: 0,
         wins: 0,
-        podiums: 0,
         placementSum: 0,
         best: null,
         byGame: {},
@@ -121,7 +119,6 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
     const place = r.placement ?? 0;
     row.played++;
     if (r.isWinner) row.wins++;
-    if (place >= 1 && place <= 3) row.podiums++;
     if (place >= 1) {
       row.placementSum += place;
       row.best = row.best === null ? place : Math.min(row.best, place);
@@ -137,7 +134,6 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
     displayName: r.displayName,
     played: r.played,
     wins: r.wins,
-    podiums: r.podiums,
     best: r.best,
     winRate: r.played ? r.wins / r.played : 0,
     avgPlacement: r.played ? r.placementSum / r.played : null,
@@ -164,7 +160,6 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
         displayName: r.displayName,
         played: 0,
         wins: 0,
-        podiums: 0,
         placementSum: 0,
         best: null,
         byGame: {},
@@ -174,7 +169,6 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
     const place = r.placement ?? 0;
     row.played++;
     if (r.isWinner) row.wins++;
-    if (place >= 1 && place <= 3) row.podiums++;
     if (place >= 1) {
       row.placementSum += place;
       row.best = row.best === null ? place : Math.min(row.best, place);
@@ -213,25 +207,48 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
 // into the same ledger. No "current streak" here: matches carry no
 // timestamp, so encounter order can't be reconstructed reliably.
 
+/**
+ * Games on one character before it can be crowned "best". Without a floor a
+ * single lucky win is a 100% character and outranks a real main.
+ */
+const MIN_CHAR_GAMES = 3;
+
 interface Agg {
   played: number;
   wins: number;
-  podiums: number;
   placementSum: number;
   placed: number;
   best: number | null;
   byGame: Record<string, { played: number; wins: number }>;
+  // Keyed by character NAME, so one character is one line even when it was
+  // played across different titles (standing rule: stats unify by name).
+  // Packs with no characters (Beerio, Ping Pong, brackets) store null here
+  // and never reach this map.
+  byCharacter: Record<string, { played: number; wins: number }>;
 }
 
 function newAgg(): Agg {
-  return { played: 0, wins: 0, podiums: 0, placementSum: 0, placed: 0, best: null, byGame: {} };
+  return {
+    played: 0,
+    wins: 0,
+    placementSum: 0,
+    placed: 0,
+    best: null,
+    byGame: {},
+    byCharacter: {},
+  };
 }
 
-function feedAgg(a: Agg, placement: number | null, isWinner: boolean, gameName: string | null) {
+function feedAgg(
+  a: Agg,
+  placement: number | null,
+  isWinner: boolean,
+  gameName: string | null,
+  character: string | null,
+) {
   const place = placement ?? 0;
   a.played++;
   if (isWinner) a.wins++;
-  if (place >= 1 && place <= 3) a.podiums++;
   if (place >= 1) {
     a.placementSum += place;
     a.placed++;
@@ -241,19 +258,53 @@ function feedAgg(a: Agg, placement: number | null, isWinner: boolean, gameName: 
   const g = (a.byGame[key] ??= { played: 0, wins: 0 });
   g.played++;
   if (isWinner) g.wins++;
+
+  const char = character?.trim();
+  if (char) {
+    const c = (a.byCharacter[char] ??= { played: 0, wins: 0 });
+    c.played++;
+    if (isWinner) c.wins++;
+  }
+}
+
+/**
+ * Roll the character tallies up into the shape the profile views render:
+ * the full list (most played first), the main, and the best by win rate
+ * among characters that clear MIN_CHAR_GAMES.
+ */
+function finishCharacters(byCharacter: Agg["byCharacter"]) {
+  const list = Object.entries(byCharacter)
+    .map(([name, v]) => ({ name, ...v, winRate: v.played ? v.wins / v.played : 0 }))
+    .sort((x, y) => y.played - x.played || y.wins - x.wins || x.name.localeCompare(y.name));
+
+  const mostPlayed = list[0]?.name ?? null;
+  // Ties on win rate go to the character with more games behind it, then
+  // alphabetically, so the pick is stable across requests.
+  const eligible = list
+    .filter((c) => c.played >= MIN_CHAR_GAMES)
+    .sort((x, y) => y.winRate - x.winRate || y.played - x.played || x.name.localeCompare(y.name));
+
+  return {
+    byCharacter: list,
+    mostPlayed,
+    best: eligible[0]?.name ?? null,
+    minGamesForBest: MIN_CHAR_GAMES,
+  };
 }
 
 function finishAgg(a: Agg) {
   return {
     played: a.played,
     wins: a.wins,
-    podiums: a.podiums,
     best: a.best,
     winRate: a.played ? a.wins / a.played : 0,
     avgPlacement: a.placed ? a.placementSum / a.placed : null,
     byGame: Object.entries(a.byGame)
       .map(([name, v]) => ({ name, ...v }))
       .sort((x, y) => y.played - x.played),
+    // Nested rather than spread flat: this object has its own `best` (best
+    // character) and the response already has one (best placement).
+    characters: finishCharacters(a.byCharacter),
   };
 }
 
@@ -268,6 +319,7 @@ async function aggFor(db: Db, groupIds: string[], userId: string) {
         placement: matchParticipants.placement,
         isWinner: matchParticipants.isWinner,
         gameName: games.name,
+        character: matchParticipants.character,
       })
       .from(matchParticipants)
       .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
@@ -279,7 +331,7 @@ async function aggFor(db: Db, groupIds: string[], userId: string) {
           eq(matches.status, "completed"),
         ),
       );
-    for (const r of rows) feedAgg(a, r.placement, r.isWinner, r.gameName);
+    for (const r of rows) feedAgg(a, r.placement, r.isWinner, r.gameName, r.character);
   }
   return finishAgg(a);
 }
@@ -408,6 +460,7 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
         placement: matchParticipants.placement,
         isWinner: matchParticipants.isWinner,
         gameName: games.name,
+        character: matchParticipants.character,
       })
       .from(matchParticipants)
       .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
@@ -421,7 +474,7 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
       );
     for (const r of rows) {
       const side = r.userId === meId ? mineAgg : theirsAgg;
-      feedAgg(side, r.placement, r.isWinner, r.gameName);
+      feedAgg(side, r.placement, r.isWinner, r.gameName, r.character);
       const m = byMatch.get(r.matchId) ?? { game: r.gameName ?? "Unknown" };
       if (r.userId === meId) m.mine = { p: r.placement, w: r.isWinner };
       else m.theirs = { p: r.placement, w: r.isWinner };
@@ -478,6 +531,7 @@ statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
       isWinner: matchParticipants.isWinner,
       gameName: games.name,
       format: matches.format,
+      character: matchParticipants.character,
     })
     .from(matchParticipants)
     .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
@@ -489,7 +543,7 @@ statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
   const byFormat = new Map<string, { format: string; played: number; wins: number }>();
   const byCrew = new Map<string, { groupId: string; name: string; played: number; wins: number; personal: boolean }>();
   for (const r of rows) {
-    feedAgg(total, r.placement, r.isWinner, r.gameName);
+    feedAgg(total, r.placement, r.isWinner, r.gameName, r.character);
     if (r.format) {
       const f = byFormat.get(r.format) ?? { format: r.format, played: 0, wins: 0 };
       f.played++;

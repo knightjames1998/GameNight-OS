@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, type AttendanceStats, type Me } from "../api";
 import BackButton from "../BackButton";
+import CharacterStatsCard, { type CharacterStats } from "../CharacterStats";
 import { ensureRecapFonts } from "../recap";
 
 // One page, two faces. Tapping yourself shows your profile; tapping anyone
@@ -15,11 +16,11 @@ interface SideStats {
   displayName: string;
   played: number;
   wins: number;
-  podiums: number;
   best: number | null;
   winRate: number;
   avgPlacement: number | null;
   byGame: { name: string; played: number; wins: number }[];
+  characters?: CharacterStats;
   attendance?: AttendanceStats;
   /** Friend route only: the crews this view spans. */
   crews?: string[];
@@ -209,8 +210,7 @@ function Profile({ stats, title, subtitle }: { stats: SideStats; title: string; 
             <Stat label="wins" value={String(stats.wins)} accent="var(--gn-gold)" />
             <Stat label="win rate" value={pct(stats.winRate)} />
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <Stat label="podiums" value={String(stats.podiums)} />
+          <div className="grid grid-cols-2 gap-2 text-center">
             <Stat label="best finish" value={stats.best ? `#${stats.best}` : "-"} />
             <Stat
               label="avg place"
@@ -220,6 +220,7 @@ function Profile({ stats, title, subtitle }: { stats: SideStats; title: string; 
         </>
       )}
       <ShowUpRecord a={stats.attendance} />
+      {stats.played > 0 && <CharacterStatsCard characters={stats.characters} />}
       {stats.played > 0 && (
         <div className="gn-card space-y-2">
           <h2 className="gn-h2">By game</h2>
@@ -343,7 +344,6 @@ function Compare({ r }: { r: Rivalry }) {
   add("wins", r.me.wins, r.them.wins, String);
   add("win rate", r.me.winRate, r.them.winRate, pct);
   add("games", r.me.played, r.them.played, String);
-  add("podiums", r.me.podiums, r.them.podiums, String);
   add("best finish", r.me.best, r.them.best, (n) => `#${n}`, true);
   add("avg place", r.me.avgPlacement, r.them.avgPlacement, (n) => n.toFixed(1), true);
 
