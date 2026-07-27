@@ -238,13 +238,11 @@ beerioGnRouter.post("/beerio-complete", requireAuth, async (req: AuthedRequest, 
 
 // ---------- guest -> member backfill adapters ----------
 //
-// FORWARD-ONLY. These read matches.rawResult, which only exists on Beerio
-// nights completed after that column shipped. Every earlier night discarded
-// its guest names at completion and is genuinely unrecoverable, so it simply
-// does not appear here. Nothing is reconstructed from beerio_sessions.state:
-// it is the vendored engine's opaque shape, keyed by a reusable live-session
-// code with no link to a finished match, so guessing at it would invent
-// credits rather than recover them.
+// These read matches.rawResult, the full standings snapshot written at
+// completion; a night without one contributes nothing. Nothing is
+// reconstructed from beerio_sessions.state: it is the vendored engine's opaque
+// shape, keyed by a reusable live-session code with no link to a finished
+// match, so guessing at it would invent credits rather than recover them.
 
 /** Every completed Beerio match in the crew that carries a stored snapshot. */
 async function beerioSnapshots(groupId: string) {

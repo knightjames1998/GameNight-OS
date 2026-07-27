@@ -11,10 +11,9 @@
 // insert reuses the pack's own materializer with ON CONFLICT DO NOTHING, so a
 // re-run is a no-op and existing rows are never disturbed.
 //
-// Beerio is covered FORWARD-ONLY. It keeps no usable session record, so it
-// only became linkable once completion started storing its full standings on
-// matches.rawResult; nights finished before that discarded their guest names
-// and are unrecoverable, so they never appear. The UI says so.
+// Beerio links off matches.rawResult, the full standings snapshot stored at
+// completion. It keeps no usable session record otherwise, so a night with no
+// rawResult has no guest names to match and simply contributes nothing.
 
 import { Router } from "express";
 import { getDb, events, memberships, and, eq, inArray } from "@gamenight/db";
@@ -129,9 +128,7 @@ guestLinkRouter.post("/groups/:id/guest-link/preview", requireAuth, async (req: 
   const g = await guard(req, res);
   if (!g) return;
   const { items } = await scan(g.groupId, g.guestName, g.memberId, true);
-  // Beerio is included now, but only from the deploy that started storing its
-  // standings; earlier nights kept no guest names and cannot appear.
-  res.json({ items, total: items.length, beerioForwardOnly: true });
+  res.json({ items, total: items.length });
 });
 
 guestLinkRouter.post("/groups/:id/guest-link/confirm", requireAuth, async (req: AuthedRequest, res) => {

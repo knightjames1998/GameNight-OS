@@ -3,10 +3,9 @@
 // Guests are never written into the ledger (match_participants.userId is NOT
 // NULL), so crediting a guest's past results means RE-MATERIALIZING each of
 // their completed games from the pack's stored jsonb, this time stamped with
-// the linked member's userId. Each recoverable pack (generic brackets, Smash,
-// Mario Kart, Mario Party, Ping Pong) exports a guestNames* and a creditGuest*
+// the linked member's userId. Each pack (generic brackets, Smash, Mario Kart,
+// Mario Party, Ping Pong, Beerio Kart) exports a guestNames* and a creditGuest*
 // adapter that this module's types describe; guest-link.ts orchestrates them.
-// Beerio is not recoverable (opaque vendored state) and is excluded.
 //
 // This lives in its own module so the pack materializers can import the shared
 // helper without a cycle back through the orchestrating router.

@@ -5,11 +5,9 @@ import BackButton from "../BackButton";
 
 // Owner/admin flow to credit a past typed guest's results to a crew member.
 // Guests are never written into the ledger, so this re-materializes the
-// guest's recoverable history (brackets, Smash, Mario Kart, Mario Party, Ping
-// Pong) under the member's identity. Preview first (nothing is written until
-// Confirm); the write is additive and idempotent. Beerio Kart is included
-// forward-only: it kept no record of guest names until the night's full
-// standings started being stored, so earlier Beerio nights cannot appear.
+// guest's history (brackets, Smash, Mario Kart, Mario Party, Ping Pong,
+// Beerio Kart) under the member's identity. Preview first (nothing is written
+// until Confirm); the write is additive and idempotent.
 
 interface PreviewItem {
   pack: string;
@@ -156,11 +154,6 @@ export default function LinkGuestPage() {
           Someone played as a typed guest, then joined {group.name}? Credit their past results to their
           crew profile. Preview first; nothing is written until you confirm.
         </p>
-        <p className="gn-hint" style={{ fontSize: 12, marginTop: 6 }}>
-          Beerio Kart counts from the update that added this, forward. Older Beerio nights never saved
-          guest names, so they cannot be credited. Every other game is covered all the way back.
-        </p>
-
         {noGuests ? (
           <p className="gn-hint" style={{ marginTop: 20 }}>No past guest names were found in this crew's games.</p>
         ) : (
@@ -217,9 +210,8 @@ export default function LinkGuestPage() {
           >
             {preview.total === 0 ? (
               <p className="gn-hint">
-                Nothing to credit: no recoverable results for <b style={{ color: "var(--gn-ink)" }}>{guestName}</b> that
-                {" "}{memberName || "this member"} does not already have. (Beerio nights finished before this
-                feature shipped never saved guest names, so they are not recoverable.)
+                Nothing to credit: no results for <b style={{ color: "var(--gn-ink)" }}>{guestName}</b> that
+                {" "}{memberName || "this member"} does not already have.
               </p>
             ) : (
               <>
@@ -227,7 +219,7 @@ export default function LinkGuestPage() {
                   {preview.total} game{preview.total === 1 ? "" : "s"} will be credited to {memberName}
                 </p>
                 <p className="gn-hint" style={{ fontSize: 12, marginTop: 2 }}>
-                  from guest "{guestName}". Beerio nights only count from this feature's release onward.
+                  from guest "{guestName}"
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
                   {byPack.map(([packLabel, list]) => (
