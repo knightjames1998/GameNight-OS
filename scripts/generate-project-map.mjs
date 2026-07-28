@@ -13,13 +13,12 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "July 2026 · source of truth: BACKLOG.md";
-// Item data refreshed 2026-07-28 as phases 3, 8b and 8a shipped; the counter is
-// at 3, so the NEXT session owes a full reconcile-and-redraw pass before its own
-// work. Originally redrawn 2026-07-28, at the start of the pack-runtime session,
-// with the counter at 4. The whole cleanup run stays ONE item in zone 1, updated in
-// place as phases land, per the previous redraw's note. The real change this pass is
-// zone 3: the run's two remaining phases now sit in the queue instead of living only
-// in session prompts.
+// Redrawn 2026-07-28 (second pass that day) at the start of the phase 6 session.
+// The previous session inherited a counter of 4, redrew at its start, then shipped
+// phases 3, 8b and 8a, handing over a 3. This pass is the full reconcile: both FIXED
+// bugs aged out of zone 5 per that section's own rule, zone 4's Mario Kart entry was
+// cut to the crew-wide table that is genuinely still missing, and zone 3 was
+// renumbered with phase 6 in slot 1. The whole cleanup run remains ONE item in zone 1.
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
 // each 480 wide, row 1 y=95 h=540, row 2 y=660 h=530. Items 440x40, 46px
@@ -79,7 +78,7 @@ const ZONES = [
       { t: "Unified event TV + single active pack" },
       { t: "Detailed personal stats block on Home" },
       { t: "Per-route dynamic link previews" },
-      { t: "Mario Kart char-stats; MP minigame H2H" },
+      { t: "Mario Kart crew-wide racer table; MP minigame H2H", h: 52 },
       { t: "Smack talk feed; TV stats + predictions ticker", h: 52 },
       { t: "Seasons; round robin; availability polling", h: 52 },
     ],
@@ -92,8 +91,6 @@ const ZONES = [
       { t: "Watch: countLastPlace IN list grows without bound", bg: "#fff3bf", h: 52 },
       { t: "Watch: ws hub broadcasts everything to everyone (no rooms)", bg: "#fff3bf", h: 52 },
       { t: "Watch: drizzle push can no-op in CI, check build log", bg: "#fff3bf", h: 52 },
-      { t: "FIXED: iOS launched app zoomed in (inputs < 16px)", bg: "#b2f2bb", h: 52 },
-      { t: "FIXED: RESEND_API_KEY never set on Render after move", bg: "#b2f2bb", h: 52 },
     ],
   },
   {

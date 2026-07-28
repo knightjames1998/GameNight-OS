@@ -13,38 +13,32 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-07-28
-    Shipped sessions since that redraw: 3 (phase 3 the pack runtime; phase 8b
-                                        the widened keep-warm window; phase 8a
-                                        perceived speed)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
-    COUNTER IS AT 3: the NEXT session's first task is to reconcile this file and redraw
-    the map before its own work, then reset the date and the counter to 0. This session
-    redrew at its start (it inherited a counter of 4) and then shipped three phases, so
-    it ends exactly on the threshold rather than below it. Reconciled + redrawn on 2026-07-28, at the
-    start of the pack-runtime session (phase 3), because the counter had reached 4:
-    phases 2, 4, 5 and 7 each shipped and incremented after the 2026-07-27 redraw and
-    none of them was the session that tipped it, so the redraw was one session overdue.
-    Redrawn FIRST, before phase 3 touched any code, which is the point of the rule.
+    Counter is below 3: continue with the requested work and increment it by 1 in the
+    same commit as any session that ships. Reconciled + redrawn on 2026-07-28 (second
+    pass that day) at the start of the phase 6 session, because the previous session
+    ended exactly ON the threshold: it inherited a counter of 4, redrew at its start,
+    then shipped three phases (3, 8b and 8a) and so handed over a 3.
 
-    The previous redraw's NOTE was followed exactly: the whole cleanup run stayed ONE
-    map item, updated in place rather than split into a line per phase, so the redraw
-    itself was small. What the reconcile actually corrected was the RECORD, not the
-    drawing. The backlog had every shipped cleanup phase written up in SHIPPED but said
-    nothing at all about the phases still outstanding, so the run's remaining work
-    existed only in the session prompts. NEXT UP now carries it: phase 8a (perceived
-    speed) and phase 6 (one implementation per idea on the client), in the run order
-    the audit set. Phase 8b is a money/architecture call and went to OPEN DECISIONS,
-    not to a queue slot, because no session may implement it until James picks one.
-
-    Counter arithmetic this pass: reset to 0 by the redraw, then +1 per shipped phase
-    in this session: phase 3 (the pack runtime), phase 8b (the widened keep-warm
-    window) and phase 8a (perceived speed). That leaves it AT 3. The map's item data
-    was kept in step as those phases landed (the cleanup item and the NEXT UP slots),
-    because a committed map that disagrees with this file is worse than no map, but
-    that is NOT a substitute for the next session's reconcile pass, which also has to
-    re-check every other zone. Zone heights were checked against their contents; all
-    six still fit, smallest slack 28px.
+    This was a FULL pass, not the small in-place update the run's earlier note allowed,
+    because the cleanup run is nearly over and the rest of the file had drifted while
+    attention was on it. What it changed beyond the counter:
+      - Both FIXED bugs aged out of BUGS as the section header says they should
+        (the iOS zoom fix from 07-23 and the RESEND_API_KEY fix from 07-20). Both have
+        now survived several redraws, their root causes are in the decision log, and a
+        BUGS section that only ever grows stops being read. The four Watches stay:
+        every one is still live.
+      - The event-aware warm ping under IDEAS was rewritten against the window 8b
+        actually shipped, since it was still described as trading against "the current
+        fixed evening window" that no longer exists.
+      - The Mario Kart character-stats entry under FEATURES was cut down to the part
+        that is genuinely still missing (the crew-wide per-racer table and racer head
+        to head); the per-player half shipped on 07-27 and the entry still read as if
+        none of it had.
+      - NEXT UP renumbered: phase 6 is slot 1, slots 2-3 are open again.
+    Zone heights checked against their contents; all six fit, smallest slack 28px.
 
 **Every session that ships anything (feature, pack, or fix set) increments the counter by 1
 as part of its delivery, in the same commit as its other changes.** Doc-only sessions do not
@@ -173,7 +167,7 @@ Priority order set by James. The top three are the committed next sessions.
 Wanted, not yet scheduled into a session.
 - [ ] Unified event TV + single active pack (requested 2026-07-25, James). One device set to TV mode at the start of the night and never touched again: it auto-follows whichever pack is currently being played. Requires a single-active-pack rule at the event level. Spec: (1) starting a pack "fully" (owner/admin only) makes it THE active pack for that event; starting another pack while one is live is confirm-and-replace (ends the current one first, extending the existing per-pack confirm cross-pack), never two live at once. (2) On start (or switch), every client currently in the event, on any screen, is bounced back (replace nav) to the main event page, which is the hub. (3) The event page shows a glow / UI indicator on the active pack tile; players tap that to join the host's live session. (4) A dedicated event-level TV route (e.g. /e/:id/tv) that subscribes to the active-pack pointer over the WS hub and redirects (replace) to that pack's OWN existing TV view; when the host switches packs it re-navigates automatically, so the TV device follows the night with zero interaction. Holding screen (event name + join QR) when nothing is active yet. Implementation shape: an active-pack pointer on the event (additive nullable column, e.g. events.active_pack [+ active_session_id], set on start, cleared on end) is the cleanest source for the TV to watch; "bounce everyone to the hub" is an event-scoped broadcast that clients on a pack screen for this event respond to with replace-nav. SCOPE NOTE: this is a meaty multi-part feature (schema pointer + start/end enforcement + event-page glow + the bounce broadcast + the new auto-switching TV route), not a one-tap change; likely its own full session. Touches every pack's start/end path, so worth doing after the map redraw.
 - [ ] Detailed personal stats block on the Home page top-right (requested 2026-07-21). Compress the name + password fields into the left two-thirds and add a richer personal-stats panel in the top-right third (beyond today's collapsible "Your stats" card): lifetime totals, per-pack and per-format highlights, streaks/mains. Responsive: stacks on narrow screens. Sweep 2026-07-25 (checked MyStatsPage + /api/me/stats): the endpoint ALREADY returns `best` (best placement) and `avgPlacement` but the page never renders them, so those are a free add. Further candidates, in payoff order, all backed by data already in the ledger: show-up record (show rate + current/best show streak + flake count, already computed by attendanceFor and aggregatable across every crew); your main (most-won-with character across the character packs, from match_participants.character); and nemesis + victim (cross-crew head-to-head extremes: who beats you most / who you beat most). The streak LIMITATION is now lifted (2026-07-27): matches.playedAt shipped, and /api/me/stats already returns `form` (current + longest win streak, last-5) and `nightsPlayed`, so the Home block can render them straight from the same payload MyStatsPage uses.
-- [ ] Mario Kart character-stats panel like Smash's (wins by racer, each member's main), on the crew Stats page. MOSTLY COVERED 2026-07-27: the crew leaderboard now carries characters / form / nightsPlayed on every player row, on the overall tab and inside each game tab, so the Mario Kart tab already shows each member's main, best racer and top three racers. What is still missing versus the bespoke SmashPanel is the crew-wide per-racer table (wins by racer across everyone, not per player) and racer head-to-head; build those only if the per-player view turns out not to be enough. (Was bundled with a Smash+Mario Kart unify idea, now dropped: the two packs stay separate on purpose and only share primitives, per James 2026-07-21.)
+- [ ] Mario Kart CREW-WIDE racer table on the Stats page: wins by racer across everyone (not per player) plus racer head-to-head, the two pieces of Smash's bespoke SmashPanel that the shared leaderboard does not cover. The per-player half of this request shipped 2026-07-27: the crew leaderboard already carries each member's main, best racer and top three racers, on the overall tab and inside each game tab. Build the crew-wide table only if the per-player view turns out not to be enough. (Was bundled with a Smash+Mario Kart unify idea, dropped: the two packs stay separate on purpose and only share primitives, per James 2026-07-21.)
 - [ ] Mario Party: minigame head-to-heads as a second format in the pack, alongside Board night (requested 2026-07-18). Track who beats who in individual minigames; the game picker already supports multi-format packs, so this slots in as a second format entry.
 - [ ] Per-route dynamic link previews (deferred 2026-07-23). Today the whole app shares one static og-image (the brand card). A shared crew or event link could unfurl with its own preview (crew name, event date, "who's in"), but that needs server-rendered per-route OG tags or an image endpoint, which means touching the SPA fallback in apps/server/src/index.ts. Left out of the link-preview session on purpose; the static brand card covers the common case.
 - [ ] Smack talk feed (on the TV view and/or in-app)
@@ -189,8 +183,7 @@ Open first, then environment traps worth remembering, then fixed (fixed items ag
 - Watch: countLastPlace in stats.ts builds an inArray of EVERY match id a player has ever played, then compares placements against a grouped count of participants per match. The IN list grows without bound, so the query gets larger every night someone plays. It is fine at current volume and the derivation is correct; the fix when it matters is a join against a grouped subquery instead of a client-built id list, so Postgres never receives the ids at all. Logged 2026-07-27 by the pre-pack cleanup audit, deliberately not fixed in it (the index added the same day is the cheaper half of the same problem).
 - Watch: the WebSocket hub broadcasts every message to every connected client. There are no rooms and no topics, so every phone in the app receives every event from every crew and filters it client-side. The filtering is correct and this is fine at friend-group scale, but it is the first thing that breaks if the app ever grows. The fix when it matters is per-event or per-crew subscriptions in ws.ts. Logged 2026-07-27 by the pre-pack cleanup audit, deliberately not fixed in it.
 - Watch: `drizzle-kit push --force` silently no-ops in non-interactive CI (exits 0 without applying). Confirm the drizzle-kit success line in the build log on any schema-changing deploy; otherwise run idempotent SQL in the Neon console (ALTER TABLE ... ADD COLUMN IF NOT EXISTS).
-- [x] FIXED (2026-07-23): iOS sometimes launched the app slightly zoomed in and never zoomed back out. Root cause: every text input in the app rendered at font-size 15px (.gn-input plus the four pack -input classes), and iOS Safari auto-zooms the page whenever a focused text field is under 16px, then frequently does not restore the previous scale. So tapping the name field, a game-night title, the login code/email, etc. left the whole app enlarged, and the installed PWA restored that zoomed state on relaunch (which is why it looked intermittent). Fix: bumped all input classes to 16px (the documented iOS threshold), so the trigger is gone. Deliberately did NOT add maximum-scale / user-scalable=no to the viewport, which would only mask it and would disable pinch-zoom accessibility. Beerio's vendored inputs are left as-is per the untouched-pack rule.
-- [x] FIXED (2026-07-20): magic link emails not sending after the Render move. Root cause: RESEND_API_KEY was sync: false in render.yaml and never set in the Render dashboard after the Replit move, so sendMagicLink returned before making any API call and logged nothing. The bare `if (!key) return` now logs an explicit error, and success logs the Resend status + message id. Shipped alongside the 6-digit code login (see decision log).
+(No fixed bugs listed: both prior entries aged out on the 2026-07-28 redraw, as this section's rule says they should. Their root causes live in the decision log, which is the permanent record.)
 
 ## IDEAS (not solidified)
 Not committed, no design decided.
@@ -202,8 +195,7 @@ Not committed, no design decided.
 - [ ] Cornhole, darts, poker night. Poker needs a new session ledger engine (buy-ins, net results) but has the highest stat payoff.
 - [ ] Capacitor native wrapper: packages this web app as a real iOS/Android app (same code, native shell, push notifications). Not needed while the PWA works.
 - [ ] Offline score entry sync (PWA background sync)
-- [ ] Event-aware warm ping: only wake Render in the hour before a scheduled event start, instead of the current fixed evening window. Fewer instance-hours and no blind pinging on nights nobody is playing; needs an endpoint listing upcoming event start times for the workflow to read. Logged when the keep-warm ping shipped (2026-07-25).
-
+- [ ] Event-aware warm ping: wake Render only in the hour before a scheduled event start, instead of on a fixed clock window. Updated 2026-07-28 now that phase 8b widened the fixed window to noon-2am Central (~487 instance-hours/month of the free 750): this idea no longer buys latency, it buys HOURS BACK, and it is the only option on the table that would let the window get wider still (or reach a 3am night) without approaching the cap. Needs an endpoint listing upcoming event start times for the workflow to read. Composes with the fixed window rather than replacing it: keep a modest always-on window for spontaneous use, and let the event-aware pings cover nights that fall outside it.
 ## DEFERRED
 - Smash character portraits: fighters are text-only for now. Portraits/thumbnails come with the UI pass (asset sourcing + licensing to think about). The roster and picker are built to swap in art without a data change.
 - Smash stage tracking: which stage each game was on. Cut for Session A. Too much input per game for the payoff; the fun stat is the fighter, not the stage.
