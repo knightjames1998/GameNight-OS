@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, CLIENT_ID, type BracketView, type BracketSlot, type BracketMatchView } from "../api";
 import { RecapModal } from "../recap";
+import { onIntent, routes } from "../prefetch";
 import BackButton from "../BackButton";
 
 // ---- Bracket tree layout ----
@@ -156,7 +157,7 @@ export default function BracketPage() {
         <BackButton />
         <div className="flex items-center justify-between mt-2 gap-2">
           <h1 className="gn-title text-2xl">{bracket.gameName}</h1>
-          <Link to={`/tv/${bracket.id}`} className="gn-btn gn-btn--ghost shrink-0" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+          <Link to={`/tv/${bracket.id}`} className="gn-btn gn-btn--ghost shrink-0" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }} {...onIntent(routes.tv)}>
             📺 TV mode
           </Link>
         </div>

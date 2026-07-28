@@ -1,6 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, CLIENT_ID, type EventDetail, type Me, type RsvpStatus } from "../api";
+import { useCachedApi } from "../cache";
+import { EventSkeleton } from "../Skeleton";
+import { onIntent, routes } from "../prefetch";
 import { shareLink } from "../share";
 import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
@@ -9,8 +12,18 @@ import GamePicker, { type PickerGame, type PickerFormat } from "../GamePicker";
 export default function EventPage({ me }: { me: Me | null }) {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [event, setEvent] = useState<EventDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Cached, and every setEvent below is a WRITE-THROUGH. That matters more
+  // here than anywhere else: /api/events/:id/rsvp, PATCH /api/events/:id and
+  // .../attendance all return the FULL updated event, and those responses are
+  // already fed straight into setEvent. Routing setEvent through the cache
+  // means coming back to this page after an RSVP is both instant and correct,
+  // rather than instant and showing the pre-RSVP copy.
+  const {
+    data: event,
+    error,
+    set: setEvent,
+    refetch: load,
+  } = useCachedApi<EventDetail>(id ? `event:${id}` : null, id ? `/api/events/${id}` : null);
   const [busy, setBusy] = useState(false);
   const [editRsvp, setEditRsvp] = useState(false);
   const [editDate, setEditDate] = useState(false);
@@ -19,19 +32,6 @@ export default function EventPage({ me }: { me: Me | null }) {
   // Guards out-of-order mutation responses: only the newest request may
   // write its result into state (rapid taps race otherwise).
   const reqSeq = useRef(0);
-
-  async function load() {
-    try {
-      setEvent(await api<EventDetail>(`/api/events/${id}`));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
-    }
-  }
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
 
   // Live: RSVPs land without a refresh, and if the organizer deletes the
   // event out from under you, you get bounced instead of staring at a
@@ -165,7 +165,9 @@ export default function EventPage({ me }: { me: Me | null }) {
     }
   }
 
-  if (error) {
+  // Cached content wins over a failed revalidation: an event page we can
+  // already draw must not be blanked out because the network hiccuped.
+  if (!event && error) {
     return (
       <Shell>
         <p style={{ color: "var(--gn-danger)" }}>{error}</p>
@@ -175,7 +177,7 @@ export default function EventPage({ me }: { me: Me | null }) {
   if (!event) {
     return (
       <Shell>
-        <p className="gn-hint">Loading...</p>
+        <EventSkeleton />
       </Shell>
     );
   }
@@ -267,7 +269,7 @@ export default function EventPage({ me }: { me: Me | null }) {
         <button className="gn-actionbtn" onClick={shareEvent}>
           <span aria-hidden="true">📤</span> Share
         </button>
-        <Link to={`/e/${id}/recap`} className="gn-actionbtn">
+        <Link to={`/e/${id}/recap`} className="gn-actionbtn" {...onIntent(routes.recap)}>
           <span aria-hidden="true">🏆</span> Night recap
         </Link>
         {shareToast && <span className="gn-hint">{shareToast}</span>}

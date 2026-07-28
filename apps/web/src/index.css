@@ -1,5 +1,83 @@
 @import "tailwindcss";
 
+
+/* ============================================================
+   Self-hosted webfonts
+   ------------------------------------------------------------
+   These used to come from fonts.googleapis.com via a render-blocking
+   <link> in index.html, which put a DNS lookup, a TLS handshake and a
+   stylesheet fetch on a THIRD-PARTY origin in front of first paint, and
+   then a second hop to fonts.gstatic.com for the files themselves.
+   Serving them from our own origin removes both connections from the
+   critical path, and because Vite hashes these files into /assets they
+   inherit the immutable one-year caching the server already sets there,
+   which the Google URLs never could.
+
+   font-display:swap so text paints immediately in the fallback and
+   re-renders when the real face lands. Nothing waits on a font.
+
+   Also makes the recap canvas deterministic: recap.tsx awaits
+   document.fonts.load() before drawing, and a same-origin immutable file
+   is a far more predictable wait than a third-party round trip.
+
+   Fredoka and Nunito are VARIABLE fonts, so one file each covers the whole
+   weight range (400-700 and 400-800) rather than one file per weight.
+   Only the latin and latin-ext subsets are shipped; latin-ext is what
+   carries accented names, so it is worth its few KB.
+
+   To update a font: re-fetch from Google with a browser user-agent (a
+   plain curl gets ttf, not woff2), keep the latin subsets, and replace
+   both the file in src/fonts/ and its unicode-range here.
+   ============================================================ */
+@font-face{
+  font-family:'Luckiest Guy';
+  font-style:normal;
+  font-weight:400;
+  font-display:swap;
+  src:url('./fonts/luckiest-guy-latin-ext.woff2') format('woff2');
+  unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family:'Luckiest Guy';
+  font-style:normal;
+  font-weight:400;
+  font-display:swap;
+  src:url('./fonts/luckiest-guy-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family:'Fredoka';
+  font-style:normal;
+  font-weight:400 700;
+  font-display:swap;
+  src:url('./fonts/fredoka-latin-ext.woff2') format('woff2');
+  unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family:'Fredoka';
+  font-style:normal;
+  font-weight:400 700;
+  font-display:swap;
+  src:url('./fonts/fredoka-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face{
+  font-family:'Nunito';
+  font-style:normal;
+  font-weight:400 800;
+  font-display:swap;
+  src:url('./fonts/nunito-latin-ext.woff2') format('woff2');
+  unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family:'Nunito';
+  font-style:normal;
+  font-weight:400 800;
+  font-display:swap;
+  src:url('./fonts/nunito-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* ============================================================
    GameNight OS - theme tokens
    ------------------------------------------------------------
@@ -361,6 +439,34 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 @media (prefers-reduced-motion:reduce){.gn-pulse{animation:none}}
 .gn-pulse{animation:gnpulse 1.6s ease-in-out infinite}
 @keyframes gnpulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ---- Loading skeletons (src/Skeleton.tsx) ----
+   Only ever shown on a first visit to a screen; once anything is cached the
+   real content paints instead (see src/cache.ts). Shaped like the content
+   they stand in for, because a block the right size and place reads as fast
+   while centred grey text reads as broken, and because matching the shape
+   removes the layout shift when the data lands. */
+.gn-skel{
+  background:linear-gradient(90deg,var(--gn-surf) 0%,var(--gn-raise) 50%,var(--gn-surf) 100%);
+  background-size:200% 100%;animation:gnskel 1.4s ease-in-out infinite;
+}
+.gn-skel-group{display:flex;flex-direction:column;gap:10px}
+.gn-skel-card{
+  display:flex;flex-direction:column;gap:9px;padding:14px;
+  background:var(--gn-surf);border:1px solid var(--gn-line);border-radius:14px;
+}
+.gn-skel-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@keyframes gnskel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* A shimmer that never stops is worse than no shimmer for anyone who asked
+   the OS to stop moving things; the shapes still do their job standing still. */
+@media (prefers-reduced-motion:reduce){.gn-skel{animation:none}}
+
+/* Visually hidden, still announced. The skeletons are aria-hidden, so this
+   is what tells a screen reader that something is on its way. */
+.gn-sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
+}
 
 /* ---- TV "now playing" board (big screen) ----
    A full bracket tree is unreadable across a room, so the TV surfaces what

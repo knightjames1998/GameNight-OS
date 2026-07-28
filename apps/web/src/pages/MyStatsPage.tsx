@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, type AttendanceStats } from "../api";
+import { type AttendanceStats } from "../api";
+import { useCachedApi } from "../cache";
+import { StatsSkeleton } from "../Skeleton";
 import BackButton from "../BackButton";
 import CharacterStatsCard, { type CharacterStats } from "../CharacterStats";
 import FormStatsCard, { type FormStats } from "../FormStats";
@@ -79,14 +80,9 @@ function Row({ name, wins, played, link }: { name: string; wins: number; played:
 }
 
 export default function MyStatsPage() {
-  const [stats, setStats] = useState<MyStats | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    api<MyStats>("/api/me/stats")
-      .then(setStats)
-      .catch((e) => setError(e instanceof Error ? e.message : "Couldn't load your stats"));
-  }, []);
+  // Same key the Home tile uses: one fetch of /api/me/stats serves both, so
+  // opening this page from Home already has the payload.
+  const { data: stats, error } = useCachedApi<MyStats>("me:stats", "/api/me/stats");
 
   return (
     <main className="gn-app">
@@ -94,8 +90,8 @@ export default function MyStatsPage() {
         <BackButton />
         <h1 className="gn-title text-2xl">📊 Your stats</h1>
 
-        {error && <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>}
-        {!stats && !error && <p className="gn-hint">Loading...</p>}
+        {!stats && error && <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>}
+        {!stats && !error && <StatsSkeleton />}
 
         {stats && stats.played === 0 && (
           <p className="gn-hint">Play a game night and your lifetime record shows up here.</p>

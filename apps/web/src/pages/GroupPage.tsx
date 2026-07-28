@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, CLIENT_ID, type EventSummary, type GroupDetail, type Me } from "../api";
+import { useCachedApi } from "../cache";
 import { useLiveUpdates } from "../useLiveUpdates";
+import { EventListSkeleton, SkeletonBlock } from "../Skeleton";
+import { onIntent, routes } from "../prefetch";
 
 export default function GroupPage({
   me,
@@ -12,9 +15,25 @@ export default function GroupPage({
 }) {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [group, setGroup] = useState<GroupDetail | null>(null);
-  const [events, setEvents] = useState<EventSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Cached: coming back to a crew you have already opened paints instantly and
+  // revalidates behind the paint, instead of showing "Loading..." again for
+  // data that has not changed. `set` writes local edits through to the cache,
+  // so a role change or a deleted night survives navigating away and back.
+  const {
+    data: group,
+    error,
+    set: setGroup,
+    refetch: loadGroup,
+  } = useCachedApi<GroupDetail>(id ? `group:${id}` : null, id ? `/api/groups/${id}` : null);
+  const {
+    data: events,
+    loading: eventsLoading,
+    set: setEvents,
+    refetch: loadEvents,
+  } = useCachedApi<EventSummary[]>(
+    id ? `group:${id}:events` : null,
+    id ? `/api/groups/${id}/events` : null,
+  );
   const [copied, setCopied] = useState(false);
   const [showInviteUrl, setShowInviteUrl] = useState(false);
   const [title, setTitle] = useState("");
@@ -25,22 +44,6 @@ export default function GroupPage({
   const [when, setWhen] = useState("");
   const [busy, setBusy] = useState(false);
   const [pastOpen, setPastOpen] = useState(false);
-
-  const loadGroup = useCallback(() => {
-    api<GroupDetail>(`/api/groups/${id}`)
-      .then(setGroup)
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
-  }, [id]);
-  const loadEvents = useCallback(() => {
-    api<EventSummary[]>(`/api/groups/${id}/events`)
-      .then(setEvents)
-      .catch(() => setEvents([]));
-  }, [id]);
-
-  useEffect(() => {
-    loadGroup();
-    loadEvents();
-  }, [loadGroup, loadEvents]);
 
   // Live: new events, deletions, and people joining or leaving all land
   // without a refresh, same as RSVPs.
@@ -93,17 +96,22 @@ export default function GroupPage({
     }
   }
 
-  if (error) {
-    return (
-      <Shell>
-        <p style={{ color: "var(--gn-danger)" }}>{error}</p>
-      </Shell>
-    );
-  }
+  // Order matters: cached content wins over an error. A revalidation that
+  // fails (phone lost signal, Render still waking up) must not blank out a
+  // crew page we can already draw perfectly well; it just means the copy on
+  // screen might be a few seconds old. Only fall through to the error screen
+  // when there is genuinely nothing to show.
   if (!group) {
     return (
       <Shell>
-        <p className="gn-hint">Loading...</p>
+        {error ? (
+          <p style={{ color: "var(--gn-danger)" }}>{error}</p>
+        ) : (
+          <>
+            <SkeletonBlock height={26} width="56%" />
+            <EventListSkeleton />
+          </>
+        )}
       </Shell>
     );
   }
@@ -239,7 +247,7 @@ export default function GroupPage({
                       });
                       onNameChange(name);
                       setGroup(
-                        group && {
+                        {
                           ...group,
                           members: group.members.map((m) =>
                             m.userId === me.id ? { ...m, displayName: name } : m,
@@ -272,7 +280,11 @@ export default function GroupPage({
         )}
       </div>
 
-      <Link to={`/g/${group.id}/stats`} className="gn-cab gn-cab--stats">
+      <Link
+        to={`/g/${group.id}/stats`}
+        className="gn-cab gn-cab--stats"
+        {...onIntent(routes.stats)}
+      >
         <span className="gn-cab__name">📊 Lifetime stats</span>
         <span className="gn-cab__sub">wins, records, by game</span>
       </Link>
@@ -280,7 +292,7 @@ export default function GroupPage({
       {/* ---- Game nights ------------------------------------------------ */}
       <section className="space-y-3">
         <h2 className="gn-h2">Game nights</h2>
-        {events === null && <p className="gn-hint">Loading...</p>}
+        {eventsLoading && <EventListSkeleton />}
         {events?.length === 0 && (
           <p className="gn-hint">Nothing scheduled yet. Start one below.</p>
         )}

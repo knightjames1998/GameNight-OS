@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { api, type AttendanceStats, type Me } from "../api";
+import { type AttendanceStats, type Me } from "../api";
+import { useCachedApi } from "../cache";
 import BackButton from "../BackButton";
 import CharacterStatsCard, { type CharacterStats } from "../CharacterStats";
 import FormStatsCard, { type FormStats } from "../FormStats";
@@ -77,19 +78,12 @@ const shortDay = (iso: string | null) => {
 /** Crew route: /g/:id/member/:userId — everything scoped to that crew. */
 export default function MemberPage({ me }: { me: Me | null }) {
   const { id: groupId, userId } = useParams();
-  const [groupName, setGroupName] = useState("");
-  useEffect(() => {
-    if (!groupId) return;
-    let cancelled = false;
-    api<{ name: string }>(`/api/groups/${groupId}`)
-      .then((g) => {
-        if (!cancelled) setGroupName(g.name ?? "");
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [groupId]);
+  // Shares GroupPage's cache entry, so arriving here from the crew page
+  // already knows the crew's name and never flashes an empty label.
+  const { data: group } = useCachedApi<{ name: string }>(
+    groupId ? `group:${groupId}` : null,
+    groupId ? `/api/groups/${groupId}` : null,
+  );
   if (!groupId || !userId) return null;
   return (
     <MemberView
@@ -97,7 +91,7 @@ export default function MemberPage({ me }: { me: Me | null }) {
       isSelf={!!me && userId === me.id}
       profileUrl={`/api/groups/${groupId}/members/${userId}/stats`}
       rivalryUrl={`/api/groups/${groupId}/rivalry/${userId}`}
-      contextLabel={groupName}
+      contextLabel={group?.name ?? ""}
     />
   );
 }
@@ -128,34 +122,18 @@ function MemberView({
   /** Shown after the names; the friend route derives it from profile.crews. */
   contextLabel?: string;
 }) {
-  const [profile, setProfile] = useState<SideStats | null>(null);
-  const [rivalry, setRivalry] = useState<Rivalry | null>(null);
-  const [err, setErr] = useState("");
+  // Keyed by URL, so the crew route and the friend route cache separately even
+  // for the same person: they are genuinely different numbers (one crew versus
+  // every crew you share).
+  const { data: profile, error: profileErr } = useCachedApi<SideStats>(profileUrl, profileUrl);
+  // A rivalry against yourself is not a thing; null key holds the fetch off.
+  const { data: rivalry, error: rivalryErr } = useCachedApi<Rivalry>(
+    isSelf ? null : rivalryUrl,
+    isSelf ? null : rivalryUrl,
+  );
+  const err = (!profile && profileErr) || (!isSelf && !rivalry && rivalryErr) || "";
   const [showCard, setShowCard] = useState(false);
   const [tab, setTab] = useState<"rivalry" | "stats">("rivalry");
-
-  useEffect(() => {
-    let cancelled = false;
-    api<SideStats>(profileUrl)
-      .then((p) => {
-        if (!cancelled) setProfile(p);
-      })
-      .catch((e) => {
-        if (!cancelled) setErr(e instanceof Error ? e.message : "Couldn't load");
-      });
-    if (!isSelf) {
-      api<Rivalry>(rivalryUrl)
-        .then((r) => {
-          if (!cancelled) setRivalry(r);
-        })
-        .catch((e) => {
-          if (!cancelled) setErr(e instanceof Error ? e.message : "Couldn't load");
-        });
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [profileUrl, rivalryUrl, isSelf]);
 
   const label = contextLabel || profile?.crews?.join(" · ") || "";
 

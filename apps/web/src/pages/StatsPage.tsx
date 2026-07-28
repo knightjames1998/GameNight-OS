@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
-import { api } from "../api";
+import { useCachedApi } from "../cache";
+import { StatsSkeleton } from "../Skeleton";
 import BackButton from "../BackButton";
 import { type CharacterStats } from "../CharacterStats";
 import { Pip, type FormStats } from "../FormStats";
@@ -239,17 +240,13 @@ interface PackPanelProps {
 }
 
 function SmashPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
-  const [data, setData] = useState<SmashStats | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error } = useCachedApi<SmashStats>(
+    `group:${groupId}:smash`,
+    `/api/groups/${groupId}/smash-stats`,
+  );
 
-  useEffect(() => {
-    api<SmashStats>(`/api/groups/${groupId}/smash-stats`)
-      .then(setData)
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
-  }, [groupId]);
-
-  if (error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
-  if (!data) return <p className="gn-hint">Loading...</p>;
+  if (!data && error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
+  if (!data) return <StatsSkeleton />;
   if (data.games === 0) {
     return <p className="gn-hint">No Smash games recorded yet. Play an FFA or King of the Hill night and it fills in here.</p>;
   }
@@ -338,17 +335,13 @@ interface MpStats {
 }
 
 function MarioPartyPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
-  const [data, setData] = useState<MpStats | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error } = useCachedApi<MpStats>(
+    `group:${groupId}:marioparty`,
+    `/api/groups/${groupId}/marioparty-stats`,
+  );
 
-  useEffect(() => {
-    api<MpStats>(`/api/groups/${groupId}/marioparty-stats`)
-      .then(setData)
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
-  }, [groupId]);
-
-  if (error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
-  if (!data) return <p className="gn-hint">Loading...</p>;
+  if (!data && error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
+  if (!data) return <StatsSkeleton />;
   if (data.games === 0) {
     return <p className="gn-hint">No Mario Party boards recorded yet. Play a board night and it fills in here.</p>;
   }
@@ -438,17 +431,13 @@ interface PpStats {
 // length; single-game wins total the individual games, including the four
 // won inside a best-of-seven plus every free-play game.
 function PingPongPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
-  const [data, setData] = useState<PpStats | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error } = useCachedApi<PpStats>(
+    `group:${groupId}:pingpong`,
+    `/api/groups/${groupId}/pingpong-stats`,
+  );
 
-  useEffect(() => {
-    api<PpStats>(`/api/groups/${groupId}/pingpong-stats`)
-      .then(setData)
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
-  }, [groupId]);
-
-  if (error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
-  if (!data) return <p className="gn-hint">Loading...</p>;
+  if (!data && error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
+  if (!data) return <StatsSkeleton />;
   if (data.matches === 0) {
     return <p className="gn-hint">No ping pong recorded yet. Play a King of the Hill or Singles night and it fills in here.</p>;
   }
@@ -472,17 +461,17 @@ function PingPongPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
 
 export default function StatsPage() {
   const { id } = useParams();
-  const [stats, setStats] = useState<StatsView | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   // null = the All tab (every game mode combined)
   const [tab, setTab] = useState<string | null>(null);
+  // Cached: the crew leaderboard is one of the most reopened screens and its
+  // numbers only move when a night is played.
+  const { data: stats, error } = useCachedApi<StatsView>(
+    id ? `group:${id}:stats` : null,
+    id ? `/api/groups/${id}/stats` : null,
+  );
 
-  useEffect(() => {
-    api<StatsView>(`/api/groups/${id}/stats`)
-      .then(setStats)
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
-  }, [id]);
+
 
   const active = tab ? stats?.games.find((g) => g.name === tab) : null;
   const shown = active ? active.leaderboard : stats?.leaderboard;

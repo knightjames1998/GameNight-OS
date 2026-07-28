@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { packRoute, prefetch } from "./prefetch";
 
 // Shared "pick a game, then a format" chooser (Arcade). Used on the home
 // quick-play screen and on the event page. Each game expands to its formats;
@@ -23,6 +24,22 @@ export interface PickerGame {
   formats: PickerFormat[];
 }
 
+/**
+ * Start fetching the route chunk a tile leads to, on pointerdown, so it is
+ * usually in flight before the tap completes. Resolved from the picker key
+ * rather than passed in by every caller, which keeps this component dumb and
+ * means Home and the event page do not each have to repeat the mapping for
+ * every game and format they list. A format key wins over its game key, so
+ * Beerio (a format under the Mario Kart tile) prefetches the Beerio chunk and
+ * not the Mario Kart one. Unknown keys simply prefetch nothing.
+ */
+function warm(...keys: (string | undefined)[]) {
+  for (const k of keys) {
+    const route = k ? packRoute[k] : undefined;
+    if (route) return prefetch(route);
+  }
+}
+
 export default function GamePicker({ games }: { games: PickerGame[] }) {
   const [open, setOpen] = useState<string | null>(null);
   return (
@@ -35,6 +52,7 @@ export default function GamePicker({ games }: { games: PickerGame[] }) {
               key={g.key}
               type="button"
               disabled={single.disabled}
+              onPointerDown={() => !single.disabled && warm(single.key, g.key)}
               onClick={single.onPick}
               className={`gn-cab ${g.cabClass ?? ""} w-full text-left`}
               style={{ display: "block", ...(single.disabled ? { opacity: 0.55, cursor: "default" } : {}) }}
@@ -53,6 +71,7 @@ export default function GamePicker({ games }: { games: PickerGame[] }) {
           <div key={g.key}>
             <button
               type="button"
+              onPointerDown={() => warm(g.key)}
               onClick={() => setOpen(isOpen ? null : g.key)}
               className={`gn-cab ${g.cabClass ?? ""} w-full text-left`}
               style={{ display: "block" }}
@@ -72,6 +91,7 @@ export default function GamePicker({ games }: { games: PickerGame[] }) {
                     key={f.key}
                     type="button"
                     disabled={f.disabled}
+                    onPointerDown={() => !f.disabled && warm(f.key, g.key)}
                     onClick={f.onPick}
                     className="gn-fmt w-full text-left"
                   >

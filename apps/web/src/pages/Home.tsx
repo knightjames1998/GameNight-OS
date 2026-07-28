@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, type Friend, type GroupSummary, type Me } from "../api";
+import { useCachedApi } from "../cache";
 import Login from "./Login";
 import GamePicker, { type PickerGame } from "../GamePicker";
 import AddToHomeHint from "../AddToHomeHint";
+import { GroupListSkeleton } from "../Skeleton";
+import { onIntent, routes } from "../prefetch";
 
 export default function Home({
   me,
@@ -38,7 +41,10 @@ function Groups({
   onLogout: () => void;
 }) {
   const navigate = useNavigate();
-  const [groups, setGroups] = useState<GroupSummary[] | null>(null);
+  // Cached: your crews are the first thing on screen and almost never change
+  // between launches, so a returning user should never watch this load.
+  const { data: groups, loading: groupsLoading, set: setGroups } =
+    useCachedApi<GroupSummary[]>("groups", "/api/groups");
   const [newName, setNewName] = useState("");
   const [displayName, setDisplayName] = useState(me.displayName);
   const [busy, setBusy] = useState(false);
@@ -49,9 +55,7 @@ function Groups({
   // even though the me prop doesn't refetch.
   const [hasPw, setHasPw] = useState(me.hasPassword);
 
-  useEffect(() => {
-    api<GroupSummary[]>("/api/groups").then(setGroups).catch(() => setGroups([]));
-  }, []);
+
 
   async function createGroup() {
     if (!newName.trim() || busy) return;
@@ -247,7 +251,7 @@ function Groups({
 
         <section className="space-y-3">
           <h2 className="gn-h2">Crews</h2>
-          {groups === null && <p className="gn-hint">Loading...</p>}
+          {groupsLoading && <GroupListSkeleton />}
           {groups?.length === 0 && (
             <p className="gn-hint">
               No crews yet. Start one below or ask a friend for an invite link.
@@ -297,14 +301,10 @@ function Groups({
 // separate add-friend step. Collapsed behind one button so a long friends
 // list doesn't clutter the home page. Hidden until you've crewed with someone.
 function Friends() {
-  const [friends, setFriends] = useState<Friend[] | null>(null);
+  // Cached: the friends list is the same on almost every launch, so it should
+  // be there on the first paint rather than popping in a moment later.
+  const { data: friends } = useCachedApi<Friend[]>("friends", "/api/friends");
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    api<Friend[]>("/api/friends")
-      .then(setFriends)
-      .catch(() => setFriends([]));
-  }, []);
 
   if (!friends?.length) return null;
 
@@ -371,16 +371,16 @@ interface StatsHeadline {
 }
 
 function StatsButton() {
-  const [stats, setStats] = useState<StatsHeadline | null>(null);
-
-  useEffect(() => {
-    api<StatsHeadline>("/api/me/stats").then(setStats).catch(() => {});
-  }, []);
+  // Cached under the same key MyStatsPage uses: it is the same endpoint and
+  // StatsHeadline is just a narrower view of that payload, so opening the full
+  // stats page from here already has the data in hand.
+  const { data: stats } = useCachedApi<StatsHeadline>("me:stats", "/api/me/stats");
 
   const has = !!stats && stats.played > 0;
   return (
     <Link
       to="/me/stats"
+      {...onIntent(routes.myStats)}
       className="gn-card col-span-1 min-w-0 flex flex-col justify-center"
       style={{ height: "100%", padding: "10px 12px", textDecoration: "none", color: "var(--gn-ink)" }}
     >

@@ -34,9 +34,11 @@
     <meta name="twitter:title" content="GameNight OS" />
     <meta name="twitter:description" content="Run game nights with your crew: brackets, RSVPs, live scoring and TV views." />
     <meta name="twitter:image" content="https://gamenightos.app/og-image.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Fonts are self-hosted (see the @font-face block in src/index.css) and
+         ride the hashed, immutably-cached CSS bundle. The render-blocking
+         fonts.googleapis.com stylesheet that used to sit here cost a DNS
+         lookup and a TLS handshake on a third-party origin before first
+         paint, plus a second hop to fonts.gstatic.com for the files. -->
     <title>GameNight OS</title>
   </head>
   <body style="margin:0;background:#17111f">
