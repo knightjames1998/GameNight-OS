@@ -2,6 +2,11 @@
 // These mirror the DB schema but are transport-friendly (plain strings/numbers).
 // Keep this file dependency-free so both server and web can import it.
 
+// The pack registry is the one place a pack's identifiers exist; WsEvent below
+// derives its per-pack message types from it. `export *` re-exports names but
+// does not bring them into this module's scope, hence the explicit import.
+import type { PackWsType } from "./packs.js";
+
 // ---------- Crew ----------
 
 export type MemberRole = "owner" | "admin" | "member";
@@ -118,10 +123,11 @@ type WsEvent =
   | { type: "bracket_updated"; bracketId: string }
   | { type: "match_updated"; matchId: string }
   | { type: "leaderboard_updated"; eventId: string }
-  | { type: "smash_updated"; eventId: string }
-  | { type: "mario_kart_updated"; eventId: string }
-  | { type: "mario_party_updated"; eventId: string }
-  | { type: "ping_pong_updated"; eventId: string }
+  // The four pack types are DERIVED from the pack registry rather than listed
+  // here, so adding a pack cannot leave its broadcast type undeclared (which
+  // fails silently: the client never matches the message and that pack's
+  // screens simply stop updating).
+  | { type: PackWsType; eventId: string }
   | { type: "ping" };
 
 // origin: the per-tab client id of whoever caused the write (from the
@@ -129,6 +135,7 @@ type WsEvent =
 // response, so it can skip refetching on its own echo; every other client
 // treats the message normally.
 export type WsMessage = WsEvent & { origin?: string };
+export * from "./packs.js";
 export * from "./bracket.js";
 export * from "./series.js";
 export * from "./smash.js";

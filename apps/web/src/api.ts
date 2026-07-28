@@ -1,6 +1,8 @@
 // Tiny fetch wrapper. Same-origin requests carry the session cookie
 // automatically; this just centralizes JSON handling and errors.
 
+import type { SessionPackKey } from "@gamenight/shared";
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -142,7 +144,7 @@ export interface EventRecap {
 // the normal state of the evening's first twenty minutes, and it renders the
 // lobby.
 export type EventTvNow =
-  | { kind: "pack"; pack: "smash" | "mariokart" | "marioparty" | "pingpong"; status: "setup" | "live" }
+  | { kind: "pack"; pack: SessionPackKey; status: "setup" | "live" }
   | { kind: "bracket"; bracketId: string; status: "setup" | "live" }
   | { kind: "beerio"; code: string }
   | null;

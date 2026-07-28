@@ -52,6 +52,7 @@ import {
   and,
   eq,
 } from "@gamenight/db";
+import { SESSION_PACKS, type PackWsType, type SessionPackKey } from "@gamenight/shared";
 import { insertParticipants } from "./participants.js";
 import { broadcast } from "./ws.js";
 
@@ -60,19 +61,15 @@ type ParticipantRow = typeof matchParticipants.$inferInsert;
 export type SessionStatus = "setup" | "live" | "completed";
 
 /**
- * The live-sync message types a session pack may broadcast. Narrowed to the
- * four that exist rather than left as `string`, because a typo'd wsType kills
- * live sync SILENTLY: the client never matches the message, screens stop
- * updating, and nothing errors anywhere until someone refreshes, which is the
- * one thing standing rule 6 says must never happen. As a literal union the
- * typo is a compile error instead. A new pack adds its type to WsEvent in
- * packages/shared first, then here.
+ * The live-sync message types a session pack may broadcast, re-exported from
+ * the shared pack registry, which is now the ONE place these strings exist.
+ * A typo'd wsType kills live sync SILENTLY: the client never matches the
+ * message, screens stop updating, and nothing errors anywhere until someone
+ * refreshes, which is the one thing standing rule 6 says must never happen.
+ * Deriving it from the registry means a new pack cannot have one at all
+ * without declaring it once, in the place every other consumer reads.
  */
-export type PackWsType =
-  | "smash_updated"
-  | "mario_kart_updated"
-  | "mario_party_updated"
-  | "ping_pong_updated";
+export type { PackWsType };
 
 // ---------- membership, shared by every router in the server ----------
 
@@ -115,6 +112,24 @@ export interface PackRuntimeConfig<S> {
   table: "game_sessions" | "smash_sessions";
   /** Everything the pack's session payload adds on top of the envelope. */
   extras: (state: S) => Record<string, unknown>;
+}
+
+/**
+ * The identity half of a pack's config, read straight from the shared
+ * registry. A pack file now supplies only its `extras`, which is the part that
+ * genuinely differs; the five strings that MUST match the client (and must
+ * never change for an existing pack, because ledger keys and game names orphan
+ * history silently) are no longer retyped per pack.
+ */
+export function packConfig(key: SessionPackKey): Omit<PackRuntimeConfig<unknown>, "extras"> {
+  const d = SESSION_PACKS[key];
+  return {
+    pack: d.ledger,
+    gameName: d.gameName,
+    wsType: d.wsType,
+    keyPrefix: d.keyPrefix,
+    table: d.table,
+  };
 }
 
 /** The columns every session row has, whichever table it came from. */

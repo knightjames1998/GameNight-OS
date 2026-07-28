@@ -8,7 +8,8 @@ import { shareLink } from "../share";
 import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
 import GamePicker, { type PickerGame, type PickerFormat } from "../GamePicker";
-import { buildPickerGames, type PackKey } from "../packs";
+import { SESSION_PACKS } from "@gamenight/shared";
+import { buildPickerGames, type PackKey, type SessionPackKey } from "../packs";
 
 export default function EventPage({ me }: { me: Me | null }) {
   const { id } = useParams();
@@ -426,17 +427,14 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Display name per pack tile, for the live sublines and the TV button. */
-const PACK_NAME: Record<string, string> = {
-  smash: "Smash Bros",
-  mariokart: "Mario Kart",
-  marioparty: "Mario Party",
-  pingpong: "Ping Pong",
-};
-
 /** Everything running on this night right now, in no particular order. */
 function liveNow(event: EventDetail): string[] {
-  const names = event.sessions.map((s) => PACK_NAME[s.pack] ?? s.pack);
+  // Display names from the one registry. This was a fourth hand-written table
+  // of the same four packs, added by the TV session that also shipped the
+  // ping_pong/pingpong mismatch.
+  const names: string[] = event.sessions.map(
+    (s) => SESSION_PACKS[s.pack as SessionPackKey]?.name ?? s.pack,
+  );
   if (event.beerioCode) names.push("Beerio Kart");
   if (event.bracket && event.bracket.status !== "completed") names.push("Tournament");
   return names;

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { SESSION_PACKS } from "@gamenight/shared";
 import { api } from "../api";
 import BackButton from "../BackButton";
 import { usePackLive } from "../useLiveUpdates";
@@ -30,7 +31,7 @@ export default function MarioPartyTvPage({ eventId: propEventId }: { eventId?: s
     refetch().finally(() => setLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
-  usePackLive("mario_party_updated", eventId, refetch);
+  usePackLive(SESSION_PACKS.marioparty.wsType, eventId, refetch);
 
   if (!loaded) return <div className="mp-tv"><div className="mp-tv__brand">Loading...</div></div>;
 

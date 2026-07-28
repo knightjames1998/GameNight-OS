@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { BracketMatchView, BracketSlot, BracketView, EventRecap } from "./api";
+import { packEmoji } from "@gamenight/shared";
 import { FORMAT_UNIT, formatLabel } from "./formats";
 
 // The recap card, third generation of the Beerio Kart canvas-to-JPG
@@ -317,14 +318,12 @@ function humanizeLabel(label: string | null): string | null {
   return label;
 }
 
-const PACK_EMOJI: Record<string, string> = {
-  pingpong: "\u{1F3D3}", // 🏓
-  smash: "\u{1F94A}", // 🥊
-  mario_kart: "\u{1F3CE}\u{FE0F}", // 🏎️
-  mario_party: "\u{1F3B2}", // 🎲
-  beerio: "\u{1F37A}", // 🍺
-};
-const packEmoji = (pack: string): string => PACK_EMOJI[pack] ?? "\u{1F3C6}"; // 🏆
+// Was a hand-written table keyed by games.pack, and it carried a REAL BUG that
+// nobody could see: its Beerio key was "beerio", while Beerio writes
+// games.pack = "beerio_kart", so every Beerio night on every recap card drew
+// the fallback trophy instead of its beer. A wrong emoji does not throw, so it
+// simply went unnoticed. Now from the one registry, keyed by the same ledger
+// spelling the server writes.
 
 const sessionUnit = (format: string | null): string => (format ? FORMAT_UNIT[format] : null) ?? "games";
 

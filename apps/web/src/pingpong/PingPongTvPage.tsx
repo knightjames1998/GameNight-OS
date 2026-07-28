@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+import { SESSION_PACKS } from "@gamenight/shared";
 import { api } from "../api";
 import BackButton from "../BackButton";
 import { usePackLive } from "../useLiveUpdates";
@@ -37,7 +38,7 @@ export default function PingPongTvPage({ eventId: propEventId }: { eventId?: str
     refetch().finally(() => setLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
-  usePackLive("ping_pong_updated", eventId, refetch);
+  usePackLive(SESSION_PACKS.pingpong.wsType, eventId, refetch);
 
   const nameOf = useMemo(() => new Map((session?.roster ?? []).map((p) => [p.id, p.name])), [session]);
 

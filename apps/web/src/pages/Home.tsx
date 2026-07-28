@@ -4,7 +4,7 @@ import { api, type Friend, type GroupSummary, type Me } from "../api";
 import { useCachedApi } from "../cache";
 import Login from "./Login";
 import GamePicker from "../GamePicker";
-import { buildPickerGames } from "../packs";
+import { buildPickerGames, type SessionPackKey } from "../packs";
 import AddToHomeHint from "../AddToHomeHint";
 import { GroupListSkeleton } from "../Skeleton";
 import { onIntent, routes } from "../prefetch";
@@ -93,7 +93,10 @@ function Groups({
 
   // Session packs need a (personal) event to hang the live session on; spin
   // one up, then drop into the pack's own setup screen.
-  async function startSession(pack: "smash" | "mariokart" | "marioparty" | "pingpong", suffix = "") {
+  // SessionPackKey, not a hand-typed copy of the same four strings: the route
+  // segment this builds and the quick-play route the server registers now come
+  // from the same registry entry, so they cannot disagree.
+  async function startSession(pack: SessionPackKey, suffix = "") {
     if (busy) return;
     setBusy(true);
     try {

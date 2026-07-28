@@ -38,12 +38,17 @@ import {
   and,
   eq,
 } from "@gamenight/db";
+import { PACK_BY_LEDGER, SESSION_PACK_KEYS, type SessionPackKey } from "@gamenight/shared";
 import { eventRecap } from "./events.js";
 
 export const eventTvRouter = Router();
 
-/** The four packs that run a server-side session (the client's SessionPackKey). */
-export type TvPack = "smash" | "mariokart" | "marioparty" | "pingpong";
+/**
+ * The four packs that run a server-side session. Derived from the shared
+ * registry rather than restated, so this cannot fall out of step with the
+ * component the client picks on the strength of it.
+ */
+export type TvPack = SessionPackKey;
 
 /** A session that can be shown: never "completed", which is filtered first. */
 export type TvStatus = "setup" | "live";
@@ -91,15 +96,12 @@ export interface TvCandidates {
  * which is not stable. An unstable answer here is not a cosmetic problem: the
  * TV would flip between two packs on consecutive refetches, which looks like a
  * broken screen. Lower index wins a tie.
+ *
+ * The pack half comes from the registry, in registry order, so a new pack
+ * cannot be missing from it — an absent key would silently rank LAST and lose
+ * every tie, which is the sort of thing nobody would ever think to test.
  */
-const TIEBREAK: readonly string[] = [
-  "bracket",
-  "beerio",
-  "smash",
-  "mariokart",
-  "marioparty",
-  "pingpong",
-];
+const TIEBREAK: readonly string[] = ["bracket", "beerio", ...SESSION_PACK_KEYS];
 
 const rank = (key: string) => {
   const i = TIEBREAK.indexOf(key);
@@ -164,12 +166,16 @@ export function resolveNow(c: TvCandidates): TvNow {
   return best ? best.now : null;
 }
 
-/** game_sessions.pack -> the TvPack the client renders. Smash has its own table. */
-const PACK_OF: Record<string, TvPack> = {
-  mario_kart: "mariokart",
-  mario_party: "marioparty",
-  ping_pong: "pingpong",
-};
+// game_sessions.pack -> the pack key the client renders, from the one registry
+// (PACK_BY_LEDGER). This was a hand-written table here AND in events.ts AND,
+// keyed the other way round, in the recap card.
+//
+// The hand-written one was WRONG, and this is the bug the registry exists to
+// prevent: it mapped "ping_pong", a spelling that exists nowhere in the app —
+// Ping Pong's ledger key is "pingpong" — so the lookup missed, the `if (pack)`
+// below dropped the row, and a live Ping Pong session was invisible to the
+// event TV. The screen sat on the lobby while a game was being played, and
+// nothing errored, because a missing key is just undefined.
 
 /**
  * What the TV should show for this night, plus enough to draw the lobby when
@@ -231,9 +237,10 @@ eventTvRouter.get("/event/:eventId", async (req, res) => {
 
   const packs: PackCandidate[] = [];
   for (const s of shared) {
-    const pack = PACK_OF[s.pack];
+    const pack = PACK_BY_LEDGER[s.pack];
     if (pack) packs.push({ pack, status: s.status, updatedAt: s.updatedAt });
   }
+  // Smash keeps its own table, so it is read separately and pushed by key.
   if (smash[0]) packs.push({ pack: "smash", status: smash[0].status, updatedAt: smash[0].updatedAt });
 
   const now = resolveNow({

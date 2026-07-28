@@ -4,6 +4,7 @@ import { api, CLIENT_ID } from "../api";
 import BackButton from "../BackButton";
 import { usePackSession, type PackCtx as Ctx } from "../usePackSession";
 import {
+  SESSION_PACKS,
   MARIO_PARTY_TITLES,
   rosterForTitle,
   boardsForTitle,
@@ -66,7 +67,7 @@ export default function MarioPartyPage() {
   const { ctx, session, loading, busy, err, call, startSession } =
     usePackSession<Session>({
       pack: "marioparty",
-      wsType: "mario_party_updated",
+      wsType: SESSION_PACKS.marioparty.wsType,
       eventId,
       replacePrompt:
         "A session is already in progress on this event. Replace it? Any board recorded in the current session stays in your stats, but the session itself is ended.",

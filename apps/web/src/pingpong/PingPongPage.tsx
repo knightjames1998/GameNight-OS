@@ -4,7 +4,7 @@ import { api } from "../api";
 import BackButton from "../BackButton";
 import { formatLabel } from "../formats";
 import { usePackSession, type PackCtx as Ctx } from "../usePackSession";
-import { recordGame, gameWins, type PpSessionState, type PpMatch } from "@gamenight/shared";
+import { SESSION_PACKS, recordGame, gameWins, type PpSessionState, type PpMatch } from "@gamenight/shared";
 import "./pingpong.css";
 
 type Mode = "koth" | "ffa";
@@ -39,7 +39,7 @@ export default function PingPongPage() {
   const { ctx, session, loading, busy, err, call, startSession } =
     usePackSession<Session>({
       pack: "pingpong",
-      wsType: "ping_pong_updated",
+      wsType: SESSION_PACKS.pingpong.wsType,
       eventId,
       replacePrompt:
         "A session is already in progress on this event. Replace it? Any unfinished match in the current session is lost.",

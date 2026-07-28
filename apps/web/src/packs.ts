@@ -22,17 +22,24 @@
 // on state this module has no business knowing about. Everything else is one
 // list.
 
+import { SESSION_PACKS, type SessionPackKey } from "@gamenight/shared";
 import type { PickerFormat, PickerGame } from "./GamePicker";
 
 /**
- * Every pack the picker knows about. A union rather than `string` so a caller
- * switching on the key gets narrowing (and a compile error for a pack it
- * forgot) instead of having to trust itself.
+ * Every pack the picker knows about: the session packs from the shared
+ * registry, plus Tournament, which is not a pack in the registry's sense (it
+ * has no session, no route segment of its own and no ws type — it is a bracket
+ * started from this screen).
+ *
+ * A union rather than `string` so a caller switching on the key gets narrowing
+ * (and a compile error for a pack it forgot) instead of having to trust itself.
  */
-export type PackKey = "mariokart" | "smash" | "marioparty" | "pingpong" | "tournament";
+export type PackKey = SessionPackKey | "tournament";
 
-/** The four packs that run a server-side session; Tournament and Beerio do not. */
-export type SessionPackKey = Exclude<PackKey, "tournament">;
+// Re-exported so client code can keep importing it from here, while the one
+// definition lives in packages/shared alongside the server's spelling of the
+// same four packs.
+export type { SessionPackKey };
 
 /** A format as the catalogue describes it, before a destination is attached. */
 export interface PackFormatSpec {
@@ -51,11 +58,17 @@ export interface PackSpec {
   formats: PackFormatSpec[];
 }
 
+// Name and emoji come from the shared registry; the picker owns only what is
+// genuinely picker-specific (the cabinet class and the format list). The two
+// used to be typed out here AND in the recap card AND on the event page, which
+// is three chances to spell one pack differently.
+const S = SESSION_PACKS;
+
 export const PACKS: PackSpec[] = [
   {
     key: "mariokart",
-    name: "Mario Kart",
-    emoji: "🏎️",
+    name: S.mariokart.name,
+    emoji: S.mariokart.emoji,
     cabClass: "gn-cab--mk",
     formats: [
       // Beerio is a separate pack that lives under the Mario Kart tile,
@@ -69,8 +82,8 @@ export const PACKS: PackSpec[] = [
   },
   {
     key: "smash",
-    name: "Smash Bros",
-    emoji: "🥊",
+    name: S.smash.name,
+    emoji: S.smash.emoji,
     cabClass: "gn-cab--smash",
     formats: [
       { key: "ffa", label: "Free-for-all", sub: "2–8 players a game" },
@@ -80,15 +93,15 @@ export const PACKS: PackSpec[] = [
   },
   {
     key: "marioparty",
-    name: "Mario Party",
-    emoji: "🎲",
+    name: S.marioparty.name,
+    emoji: S.marioparty.emoji,
     cabClass: "gn-cab--mp",
     formats: [{ key: "board", label: "🎲 Board night", sub: "stars, boards, bonus stars" }],
   },
   {
     key: "pingpong",
-    name: "Ping Pong",
-    emoji: "🏓",
+    name: S.pingpong.name,
+    emoji: S.pingpong.emoji,
     cabClass: "gn-cab--pp",
     formats: [
       { key: "free", label: "Free Play", sub: "single games, one tap each" },

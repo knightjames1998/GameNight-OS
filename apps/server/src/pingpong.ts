@@ -42,23 +42,21 @@ import {
   type PpBestOf,
   type PpFormat,
   type PpMatch,
+  SESSION_PACKS,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
-import { createPackRuntime, roleOf, isHostRole, type LedgerLine } from "./pack-runtime.js";
+import { createPackRuntime, packConfig, roleOf, isHostRole, type LedgerLine } from "./pack-runtime.js";
 import { broadcast } from "./ws.js";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
-const PACK = "pingpong";
+/** The ledger spelling, from the one registry (packages/shared/src/packs.ts). */
+const PACK = SESSION_PACKS.pingpong.ledger;
 
 export const pingPongRouter = Router();
 export const pingPongTvRouter = Router();
 
 export const pingPongRuntime = createPackRuntime<PpSessionState>({
-  pack: PACK,
-  gameName: "Ping Pong",
-  wsType: "ping_pong_updated",
-  keyPrefix: "pp",
-  table: "game_sessions",
+  ...packConfig("pingpong"),
   extras: (state) => ({
     needed: neededWins(state.bestOf),
     summary: summarizePingPong(state),

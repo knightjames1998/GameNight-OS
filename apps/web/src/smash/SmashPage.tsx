@@ -4,7 +4,7 @@ import { api } from "../api";
 import BackButton from "../BackButton";
 import { formatLabel } from "../formats";
 import { usePackSession, type PackCtx as Ctx } from "../usePackSession";
-import { SMASH_TITLES, rosterForTitle } from "@gamenight/shared";
+import { SESSION_PACKS, SMASH_TITLES, rosterForTitle } from "@gamenight/shared";
 import "./smash.css";
 
 type Mode = "ffa" | "koth";
@@ -77,7 +77,7 @@ export default function SmashPage() {
   const { ctx, session, loading, busy, err, call, startSession } =
     usePackSession<Session>({
       pack: "smash",
-      wsType: "smash_updated",
+      wsType: SESSION_PACKS.smash.wsType,
       eventId,
       replacePrompt:
         "A session is already in progress on this event. Replace it? Any unfinished game or set is lost.",

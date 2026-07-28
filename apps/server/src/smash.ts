@@ -41,7 +41,7 @@ import {
   type SeriesBestOf,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
-import { createPackRuntime, roleOf, isHostRole, type LedgerLine } from "./pack-runtime.js";
+import { createPackRuntime, packConfig, roleOf, isHostRole, type LedgerLine } from "./pack-runtime.js";
 import { broadcast } from "./ws.js";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
@@ -52,11 +52,7 @@ export const smashTvRouter = Router();
 // keyed by eventId alone. That is deliberate and stays: moving it would be a
 // data migration, not a refactor.
 export const smashRuntime = createPackRuntime<SmashSessionState>({
-  pack: "smash",
-  gameName: "Smash Bros",
-  wsType: "smash_updated",
-  keyPrefix: "smash",
-  table: "smash_sessions",
+  ...packConfig("smash"),
   extras: (state) => ({
     summary: summarizeNight(state),
     seriesStandings: state.format === "bestof" ? seriesStandings(state) : [],

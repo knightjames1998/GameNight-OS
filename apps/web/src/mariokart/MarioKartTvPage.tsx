@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { SESSION_PACKS } from "@gamenight/shared";
 import { api } from "../api";
 import BackButton from "../BackButton";
 import { usePackLive } from "../useLiveUpdates";
@@ -40,7 +41,7 @@ export default function MarioKartTvPage({ eventId: propEventId }: { eventId?: st
     refetch().finally(() => setLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
-  usePackLive("mario_kart_updated", eventId, refetch);
+  usePackLive(SESSION_PACKS.mariokart.wsType, eventId, refetch);
 
   if (!loaded) return <div className="mk-tv"><div className="mk-tv__brand">Loading...</div></div>;
 

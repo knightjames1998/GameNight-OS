@@ -4,7 +4,7 @@ import { api } from "../api";
 import BackButton from "../BackButton";
 import { formatLabel } from "../formats";
 import { usePackSession, type PackCtx as Ctx } from "../usePackSession";
-import { MARIO_KART_TITLES, rosterForTitle } from "@gamenight/shared";
+import { SESSION_PACKS, MARIO_KART_TITLES, rosterForTitle } from "@gamenight/shared";
 import "./mariokart.css";
 
 // Mario Kart race night. Four formats: Free Play (single races), Grand Prix
@@ -80,7 +80,7 @@ export default function MarioKartPage() {
   const { ctx, session, loading, busy, err, call, startSession } =
     usePackSession<Session>({
       pack: "mariokart",
-      wsType: "mario_kart_updated",
+      wsType: SESSION_PACKS.mariokart.wsType,
       eventId,
       replacePrompt:
         "A session is already in progress on this event. Replace it? Any unfinished race or set is lost.",

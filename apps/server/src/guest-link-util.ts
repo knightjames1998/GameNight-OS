@@ -14,7 +14,14 @@ import { getDb, matches, matchParticipants, and, eq } from "@gamenight/db";
 
 // One row the backfill would credit (dry run) or did credit to the member.
 export interface GuestCreditItem {
-  pack: string; // "bracket" | "smash" | "mario_kart" | "mario_party" | "pingpong"
+  // The pack this credit belongs to. For a session pack this is the LEDGER
+  // spelling from the registry (SESSION_PACKS[k].ledger in
+  // packages/shared/src/packs.ts), plus "bracket" and "beerio", which are not
+  // session packs and have no entry. Deliberately not restated as a list here:
+  // the list this comment used to carry was right for the ledger and wrong for
+  // every client-side use of the same word, which is the confusion the
+  // registry was created to end.
+  pack: string;
   packLabel: string; // human-friendly pack name, e.g. "Smash Bros"
   eventId: string;
   label: string; // the game / board / round / format, human-readable

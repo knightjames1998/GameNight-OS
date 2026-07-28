@@ -17,6 +17,7 @@
 
 import { Router } from "express";
 import { getDb, events, and, eq, inArray } from "@gamenight/db";
+import { SESSION_PACKS } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { roleOf } from "./pack-runtime.js";
 import { broadcast } from "./ws.js";
@@ -44,10 +45,13 @@ const creditAdapters: {
   credit: (g: string, name: string, member: string, dry: boolean) => Promise<{ items: GuestCreditItem[]; written: number }>;
 }[] = [
   { key: "bracket", credit: creditGuestBracket },
-  { key: "smash", credit: creditGuestSmash },
-  { key: "mario_kart", credit: creditGuestMarioKart },
-  { key: "mario_party", credit: creditGuestMarioParty },
-  { key: "pingpong", credit: creditGuestPingPong },
+  // The four session packs key off the registry's LEDGER spelling, which is
+  // the same string their materializers write to games.pack. Retyping them
+  // here is how the two used to be able to disagree.
+  { key: SESSION_PACKS.smash.ledger, credit: creditGuestSmash },
+  { key: SESSION_PACKS.mariokart.ledger, credit: creditGuestMarioKart },
+  { key: SESSION_PACKS.marioparty.ledger, credit: creditGuestMarioParty },
+  { key: SESSION_PACKS.pingpong.ledger, credit: creditGuestPingPong },
   { key: "beerio", credit: creditGuestBeerio },
 ];
 

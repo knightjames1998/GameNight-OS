@@ -38,23 +38,21 @@ import {
   type SmashGame,
   type Series,
   type SeriesBestOf,
+  SESSION_PACKS,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
-import { createPackRuntime, roleOf, isHostRole, type LedgerLine } from "./pack-runtime.js";
+import { createPackRuntime, packConfig, roleOf, isHostRole, type LedgerLine } from "./pack-runtime.js";
 import { broadcast } from "./ws.js";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
-const PACK = "mario_kart";
+/** The ledger spelling, from the one registry (packages/shared/src/packs.ts). */
+const PACK = SESSION_PACKS.mariokart.ledger;
 
 export const marioKartRouter = Router();
 export const marioKartTvRouter = Router();
 
 export const marioKartRuntime = createPackRuntime<MkSessionState>({
-  pack: PACK,
-  gameName: "Mario Kart",
-  wsType: "mario_kart_updated",
-  keyPrefix: "mk",
-  table: "game_sessions",
+  ...packConfig("mariokart"),
   extras: (state) => ({
     // summarizeNight only reads roster + games; MK's wider format union is
     // irrelevant to it, so the cast is safe.

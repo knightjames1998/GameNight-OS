@@ -38,23 +38,21 @@ import {
   type MpGame,
   type MpRawEntry,
   type SmashPlayer,
+  SESSION_PACKS,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
-import { createPackRuntime, roleOf, isHostRole, type LedgerLine } from "./pack-runtime.js";
+import { createPackRuntime, packConfig, roleOf, isHostRole, type LedgerLine } from "./pack-runtime.js";
 import { broadcast } from "./ws.js";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
-const PACK = "mario_party";
+/** The ledger spelling, from the one registry (packages/shared/src/packs.ts). */
+const PACK = SESSION_PACKS.marioparty.ledger;
 
 export const marioPartyRouter = Router();
 export const marioPartyTvRouter = Router();
 
 export const marioPartyRuntime = createPackRuntime<MpSessionState>({
-  pack: PACK,
-  gameName: "Mario Party",
-  wsType: "mario_party_updated",
-  keyPrefix: "mp",
-  table: "game_sessions",
+  ...packConfig("marioparty"),
   extras: (state) => ({ summary: summarizeMpNight(state) }),
 });
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { packRoute, prefetch } from "./prefetch";
+import { packRoute, prefetch, type Importer } from "./prefetch";
 
 // Shared "pick a game, then a format" chooser (Arcade). Used on the home
 // quick-play screen and on the event page. Each game expands to its formats;
@@ -35,7 +35,12 @@ export interface PickerGame {
  */
 function warm(...keys: (string | undefined)[]) {
   for (const k of keys) {
-    const route = k ? packRoute[k] : undefined;
+    // The keys arriving here are format keys as well as pack keys ("koth",
+    // "bestof", ...), so the lookup is deliberately open while the TABLE
+    // itself stays complete by type. Widening it here rather than typing
+    // packRoute loosely keeps the compile error where it is useful: on
+    // adding a pack and forgetting to register its chunk.
+    const route = k ? (packRoute as Record<string, Importer | undefined>)[k] : undefined;
     if (route) return prefetch(route);
   }
 }

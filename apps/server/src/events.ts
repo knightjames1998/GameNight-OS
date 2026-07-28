@@ -17,6 +17,7 @@ import {
   eq,
   desc,
 } from "@gamenight/db";
+import { PACK_BY_LEDGER } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { broadcast } from "./ws.js";
 
@@ -212,13 +213,6 @@ eventsRouter.get("/groups/:groupId/events", async (req: AuthedRequest, res) => {
   );
 });
 
-/** game_sessions.pack -> the key the client's game picker uses for that tile. */
-const PICKER_PACK: Record<string, string> = {
-  mario_kart: "mariokart",
-  mario_party: "marioparty",
-  ping_pong: "pingpong",
-};
-
 /**
  * The full event-detail payload the client renders. Shared by the GET and
  * every mutation on this router, so a mutation's response IS the updated
@@ -308,7 +302,11 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
   // would be lying if it offered to "rejoin" one.
   const sessions: { pack: string; status: "setup" | "live" }[] = [];
   for (const s of sharedSessions) {
-    const pack = PICKER_PACK[s.pack];
+    // From the one registry. The hand-written copy this replaced mapped
+    // "ping_pong", which is not Ping Pong's ledger key ("pingpong"), so the
+    // lookup missed and a live Ping Pong session never showed "live now" on
+    // its tile. Same typo, same silence, as the event TV resolver's copy.
+    const pack = PACK_BY_LEDGER[s.pack];
     if (pack && s.status !== "completed") sessions.push({ pack, status: s.status });
   }
   if (smashRows[0] && smashRows[0].status !== "completed") {

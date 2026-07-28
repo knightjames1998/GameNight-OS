@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
+import { PACK_WS_TYPES } from "@gamenight/shared";
 import { api, type EventTv } from "../api";
 import BackButton from "../BackButton";
 import { useLiveRefetch } from "../useLiveUpdates";
@@ -32,14 +33,13 @@ const PingPongTvPage = lazy(() => import("../pingpong/PingPongTvPage"));
 const TvPage = lazy(() => import("./TvPage"));
 const BeerioTvPage = lazy(() => import("../beerio/BeerioTvPage"));
 
-/** The resolver only needs to know when to RE-RESOLVE. */
-const TYPES = [
-  "smash_updated",
-  "mario_kart_updated",
-  "mario_party_updated",
-  "ping_pong_updated",
-  "event_session_changed",
-] as const;
+/**
+ * The resolver only needs to know when to RE-RESOLVE. The pack types come from
+ * the registry, so a new pack is subscribed to by existing — the alternative,
+ * a hand-typed list, fails by simply never re-resolving for the pack somebody
+ * forgot, which looks exactly like a TV that ignores one game.
+ */
+const TYPES = [...PACK_WS_TYPES, "event_session_changed"];
 
 export default function EventTvPage() {
   const { id } = useParams();

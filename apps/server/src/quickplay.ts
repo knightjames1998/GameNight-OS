@@ -19,7 +19,7 @@ import {
   and,
   eq,
 } from "@gamenight/db";
-import type { BracketFormat, Entrant } from "@gamenight/shared";
+import { SESSION_PACKS, SESSION_PACK_KEYS, type BracketFormat, type Entrant } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 
 export const quickPlayRouter = Router();
@@ -136,18 +136,14 @@ async function quickSessionEvent(req: AuthedRequest, fallbackTitle: string): Pro
   return event.id;
 }
 
-quickPlayRouter.post("/quickplay/smash", async (req: AuthedRequest, res) => {
-  res.json({ eventId: await quickSessionEvent(req, "Smash Night") });
-});
-
-quickPlayRouter.post("/quickplay/mariokart", async (req: AuthedRequest, res) => {
-  res.json({ eventId: await quickSessionEvent(req, "Mario Kart") });
-});
-
-quickPlayRouter.post("/quickplay/marioparty", async (req: AuthedRequest, res) => {
-  res.json({ eventId: await quickSessionEvent(req, "Mario Party") });
-});
-
-quickPlayRouter.post("/quickplay/pingpong", async (req: AuthedRequest, res) => {
-  res.json({ eventId: await quickSessionEvent(req, "Ping Pong") });
-});
+// One route per session pack, registered from the registry rather than typed
+// out four times. The route segment and the fallback title both come from the
+// pack's entry, so a new pack gets its quick-play route by existing — and
+// cannot get one whose spelling disagrees with the page that calls it, since
+// the client builds the same url from the same entry.
+for (const key of SESSION_PACK_KEYS) {
+  const pack = SESSION_PACKS[key];
+  quickPlayRouter.post(`/quickplay/${pack.route}`, async (req: AuthedRequest, res) => {
+    res.json({ eventId: await quickSessionEvent(req, pack.quickTitle) });
+  });
+}
