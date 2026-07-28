@@ -17,7 +17,7 @@ import {
   eq,
   desc,
 } from "@gamenight/db";
-import { PACK_BY_LEDGER } from "@gamenight/shared";
+import { PACK_BY_LEDGER, isSeriesSummary } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { broadcast } from "./ws.js";
 
@@ -403,6 +403,12 @@ export function rollupRecap(rows: RecapRow[]) {
   >();
 
   for (const r of rows) {
+    // A Smashdown SERIES row summarizes battles that are in this very list, and
+    // it shares their sessionKey by design, so it would land in their unit and
+    // report "won 4 of 6 games" for a five-battle series someone won three of.
+    // It is dropped from the recap entirely rather than shown as its own line:
+    // the series already IS the line, since all its battles group into one.
+    if (isSeriesSummary(r.label)) continue;
     let g = byMatch.get(r.matchId);
     if (!g) {
       g = {

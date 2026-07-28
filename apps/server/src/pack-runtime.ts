@@ -237,8 +237,8 @@ export interface PackRuntime<S> extends PackRuntimeConfig<S> {
   /** Create the session row, or replace it (start / confirm-and-replace). */
   startSession(eventId: string, groupId: string, state: S, origin?: string): Promise<SessionPayload>;
   ensureGame(groupId: string): Promise<string>;
-  ledgerKey(eventId: string, sessionKey: string | undefined, idx: number): string;
-  deleteMaterialized(eventId: string, sessionKey: string | undefined, idx: number): Promise<void>;
+  ledgerKey(eventId: string, sessionKey: string | undefined, idx: number | string): string;
+  deleteMaterialized(eventId: string, sessionKey: string | undefined, idx: number | string): Promise<void>;
   sessionView(eventId: string, preloaded?: Loaded<S> | null): Promise<SessionPayload>;
   respondState(eventId: string, res: Response, preloaded?: Loaded<S> | null): Promise<void>;
   /** The session payload for a row already in hand. No query. */
@@ -276,6 +276,14 @@ export interface MaterializeArgs {
   gameId: string;
   /** The unit's index within the session; becomes matches.position. */
   idx: number;
+  /**
+   * Overrides the last segment of the externalKey, which is normally `idx`.
+   * A numbered game never needs this; a row that SUMMARIZES a whole session
+   * (a Smashdown series result) uses a literal, so its key cannot collide
+   * with a game's however the session's counts move. position still comes
+   * from `idx`, which is NOT NULL and is what orders a night.
+   */
+  keyUnit?: string;
   sessionKey: string | undefined;
   /** matches.label: the board, the cup, bo{N}, or null. */
   label?: string | null;
@@ -422,7 +430,7 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
    * Legacy sessions started before sessionKey existed fall back to the old
    * shape, which never collides with a new one.
    */
-  function ledgerKey(eventId: string, sessionKey: string | undefined, idx: number): string {
+  function ledgerKey(eventId: string, sessionKey: string | undefined, idx: number | string): string {
     return sessionKey ? `${keyPrefix}:${eventId}:${sessionKey}:${idx}` : `${keyPrefix}:${eventId}:${idx}`;
   }
 
@@ -439,7 +447,7 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
   async function deleteMaterialized(
     eventId: string,
     sessionKey: string | undefined,
-    idx: number,
+    idx: number | string,
   ): Promise<void> {
     const db = getDb();
     const id = await findMatch(db, eventId, ledgerKey(eventId, sessionKey, idx));
@@ -450,7 +458,7 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
 
   async function materializeUnit(args: MaterializeArgs): Promise<{ recorded: number; guests: number }> {
     const db = getDb();
-    const key = ledgerKey(args.eventId, args.sessionKey, args.idx);
+    const key = ledgerKey(args.eventId, args.sessionKey, args.keyUnit ?? args.idx);
     const existing = await findMatch(db, args.eventId, key);
     // Live path: already materialized and nothing to link, so nothing to do. A
     // guest backfill instead reuses the existing row and adds the participant

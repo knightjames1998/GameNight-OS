@@ -19,6 +19,8 @@ interface StatRow {
   characters?: CharacterStats;
   form?: FormStats;
   nightsPlayed?: number;
+  /** Smashdown series won / played; absent for a crew that has none. */
+  series?: { wins: number; played: number };
 }
 
 interface FormatStat {
@@ -57,6 +59,9 @@ interface SmashStats {
     variety: number;
     /** Distinct fighters this player has WON with (Smashdown's headline). */
     wonWith: number;
+    /** Smashdown series won / played, off the series summary rows only. */
+    seriesWins: number;
+    seriesPlayed: number;
     bestStreak: number;
   }[];
   headToHead: {
@@ -122,6 +127,9 @@ function ExpandedStats({ r, showByGame }: { r: StatRow; showByGame: boolean }) {
             streak {r.form.currentStreak >= 3 ? `${r.form.currentStreak} 🔥` : r.form.currentStreak}
             {" · "}best {r.form.longestStreak}
             {r.nightsPlayed ? ` · ${r.nightsPlayed} night${r.nightsPlayed === 1 ? "" : "s"}` : ""}
+            {r.series && r.series.played > 0
+              ? ` · ${r.series.wins}/${r.series.played} series won`
+              : ""}
           </span>
         </div>
       )}
@@ -254,6 +262,7 @@ function SmashPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
       <>
         {" "}&middot; {p.variety} {p.variety === 1 ? "fighter" : "fighters"}
         {p.wonWith > 0 && <> &middot; won with {p.wonWith}</>}
+        {p.seriesPlayed > 0 && <> &middot; {p.seriesWins}/{p.seriesPlayed} series won</>}
         {p.bestStreak > 1 && <> &middot; 🔥 {p.bestStreak} in a night</>}
       </>,
     ]),

@@ -27,6 +27,7 @@ interface MyStats {
   characters?: CharacterStats;
   form?: FormStats;
   nightsPlayed?: number;
+  series?: { wins: number; played: number };
   placements?: PlacementStats;
   history?: HistoryStats;
   bestGame?: GameExtreme | null;
@@ -107,7 +108,7 @@ export default function MyStatsPage() {
               />
             </div>
 
-            <FormStatsCard form={stats.form} nightsPlayed={stats.nightsPlayed} />
+            <FormStatsCard form={stats.form} nightsPlayed={stats.nightsPlayed} series={stats.series} />
 
             {/* Same component the crew profile uses, so the two pages can
                 never describe one person's show-up record differently. */}

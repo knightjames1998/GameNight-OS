@@ -339,6 +339,34 @@ export function validateFfa(
 // are one code path with no special casing.
 
 /**
+ * matches.label on a Smashdown SERIES row: the one row that says who won a
+ * whole series, written alongside the per-battle rows rather than instead of
+ * them.
+ *
+ * WHY THIS LABEL IS LOAD-BEARING, and why it is not just another format. Every
+ * other match-as-unit row in the ledger (a Best Of set, a Ping Pong match) IS
+ * the only row its games produce: the games inside it are never materialized,
+ * so counting the row counts each game once. A Smashdown series is the
+ * opposite — every battle is already a row — so its series row is a SUMMARY of
+ * results the ledger has already counted. Counting it as a game would inflate
+ * every player's games-played by one per series and hand the series winner a
+ * phantom win.
+ *
+ * So the rule is: anything that counts games skips this label, and only the
+ * series stats read it. That rule lives in one predicate below, and the places
+ * that tally outside it (the crew leaderboard's format buckets, the recap
+ * rollup, the Smash panel) each call it rather than re-testing the string.
+ */
+export const SERIES_LABEL = "smashdown";
+
+/**
+ * True for a ledger row that SUMMARIZES rows already in the ledger, so it must
+ * never be counted as a game played. See SERIES_LABEL for why this is a
+ * label and not a format.
+ */
+export const isSeriesSummary = (label: string | null | undefined): boolean => label === SERIES_LABEL;
+
+/**
  * The most battles a series can run: every player burns one fighter per
  * battle, so the ceiling is floor(fighters / players).
  *

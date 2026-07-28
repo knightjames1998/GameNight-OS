@@ -83,9 +83,16 @@ function Cell({ n, label, accent }: { n: string; label: string; accent?: string 
 export default function FormStatsCard({
   form,
   nightsPlayed,
+  series,
 }: {
   form?: FormStats;
   nightsPlayed?: number;
+  /**
+   * Smashdown series won / played. Rendered only when there are any, so a
+   * crew that has never played the format sees exactly what it saw before
+   * rather than a permanent "0 series" tile.
+   */
+  series?: { wins: number; played: number };
 }) {
   if (!form || form.tracked === 0) return null;
   const { currentStreak, longestStreak, last5 } = form;
@@ -102,6 +109,9 @@ export default function FormStatsCard({
         />
         <Cell n={String(longestStreak)} label="best streak" />
         {nightsPlayed !== undefined && <Cell n={String(nightsPlayed)} label="nights" />}
+        {series && series.played > 0 && (
+          <Cell n={`${series.wins}/${series.played}`} label="series won" />
+        )}
       </div>
       {last5.length > 0 && (
         <div

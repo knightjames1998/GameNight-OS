@@ -28,6 +28,7 @@ interface SideStats {
   characters?: CharacterStats;
   form?: FormStats;
   nightsPlayed?: number;
+  series?: { wins: number; played: number };
   placements?: PlacementStats;
   history?: HistoryStats;
   bestGame?: GameExtreme | null;
@@ -236,7 +237,7 @@ function Profile({ stats, title, subtitle }: { stats: SideStats; title: string; 
         </>
       )}
       {stats.played > 0 && (
-        <FormStatsCard form={stats.form} nightsPlayed={stats.nightsPlayed} />
+        <FormStatsCard form={stats.form} nightsPlayed={stats.nightsPlayed} series={stats.series} />
       )}
       <ShowUpRecord a={stats.attendance} />
       {stats.played > 0 && <CharacterStatsCard characters={stats.characters} />}
@@ -443,6 +444,11 @@ function Compare({ r, variant = "core" }: { r: Rivalry; variant?: "core" | "deep
     add("1st place", r.me.placements?.firstShare, r.them.placements?.firstShare, pct);
     add("last place", r.me.lastPlaceCount, r.them.lastPlaceCount, String, true);
     add("nights", r.me.nightsPlayed, r.them.nightsPlayed, String);
+    // Only when one of you has actually played a series, so a rivalry between
+    // two people who never touched Smashdown reads exactly as it did before.
+    if ((r.me.series?.played ?? 0) + (r.them.series?.played ?? 0) > 0) {
+      add("series won", r.me.series?.wins, r.them.series?.wins, String);
+    }
     add("games a night", r.me.history?.gamesPerNight, r.them.history?.gamesPerNight, (n) => n.toFixed(1));
     add("characters", r.me.characters?.distinctCharacters, r.them.characters?.distinctCharacters, String);
   }

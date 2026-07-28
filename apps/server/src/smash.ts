@@ -29,6 +29,8 @@ import {
   burnedFrom,
   availableFighters,
   currentPicks,
+  isSeriesSummary,
+  SERIES_LABEL,
   newSeries,
   recordSeriesGame,
   finalizeSeries,
@@ -154,6 +156,73 @@ async function materializeSeries(
   });
 }
 
+/** The externalKey tail for the series row: a literal, never a battle index. */
+const SERIES_KEY_UNIT = "series";
+
+/**
+ * Make the ledger's Smashdown SERIES row match reality, whatever just changed.
+ *
+ * RECONCILE, NEVER PATCH. `over` can flip in three different places — the
+ * battle that completes the count, an undo that takes it back, and the mercy
+ * toggle, which can end a series without anything being played — and a "write
+ * it when the last battle lands" rule silently misses two of them. So every
+ * one of those routes calls this, and it asks one question: does the ledger
+ * agree with smashdownStatus right now? Both halves are idempotent
+ * (materializeUnit no-ops on an existing row, deleteMaterialized no-ops on a
+ * missing one), so calling it twice, or on a format that is not Smashdown,
+ * costs a lookup and changes nothing.
+ *
+ * The row is a SUMMARY of battles already in the ledger, not a replacement for
+ * them, which is why it carries label SERIES_LABEL and why everything that
+ * counts games has to skip that label (see the shared constant). Character is
+ * left null: a series is not played with one fighter, that is the format.
+ * Co-winners are real here, so every tied leader gets placement 1.
+ *
+ * An ABANDONED series writes nothing. The host ending a format early leaves
+ * `over` false, and unlike a Best Of set — where abandoning would lose the
+ * games inside it, which is why that one finalizes — every Smashdown battle is
+ * already recorded, so there is nothing to rescue and no honest winner to name.
+ */
+async function syncSeriesRow(
+  groupId: string,
+  eventId: string,
+  state: SmashSessionState,
+  linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
+): Promise<void> {
+  if (state.format !== "smashdown") return;
+  const status = smashdownStatus(state);
+  if (!status.over) {
+    // A backfill only ever ADDS a participant to a row that already exists, so
+    // it must never reach the retract branch: passing a link map means "credit
+    // this person", not "re-decide whether this series happened".
+    if (!linkMap) await rt.deleteMaterialized(eventId, state.sessionKey, SERIES_KEY_UNIT);
+    return;
+  }
+  const winners = new Set(status.winnerIds);
+  const gameId = await rt.ensureGame(groupId);
+  await rt.materializeUnit({
+    groupId,
+    eventId,
+    gameId,
+    // Sorts immediately after the last battle of the night it summarizes.
+    idx: state.games.length,
+    keyUnit: SERIES_KEY_UNIT,
+    sessionKey: state.sessionKey,
+    label: SERIES_LABEL,
+    format: "smashdown",
+    roster: state.roster,
+    lines: status.standings.map((s) => ({
+      playerId: s.playerId,
+      placement: s.placement,
+      isWinner: winners.has(s.playerId),
+      character: null,
+      meta: { battleWins: s.wins, battles: status.battlesPlayed },
+    })),
+    linkMap,
+  });
+}
+
+
 /** Per-player best-of standings with names, for the live page + TV. */
 function seriesStandings(state: SmashSessionState) {
   const nameOf = new Map(state.roster.map((p) => [p.id, p.name]));
@@ -229,6 +298,25 @@ export async function creditGuestSmash(
         isWinner: won,
       });
     }
+    // A finished Smashdown SERIES the guest played in. Credited as its own
+    // item because it is its own row: without this the linked member would
+    // pick up every battle and none of the series wins those battles add up
+    // to, which is the sort of half-credit the preview promise rules out.
+    const sd = state.format === "smashdown" ? smashdownStatus(state) : null;
+    if (sd?.over && !credited.has(rt.ledgerKey(eventId, state.sessionKey, SERIES_KEY_UNIT))) {
+      const stand = sd.standings.find((s) => guestSlots.has(s.playerId));
+      if (stand) {
+        items.push({
+          pack: "smash",
+          packLabel: "Smash Bros",
+          eventId,
+          label: `Smashdown series (${sd.battlesPlayed} battles)`,
+          date: state.games[state.games.length - 1]?.at ?? null,
+          placement: stand.placement,
+          isWinner: sd.winnerIds.includes(stand.playerId),
+        });
+      }
+    }
 
     if (!dryRun) {
       gameId = gameId ?? (await rt.ensureGame(groupId));
@@ -242,6 +330,9 @@ export async function creditGuestSmash(
           await materializeSeries(groupId, eventId, gameId, ser, state.bestOf, state.roster, state.sessionKey, linkMap);
         }
       }
+      // Additive: reuses the series row that already exists and inserts the
+      // participant that was skipped when the guest had no identity.
+      await syncSeriesRow(groupId, eventId, state, linkMap);
     }
   }
   return { items, written: dryRun ? 0 : items.length };
@@ -670,6 +761,8 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
     const report = await materializeGame(
       row.groupId, eventId, gameId, battle, state.roster, state.sessionKey, state.format,
     );
+    // Writes the series row if that battle ended the series; a no-op otherwise.
+    await syncSeriesRow(row.groupId, eventId, state);
     const origin = req.get("x-gn-client");
     const view = await rt.saveState(loaded, "live", origin);
     broadcast({ type: "leaderboard_updated", eventId }, origin);
@@ -796,6 +889,9 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
     state.burned = burnedFrom(state.games);
     const usedBy = new Map(last.lines.map((l) => [l.playerId, l.character]));
     for (const p of state.roster) p.character = usedBy.get(p.id) ?? null;
+    // Undoing the battle that ended the series retracts the series row too,
+    // so the ledger never claims a winner for a series that is live again.
+    await syncSeriesRow(row.groupId, eventId, state);
   }
 
   if (state.mode === "koth") {
@@ -855,7 +951,14 @@ smashRouter.post("/smash/:eventId/mercy", requireAuth, async (req: AuthedRequest
     return;
   }
   loaded.state.mercy = !!req.body?.on;
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  // Turning mercy ON over an already-unbeatable lead ENDS the series, and
+  // turning it back off resumes it, so the ledger has to follow the toggle.
+  // This is the case a "write the row when the last battle lands" rule misses.
+  const origin = req.get("x-gn-client");
+  await syncSeriesRow(loaded.row.groupId, eventId, loaded.state);
+  const view = await rt.saveState(loaded, loaded.row.status, origin);
+  broadcast({ type: "leaderboard_updated", eventId }, origin);
+  res.json(view);
 });
 
 // Host ends the night.
@@ -883,6 +986,14 @@ smashRouter.post("/smash/:eventId/complete", requireAuth, async (req: AuthedRequ
     state.series = null;
     const gameId = await rt.ensureGame(row.groupId);
     await materializeSeries(row.groupId, eventId, gameId, done, state.bestOf, state.roster, state.sessionKey);
+    finalized = true;
+  }
+  // Smashdown: the last chance to reconcile. Nothing to do on a series that
+  // already wrote its row, and nothing to write for one abandoned early, but
+  // it is what catches a series that finished on a build that predates the
+  // series row existing at all.
+  if (state.format === "smashdown") {
+    await syncSeriesRow(row.groupId, eventId, state);
     finalized = true;
   }
   const view = await rt.saveState(loaded, "completed", origin);
@@ -923,6 +1034,7 @@ smashRouter.get("/groups/:id/smash-stats", requireAuth, async (req: AuthedReques
       matchId: matchParticipants.matchId,
       eventId: matches.eventId,
       position: matches.position,
+      label: matches.label,
     })
     .from(matchParticipants)
     .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
@@ -945,11 +1057,22 @@ smashRouter.get("/groups/:id/smash-stats", requireAuth, async (req: AuthedReques
        * be used once in a series, and it is a fair read of any Smash night.
        */
       wonWith: Set<string>;
+      /** Smashdown series won / played, off the summary rows only. */
+      seriesWins: number;
+      seriesPlayed: number;
     }
   >();
   const matchIds = new Set<string>();
 
-  for (const r of rows) {
+  // Series summary rows are split off BEFORE anything counts games. They
+  // summarize battles that are already in this same result set, so leaving
+  // them in would add a phantom game per series to every player, hand the
+  // series winner an extra win, and put a null character through the fighter
+  // tallies. They feed one thing: series won.
+  const seriesRows = rows.filter((r) => isSeriesSummary(r.label));
+  const gameRows = rows.filter((r) => !isSeriesSummary(r.label));
+
+  for (const r of gameRows) {
     matchIds.add(r.matchId);
     if (r.character) {
       const c = chars.get(r.character) ?? { character: r.character, played: 0, wins: 0 };
@@ -966,6 +1089,8 @@ smashRouter.get("/groups/:id/smash-stats", requireAuth, async (req: AuthedReques
         wins: 0,
         counts: new Map<string, number>(),
         wonWith: new Set<string>(),
+        seriesWins: 0,
+        seriesPlayed: 0,
       };
     p.played++;
     if (r.isWinner) p.wins++;
@@ -981,7 +1106,7 @@ smashRouter.get("/groups/:id/smash-stats", requireAuth, async (req: AuthedReques
   // roll" stat, and it reads sensibly for FFA too (games won in a row).
   const streakBest = new Map<string, number>();
   const byUserEvent = new Map<string, { position: number; isWinner: boolean }[]>();
-  for (const r of rows) {
+  for (const r of gameRows) {
     const key = `${r.userId}|${r.eventId ?? ""}`;
     (byUserEvent.get(key) ?? byUserEvent.set(key, []).get(key)!).push({
       position: r.position ?? 0,
@@ -1000,11 +1125,21 @@ smashRouter.get("/groups/:id/smash-stats", requireAuth, async (req: AuthedReques
     streakBest.set(userId, Math.max(streakBest.get(userId) ?? 0, best));
   }
 
+  // Series won: the one thing the summary rows are for. A player who has only
+  // ever played FFA never appears here, so the stat hides itself rather than
+  // showing a column of zeroes.
+  for (const r of seriesRows) {
+    const p = players.get(r.userId);
+    if (!p) continue;
+    p.seriesPlayed++;
+    if (r.isWinner) p.seriesWins++;
+  }
+
   // Head-to-head: for every match two members shared, the better placement
   // wins the meeting. Ties (equal placement, e.g. both non-winners in a
   // winner-only FFA) count as a meeting with no edge, so records stay honest.
   const byMatch = new Map<string, { userId: string; placement: number | null }[]>();
-  for (const r of rows) {
+  for (const r of gameRows) {
     (byMatch.get(r.matchId) ?? byMatch.set(r.matchId, []).get(r.matchId)!).push({
       userId: r.userId,
       placement: r.placement,
@@ -1044,6 +1179,8 @@ smashRouter.get("/groups/:id/smash-stats", requireAuth, async (req: AuthedReques
       main,
       variety,
       wonWith: p.wonWith.size,
+      seriesWins: p.seriesWins,
+      seriesPlayed: p.seriesPlayed,
       bestStreak: streakBest.get(p.userId) ?? 0,
     };
   });

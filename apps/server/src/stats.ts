@@ -23,6 +23,7 @@ import {
   inArray,
   sql,
 } from "@gamenight/db";
+import { isSeriesSummary } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 
 export const statsRouter = Router();
@@ -63,6 +64,7 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
       gameName: games.name,
       pack: games.pack,
       format: matches.format,
+      label: matches.label,
       character: matchParticipants.character,
       playedAt: matches.playedAt,
       eventId: matches.eventId,
@@ -80,6 +82,10 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
   type FmtBucket = { byUser: Map<string, FmtCell>; matchIds: Set<string> };
   const fmtByGame = new Map<string, Map<string, FmtBucket>>();
   for (const r of rows) {
+    // A series summary carries format "smashdown" like the battles it
+    // summarizes, so without this the Smashdown bucket would count each
+    // series as an extra unit played and credit its winner twice.
+    if (isSeriesSummary(r.label)) continue;
     const game = r.gameName ?? "Unknown";
     const fmt = r.format ?? "other";
     const byFmt = fmtByGame.get(game) ?? new Map<string, FmtBucket>();
@@ -141,11 +147,17 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
     feedAgg(row.agg, r);
   }
 
-  const tournamentRows = await db
-    .select({ id: matches.id, gameName: games.name })
-    .from(matches)
-    .leftJoin(games, eq(matches.gameId, games.id))
-    .where(and(eq(matches.groupId, groupId), eq(matches.status, "completed")));
+  // Every completed match in the crew, which is what the headline count and
+  // the per-game ordering are built from. Series summaries are dropped here
+  // too: they are not a thing that was played, they are a description of
+  // things that were.
+  const tournamentRows = (
+    await db
+      .select({ id: matches.id, gameName: games.name, label: matches.label })
+      .from(matches)
+      .leftJoin(games, eq(matches.gameId, games.id))
+      .where(and(eq(matches.groupId, groupId), eq(matches.status, "completed")))
+  ).filter((t) => !isSeriesSummary(t.label));
 
   const countByGame = new Map<string, number>();
   for (const t of tournamentRows) {
@@ -199,7 +211,7 @@ const HISTORY_MONTHS = 12;
  * object rather than positionally: there are five like-typed fields and a
  * swapped pair would be silent.
  */
-interface ResultRow {
+export interface ResultRow {
   matchId: string;
   placement: number | null;
   isWinner: boolean;
@@ -207,8 +219,23 @@ interface ResultRow {
   character: string | null;
   playedAt: Date | null;
   eventId: string | null;
+  /**
+   * matches.label. Carried for ONE reason: a Smashdown series row summarizes
+   * battles that are already in this same result set, so it must not be
+   * counted as a game (see isSeriesSummary in the shared module). Every other
+   * label is descriptive only — a board name, a cup, bo{N} — and is ignored
+   * here, because those rows genuinely ARE the unit their games produced.
+   */
+  label: string | null;
 }
 
+// newAgg / feedAgg / finishAgg are EXPORTED for the tests, not for other
+// modules to build their own aggregation with: the whole point of this file is
+// that there is one, and the crew leaderboard was unified onto it precisely so
+// two screens could not disagree about a player. They are exported because the
+// series-summary exclusion is a rule that fails silently (every player quietly
+// gains a game per series) and it cannot be asserted through a route without a
+// database.
 /** Per-character tallies. Placement fields ignore results with no placement. */
 interface CharTally {
   played: number;
@@ -251,9 +278,14 @@ interface Agg {
   seconds: number;
   thirds: number;
   fourthPlus: number;
+  // Series (Smashdown) won and played. Fed ONLY by the summary rows, which
+  // every other counter above skips, so the two can never double-count the
+  // same night: a five-battle series is five games and one series.
+  seriesWins: number;
+  seriesPlayed: number;
 }
 
-function newAgg(): Agg {
+export function newAgg(): Agg {
   return {
     played: 0,
     wins: 0,
@@ -269,10 +301,30 @@ function newAgg(): Agg {
     seconds: 0,
     thirds: 0,
     fourthPlus: 0,
+    seriesWins: 0,
+    seriesPlayed: 0,
   };
 }
 
-function feedAgg(a: Agg, r: ResultRow) {
+/**
+ * Fold one ledger row into an aggregate.
+ *
+ * THE EXCLUSION LIVES HERE, at the top, rather than in each of the five
+ * callers. A Smashdown series row is a summary of battles that are already in
+ * the ledger, so counting it as a game would give every player a phantom game
+ * per series and the winner a phantom win. Putting the test in the one place
+ * every caller already goes through means a sixth caller inherits it instead
+ * of being the one that forgets. The callers that tally OUTSIDE this function
+ * (the crew leaderboard's format buckets, /me/stats' per-format and per-crew
+ * rollups, the recap) each call isSeriesSummary themselves, and that is the
+ * whole list.
+ */
+export function feedAgg(a: Agg, r: ResultRow) {
+  if (isSeriesSummary(r.label)) {
+    a.seriesPlayed++;
+    if (r.isWinner) a.seriesWins++;
+    return;
+  }
   const place = r.placement ?? 0;
   a.played++;
   if (r.isWinner) a.wins++;
@@ -465,7 +517,7 @@ function finishHistory(a: Agg) {
   };
 }
 
-function finishAgg(a: Agg) {
+export function finishAgg(a: Agg) {
   return {
     played: a.played,
     wins: a.wins,
@@ -479,6 +531,9 @@ function finishAgg(a: Agg) {
     // character) and the response already has one (best placement).
     characters: finishCharacters(a.byCharacter),
     form: finishForm(a.timeline),
+    // Nested so a client can render it only when there is one: a crew that has
+    // never played Smashdown gets zeroes it can hide, not a new empty tile.
+    series: { wins: a.seriesWins, played: a.seriesPlayed },
     // Distinct nights with at least one recorded game. Counted off the
     // ledger, not off attendance check-ins: this claims "nights played",
     // and playing a game is proof, whereas a night nobody confirmed
@@ -580,6 +635,8 @@ const resultCols = {
   character: matchParticipants.character,
   playedAt: matches.playedAt,
   eventId: matches.eventId,
+  // Only so feedAgg can skip series summary rows; see ResultRow.label.
+  label: matches.label,
 };
 
 /** One user's ledger stats across a set of crews. */
@@ -736,6 +793,12 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
     for (const r of rows) {
       const side = r.userId === meId ? mineAgg : theirsAgg;
       feedAgg(side, r);
+      // feedAgg skips the series summary itself, but the meeting map below is
+      // built here and would otherwise count a series as an extra head-to-head
+      // encounter on top of every battle inside it — inflating the record,
+      // breaking the meeting streak, and putting a null character through the
+      // "what each of us reaches for" tally.
+      if (isSeriesSummary(r.label)) continue;
       const m = byMatch.get(r.matchId) ?? { game: r.gameName ?? "Unknown", playedAt: r.playedAt };
       const entry: Side = { p: r.placement, w: r.isWinner, character: r.character };
       if (r.userId === meId) m.mine = entry;
@@ -865,6 +928,7 @@ statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
       isWinner: matchParticipants.isWinner,
       gameName: games.name,
       format: matches.format,
+      label: matches.label,
       character: matchParticipants.character,
       playedAt: matches.playedAt,
       eventId: matches.eventId,
@@ -880,6 +944,9 @@ statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
   const byCrew = new Map<string, { groupId: string; name: string; played: number; wins: number; personal: boolean }>();
   for (const r of rows) {
     feedAgg(total, r);
+    // feedAgg skips series summaries on its own; these two tallies are the
+    // ones that live outside it, so they have to skip them here.
+    if (isSeriesSummary(r.label)) continue;
     if (r.format) {
       const f = byFormat.get(r.format) ?? { format: r.format, played: 0, wins: 0 };
       f.played++;
