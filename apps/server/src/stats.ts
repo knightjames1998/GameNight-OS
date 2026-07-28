@@ -896,21 +896,33 @@ statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
     c.played++;
     if (r.isWinner) c.wins++;
   }
-  // Mark personal crews so the client can label them "Quick play".
-  const personal = await db
-    .select({ id: groups.id })
+  // One pass for both uses: labelling quick-play crews, and picking the
+  // crews the show-up record is allowed to count.
+  const myGroups = await db
+    .select({ id: groups.id, isPersonal: groups.isPersonal })
     .from(groups)
     .innerJoin(memberships, eq(memberships.groupId, groups.id))
-    .where(and(eq(memberships.userId, req.user!.id), eq(groups.isPersonal, true)));
-  for (const p of personal) {
-    const c = byCrew.get(p.id);
+    .where(eq(memberships.userId, req.user!.id));
+
+  // Mark personal crews so the client can label them "Quick play".
+  for (const g of myGroups) {
+    if (!g.isPersonal) continue;
+    const c = byCrew.get(g.id);
     if (c) c.personal = true;
   }
+
+  // Show-up record across REAL crews only. A personal quick-play crew is
+  // just you, so there is nobody to have flaked on and no RSVP to break;
+  // counting them would dilute the rate with nights that cannot be missed.
+  const realCrewIds = myGroups.filter((g) => !g.isPersonal).map((g) => g.id);
 
   res.json({
     ...(await finishAggDeep(db, total)),
     byFormat: [...byFormat.values()].sort((x, y) => y.wins - x.wins || y.played - x.played),
     byCrew: [...byCrew.values()].sort((x, y) => y.played - x.played),
+    // The crew profile has always shown this; the cross-crew view did not,
+    // so the same person read differently on two pages.
+    attendance: await attendanceFor(db, realCrewIds, req.user!.id),
   });
 });
 

@@ -6,6 +6,7 @@ import CharacterStatsCard, { type CharacterStats } from "../CharacterStats";
 import FormStatsCard, { type FormStats } from "../FormStats";
 import Disclosure from "../Disclosure";
 import DeepStats, { type PlacementStats, type HistoryStats, type GameExtreme } from "../DeepStats";
+import ShowUpRecord, { Stat } from "../ShowUpRecord";
 import { ensureRecapFonts } from "../recap";
 
 // One page, two faces. Tapping yourself shows your profile; tapping anyone
@@ -290,52 +291,7 @@ function Profile({ stats, title, subtitle }: { stats: SideStats; title: string; 
   );
 }
 
-// Flake tracking: intent (RSVP yes) vs reality (the show-up check-in, or
-// silence). Hidden until there's something tracked so old profiles stay clean.
-function ShowUpRecord({ a }: { a?: AttendanceStats }) {
-  if (!a || a.tracked === 0) return null;
-  const rate = a.showRate ?? 0;
-  const rateColor = rate >= 0.8 ? "var(--gn-p2)" : rate >= 0.5 ? "var(--gn-gold)" : "var(--gn-danger)";
-  return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <Stat label="show rate" value={pct(rate)} accent={rateColor} />
-        <Stat
-          label="show streak"
-          value={a.currentStreak >= 3 ? `${a.currentStreak} 🔥` : String(a.currentStreak)}
-          accent={a.currentStreak >= 3 ? "var(--gn-gold)" : undefined}
-        />
-        <Stat
-          label="flakes"
-          value={String(a.flaked)}
-          accent={a.flaked > 0 ? "var(--gn-danger)" : "var(--gn-p2)"}
-        />
-      </div>
-      <p className="gn-hint" style={{ fontSize: "12px" }}>
-        showed up to {a.showed} of {a.tracked} night{a.tracked === 1 ? "" : "s"} · best streak{" "}
-        {a.bestStreak}
-      </p>
-    </div>
-  );
-}
 
-function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {
-  return (
-    <div
-      style={{
-        background: "var(--gn-raise)",
-        border: "2px solid var(--gn-line)",
-        borderRadius: "12px",
-        padding: "10px 6px",
-      }}
-    >
-      <div style={{ fontWeight: 800, fontSize: "22px", color: accent ?? "var(--gn-ink)" }}>{value}</div>
-      <div className="gn-hint" style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-        {label}
-      </div>
-    </div>
-  );
-}
 
 // ---------- Rivalry pieces ----------
 

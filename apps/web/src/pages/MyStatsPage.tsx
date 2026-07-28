@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api";
+import { api, type AttendanceStats } from "../api";
 import BackButton from "../BackButton";
 import CharacterStatsCard, { type CharacterStats } from "../CharacterStats";
 import FormStatsCard, { type FormStats } from "../FormStats";
 import Disclosure from "../Disclosure";
 import DeepStats, { type PlacementStats, type HistoryStats, type GameExtreme } from "../DeepStats";
+import ShowUpRecord from "../ShowUpRecord";
 
 // The full personal-stats page, opened from the "Your stats" button on Home.
 // Lifetime totals across every crew (quick play included), broken down by
@@ -14,6 +15,10 @@ interface MyStats {
   played: number;
   wins: number;
   winRate: number;
+  /** Best (lowest) placement, and the average. Returned all along, never shown. */
+  best: number | null;
+  avgPlacement: number | null;
+  attendance?: AttendanceStats;
   byGame: { name: string; played: number; wins: number }[];
   byFormat: { format: string; played: number; wins: number }[];
   byCrew: { groupId: string; name: string; played: number; wins: number; personal: boolean }[];
@@ -104,7 +109,21 @@ export default function MyStatsPage() {
               <Tile n={`${Math.round(stats.winRate * 100)}%`} label="win rate" accent="var(--gn-p2)" />
             </div>
 
+            {/* The endpoint has always returned these two; the page just
+                never rendered them, while the crew profile showed both. */}
+            <div className="flex gap-3">
+              <Tile n={stats.best ? `#${stats.best}` : "-"} label="best finish" />
+              <Tile
+                n={stats.avgPlacement ? stats.avgPlacement.toFixed(1) : "-"}
+                label="avg place"
+              />
+            </div>
+
             <FormStatsCard form={stats.form} nightsPlayed={stats.nightsPlayed} />
+
+            {/* Same component the crew profile uses, so the two pages can
+                never describe one person's show-up record differently. */}
+            <ShowUpRecord a={stats.attendance} />
 
             <CharacterStatsCard characters={stats.characters} />
 
