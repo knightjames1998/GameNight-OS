@@ -13,21 +13,21 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "July 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-07-28 (second pass that day) at the start of the phase 6 session,
-// then its zone-1 cleanup item and zone-3 slots updated when phase 6 shipped and
-// completed the run.
-// The previous session inherited a counter of 4, redrew at its start, then shipped
-// phases 3, 8b and 8a, handing over a 3. This pass is the full reconcile: both FIXED
-// bugs aged out of zone 5 per that section's own rule, zone 4's Mario Kart entry was
-// cut to the crew-wide table that is genuinely still missing, and zone 3 was
-// renumbered with phase 6 in slot 1. The whole cleanup run remains ONE item in zone 1.
+// Redrawn 2026-07-28 (THIRD pass that day) at the start of the Smashdown session.
+// The three sessions that shipped since the second pass (phase 6, one TV button per
+// night, one pack registry) all landed on 07-28 and handed over a counter of exactly 3.
+// This pass: zone 1 gained the two shipped sessions the map had never rendered (the
+// event TV and the pack registry, both (NEW)); the pre-pack cleanup item lost its (NEW)
+// highlight, and the whole cleanup run remains ONE item; zone 3 renumbered with
+// Smashdown in slot 1. Row 1 was raised 800 -> 860 and row 2 pushed 920 -> 980, because
+// zone 1's remaining 92px of slack was exactly what the two new items cost.
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
-// each 480 wide, row 1 y=95 h=800, row 2 y=920 h=530. Items 440x40, 46px
+// each 480 wide, row 1 y=95 h=860, row 2 y=980 h=530. Items 440x40, 46px
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
-    x: 40, y: 95, h: 800,
+    x: 40, y: 95, h: 860,
     title: "SHIPPED — FOUNDATION", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Auth: 6-digit codes + links + passwords" },
@@ -42,11 +42,13 @@ const ZONES = [
       { t: "Guest stat backfill; keep-warm ping; link previews", h: 52 },
       { t: "Stats depth: characters, placements, streaks, history", h: 52 },
       { t: "Crew leaderboard: shared agg, unified pack rows", h: 52 },
-      { t: "Pre-pack cleanup COMPLETE: hygiene, tests, request cost, indexes, code splitting, caching, one pack runtime, perceived speed, one client implementation per idea", bg: "#c3fae8", h: 70 },
+      { t: "Pre-pack cleanup COMPLETE: hygiene, tests, request cost, indexes, code splitting, caching, one pack runtime, perceived speed, one client implementation per idea", h: 70 },
+      { t: "One TV button per night: /e/:id/tv auto-follows (NEW)", bg: "#c3fae8" },
+      { t: "One pack registry: SESSION_PACKS, one entry per pack (NEW)", bg: "#c3fae8" },
     ],
   },
   {
-    x: 560, y: 95, h: 800,
+    x: 560, y: 95, h: 860,
     title: "SHIPPED — GAME PACKS", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Beerio Kart: full replica, predictions, TV" },
@@ -61,20 +63,17 @@ const ZONES = [
     ],
   },
   {
-    x: 1080, y: 95, h: 800,
+    x: 1080, y: 95, h: 860,
     title: "NEXT UP (queued)", zoneBg: "#fff3bf", header: "#b45309", itemBg: "#ffd8a8",
     items: [
-      { t: "1. (open slot — not committed)", sw: 2 },
-      { t: "2. (open slot — not committed)", sw: 2 },
-      { t: "3. (open slot — not committed)", sw: 2 },
-      { t: "Smashdown night (burned-fighter board)" },
-      { t: "Smash Tournament format (bracket + fighters)" },
-      { t: "Tabletop theme + theme switcher" },
+      { t: "1. Smashdown night (burned-fighter board)", sw: 2 },
+      { t: "2. Smash Tournament format (bracket + fighters)", sw: 2 },
+      { t: "3. Tabletop theme + theme switcher", sw: 2 },
       { t: "More packs: board games, darts, poker" },
     ],
   },
   {
-    x: 40, y: 920, h: 530,
+    x: 40, y: 980, h: 530,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
       { t: "Unified event TV + single active pack" },
@@ -86,7 +85,7 @@ const ZONES = [
     ],
   },
   {
-    x: 560, y: 920, h: 530,
+    x: 560, y: 980, h: 530,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
@@ -96,7 +95,7 @@ const ZONES = [
     ],
   },
   {
-    x: 1080, y: 920, h: 530,
+    x: 1080, y: 980, h: 530,
     title: "IDEAS — NOT SOLIDIFIED", zoneBg: "#e5dbff", header: "#6d28d9", itemBg: "#d0bfff",
     items: [
       { t: "Draft night mode (snake drafts, TV board)" },

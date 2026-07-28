@@ -12,38 +12,36 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-07-28
-    Shipped sessions since that redraw: 3 (phase 6 one implementation per idea; one TV button per
-                                        night; one pack registry)
+    Last map redraw:                    2026-07-28 (third pass that day)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
-    >>> THE COUNTER IS AT THE THRESHOLD. The NEXT session's FIRST task, before any
-    >>> feature work, is to reconcile this file and redraw the map (MAP PROTOCOL),
-    >>> then set "Last map redraw" to that date and the counter back to 0.
-
     Counter is below 3: continue with the requested work and increment it by 1 in the
-    same commit as any session that ships. Reconciled + redrawn on 2026-07-28 (second
-    pass that day) at the start of the phase 6 session, because the previous session
-    ended exactly ON the threshold: it inherited a counter of 4, redrew at its start,
-    then shipped three phases (3, 8b and 8a) and so handed over a 3.
+    same commit as any session that ships. Reconciled + redrawn on 2026-07-28 (third
+    pass that day) at the START of the Smashdown session, because the three sessions
+    that shipped since the previous pass (phase 6, one TV button per night, one pack
+    registry) all landed on 07-28 and handed over a counter of exactly 3.
 
-    This was a FULL pass, not the small in-place update the run's earlier note allowed,
-    because the cleanup run is nearly over and the rest of the file had drifted while
-    attention was on it. What it changed beyond the counter:
-      - Both FIXED bugs aged out of BUGS as the section header says they should
-        (the iOS zoom fix from 07-23 and the RESEND_API_KEY fix from 07-20). Both have
-        now survived several redraws, their root causes are in the decision log, and a
-        BUGS section that only ever grows stops being read. The four Watches stay:
-        every one is still live.
-      - The event-aware warm ping under IDEAS was rewritten against the window 8b
-        actually shipped, since it was still described as trading against "the current
-        fixed evening window" that no longer exists.
-      - The Mario Kart character-stats entry under FEATURES was cut down to the part
-        that is genuinely still missing (the crew-wide per-racer table and racer head
-        to head); the per-player half shipped on 07-27 and the entry still read as if
-        none of it had.
-      - NEXT UP renumbered: phase 6 is slot 1, slots 2-3 are open again.
-    Zone heights checked against their contents; all six fit, smallest slack 28px.
+    What this pass changed beyond the counter:
+      - Zone 1 gained the two shipped sessions the map had never rendered, both marked
+        (NEW): one TV button per night (/e/:id/tv auto-follows what is being played)
+        and one pack registry (SESSION_PACKS in packages/shared/src/packs.ts). Phase 6
+        needed no new item, since the whole cleanup run is deliberately ONE item, and
+        that item lost its (NEW) highlight because it is now a redraw old.
+      - NEXT UP renumbered. Slots 1-3 had all been open, since the cleanup run finished
+        and James had not committed the next sessions. Smashdown is now slot 1 (this
+        session), Smash Tournament format slot 2, Tabletop theme slot 3, in the pack
+        priority order this file already carried.
+      - Row 1 zones raised 800 -> 860 and row 2 pushed down 920 -> 980. Zone 1 had 92px
+        of slack and the two new items need exactly 92px, which would have left a zone
+        with zero slack for the next entry to overflow. Raised pre-emptively per MAP
+        PROTOCOL, the same call the 07-28 pass made. The closing panorama camera grew
+        with it (1600x1400 -> 1600x1560).
+      - BUGS unchanged: nothing to age out (both prior FIXED entries aged out last
+        pass) and all four Watches are still live.
+    Zone heights checked against their contents by reading the generated file back,
+    not by hand: all six fit, smallest slack 48px (zone 1), full canvas 1560x1510. Reconcile found nothing stale elsewhere: the three sessions since the
+    last pass had each written their own SHIPPED entry as they landed.
 
 **Every session that ships anything (feature, pack, or fix set) increments the counter by 1
 as part of its delivery, in the same commit as its other changes.** Doc-only sessions do not
@@ -75,14 +73,16 @@ memory of a previous map.
 | 6 | IDEAS — NOT SOLIDIFIED | ## IDEAS (not solidified) |
 
 **Layout (fixed, so redraws are stable):** 3 columns x 2 rows. Columns at x=40, 560, 1080,
-each 480 wide. Row 1 at y=95 (height 800), row 2 at y=920 (height 530). Zone header text
+each 480 wide. Row 1 at y=95 (height 860), row 2 at y=980 (height 530). Zone header text
 15px below zone top, fontSize 22. Items 440 wide, 40 tall, 46px step, first item 50px below
 zone top; give a taller box (52-70) to any item whose label wraps past one line. Row 1 grew
 from 540 to 730 on 2026-07-27 (SHIPPED FOUNDATION reached 14 items and overflowed its
-zone), and from 730 to 800 on 2026-07-28, when the completed pre-pack cleanup item grew
-to a three-line box and left only 10px of slack: raised pre-emptively rather than waiting
-for the next entry to overflow it, since the fix is mechanical and the trap would have
-landed on whoever added the next line.
+zone), from 730 to 800 on 2026-07-28, when the completed pre-pack cleanup item grew
+to a three-line box and left only 10px of slack, and from 800 to 860 on the third 07-28
+pass, when the two newly rendered shipped sessions needed exactly the 92px of slack zone 1
+had left. Each time it was raised pre-emptively rather than waiting for the next entry to
+overflow it, since the fix is mechanical and the trap would have landed on whoever added
+the next line.
 When a zone outgrows its height again, raise BOTH row-1 zones together and push row 2 down by
 the same amount, so the columns stay aligned.
 
@@ -94,7 +94,7 @@ they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb).
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x1400 at the current zone heights). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
+on a panorama covering the full canvas (1600x1560 at the current zone heights). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 
 **Reconcile step (do this before drawing):** move finished items from NEXT UP into the right
 SHIPPED section with a one-line summary and date; renumber the top three of NEXT UP; move
@@ -169,10 +169,9 @@ session, regenerating the committed file alone still counts as the redraw.
 
 ## NEXT UP (queued)
 Priority order set by James. The top three are the committed next sessions.
-- [ ] 1-3. (all three open: the pre-pack cleanup run is COMPLETE as of 2026-07-28, so nothing is carried over. James has not committed the next sessions; the pack candidates below are in priority order, so that is what a session should pull from unless he says otherwise)
-- [ ] Smashdown night (Smash pack format): Ultimate's built-in mode where a used fighter is struck from the roster until the series ends. The app renders the shared burned-fighter board (huge on the TV view), one tap per game to record the winner; roster + title selector already exist. New stat: unique fighters won with. Reuses the FFA engine, so this is the cheapest remaining pack work.
-- [ ] Smash Tournament format: a third option in the Smash format picker that launches a bracket from the Smash session roster and materializes with fighters. Today Smash tournaments run through the generic bracket.
-- [ ] Tabletop theme: second theme token block + a user-facing theme switcher (Arcade default). Foundation already laid.
+- [ ] 1. Smashdown night (Smash pack format): Ultimate's built-in mode where a used fighter is struck from the roster until the series ends. The app renders the shared burned-fighter board (huge on the TV view), one tap per game to record the winner; roster + title selector already exist. New stat: unique fighters won with. Reuses the FFA engine, so this is the cheapest remaining pack work.
+- [ ] 2. Smash Tournament format: a fourth option in the Smash format picker that launches a bracket from the Smash session roster and materializes with fighters. Today Smash tournaments run through the generic bracket.
+- [ ] 3. Tabletop theme: second theme token block + a user-facing theme switcher (Arcade default). Foundation already laid.
 - [ ] More game packs. Candidates: board games, darts, poker night.
 
 ## FEATURES TO ADD
