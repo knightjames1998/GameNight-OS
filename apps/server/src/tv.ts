@@ -38,6 +38,7 @@ import {
   and,
   eq,
 } from "@gamenight/db";
+import { eventRecap } from "./events.js";
 
 export const eventTvRouter = Router();
 
@@ -248,18 +249,24 @@ eventTvRouter.get("/event/:eventId", async (req, res) => {
   });
 
   // The lobby is the most common state of the evening's first twenty minutes,
-  // because the TV goes on before the games do. Only the yes-list costs an
-  // extra query, so it is the only part fetched conditionally.
-  const yes = now
-    ? []
-    : (
-        await db
+  // because the TV goes on before the games do — and it is on screen again
+  // between every game after that, which is the other half of its job: once
+  // anything has been played it shows the night so far rather than an empty
+  // waiting screen. Both reads are skipped entirely while a game is live,
+  // since nothing renders them then.
+  const [yesRows, recap] = now
+    ? [[], null]
+    : await Promise.all([
+        db
           .select({ displayName: users.displayName })
           .from(rsvps)
           .innerJoin(users, eq(rsvps.userId, users.id))
           .where(and(eq(rsvps.eventId, eventId), eq(rsvps.status, "yes")))
-          .orderBy(rsvps.respondedAt)
-      ).map((r) => r.displayName);
+          .orderBy(rsvps.respondedAt),
+        // The SAME rollup the recap card uses, so the big screen and the card
+        // can never quote different numbers for the same night.
+        eventRecap(row, row.groupName),
+      ]);
 
   res.json({
     event: {
@@ -269,6 +276,12 @@ eventTvRouter.get("/event/:eventId", async (req, res) => {
       groupName: row.groupName,
     },
     now,
-    lobby: { yes, inviteCode: now ? "" : row.inviteCode },
+    lobby: {
+      yes: yesRows.map((r) => r.displayName),
+      inviteCode: now ? "" : row.inviteCode,
+      // Null until something has actually been played, so the client has one
+      // obvious branch: nothing yet -> who's in; anything -> the night so far.
+      recap: recap && recap.totalGames > 0 ? recap : null,
+    },
   });
 });

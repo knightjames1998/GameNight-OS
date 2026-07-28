@@ -108,16 +108,23 @@ export default function EventTvPage() {
 }
 
 /**
- * Nothing started yet.
+ * Nothing is being played right now.
  *
  * This screen is the difference between the feature working and the feature
- * looking broken. `now: null` is not an error state, it is the most common
- * state of the evening's first twenty minutes, because the TV goes on before
- * the games do. Show the night, who is in, and how to join; it flips to the
- * game on its own the moment a host starts one.
+ * looking broken. `now: null` is not an error state, and it is on screen twice
+ * over: for the evening's first twenty minutes, because the TV goes on before
+ * the games do, and again BETWEEN every game after that.
+ *
+ * So it has two faces, split on whether anything has been played yet. Before:
+ * the night, who is in, and how to join. After: the night so far — standings
+ * with whoever is leading, and what was just won — because between games is
+ * exactly when a room looks up at the screen to see where they stand, and an
+ * empty "waiting for the host" is a wasted TV. Both flip to the game on their
+ * own the moment a host starts one.
  */
 function Lobby({ tv }: { tv: EventTv }) {
   const { event, lobby } = tv;
+  const recap = lobby.recap;
   const when = event.scheduledFor
     ? new Date(event.scheduledFor).toLocaleString([], {
         weekday: "long",
@@ -140,6 +147,7 @@ function Lobby({ tv }: { tv: EventTv }) {
             <h1 className="gn-tv-title text-6xl">{event.title}</h1>
             <p className="text-2xl mt-3" style={{ color: "var(--gn-dim)" }}>
               {event.groupName} &middot; {when}
+              {recap && ` · ${recap.totalGames} ${recap.totalGames === 1 ? "game" : "games"} played`}
             </p>
           </div>
           <div className="text-center shrink-0">
@@ -150,30 +158,95 @@ function Lobby({ tv }: { tv: EventTv }) {
           </div>
         </header>
 
-        <section className="flex flex-col min-h-0">
-          <h2 className="gn-tv-h2">
-            Who&rsquo;s in <span>{lobby.yes.length}</span>
-          </h2>
-          <div className="gn-tv-stack">
-            {lobby.yes.length === 0 ? (
-              <p className="gn-tv-empty">Nobody has RSVP&rsquo;d yes yet.</p>
-            ) : (
-              <div className="gn-tv-names">
-                {lobby.yes.map((name) => (
-                  <span className="gn-tv-name" key={name}>
-                    {name}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
+        {recap ? (
+          <NightSoFar recap={recap} />
+        ) : (
+          <section className="flex flex-col min-h-0">
+            <h2 className="gn-tv-h2">
+              Who&rsquo;s in <span>{lobby.yes.length}</span>
+            </h2>
+            <div className="gn-tv-stack">
+              {lobby.yes.length === 0 ? (
+                <p className="gn-tv-empty">Nobody has RSVP&rsquo;d yes yet.</p>
+              ) : (
+                <div className="gn-tv-names">
+                  {lobby.yes.map((name) => (
+                    <span className="gn-tv-name" key={name}>
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         <p className="text-3xl shrink-0" style={{ color: "var(--gn-dim)" }}>
-          Waiting on the host to start a game. This screen follows the night on its own.
+          {recap
+            ? "Waiting on the host to start the next game. This screen follows the night on its own."
+            : "Waiting on the host to start a game. This screen follows the night on its own."}
         </p>
       </div>
     </Frame>
+  );
+}
+
+/**
+ * The night so far: standings on the left, what was just won on the right.
+ *
+ * Two columns in the same shape TvPage uses for on-deck/latest, so this reads
+ * as part of the Arcade TV language rather than a page that wandered in. The
+ * standings are already sorted by the MVP rule (most wins, then best average
+ * finish), so the top row IS who is leading the night and gets said so.
+ */
+function NightSoFar({ recap }: { recap: NonNullable<EventTv["lobby"]["recap"]> }) {
+  // Newest first: between games, what just happened is the interesting part.
+  const latest = recap.games.slice(-6).reverse();
+  return (
+    <div className="gn-tv-cols" style={{ marginTop: 0 }}>
+      <section className="flex flex-col min-h-0">
+        <h2 className="gn-tv-h2">
+          Tonight so far <span>{recap.players.length} playing</span>
+        </h2>
+        <div className="gn-tv-stack">
+          {recap.players.slice(0, 8).map((p, i) => (
+            <div className={`gn-tvs ${i === 0 ? "gn-tvs--lead" : ""}`} key={p.userId}>
+              <span className="gn-tvs__rank">{i + 1}</span>
+              <span className="gn-tvs__nm">
+                {i === 0 && <span aria-hidden="true">👑 </span>}
+                {p.name}
+              </span>
+              <span className="gn-tvs__fig">
+                <span className="gn-tvs__w">{p.wins}W</span>
+                <span className="gn-tvs__sub">
+                  {p.games} played
+                  {p.avgPlacement != null && ` · avg ${p.avgPlacement.toFixed(1)}`}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="flex flex-col min-h-0">
+        <h2 className="gn-tv-h2">
+          Latest results <span>{recap.totalGames} played</span>
+        </h2>
+        <div className="gn-tv-stack">
+          {latest.map((g, i) => (
+            <div className="gn-tvr" key={`${g.gameName}-${i}`}>
+              <span className="gn-tvr__game">
+                {g.gameName}
+                {g.label && <span className="gn-tvs__sub"> · {g.label}</span>}
+              </span>
+              <span className="gn-tvr__won">
+                {g.winnerName ? `🏆 ${g.winnerName}` : "—"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
   );
 }
 

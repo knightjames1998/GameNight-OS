@@ -151,7 +151,17 @@ export interface EventTv {
   event: { id: string; title: string; scheduledFor: string | null; groupName: string };
   now: EventTvNow;
   /** Populated only when `now` is null; the lobby is the only thing that reads it. */
-  lobby: { yes: string[]; inviteCode: string };
+  lobby: {
+    yes: string[];
+    inviteCode: string;
+    /**
+     * The night so far, for the waiting screen BETWEEN games. Null until
+     * something has been played, which is what splits the two lobby states:
+     * nothing yet -> who's in, anything -> standings and what has been won.
+     * The same rollup the recap card uses, so the two can never disagree.
+     */
+    recap: EventRecap | null;
+  };
 }
 
 export type BracketSlot =

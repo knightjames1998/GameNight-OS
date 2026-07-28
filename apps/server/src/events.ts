@@ -344,50 +344,32 @@ function rankMvp(
   return a.name.localeCompare(b.name);
 }
 
+/** One participant row of one completed game under an event, as the recap reads it. */
+export interface RecapRow {
+  matchId: string;
+  position: number | null;
+  label: string | null;
+  format: string | null;
+  externalKey: string | null;
+  gameName: string | null;
+  pack: string | null;
+  userId: string;
+  displayName: string;
+  placement: number | null;
+  isWinner: boolean;
+}
+
 /**
- * Night recap: every completed game under this event across every pack,
- * rolled up. The materialized ledger (matches/match_participants) is the one
- * cross-pack source, so Beerio, Smash, Mario Kart, Mario Party and brackets
- * all land here through the same query. Guests are not in the ledger (they're
- * never materialized), so the recap is members only.
+ * Roll the ledger rows up into the night recap.
+ *
+ * PURE: no database, no clock. Separated from the query because two very
+ * different callers need the same answer — the authed recap card, and the
+ * PUBLIC event TV lobby, which shows the night so far between games. Two
+ * rollups would drift, and the failure mode is the worst kind: the TV and the
+ * recap card quoting different numbers for the same night, in the same room,
+ * at the same time.
  */
-eventsRouter.get("/events/:id/recap", async (req: AuthedRequest, res) => {
-  const found = await loadEventForMember(String(req.params.id), req.user!.id);
-  if (!found) {
-    res.status(404).json({ error: "Event not found" });
-    return;
-  }
-  const db = getDb();
-
-  const groupName =
-    (
-      await db
-        .select({ name: groups.name })
-        .from(groups)
-        .where(eq(groups.id, found.groupId))
-        .limit(1)
-    )[0]?.name ?? "";
-
-  const rows = await db
-    .select({
-      matchId: matchParticipants.matchId,
-      position: matches.position,
-      label: matches.label,
-      format: matches.format,
-      externalKey: matches.externalKey,
-      gameName: games.name,
-      pack: games.pack,
-      userId: matchParticipants.userId,
-      displayName: users.displayName,
-      placement: matchParticipants.placement,
-      isWinner: matchParticipants.isWinner,
-    })
-    .from(matches)
-    .innerJoin(matchParticipants, eq(matchParticipants.matchId, matches.id))
-    .innerJoin(users, eq(matchParticipants.userId, users.id))
-    .leftJoin(games, eq(matches.gameId, games.id))
-    .where(and(eq(matches.eventId, found.id), eq(matches.status, "completed")));
-
+export function rollupRecap(rows: RecapRow[]) {
   // One entry per match (a game/board/race), in play order.
   const byMatch = new Map<
     string,
@@ -504,17 +486,70 @@ eventsRouter.get("/events/:id/recap", async (req: AuthedRequest, res) => {
     }))
     .sort(rankMvp);
 
-  res.json({
-    eventId: found.id,
-    title: found.title,
-    scheduledFor: found.scheduledFor,
-    groupName,
+  return {
     totalGames: byMatch.size,
     games: gamesList,
     sessions,
     players,
     mvp: gamesList.length && players[0] ? { userId: players[0].userId, name: players[0].name } : null,
-  });
+  };
+}
+
+/**
+ * Night recap: every completed game under this event across every pack,
+ * rolled up. The materialized ledger (matches/match_participants) is the one
+ * cross-pack source, so Beerio, Smash, Mario Kart, Mario Party and brackets
+ * all land here through the same query. Guests are not in the ledger (they're
+ * never materialized), so the recap is members only.
+ */
+export async function eventRecap(
+  event: { id: string; title: string; scheduledFor: Date | null },
+  groupName: string,
+) {
+  const rows = await getDb()
+    .select({
+      matchId: matchParticipants.matchId,
+      position: matches.position,
+      label: matches.label,
+      format: matches.format,
+      externalKey: matches.externalKey,
+      gameName: games.name,
+      pack: games.pack,
+      userId: matchParticipants.userId,
+      displayName: users.displayName,
+      placement: matchParticipants.placement,
+      isWinner: matchParticipants.isWinner,
+    })
+    .from(matches)
+    .innerJoin(matchParticipants, eq(matchParticipants.matchId, matches.id))
+    .innerJoin(users, eq(matchParticipants.userId, users.id))
+    .leftJoin(games, eq(matches.gameId, games.id))
+    .where(and(eq(matches.eventId, event.id), eq(matches.status, "completed")));
+
+  return {
+    eventId: event.id,
+    title: event.title,
+    scheduledFor: event.scheduledFor,
+    groupName,
+    ...rollupRecap(rows),
+  };
+}
+
+eventsRouter.get("/events/:id/recap", async (req: AuthedRequest, res) => {
+  const found = await loadEventForMember(String(req.params.id), req.user!.id);
+  if (!found) {
+    res.status(404).json({ error: "Event not found" });
+    return;
+  }
+  const groupName =
+    (
+      await getDb()
+        .select({ name: groups.name })
+        .from(groups)
+        .where(eq(groups.id, found.groupId))
+        .limit(1)
+    )[0]?.name ?? "";
+  res.json(await eventRecap(found, groupName));
 });
 
 /** Event detail: full RSVP breakdown with names, plus who hasn't answered. */

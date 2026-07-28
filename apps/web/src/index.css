@@ -509,6 +509,31 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;color:var(--gn-ink);
   background:var(--gn-surf);border:.3vmin solid var(--gn-line);border-radius:2vmin;padding:1vmin 2.2vmin;
 }
+/* The event TV between-games screen: standings, and what was just won. Same
+   card language as .gn-tvm so the waiting screen reads as part of the TV. */
+.gn-tvs{
+  display:flex;align-items:center;gap:1.6vmin;background:var(--gn-surf);
+  border:.35vmin solid var(--gn-line);border-radius:2vmin;padding:1.3vmin 1.8vmin;
+}
+.gn-tvs--lead{border-color:rgba(255,207,63,.6);background:rgba(255,207,63,.10)}
+.gn-tvs__rank{font-family:"Luckiest Guy",system-ui,cursive;font-size:2.8vmin;color:var(--gn-dim);width:3.4vmin;flex-shrink:0}
+.gn-tvs__nm{
+  flex:1;min-width:0;font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;
+  color:var(--gn-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.gn-tvs--lead .gn-tvs__nm{color:var(--gn-gold)}
+.gn-tvs__fig{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;line-height:1.2}
+.gn-tvs__w{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:2.6vmin;color:var(--gn-p2)}
+.gn-tvs__sub{font-family:Nunito,system-ui,sans-serif;font-weight:700;font-size:1.7vmin;color:var(--gn-dim);white-space:nowrap}
+.gn-tvr{
+  display:flex;align-items:center;justify-content:space-between;gap:1.6vmin;
+  background:var(--gn-surf);border:.35vmin solid var(--gn-line);border-radius:2vmin;padding:1.3vmin 1.8vmin;
+}
+.gn-tvr__game{
+  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:2.4vmin;color:var(--gn-ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.gn-tvr__won{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:2.4vmin;color:var(--gn-p2);white-space:nowrap;flex-shrink:0}
 /* The night's live-now marker on a game-picker tile. */
 .gn-live-tag{
   font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:11px;letter-spacing:.5px;
