@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, ApiError, CLIENT_ID } from "../api";
+import { api } from "../api";
 import BackButton from "../BackButton";
-import { useLiveUpdates } from "../useLiveUpdates";
+import { formatLabel } from "../formats";
+import { usePackSession, type PackCtx as Ctx } from "../usePackSession";
 import { MARIO_KART_TITLES, rosterForTitle } from "@gamenight/shared";
 import "./mariokart.css";
 
@@ -55,15 +56,6 @@ interface Session {
     players: { playerId: string; name: string; played: number; wins: number; mainCharacter: string | null }[];
   };
 }
-interface Ctx {
-  groupId: string;
-  canHost: boolean;
-  viewerId: string;
-  prefill: { userId: string; name: string }[];
-  members: { userId: string; name: string }[];
-  live: boolean;
-}
-
 function RacerSelect({
   value,
   onChange,
@@ -85,87 +77,14 @@ function RacerSelect({
 
 export default function MarioKartPage() {
   const eventId = new URLSearchParams(window.location.search).get("event") ?? "";
-  const [ctx, setCtx] = useState<Ctx | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  // Newest-request-wins guard for mutation responses under rapid taps.
-  const reqSeq = useRef(0);
-
-  async function refetch() {
-    if (!eventId) return;
-    const [c, s] = await Promise.all([
-      api<Ctx>(`/api/mariokart-context/${eventId}`).catch(() => null),
-      api<{ session: Session | null }>(`/api/mariokart/${eventId}`).catch(() => ({ session: null })),
-    ]);
-    if (c) setCtx(c);
-    setSession(s.session);
-  }
-
-  useEffect(() => {
-    refetch().finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
-
-  // Own echoes are skipped: every mutation response already carries the
-  // updated session, so refetching on them would double the traffic.
-  useLiveUpdates(
-    (m) => {
-      if (m.origin === CLIENT_ID) return;
-      if ((m.type === "mario_kart_updated" || m.type === "leaderboard_updated") && m.eventId === eventId) refetch();
-    },
-    () => refetch(),
-  );
-
-  // Mutations return the updated session; apply it directly. An optional
-  // optimistic updater paints simple changes before the network answers,
-  // rolling back to the snapshot on failure.
-  async function call(path: string, body?: unknown, optimistic?: (s: Session) => Session) {
-    setErr(null);
-    const prev = session;
-    const seq = ++reqSeq.current;
-    if (optimistic && session) setSession(optimistic(session));
-    setBusy(true);
-    try {
-      const r = await api<{ session: Session | null }>(path, {
-        method: "POST",
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      if (seq === reqSeq.current && r && typeof r === "object" && "session" in r) setSession(r.session);
-    } catch (e: any) {
-      if (seq === reqSeq.current && optimistic) setSession(prev);
-      setErr(e?.message ?? "Something went wrong");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // Start a format. A live session 409s; confirm a replace with the host, then
-  // resend with force (standing rule 8: confirm-and-replace, never a silent
-  // clobber).
-  async function startSession(payload: Record<string, unknown>) {
-    setErr(null);
-    setBusy(true);
-    try {
-      const r = await api<{ session: Session | null }>(`/api/events/${eventId}/mariokart`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      if (r && typeof r === "object" && "session" in r) setSession(r.session);
-    } catch (e: any) {
-      if (e instanceof ApiError && e.status === 409) {
-        setBusy(false);
-        if (window.confirm("A session is already in progress on this event. Replace it? Any unfinished race or set is lost.")) {
-          await startSession({ ...payload, force: true });
-        }
-        return;
-      }
-      setErr(e?.message ?? "Something went wrong");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { ctx, session, loading, busy, err, call, startSession } =
+    usePackSession<Session>({
+      pack: "mariokart",
+      wsType: "mario_kart_updated",
+      eventId,
+      replacePrompt:
+        "A session is already in progress on this event. Replace it? Any unfinished race or set is lost.",
+    });
 
   if (!eventId) {
     return <div className="mk-root"><div className="mk-wrap"><p className="mk-hint">No event specified.</p><BackButton /></div></div>;
@@ -383,7 +302,7 @@ function SetupOrWaiting({
       >
         {roster.length < 2
           ? "Add at least 2 players"
-          : `Start ${format === "free" ? "Free Play" : format === "grandprix" ? "Grand Prix" : format === "bestof" ? "Best Of" : "King of the Hill"}`}
+          : `Start ${formatLabel(format)}`}
       </button>
     </>
   );

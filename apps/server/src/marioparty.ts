@@ -205,8 +205,22 @@ marioPartyRouter.post("/events/:eventId/marioparty", requireAuth, async (req: Au
     return;
   }
 
+  // Don't clobber a session already in progress (standing rule 8) unless the
+  // host confirmed a replace (client resends force after a 409).
+  //
+  // The force check was MISSING here, and only here. The other three packs
+  // have always had it, so Mario Party was the one pack where an in-progress
+  // session could never be replaced at all: the host got a raw 409 error on
+  // the setup screen with no way forward, and the only escape was to complete
+  // or abandon the night. Found while unifying the four pack shells, which is
+  // exactly the sort of drift a fourth hand-copied implementation hides.
   const existing = await rt.loadState(eventId);
-  if (existing && existing.row.status !== "completed" && existing.state.games.length > 0) {
+  if (
+    !req.body?.force &&
+    existing &&
+    existing.row.status !== "completed" &&
+    existing.state.games.length > 0
+  ) {
     res.status(409).json({ error: "A session is already in progress for this event" });
     return;
   }

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, ApiError, CLIENT_ID } from "../api";
+import { api } from "../api";
 import BackButton from "../BackButton";
-import { useLiveUpdates } from "../useLiveUpdates";
+import { formatLabel } from "../formats";
+import { usePackSession, type PackCtx as Ctx } from "../usePackSession";
 import { recordGame, gameWins, type PpSessionState, type PpMatch } from "@gamenight/shared";
 import "./pingpong.css";
 
@@ -33,95 +34,16 @@ interface Session {
   needed: number;
   summary: { players: PlayerStat[] };
 }
-interface Ctx {
-  groupId: string;
-  canHost: boolean;
-  viewerId: string;
-  prefill: { userId: string; name: string }[];
-  members: { userId: string; name: string }[];
-  live: boolean;
-}
-
 export default function PingPongPage() {
   const eventId = new URLSearchParams(window.location.search).get("event") ?? "";
-  const [ctx, setCtx] = useState<Ctx | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const reqSeq = useRef(0);
-
-  async function refetch() {
-    if (!eventId) return;
-    const [c, s] = await Promise.all([
-      api<Ctx>(`/api/pingpong-context/${eventId}`).catch(() => null),
-      api<{ session: Session | null }>(`/api/pingpong/${eventId}`).catch(() => ({ session: null })),
-    ]);
-    if (c) setCtx(c);
-    setSession(s.session);
-  }
-
-  useEffect(() => {
-    refetch().finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
-
-  // Own echoes are skipped: mutation responses already carry the session.
-  useLiveUpdates(
-    (m) => {
-      if (m.origin === CLIENT_ID) return;
-      if ((m.type === "ping_pong_updated" || m.type === "leaderboard_updated") && m.eventId === eventId) refetch();
-    },
-    () => refetch(),
-  );
-
-  // Mutations return the session; apply directly. Optional optimistic updater
-  // paints one-tap changes before the network answers, rollback on failure.
-  async function call(path: string, body?: unknown, optimistic?: (s: Session) => Session) {
-    setErr(null);
-    const prev = session;
-    const seq = ++reqSeq.current;
-    if (optimistic && session) setSession(optimistic(session));
-    setBusy(true);
-    try {
-      const r = await api<{ session: Session | null }>(path, {
-        method: "POST",
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      if (seq === reqSeq.current && r && typeof r === "object" && "session" in r) setSession(r.session);
-    } catch (e: any) {
-      if (seq === reqSeq.current && optimistic) setSession(prev);
-      setErr(e?.message ?? "Something went wrong");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // Start a session. If one is already live on this event the server 409s;
-  // confirm a replace with the host, then resend with force (standing rule 8:
-  // confirm-and-replace, never a silent clobber).
-  async function startSession(payload: Record<string, unknown>) {
-    setErr(null);
-    setBusy(true);
-    try {
-      const r = await api<{ session: Session | null }>(`/api/events/${eventId}/pingpong`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      if (r && typeof r === "object" && "session" in r) setSession(r.session);
-    } catch (e: any) {
-      if (e instanceof ApiError && e.status === 409) {
-        setBusy(false);
-        if (window.confirm("A session is already in progress on this event. Replace it? Any unfinished match in the current session is lost.")) {
-          await startSession({ ...payload, force: true });
-        }
-        return;
-      }
-      setErr(e?.message ?? "Something went wrong");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { ctx, session, loading, busy, err, call, startSession } =
+    usePackSession<Session>({
+      pack: "pingpong",
+      wsType: "ping_pong_updated",
+      eventId,
+      replacePrompt:
+        "A session is already in progress on this event. Replace it? Any unfinished match in the current session is lost.",
+    });
 
   if (!eventId) {
     return <div className="pp-root"><div className="pp-wrap"><p className="pp-hint">No event specified.</p><BackButton /></div></div>;
@@ -281,7 +203,7 @@ function SetupOrWaiting({
       >
         {roster.length < 2
           ? "Add at least 2 players"
-          : `Start ${format === "free" ? "Free Play" : format === "bestof" ? "Best Of" : "King of the Hill"}`}
+          : `Start ${formatLabel(format)}`}
       </button>
     </>
   );

@@ -8,6 +8,7 @@ import { shareLink } from "../share";
 import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
 import GamePicker, { type PickerGame, type PickerFormat } from "../GamePicker";
+import { buildPickerGames } from "../packs";
 
 export default function EventPage({ me }: { me: Me | null }) {
   const { id } = useParams();
@@ -461,57 +462,18 @@ function eventGames(
     ];
   }
 
-  return [
-    {
-      key: "mariokart",
-      name: "Mario Kart",
-      emoji: "🏎️",
-      cabClass: "gn-cab--mk",
-      formats: [
-        { key: "beerio", label: "🍺 Beerio Kart", sub: beerioSub, onPick: () => navigate(`/beerio?event=${id}`) },
-        { key: "free", label: "🏁 Free Play", sub: "single races", onPick: () => navigate(`/mariokart?event=${id}&format=free`) },
-        { key: "grandprix", label: "🏆 Grand Prix", sub: "a cup on points", onPick: () => navigate(`/mariokart?event=${id}&format=grandprix`) },
-        { key: "bestof", label: "Best Of", sub: "1v1 race sets", onPick: () => navigate(`/mariokart?event=${id}&format=bestof`) },
-        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => navigate(`/mariokart?event=${id}&format=koth`) },
-      ],
+  // One catalogue, shared with Home (src/packs.ts). Everything here navigates
+  // with ?event=<id> so the pack binds to this night; the two genuinely
+  // contextual bits, Beerio's live subline and the Tournament gating, are
+  // passed in rather than baked into the catalogue.
+  return buildPickerGames({
+    beerioSub,
+    tournamentFormats,
+    destination: (pack, format) => () => {
+      if (pack === "mariokart" && format === "beerio") return navigate(`/beerio?event=${id}`);
+      if (pack === "tournament") return;
+      if (pack === "marioparty") return navigate(`/marioparty?event=${id}`);
+      navigate(`/${pack}?event=${id}&format=${format}`);
     },
-    {
-      key: "smash",
-      name: "Smash Bros",
-      emoji: "🥊",
-      cabClass: "gn-cab--smash",
-      formats: [
-        { key: "ffa", label: "Free-for-all", sub: "2–8 players a game", onPick: () => navigate(`/smash?event=${id}&format=ffa`) },
-        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => navigate(`/smash?event=${id}&format=koth`) },
-        { key: "bestof", label: "Best Of", sub: "1v1 sets, best of 3/5/7", onPick: () => navigate(`/smash?event=${id}&format=bestof`) },
-      ],
-    },
-    {
-      key: "marioparty",
-      name: "Mario Party",
-      emoji: "🎲",
-      cabClass: "gn-cab--mp",
-      formats: [
-        { key: "board", label: "🎲 Board night", sub: "stars, boards, bonus stars", onPick: () => navigate(`/marioparty?event=${id}`) },
-      ],
-    },
-    {
-      key: "pingpong",
-      name: "Ping Pong",
-      emoji: "🏓",
-      cabClass: "gn-cab--pp",
-      formats: [
-        { key: "free", label: "Free Play", sub: "single games, one tap each", onPick: () => navigate(`/pingpong?event=${id}&format=free`) },
-        { key: "bestof", label: "Best Of", sub: "3, 5 or 7 game series", onPick: () => navigate(`/pingpong?event=${id}&format=bestof`) },
-        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => navigate(`/pingpong?event=${id}&format=koth`) },
-      ],
-    },
-    {
-      key: "tournament",
-      name: "Tournament",
-      emoji: "🏆",
-      cabClass: "gn-cab--brk",
-      formats: tournamentFormats,
-    },
-  ];
+  });
 }

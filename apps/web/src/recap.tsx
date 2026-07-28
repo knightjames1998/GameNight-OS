@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { BracketMatchView, BracketSlot, BracketView, EventRecap } from "./api";
+import { FORMAT_UNIT, formatLabel } from "./formats";
 
 // The recap card, third generation of the Beerio Kart canvas-to-JPG
 // pipeline: draw offscreen at 2x, toBlob as JPEG, share via the Web Share
@@ -325,21 +326,12 @@ const PACK_EMOJI: Record<string, string> = {
 };
 const packEmoji = (pack: string): string => PACK_EMOJI[pack] ?? "\u{1F3C6}"; // 🏆
 
-const FORMAT_NAME: Record<string, string> = {
-  free: "Free Play",
-  bestof: "Best Of",
-  koth: "King of the Hill",
-  ffa: "Free-for-all",
-  grandprix: "Grand Prix",
-  board: "Board night",
-};
-const unitNoun: Record<string, string> = { grandprix: "races", bestof: "sets", board: "boards" };
-const sessionUnit = (format: string | null): string => (format && unitNoun[format]) || "games";
+const sessionUnit = (format: string | null): string => (format ? FORMAT_UNIT[format] : null) ?? "games";
 
 /** Title line for one session row: "Ping Pong · King of the Hill". */
 function sessionTitle(s: EventRecap["sessions"][number]): string {
   if (s.format === "board") return s.gameName;
-  const fmt = s.format ? FORMAT_NAME[s.format] : null;
+  const fmt = s.format ? formatLabel(s.format) : null;
   return fmt ? `${s.gameName} · ${fmt}` : s.gameName;
 }
 

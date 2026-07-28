@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { type AttendanceStats } from "../api";
 import { useCachedApi } from "../cache";
 import { StatsSkeleton } from "../Skeleton";
+import { formatLabel } from "../formats";
 import BackButton from "../BackButton";
 import CharacterStatsCard, { type CharacterStats } from "../CharacterStats";
 import FormStatsCard, { type FormStats } from "../FormStats";
@@ -34,15 +35,6 @@ interface MyStats {
   lastPlaceCount?: number;
 }
 
-const FORMAT_LABEL: Record<string, string> = {
-  free: "Free Play",
-  ffa: "Free-for-all",
-  grandprix: "Grand Prix",
-  bestof: "Best Of",
-  koth: "King of the Hill",
-  board: "Board night",
-  other: "Other",
-};
 
 function Tile({ n, label, accent }: { n: string; label: string; accent?: string }) {
   return (
@@ -139,7 +131,7 @@ export default function MyStatsPage() {
                 <h2 className="gn-h2">By format</h2>
                 <ul className="gn-card space-y-2" style={{ padding: "12px 16px" }}>
                   {stats.byFormat.map((f) => (
-                    <Row key={f.format} name={FORMAT_LABEL[f.format] ?? f.format} wins={f.wins} played={f.played} />
+                    <Row key={f.format} name={formatLabel(f.format)} wins={f.wins} played={f.played} />
                   ))}
                 </ul>
               </section>

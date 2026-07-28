@@ -13,7 +13,9 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "July 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-07-28 (second pass that day) at the start of the phase 6 session.
+// Redrawn 2026-07-28 (second pass that day) at the start of the phase 6 session,
+// then its zone-1 cleanup item and zone-3 slots updated when phase 6 shipped and
+// completed the run.
 // The previous session inherited a counter of 4, redrew at its start, then shipped
 // phases 3, 8b and 8a, handing over a 3. This pass is the full reconcile: both FIXED
 // bugs aged out of zone 5 per that section's own rule, zone 4's Mario Kart entry was
@@ -21,11 +23,11 @@ const SUBTITLE = "July 2026 · source of truth: BACKLOG.md";
 // renumbered with phase 6 in slot 1. The whole cleanup run remains ONE item in zone 1.
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
-// each 480 wide, row 1 y=95 h=540, row 2 y=660 h=530. Items 440x40, 46px
+// each 480 wide, row 1 y=95 h=800, row 2 y=920 h=530. Items 440x40, 46px
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
-    x: 40, y: 95, h: 730,
+    x: 40, y: 95, h: 800,
     title: "SHIPPED — FOUNDATION", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Auth: 6-digit codes + links + passwords" },
@@ -40,11 +42,11 @@ const ZONES = [
       { t: "Guest stat backfill; keep-warm ping; link previews", h: 52 },
       { t: "Stats depth: characters, placements, streaks, history", h: 52 },
       { t: "Crew leaderboard: shared agg, unified pack rows", h: 52 },
-      { t: "Pre-pack cleanup: hygiene, tests, cost, indexes, code splitting, caching, pack runtime, perceived speed", bg: "#c3fae8", h: 52 },
+      { t: "Pre-pack cleanup COMPLETE: hygiene, tests, request cost, indexes, code splitting, caching, one pack runtime, perceived speed, one client implementation per idea", bg: "#c3fae8", h: 70 },
     ],
   },
   {
-    x: 560, y: 95, h: 730,
+    x: 560, y: 95, h: 800,
     title: "SHIPPED — GAME PACKS", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Beerio Kart: full replica, predictions, TV" },
@@ -59,10 +61,10 @@ const ZONES = [
     ],
   },
   {
-    x: 1080, y: 95, h: 730,
+    x: 1080, y: 95, h: 800,
     title: "NEXT UP (queued)", zoneBg: "#fff3bf", header: "#b45309", itemBg: "#ffd8a8",
     items: [
-      { t: "1. Cleanup 6: one implementation per idea (client)", sw: 2, h: 52 },
+      { t: "1. (open slot — not committed)", sw: 2 },
       { t: "2. (open slot — not committed)", sw: 2 },
       { t: "3. (open slot — not committed)", sw: 2 },
       { t: "Smashdown night (burned-fighter board)" },
@@ -72,7 +74,7 @@ const ZONES = [
     ],
   },
   {
-    x: 40, y: 850, h: 530,
+    x: 40, y: 920, h: 530,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
       { t: "Unified event TV + single active pack" },
@@ -84,7 +86,7 @@ const ZONES = [
     ],
   },
   {
-    x: 560, y: 850, h: 530,
+    x: 560, y: 920, h: 530,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
@@ -94,7 +96,7 @@ const ZONES = [
     ],
   },
   {
-    x: 1080, y: 850, h: 530,
+    x: 1080, y: 920, h: 530,
     title: "IDEAS — NOT SOLIDIFIED", zoneBg: "#e5dbff", header: "#6d28d9", itemBg: "#d0bfff",
     items: [
       { t: "Draft night mode (snake drafts, TV board)" },

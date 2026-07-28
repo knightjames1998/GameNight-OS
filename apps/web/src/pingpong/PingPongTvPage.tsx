@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api";
 import BackButton from "../BackButton";
-import { useLiveUpdates } from "../useLiveUpdates";
+import { usePackLive } from "../useLiveUpdates";
 import "./pingpong.css";
 
 interface Slot { id: string; name: string }
@@ -34,12 +34,7 @@ export default function PingPongTvPage() {
     refetch().finally(() => setLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
-  useLiveUpdates(
-    (m) => {
-      if ((m.type === "ping_pong_updated" || m.type === "leaderboard_updated") && m.eventId === eventId) refetch();
-    },
-    () => refetch(),
-  );
+  usePackLive("ping_pong_updated", eventId, refetch);
 
   const nameOf = useMemo(() => new Map((session?.roster ?? []).map((p) => [p.id, p.name])), [session]);
 

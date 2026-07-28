@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { useCachedApi } from "../cache";
 import { StatsSkeleton } from "../Skeleton";
+import { formatLabel, formatUnit } from "../formats";
 import BackButton from "../BackButton";
 import { type CharacterStats } from "../CharacterStats";
 import { Pip, type FormStats } from "../FormStats";
@@ -32,21 +33,6 @@ interface GameStats {
   formats: FormatStat[];
 }
 
-const FORMAT_LABEL: Record<string, string> = {
-  free: "Free Play",
-  ffa: "Free-for-all",
-  grandprix: "Grand Prix",
-  bestof: "Best Of",
-  koth: "King of the Hill",
-  board: "Board night",
-  other: "Other",
-};
-const formatLabel = (f: string) => FORMAT_LABEL[f] ?? f;
-const FORMAT_UNIT: Record<string, string> = { grandprix: "races", bestof: "sets", board: "boards", other: "results" };
-const formatUnit = (f: string, n: number) => {
-  const base = FORMAT_UNIT[f] ?? "games";
-  return n === 1 ? base.replace(/s$/, "") : base;
-};
 
 interface StatsView {
   tournaments: number;

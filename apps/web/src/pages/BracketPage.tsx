@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, CLIENT_ID, type BracketView, type BracketSlot, type BracketMatchView } from "../api";
+import { api, type BracketView, type BracketSlot, type BracketMatchView } from "../api";
 import { RecapModal } from "../recap";
 import { onIntent, routes } from "../prefetch";
+import { useBracketLive } from "../useLiveUpdates";
 import BackButton from "../BackButton";
 
 // ---- Bracket tree layout ----
@@ -55,43 +56,13 @@ export default function BracketPage() {
 
   useEffect(() => {
     load();
+  }, [load]);
 
-    let socket: WebSocket | null = null;
-    let retry: ReturnType<typeof setTimeout> | null = null;
-    let closed = false;
-
-    function connect() {
-      const proto = window.location.protocol === "https:" ? "wss" : "ws";
-      socket = new WebSocket(`${proto}://${window.location.host}/ws`);
-      socket.onmessage = (msg) => {
-        try {
-          const data = JSON.parse(msg.data);
-          // Skip our own echo: the mutation response already carried the
-          // updated bracket, so refetching on it would double the traffic.
-          if (data.origin === CLIENT_ID) return;
-          if (data.type === "bracket_updated" && data.bracketId === id) load();
-        } catch {
-          // Not our message; ignore.
-        }
-      };
-      socket.onclose = () => {
-        if (!closed) retry = setTimeout(connect, 3000);
-      };
-    }
-    connect();
-
-    const onVisible = () => {
-      if (document.visibilityState === "visible") load();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => {
-      closed = true;
-      if (retry) clearTimeout(retry);
-      socket?.close();
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [id, load]);
+  // Was a hand-rolled connect/retry/visibility socket duplicating the shared
+  // hook. Same behaviour, including the own-echo skip: the mutation response
+  // already carries the updated bracket, so refetching on our own broadcast
+  // would double the traffic.
+  useBracketLive(id, load);
 
   // Mutations return the re-derived bracket; apply it directly instead of
   // refetching. busy stays: a double-tap must not score two matches.

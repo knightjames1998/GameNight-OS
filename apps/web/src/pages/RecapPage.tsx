@@ -4,7 +4,9 @@ import { api, type EventRecap, type Me } from "../api";
 import BackButton from "../BackButton";
 import { ensureRecapFonts, drawNightRecapCard } from "../recap";
 import { shareImage } from "../share";
-import { useLiveUpdates } from "../useLiveUpdates";
+import { useLiveRefetch } from "../useLiveUpdates";
+
+const RECAP_TYPES = ["leaderboard_updated"] as const;
 
 // Event night recap: the whole night on one shareable card, aggregated
 // across every pack. Reuses the canvas-to-JPG recap pipeline; share via the
@@ -30,12 +32,9 @@ export default function RecapPage({ me: _me }: { me: Me | null }) {
 
   // Live: a game recorded in any pack materializes and fires
   // leaderboard_updated for this event, so the card refreshes while open.
-  useLiveUpdates(
-    (m) => {
-      if (m.type === "leaderboard_updated" && m.eventId === id) load();
-    },
-    () => load(),
-  );
+  // One topic, one id, one action: the shared filter covers it. The own-echo
+  // skip is a no-op here, since the recap page only reads.
+  useLiveRefetch(RECAP_TYPES, "eventId", id, load);
 
   // Redraw the card whenever the data changes.
   useEffect(() => {

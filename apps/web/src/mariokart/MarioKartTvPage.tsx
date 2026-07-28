@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api";
 import BackButton from "../BackButton";
-import { useLiveUpdates } from "../useLiveUpdates";
+import { usePackLive } from "../useLiveUpdates";
 import "./mariokart.css";
 
 interface Slot { id: string; name: string; character: string | null }
@@ -37,12 +37,7 @@ export default function MarioKartTvPage() {
     refetch().finally(() => setLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
-  useLiveUpdates(
-    (m) => {
-      if ((m.type === "mario_kart_updated" || m.type === "leaderboard_updated") && m.eventId === eventId) refetch();
-    },
-    () => refetch(),
-  );
+  usePackLive("mario_kart_updated", eventId, refetch);
 
   if (!loaded) return <div className="mk-tv"><div className="mk-tv__brand">Loading...</div></div>;
 

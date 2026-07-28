@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { api, type BracketView, type BracketMatchView } from "../api";
 import BackButton from "../BackButton";
+import { useBracketLive } from "../useLiveUpdates";
 
 // The Broadcast view. Design target: a 75" TV at couch distance. A full
 // bracket tree is unreadable from across a room, so — like the Beerio pack's
@@ -29,41 +30,15 @@ export default function TvPage() {
 
   useEffect(() => {
     load();
+  }, [load]);
 
-    let socket: WebSocket | null = null;
-    let retry: ReturnType<typeof setTimeout> | null = null;
-    let closed = false;
-
-    function connect() {
-      const proto = window.location.protocol === "https:" ? "wss" : "ws";
-      socket = new WebSocket(`${proto}://${window.location.host}/ws`);
-      socket.onmessage = (msg) => {
-        try {
-          const data = JSON.parse(msg.data);
-          if (data.type === "bracket_updated" && data.bracketId === id) load();
-        } catch {
-          // Not ours.
-        }
-      };
-      socket.onclose = () => {
-        if (!closed) retry = setTimeout(connect, 3000);
-      };
-    }
-    connect();
-
-    // TVs sleep too; catch up whenever we become visible.
-    const onVisible = () => {
-      if (document.visibilityState === "visible") load();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => {
-      closed = true;
-      if (retry) clearTimeout(retry);
-      socket?.close();
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [id, load]);
+  // Was a second hand-rolled copy of the same socket, drifted from
+  // BracketPage's: that one skipped its own echo and this one did not. Both
+  // are on the shared hook now, which does skip. That is a no-op here rather
+  // than a behaviour change, because the TV never writes anything, so its
+  // client id can never come back as the origin of a broadcast. TVs sleep
+  // too, and the hook refetches on visibility, same as before.
+  useBracketLive(id, load);
 
   if (error) {
     return (

@@ -3,7 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, type Friend, type GroupSummary, type Me } from "../api";
 import { useCachedApi } from "../cache";
 import Login from "./Login";
-import GamePicker, { type PickerGame } from "../GamePicker";
+import GamePicker from "../GamePicker";
+import { buildPickerGames } from "../packs";
 import AddToHomeHint from "../AddToHomeHint";
 import { GroupListSkeleton } from "../Skeleton";
 import { onIntent, routes } from "../prefetch";
@@ -106,62 +107,23 @@ function Groups({
     }
   }
 
-  const quickGames: PickerGame[] = [
-    {
-      key: "mariokart",
-      name: "Mario Kart",
-      emoji: "🏎️",
-      cabClass: "gn-cab--mk",
-      formats: [
-        { key: "beerio", label: "🍺 Beerio Kart", sub: "double elim & grand prix", onPick: () => navigate("/beerio") },
-        { key: "free", label: "🏁 Free Play", sub: "single races", onPick: () => startSession("mariokart", "&format=free") },
-        { key: "grandprix", label: "🏆 Grand Prix", sub: "a cup on points", onPick: () => startSession("mariokart", "&format=grandprix") },
-        { key: "bestof", label: "Best Of", sub: "1v1 race sets", onPick: () => startSession("mariokart", "&format=bestof") },
-        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => startSession("mariokart", "&format=koth") },
-      ],
+  // One catalogue, shared with the event page (src/packs.ts). Quick play has
+  // no event, so every format starts a fresh session; Beerio and Tournament
+  // go straight to their own routes.
+  const quickGames = buildPickerGames({
+    destination: (pack, format) => () => {
+      if (pack === "mariokart" && format === "beerio") return navigate("/beerio");
+      // Tournament never reaches here: its formats are supplied below.
+      if (pack === "tournament") return;
+      // Mario Party has one format, so it carries no format suffix.
+      if (pack === "marioparty") return startSession("marioparty");
+      startSession(pack, `&format=${format}`);
     },
-    {
-      key: "smash",
-      name: "Smash Bros",
-      emoji: "🥊",
-      cabClass: "gn-cab--smash",
-      formats: [
-        { key: "ffa", label: "Free-for-all", sub: "2–8 players a game", onPick: () => startSession("smash", "&format=ffa") },
-        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => startSession("smash", "&format=koth") },
-        { key: "bestof", label: "Best Of", sub: "1v1 sets, best of 3/5/7", onPick: () => startSession("smash", "&format=bestof") },
-      ],
-    },
-    {
-      key: "marioparty",
-      name: "Mario Party",
-      emoji: "🎲",
-      cabClass: "gn-cab--mp",
-      formats: [
-        { key: "board", label: "🎲 Board night", sub: "stars, boards, bonus stars", onPick: () => startSession("marioparty") },
-      ],
-    },
-    {
-      key: "pingpong",
-      name: "Ping Pong",
-      emoji: "🏓",
-      cabClass: "gn-cab--pp",
-      formats: [
-        { key: "free", label: "Free Play", sub: "single games, one tap each", onPick: () => startSession("pingpong", "&format=free") },
-        { key: "bestof", label: "Best Of", sub: "3, 5 or 7 game series", onPick: () => startSession("pingpong", "&format=bestof") },
-        { key: "koth", label: "King of the Hill", sub: "winner stays on", onPick: () => startSession("pingpong", "&format=koth") },
-      ],
-    },
-    {
-      key: "tournament",
-      name: "Tournament",
-      emoji: "🏆",
-      cabClass: "gn-cab--brk",
-      formats: [
-        { key: "single", label: "Single elimination", sub: "typed names", onPick: () => navigate("/quick?format=single_elim") },
-        { key: "double", label: "Double elimination", sub: "losers bracket + grand final", onPick: () => navigate("/quick?format=double_elim") },
-      ],
-    },
-  ];
+    tournamentFormats: [
+      { key: "single", label: "Single elimination", sub: "typed names", onPick: () => navigate("/quick?format=single_elim") },
+      { key: "double", label: "Double elimination", sub: "losers bracket + grand final", onPick: () => navigate("/quick?format=double_elim") },
+    ],
+  });
 
   return (
     <main className="gn-app">
