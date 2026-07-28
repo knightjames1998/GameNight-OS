@@ -7,13 +7,22 @@
 # cadence (13 min) is under Render's 15-minute idle timeout, the service stays
 # warm continuously across the window, then sleeps the rest of the day.
 #
-# Why evenings only, never blind 24/7: Render's real governor is 750 free
+# Why a window and never blind 24/7: Render's real governor is 750 free
 # instance-hours per workspace per calendar month. A 31-day month is 744 hours,
 # so keeping the service awake 24/7 would sit right at the cap with no margin,
 # and redeploys/rebuilds also burn hours, so a mid-month suspension is worse
 # than an occasional 3am cold start (and warming at 3am buys nothing). This
-# window is ~10 hours/day (~310 instance-hours/month), far under 750, leaving
-# wide headroom.
+# window is 16 hours/day (~487 instance-hours/month), leaving ~260 hours of
+# headroom under the 750 cap.
+#
+# WIDENED 2026-07-28 (James's call on cleanup phase 8b) from evenings only to
+# roughly noon-2am Central. Phase 8a makes a returning user's launch feel
+# instant once the HTML has arrived, but it cannot do anything about a sleeping
+# server: nothing renders before index.html shows up, and index.html is
+# correctly no-cache so it always hits Render. Widening the window is the
+# cheapest of the three options that attack that, and it covers afternoon and
+# evening use rather than evenings alone. It still does nothing at 4am, which
+# is the accepted trade.
 #
 # ---------------------------------------------------------------------------
 # ONE-TIME SETUP (James): add a repository VARIABLE named WARM_URL set to the
@@ -28,14 +37,23 @@
 #
 # ---------------------------------------------------------------------------
 # SCHEDULE: GitHub cron is always UTC and does NOT observe daylight saving, so
-# the window is pinned in UTC below. James is Central time (America/Chicago):
-#   21:00-06:59 UTC  ==  16:00-01:59 CDT (summer)  ==  15:00-00:59 CST (winter)
-# i.e. it covers roughly 4pm to 1am Central year-round (an hour earlier in
-# winter, still squarely in game-night hours).
+# the window is pinned in UTC below. James is Central time (America/Chicago),
+# which is UTC-5 in summer (CDT) and UTC-6 in winter (CST):
+#   17:00-08:59 UTC  ==  12:00-03:59 CDT (summer)  ==  11:00-02:59 CST (winter)
 #
-# To WIDEN the window: add hours to the cron `hour` field below (each added
-# hour is ~5 more pings/day and a little more instance-time). To SHIFT it:
-# move the UTC hours (local Central = UTC minus 5 in summer, minus 6 in winter).
+# The target is noon to 2am Central. Because the UTC window is fixed and the
+# offset is not, the ends are chosen so the target is covered in BOTH offsets
+# rather than only one, which means each end overshoots by an hour in one half
+# of the year:
+#   start 17:00 UTC = noon CDT exactly, and 11am CST (an hour early)
+#   end   08:xx UTC = 2am CST exactly,  and 3am CDT (an hour late)
+# Covering the target year-round is worth the spare hour; the alternative is a
+# window that quietly stops an hour short of 2am for half the year.
+#
+# To WIDEN further: add hours to the cron `hour` field below (each added hour
+# is ~5 more pings/day and ~30 more instance-hours/month). To SHIFT it: move
+# the UTC hours (local Central = UTC minus 5 in summer, minus 6 in winter).
+# Watch the 750/month cap when adding: this window is already 16 of 24 hours.
 #
 # NOTE: GitHub-scheduled cron has timing jitter and can fire several minutes
 # late, or occasionally skip a slot under load. That is fine for a warm-up ping.
@@ -47,8 +65,10 @@ name: keep-warm
 on:
   schedule:
     # minute "*/13" -> :00 :13 :26 :39 :52  (5 pings/hour, every gap < 15 min)
-    # hour "21-23,0-6" -> the continuous 21:00-06:59 UTC window described above
-    - cron: "*/13 21-23,0-6 * * *"
+    # hour "17-23,0-8" -> the continuous 17:00-08:59 UTC window described above.
+    # Two ranges because cron hour ranges cannot wrap past midnight; together
+    # they are one unbroken 16-hour window, not two separate ones.
+    - cron: "*/13 17-23,0-8 * * *"
   workflow_dispatch: {} # manual "warm it now" button before a known game night
 
 jobs:
