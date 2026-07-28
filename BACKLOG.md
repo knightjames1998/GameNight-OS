@@ -12,24 +12,30 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-07-27
-    Shipped sessions since that redraw: 4
+    Last map redraw:                    2026-07-28
+    Shipped sessions since that redraw: 1
     Redraw due at:                      3
 
     Counter is below 3: continue with the requested work and increment it by 1 in the
-    same commit as any session that ships. Reconciled + redrawn on 2026-07-27 (third
-    pass that day, during the pre-pack cleanup run, because phase 1 tipped the counter
-    to 3). The reconcile collapsed the four same-day stats items into two, since at the
-    map's altitude they are one body of work rather than four commits, and gave the
-    whole multi-phase cleanup ONE item that later phases update in place instead of a
-    line each. Also added the two watches the cleanup audit raised (countLastPlace's
-    unbounded IN list, and the ws hub broadcasting to everyone). Zone heights were
-    checked against their contents; all six fit.
+    same commit as any session that ships. Reconciled + redrawn on 2026-07-28, at the
+    start of the pack-runtime session (phase 3), because the counter had reached 4:
+    phases 2, 4, 5 and 7 each shipped and incremented after the 2026-07-27 redraw and
+    none of them was the session that tipped it, so the redraw was one session overdue.
+    Redrawn FIRST, before phase 3 touched any code, which is the point of the rule.
 
-    NOTE for the rest of the cleanup run: a refactor phase changes almost nothing on
-    the map, so if the counter tips again before the run ends, updating the single
-    cleanup item and the counter is the whole reconcile. Do not split the phases into
-    separate map items.
+    The previous redraw's NOTE was followed exactly: the whole cleanup run stayed ONE
+    map item, updated in place rather than split into a line per phase, so the redraw
+    itself was small. What the reconcile actually corrected was the RECORD, not the
+    drawing. The backlog had every shipped cleanup phase written up in SHIPPED but said
+    nothing at all about the phases still outstanding, so the run's remaining work
+    existed only in the session prompts. NEXT UP now carries it: phase 8a (perceived
+    speed) and phase 6 (one implementation per idea on the client), in the run order
+    the audit set. Phase 8b is a money/architecture call and went to OPEN DECISIONS,
+    not to a queue slot, because no session may implement it until James picks one.
+
+    Counter arithmetic this pass: reset to 0 by the redraw, then +1 for this session's
+    phase 3, which ships in the commit after this one. Zone heights were checked
+    against their contents; all six still fit.
 
 **Every session that ships anything (feature, pack, or fix set) increments the counter by 1
 as part of its delivery, in the same commit as its other changes.** Doc-only sessions do not
@@ -144,7 +150,9 @@ session, regenerating the committed file alone still counts as the redraw.
 
 ## NEXT UP (queued)
 Priority order set by James. The top three are the committed next sessions.
-- [ ] (slots 1-3 open as of 2026-07-27: James has not committed the next sessions; the candidates below are in priority order, so the top three are what a session should pull from unless he says otherwise)
+- [ ] 1. Pre-pack cleanup phase 8a: make it feel fast (client). The remainder of a run already in flight, so it sits above the pack candidates rather than competing with them. Opening the app as a returning user runs three sequential dead stages: index.html is correctly no-cache so it always hits the server (30-60s if Render has slept), then App.tsx blocks the WHOLE app on GET /api/auth/me behind a full-screen "Loading...", then the route mounts and fires its own fetches and shows "Loading..." again; and every later navigation repeats that third stage because there is no client cache at all. Do, in order: (1) cache the Me object in localStorage, hydrate synchronously on boot and render immediately, revalidate in the background, drop to logged out on a 401 (safe because the server enforces access on every endpoint via the session cookie, so a stale cached identity can only look wrong briefly, never grant anything; log that reasoning so a later session does not "fix" it back into a blocking gate); (2) a stale-while-revalidate cache for GETs, useCachedApi<T>(key, path) -> { data, stale, error, refetch }, memory then localStorage, returning cached data SYNCHRONOUSLY and never showing a loading state when there is something to show, with write-through from the mutation responses that already carry the full updated payload (eventDetail, every pack mutation) and from the existing WebSocket refetch path; version the storage namespace with a __BUILD_ID__ define in vite.config.ts prefixing every key, so a deploy that changes a payload shape cannot hydrate an old object into new code (cost: cache is cold after each deploy, which is the right trade); (3) prefetch route chunks on pointerdown for the game picker tiles, the crew stats button and the TV link; (4) skeletons instead of centred "Loading..." on the four or five most-opened screens; (5) self-host the three fonts (Luckiest Guy, Fredoka, Nunito) as woff2 in public/fonts with font-display: swap, removing a render-blocking third-party stylesheet, a DNS lookup and a TLS handshake from the critical path and picking up the immutable /assets caching phase 5 shipped. DO NOT cache the TV routes (the live surface; a stale scoreboard on a big screen is worse than a spinner) or anything under a pack's live session where a stale roster could be tapped. Verify on a phone twice, cleared and warm: the warm launch paints real data with no "Loading..." anywhere, Home -> crew -> event -> back shows no loading state on the way back, a logged-out browser still lands on the login screen, and the first launch after a deploy is cold but correct rather than broken.
+- [ ] 2. Pre-pack cleanup phase 6: one implementation per idea on the client. Better after phase 3, so the pack shapes are settled on both sides. All five items verified still present at ad55bc4. THREE live-sync implementations: BracketPage.tsx and TvPage.tsx each hand-roll a connect/retry/visibility block instead of using useLiveUpdates, and they have already drifted (BracketPage filters data.origin === CLIENT_ID, TvPage does not); move both onto the hook, Beerio's polling is correct and stays. The same origin-skip block written FOUR times across the pack pages, varying only in the message-type string: fold it into the hook or a thin usePackLive(type, eventId, refetch). The whole pack-page shell written FOUR times, roughly 120 lines each: ctx/session/loading/err/busy/reqSeq state, the refetch() that Promise.alls context and session, call() with its optimistic update, snapshot rollback and newest-request-wins guard, and startSession() with the 409 confirm-and-replace dance; one usePackSession<S> hook, with the pages keeping all their own rendering, which is where packs must stay different. FORMAT_LABEL declared twice (StatsPage.tsx, MyStatsPage.tsx) plus the same strings as inline ternaries across the pack pages, the TV pages and Home.tsx: one exported map that everything reads from. The pack catalogue written twice, quickGames in Home.tsx and eventGames() in EventPage.tsx (same games, formats, emoji, cabClass and sublines, differing only in destination and the event-context special cases): one PACKS catalogue with the destination supplied by the caller, keeping the Beerio "live now" subline and the Tournament RSVP gating as the genuinely contextual bits they are. If 8a lands first, build usePackSession ON TOP of the cache helper rather than beside it, so the pack pages inherit the same instant-return behaviour as everything else.
+- [ ] 3. (open: James has not committed a third session; the pack candidates below are in priority order, so that is what a session should pull from unless he says otherwise)
 - [ ] Smashdown night (Smash pack format): Ultimate's built-in mode where a used fighter is struck from the roster until the series ends. The app renders the shared burned-fighter board (huge on the TV view), one tap per game to record the winner; roster + title selector already exist. New stat: unique fighters won with. Reuses the FFA engine, so this is the cheapest remaining pack work.
 - [ ] Smash Tournament format: a third option in the Smash format picker that launches a bracket from the Smash session roster and materializes with fighters. Today Smash tournaments run through the generic bracket.
 - [ ] Tabletop theme: second theme token block + a user-facing theme switcher (Arcade default). Foundation already laid.
@@ -291,4 +299,5 @@ Not committed, no design decided.
 - Home "Your stats" aggregates across ALL crews (quick-play personal crew included, labeled "Quick play"); member profiles and rivalries stay crew-scoped because the ledger is group-scoped.
 
 ## OPEN DECISIONS
+- **Cold-start latency (pre-pack cleanup phase 8b), James's call, no session may implement any of it until he picks.** Phase 8a fixes stages 2 and 3 of a returning user's launch. It CANNOT fix stage 1: if Render has slept, the first request for index.html waits 30-60 seconds and no client-side work changes that, because nothing renders before the HTML arrives. Three options. (a) WIDEN THE KEEP-WARM WINDOW. Today it is evenings only, roughly 310 instance-hours a month against the free tier's 750. About 16 hours a day is roughly 490 hours, still with real margin. Cheapest, helps most real usage, does nothing at 3am. (b) A SERVICE WORKER CACHING THE APP SHELL. The only option that genuinely fixes a first load while the server is asleep: the shell paints instantly from cache and the data fills in when the server wakes. It reverses the 2026-07-18 decision against a service worker, which rested on the app being online-only; that is still true of the DATA and no longer true of the SHELL, so the reversal is on new grounds rather than a change of mind. The real cost is the classic footgun, a service worker that caches too eagerly pinning users to an old app version, which on a game night is worse than a slow load; if chosen it needs its OWN session with an explicit update strategy, never bundled into another change. (c) PAY FOR THE RENDER TIER THAT DOES NOT SLEEP. Removes the problem outright; a money question, so James's alone. The event-aware warmer already logged under IDEAS (ping only in the hour before a scheduled event) is a fourth option that reduces instance-hours rather than latency, and it composes with (a).
 - Whether to reskin Beerio Kart to match Arcade later, or keep packs visually independent forever. Currently: packs stay independent.

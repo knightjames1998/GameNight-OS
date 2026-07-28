@@ -13,7 +13,11 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "July 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-07-27 (second pass that day, mid pre-pack cleanup).
+// Redrawn 2026-07-28, at the start of the pack-runtime session (cleanup phase 3),
+// with the counter at 4. The whole cleanup run stays ONE item in zone 1, updated in
+// place as phases land, per the previous redraw's note. The real change this pass is
+// zone 3: the run's two remaining phases now sit in the queue instead of living only
+// in session prompts.
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
 // each 480 wide, row 1 y=95 h=540, row 2 y=660 h=530. Items 440x40, 46px
@@ -35,7 +39,7 @@ const ZONES = [
       { t: "Guest stat backfill; keep-warm ping; link previews", h: 52 },
       { t: "Stats depth: characters, placements, streaks, history", h: 52 },
       { t: "Crew leaderboard: shared agg, unified pack rows", h: 52 },
-      { t: "Pre-pack cleanup: hygiene, tests, request cost, indexes", bg: "#c3fae8", h: 52 },
+      { t: "Pre-pack cleanup: hygiene, tests, cost, indexes, code splitting, asset caching, one pack runtime", bg: "#c3fae8", h: 52 },
     ],
   },
   {
@@ -57,8 +61,8 @@ const ZONES = [
     x: 1080, y: 95, h: 730,
     title: "NEXT UP (queued)", zoneBg: "#fff3bf", header: "#b45309", itemBg: "#ffd8a8",
     items: [
-      { t: "1. (open slot — not committed)", sw: 2 },
-      { t: "2. (open slot — not committed)", sw: 2 },
+      { t: "1. Cleanup 8a: make it feel fast (client cache)", sw: 2, h: 52 },
+      { t: "2. Cleanup 6: one implementation per idea (client)", sw: 2, h: 52 },
       { t: "3. (open slot — not committed)", sw: 2 },
       { t: "Smashdown night (burned-fighter board)" },
       { t: "Smash Tournament format (bracket + fighters)" },
