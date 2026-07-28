@@ -8,9 +8,22 @@ import "./smash.css";
 
 interface Slot { id: string; name: string; character: string | null }
 interface TvSeriesStanding { slotId: string; name: string; seriesWins: number; seriesPlayed: number; gameWins: number; currentStreak: number }
+interface TvSdStanding { playerId: string; name: string; wins: number; played: number; placement: number }
+interface TvSdStatus {
+  battleCount: number;
+  battlesPlayed: number;
+  battlesLeft: number;
+  burned: string[];
+  poolSize: number;
+  fightersLeft: number;
+  standings: TvSdStanding[];
+  clinched: boolean;
+  over: boolean;
+  winnerIds: string[];
+}
 interface TvSession {
   status: string;
-  format: "ffa" | "koth" | "bestof";
+  format: "ffa" | "koth" | "bestof" | "smashdown";
   mode: "ffa" | "koth";
   roster: Slot[];
   games: { idx: number }[];
@@ -19,6 +32,7 @@ interface TvSession {
   series: { aId: string; bId: string; games: { winnerId: string }[] } | null;
   seriesLog: { idx: number }[];
   seriesStandings: TvSeriesStanding[];
+  smashdown: TvSdStatus | null;
   summary: {
     characters: { character: string; played: number; wins: number }[];
     players: { playerId: string; name: string; played: number; wins: number; mainCharacter: string | null }[];
@@ -62,6 +76,87 @@ export default function SmashTvPage({ eventId: propEventId }: { eventId?: string
   const charOf = new Map(session.roster.map((p) => [p.id, p.character]));
   const kingId = session.koth?.kingId ?? null;
   const bestOf = session.format === "bestof";
+  const sd = session.format === "smashdown" ? session.smashdown : null;
+
+  // Smashdown gets its own screen rather than a panel bolted onto the FFA one:
+  // the burn board IS the format, so it takes the width, and the standings sit
+  // beside the fighters that are still in play.
+  if (sd) {
+    const winners = sd.standings.filter((s) => sd.winnerIds.includes(s.playerId));
+    return (
+      <div className="sm-tv">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <div className="sm-tv__brand">Smashdown</div>
+          <div className="sm-tv__muted" style={{ fontSize: "2.4vmin" }}>
+            {sd.over
+              ? "Series over"
+              : `Battle ${sd.battlesPlayed + 1} of ${sd.battleCount}`}
+          </div>
+        </div>
+
+        {sd.over && winners.length > 0 && (
+          <div style={{ marginTop: "1.6vmin" }}>
+            <div className="sm-tv__muted" style={{ fontSize: "2.6vmin", textTransform: "uppercase", letterSpacing: "0.3vmin" }}>
+              {winners.length > 1 ? "Co-winners" : "Winner"}
+            </div>
+            <div className="sm-tv__king">🏆 {winners.map((w) => w.name).join(" & ")}</div>
+          </div>
+        )}
+
+        <div style={{ marginTop: "2.4vmin", display: "flex", alignItems: "baseline", gap: "2vmin" }}>
+          <span className="sm-tv__count">{sd.fightersLeft}</span>
+          <span className="sm-tv__muted" style={{ fontSize: "3vmin" }}>
+            fighters left of {sd.poolSize}
+            {!sd.over && ` · ${sd.battlesLeft} battle${sd.battlesLeft === 1 ? "" : "s"} to go`}
+          </span>
+        </div>
+
+        <div className="sm-tv__grid" style={{ gridTemplateColumns: "1fr" }}>
+          <div className="sm-tv__panel">
+            <h3>Burned ({sd.burned.length})</h3>
+            {sd.burned.length === 0 ? (
+              <div className="sm-tv__muted">Nobody is out yet</div>
+            ) : (
+              <div className="sm-tv__burn">
+                {sd.burned.map((f) => (
+                  <span key={f}>{f}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="sm-tv__grid">
+          <div className="sm-tv__panel">
+            <h3>Standings</h3>
+            {sd.battlesPlayed === 0 && <div className="sm-tv__muted">No battles yet</div>}
+            {sd.battlesPlayed > 0 &&
+              sd.standings.map((p) => (
+                <div className="sm-tv__line" key={p.playerId}>
+                  <span>
+                    <span className="sm-tv__muted" style={{ marginRight: "1.4vmin" }}>{p.placement}</span>
+                    {p.name}
+                  </span>
+                  <span>{p.wins}W · {p.played}</span>
+                </div>
+              ))}
+          </div>
+          <div className="sm-tv__panel">
+            <h3>Fighters</h3>
+            {session.roster.map((p) => (
+              <div className="sm-tv__line" key={p.id}>
+                <span>{p.name}</span>
+                <span className="sm-tv__muted">{p.character ?? "picking…"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginTop: "3vmin" }}><BackButton className="sm-textbtn" /></div>
+      </div>
+    );
+  }
+
   const cur = session.series;
   const setWins = cur
     ? cur.games.reduce((acc, g) => { if (g.winnerId === cur.aId) acc.a++; else if (g.winnerId === cur.bId) acc.b++; return acc; }, { a: 0, b: 0 })

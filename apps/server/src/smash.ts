@@ -24,6 +24,11 @@ import {
   validateFfa,
   isFighter,
   summarizeNight,
+  smashdownCap,
+  smashdownStatus,
+  burnedFrom,
+  availableFighters,
+  currentPicks,
   newSeries,
   recordSeriesGame,
   finalizeSeries,
@@ -56,6 +61,10 @@ export const smashRuntime = createPackRuntime<SmashSessionState>({
   extras: (state) => ({
     summary: summarizeNight(state),
     seriesStandings: state.format === "bestof" ? seriesStandings(state) : [],
+    // The burn board, standings, remaining battles and whether the series is
+    // over, derived server-side so the pack page, the TV and this file cannot
+    // reach three different answers about who won.
+    smashdown: state.format === "smashdown" ? smashdownStatus(state) : null,
   }),
 });
 
@@ -192,7 +201,15 @@ export async function creditGuestSmash(
         pack: "smash",
         packLabel: "Smash Bros",
         eventId,
-        label: g.mode === "koth" ? "King of the Hill" : "Free For All",
+        // Format first: a Smashdown battle is stored with mode "ffa" (it runs
+        // on the FFA engine), so reading the mode alone would preview every
+        // burned-fighter battle as "Free For All".
+        label:
+          state.format === "smashdown"
+            ? "Smashdown"
+            : g.mode === "koth"
+            ? "King of the Hill"
+            : "Free For All",
         date: g.at ?? null,
         placement: line.placement,
         isWinner: line.isWinner,
@@ -282,13 +299,15 @@ smashRouter.post("/events/:eventId/smash", requireAuth, async (req: AuthedReques
   const rawFormat = req.body?.format;
   let format: SmashFormat;
   let mode: SmashMode;
-  if (rawFormat === "ffa" || rawFormat === "koth" || rawFormat === "bestof") {
+  if (rawFormat === "ffa" || rawFormat === "koth" || rawFormat === "bestof" || rawFormat === "smashdown") {
     format = rawFormat;
+    // Smashdown runs on the FFA engine (a battle is an FFA game the whole
+    // roster plays), so it is 1v1 and 2-8 player series through one path.
     mode = format === "koth" ? "koth" : "ffa";
   } else {
     mode = req.body?.mode as SmashMode;
     if (mode !== "ffa" && mode !== "koth") {
-      res.status(400).json({ error: "format must be ffa, koth, or bestof" });
+      res.status(400).json({ error: "format must be ffa, koth, bestof, or smashdown" });
       return;
     }
     format = mode;
@@ -336,13 +355,41 @@ smashRouter.post("/events/:eventId/smash", requireAuth, async (req: AuthedReques
     res.status(400).json({ error: "Add at least 2 players" });
     return;
   }
+  // Every player is in every Smashdown battle (that is what makes the cap
+  // arithmetic true), and a battle is an FFA game, which validateFfa caps at
+  // eight. So the roster IS the battle, and it is capped at eight here rather
+  // than silently producing a series nobody can record.
+  if (format === "smashdown" && roster.length > 8) {
+    res.status(400).json({ error: "Smashdown is capped at 8 players (everyone plays every battle)" });
+    return;
+  }
 
   const titleId = SMASH_TITLES.some((t) => t.id === req.body?.titleId)
     ? String(req.body.titleId)
     : SMASH_TITLES[0]!.id;
   const pool = rosterForTitle(SMASH_TITLES, titleId);
 
-  let state = newSmashState({ format, titleId, mode, assignment, resultDetail, roster, bestOf });
+  // Smashdown: the battle count is fixed at the start and can never exceed
+  // what the chosen title's roster can feed. Clamped rather than rejected, so
+  // a host who typed 10 for a four-player Smash 64 series gets the three
+  // battles that are actually possible instead of a validation error.
+  let battleCount = 0;
+  if (format === "smashdown") {
+    const cap = smashdownCap(pool.length, roster.length);
+    if (cap < 1) {
+      const title = SMASH_TITLES.find((t) => t.id === titleId)!;
+      res.status(400).json({
+        error: `${title.name} only has ${pool.length} fighters, which is not enough for ${roster.length} players to play a battle`,
+      });
+      return;
+    }
+    battleCount = Math.min(Math.max(Math.floor(Number(req.body?.battleCount) || 1), 1), cap);
+  }
+  const mercy = format === "smashdown" && !!req.body?.mercy;
+
+  let state = newSmashState({
+    format, titleId, mode, assignment, resultDetail, roster, bestOf, battleCount, mercy,
+  });
   if (assignment === "random") state.roster = assignRandomFighters(state.roster, pool);
 
   res.json(await rt.startSession(eventId, event.groupId, state, req.get("x-gn-client")));
@@ -385,6 +432,21 @@ smashRouter.post("/smash/:eventId/character", requireAuth, async (req: AuthedReq
     res.status(403).json({ error: "The host is assigning fighters this session" });
     return;
   }
+  // Smashdown: a fighter is gone once it has been used, and two players cannot
+  // share one inside a battle. Checked here as well as on the client because
+  // every assignment mode funnels through this route and the burn board is the
+  // whole format — a burned pick slipping through would silently un-strike it.
+  if (loaded.state.format === "smashdown" && character) {
+    const left = availableFighters(
+      titlePool,
+      burnedFrom(loaded.state.games),
+      currentPicks(loaded.state.roster, slot.id),
+    );
+    if (!left.includes(character)) {
+      res.status(400).json({ error: `${character} is out of this series` });
+      return;
+    }
+  }
   slot.character = character ?? null;
   res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
@@ -401,9 +463,15 @@ smashRouter.post("/smash/:eventId/randomize", requireAuth, async (req: AuthedReq
     res.status(403).json({ error: "Host only" });
     return;
   }
+  // Smashdown re-rolls out of what is LEFT, never the whole title roster.
+  // assignRandomFighters already keeps the picks distinct within one call, so
+  // passing the available pool covers both exclusions the format needs.
+  const pool = rosterForTitle(SMASH_TITLES, loaded.state.titleId);
   loaded.state.roster = assignRandomFighters(
     loaded.state.roster,
-    rosterForTitle(SMASH_TITLES, loaded.state.titleId),
+    loaded.state.format === "smashdown"
+      ? availableFighters(pool, burnedFrom(loaded.state.games))
+      : pool,
   );
   res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
@@ -503,6 +571,111 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
   const slotIds = new Set(state.roster.map((p) => p.id));
   const charOf = new Map(state.roster.map((p) => [p.id, p.character]));
   let lines: SmashResultLine[];
+
+  // Smashdown: one battle, the WHOLE roster, every fighter struck out
+  // afterwards. It borrows the FFA ledger unit (one battle = one matches row)
+  // and adds three rules the other formats do not have: everybody plays,
+  // everybody needs a fighter, and no fighter may be reused or shared.
+  if (state.format === "smashdown") {
+    const status = smashdownStatus(state);
+    if (status.over) {
+      res.status(409).json({ error: "This series is finished" });
+      return;
+    }
+    const missing = state.roster.filter((p) => !p.character);
+    if (missing.length > 0) {
+      res.status(400).json({
+        error: `Pick a fighter for ${missing.map((p) => p.name).join(", ")} first`,
+      });
+      return;
+    }
+    const burned = new Set(status.burned);
+    const seen = new Set<string>();
+    for (const p of state.roster) {
+      const c = p.character!;
+      if (burned.has(c)) {
+        res.status(400).json({ error: `${c} has already been used this series` });
+        return;
+      }
+      if (seen.has(c)) {
+        res.status(400).json({ error: `Two players are both on ${c}` });
+        return;
+      }
+      seen.add(c);
+    }
+
+    if (state.resultDetail === "placement") {
+      const raw = Array.isArray(req.body?.lines) ? req.body.lines : [];
+      const given = new Map<string, number>(
+        raw
+          .filter((l: any) => slotIds.has(String(l?.playerId)))
+          .map((l: any): [string, number] => [String(l.playerId), Number(l?.placement) || 0]),
+      );
+      lines = state.roster.map((p) => ({
+        playerId: p.id,
+        character: p.character,
+        placement: given.get(p.id) ?? 0,
+        isWinner: (given.get(p.id) ?? 0) === 1,
+      }));
+    } else {
+      const winnerId = String(req.body?.winnerId ?? "");
+      if (!slotIds.has(winnerId)) {
+        res.status(400).json({ error: "Tap the winner of the battle" });
+        return;
+      }
+      lines = state.roster.map((p) => ({
+        playerId: p.id,
+        character: p.character,
+        placement: p.id === winnerId ? 1 : 2,
+        isWinner: p.id === winnerId,
+      }));
+    }
+    const err = validateFfa(lines, state.resultDetail);
+    if (err) {
+      res.status(400).json({ error: err });
+      return;
+    }
+
+    const battle: SmashGame = {
+      idx: state.games.length,
+      mode: "ffa",
+      lines,
+      at: new Date().toISOString(),
+    };
+    state.games.push(battle);
+    // One derivation, always from the log, so undo can only ever put back
+    // exactly the fighters the undone battle took out.
+    state.burned = burnedFrom(state.games);
+
+    // Those fighters are gone, so nobody can still be holding one. Clearing is
+    // what makes the next battle a fresh pick, and a random-assignment session
+    // rolls the next set straight away out of what is left so the host does not
+    // have to tap for it. Only while the series is still running: on the last
+    // battle the picks stay put, so every screen can still show what the series
+    // finished on, and an undo puts them back anyway.
+    const after = smashdownStatus(state);
+    if (!after.over) {
+      for (const p of state.roster) p.character = null;
+      if (state.assignment === "random") {
+        const avail = availableFighters(rosterForTitle(SMASH_TITLES, state.titleId), state.burned);
+        if (avail.length >= state.roster.length) {
+          state.roster = assignRandomFighters(state.roster, avail);
+        }
+      }
+    }
+
+    // Safe after the reshuffle above: the ledger reads each fighter off the
+    // BATTLE's lines, and the roster is only used to resolve a slot to a user.
+    const gameId = await rt.ensureGame(row.groupId);
+    const report = await materializeGame(
+      row.groupId, eventId, gameId, battle, state.roster, state.sessionKey, state.format,
+    );
+    const origin = req.get("x-gn-client");
+    const view = await rt.saveState(loaded, "live", origin);
+    broadcast({ type: "leaderboard_updated", eventId }, origin);
+    res.json({ ...view, ...report });
+    return;
+  }
 
   if (state.mode === "koth") {
     // Round input is just the winner id; the pair is derived from state.
@@ -613,6 +786,18 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
   }
   await rt.deleteMaterialized(eventId, state.sessionKey, last.idx);
 
+  // Smashdown: unburn exactly the undone battle's fighters and hand them back
+  // to the players who used them, so the battle can simply be replayed. The
+  // burn board is re-derived from the remaining log rather than having the
+  // fighters subtracted from it, which is the same reason KOTH replays its
+  // throne below: a state that is recomputed cannot drift, and a state that is
+  // patched eventually does.
+  if (state.format === "smashdown") {
+    state.burned = burnedFrom(state.games);
+    const usedBy = new Map(last.lines.map((l) => [l.playerId, l.character]));
+    for (const p of state.roster) p.character = usedBy.get(p.id) ?? null;
+  }
+
   if (state.mode === "koth") {
     // Rebuild from the opening throne (roster[0]) by replaying survivors.
     let koth = {
@@ -647,6 +832,29 @@ smashRouter.post("/smash/:eventId/open-scoring", requireAuth, async (req: Authed
     return;
   }
   loaded.state.openScoring = !!req.body?.open;
+  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+});
+
+// Host toggles the Smashdown mercy rule mid-series. Defaults OFF at start:
+// most crews want the battles they signed up for, and ending a night early is
+// the surprising option, so it is opt-in and reversible rather than a setting
+// buried at setup that nobody can change once the burn board is going.
+smashRouter.post("/smash/:eventId/mercy", requireAuth, async (req: AuthedRequest, res) => {
+  const eventId = String(req.params.eventId);
+  const loaded = await rt.loadState(eventId);
+  if (!loaded) {
+    res.status(404).json({ error: "No session" });
+    return;
+  }
+  if (!isHostRole(await roleOf(loaded.row.groupId, req.user!.id))) {
+    res.status(403).json({ error: "Host only" });
+    return;
+  }
+  if (loaded.state.format !== "smashdown") {
+    res.status(400).json({ error: "Not a Smashdown series" });
+    return;
+  }
+  loaded.state.mercy = !!req.body?.on;
   res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
 
@@ -724,7 +932,20 @@ smashRouter.get("/groups/:id/smash-stats", requireAuth, async (req: AuthedReques
   const chars = new Map<string, { character: string; played: number; wins: number }>();
   const players = new Map<
     string,
-    { userId: string; name: string; played: number; wins: number; counts: Map<string, number> }
+    {
+      userId: string;
+      name: string;
+      played: number;
+      wins: number;
+      counts: Map<string, number>;
+      /**
+       * Distinct fighters this player has WON with. Derived from rows the
+       * ledger already carries (character + isWinner), never a stored column:
+       * Smashdown makes it the point of the format, since a fighter can only
+       * be used once in a series, and it is a fair read of any Smash night.
+       */
+      wonWith: Set<string>;
+    }
   >();
   const matchIds = new Set<string>();
 
@@ -738,10 +959,20 @@ smashRouter.get("/groups/:id/smash-stats", requireAuth, async (req: AuthedReques
     }
     const p =
       players.get(r.userId) ??
-      { userId: r.userId, name: r.displayName, played: 0, wins: 0, counts: new Map<string, number>() };
+      {
+        userId: r.userId,
+        name: r.displayName,
+        played: 0,
+        wins: 0,
+        counts: new Map<string, number>(),
+        wonWith: new Set<string>(),
+      };
     p.played++;
     if (r.isWinner) p.wins++;
-    if (r.character) p.counts.set(r.character, (p.counts.get(r.character) ?? 0) + 1);
+    if (r.character) {
+      p.counts.set(r.character, (p.counts.get(r.character) ?? 0) + 1);
+      if (r.isWinner) p.wonWith.add(r.character);
+    }
     players.set(r.userId, p);
   }
 
@@ -812,6 +1043,7 @@ smashRouter.get("/groups/:id/smash-stats", requireAuth, async (req: AuthedReques
       winRate: p.played ? p.wins / p.played : 0,
       main,
       variety,
+      wonWith: p.wonWith.size,
       bestStreak: streakBest.get(p.userId) ?? 0,
     };
   });

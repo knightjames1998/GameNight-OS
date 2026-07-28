@@ -89,6 +89,7 @@ export const PACKS: PackSpec[] = [
       { key: "ffa", label: "Free-for-all", sub: "2–8 players a game" },
       { key: "koth", label: "King of the Hill", sub: "winner stays on" },
       { key: "bestof", label: "Best Of", sub: "1v1 sets, best of 3/5/7" },
+      { key: "smashdown", label: "Smashdown", sub: "used fighters are struck out" },
     ],
   },
   {

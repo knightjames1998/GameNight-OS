@@ -69,7 +69,11 @@ export function cupNoForRace(idx: number, raceCount: number): number {
 
 // MK's state is the Smash session shape with MK's own format union and the
 // Grand Prix bookkeeping. A distinct type so the two packs never entangle.
-export interface MkSessionState extends Omit<SmashSessionState, "format"> {
+// Smashdown's three fields are dropped rather than inherited: a Mario Kart
+// session has no burn board, and carrying dead bookkeeping in its jsonb is how
+// a future reader ends up wondering whether MK is supposed to have one.
+export interface MkSessionState
+  extends Omit<SmashSessionState, "format" | "battleCount" | "burned" | "mercy"> {
   format: MkFormat;
   grandPrix: MkGrandPrix;
 }
@@ -92,7 +96,7 @@ export function newMkKartState(opts: {
     roster: opts.roster,
     bestOf: opts.bestOf,
   });
-  const { format: _drop, ...rest } = base;
+  const { format: _drop, battleCount: _b, burned: _bu, mercy: _m, ...rest } = base;
   const raceCount = Math.min(Math.max(Math.floor(Number(opts.raceCount) || 4), 2), 12);
   return { ...rest, format: opts.format, grandPrix: { raceCount } };
 }

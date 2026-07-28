@@ -55,6 +55,8 @@ interface SmashStats {
     winRate: number;
     main: string | null;
     variety: number;
+    /** Distinct fighters this player has WON with (Smashdown's headline). */
+    wonWith: number;
     bestStreak: number;
   }[];
   headToHead: {
@@ -234,7 +236,7 @@ function SmashPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
   if (!data && error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
   if (!data) return <StatsSkeleton />;
   if (data.games === 0) {
-    return <p className="gn-hint">No Smash games recorded yet. Play an FFA or King of the Hill night and it fills in here.</p>;
+    return <p className="gn-hint">No Smash games recorded yet. Play a Free-for-all, King of the Hill or Smashdown night and it fills in here.</p>;
   }
 
   const accent = "#ff6a5a";
@@ -243,12 +245,15 @@ function SmashPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
   // Main lives in the shared expanded block now, so it is not repeated here.
   // Fighter variety and the best streak are kept: the streak is scoped to a
   // single NIGHT (a hot run, or a KOTH king reign), which is a different
-  // thing from the lifetime best streak the expanded block shows.
+  // thing from the lifetime best streak the expanded block shows. "Won with"
+  // is the Smashdown stat and is derived from the same ledger rows (distinct
+  // character on a winning line), so it reads across every Smash format.
   const extras = new Map(
     data.byPlayer.map((p) => [
       p.userId,
       <>
         {" "}&middot; {p.variety} {p.variety === 1 ? "fighter" : "fighters"}
+        {p.wonWith > 0 && <> &middot; won with {p.wonWith}</>}
         {p.bestStreak > 1 && <> &middot; 🔥 {p.bestStreak} in a night</>}
       </>,
     ]),

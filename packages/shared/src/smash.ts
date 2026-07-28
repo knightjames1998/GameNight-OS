@@ -120,10 +120,12 @@ import type { Series, SeriesBestOf } from "./series.js";
 export type SmashMode = "ffa" | "koth";
 // User-facing FORMAT chosen at start. "ffa" and "koth" record each game (the
 // mode of the same name); "bestof" is a 1v1 head-to-head series that records
-// once, when the set is won. mode carries the ffa/koth engine behavior;
-// format distinguishes bestof, which uses the shared series primitive instead
-// of the games log.
-export type SmashFormat = "ffa" | "koth" | "bestof";
+// once, when the set is won. "smashdown" is Ultimate's own mode: a fixed
+// number of battles where every fighter used is struck from the roster for the
+// rest of the series. mode carries the ffa/koth engine behavior; format
+// distinguishes bestof, which uses the shared series primitive instead of the
+// games log, and smashdown, which is the FFA games log plus a burn board.
+export type SmashFormat = "ffa" | "koth" | "bestof" | "smashdown";
 // How fighters get onto players. self: each member picks their own on their
 // device. random: host taps once, everyone gets a random fighter. host:
 // only the host assigns (for when that's needed).
@@ -193,6 +195,20 @@ export interface SmashSessionState {
   bestOf: SeriesBestOf;
   series: Series | null;
   seriesLog: Series[];
+  // ---- Smashdown only ----
+  // How many battles the series runs for, fixed at start and capped by
+  // smashdownCap(). 0 for every other format.
+  battleCount: number;
+  // The burn board: every fighter used in a completed battle, in the order
+  // they were struck out. SHARED across all players (true Smashdown), and
+  // nothing unburns until the series ends. Stored rather than only derived
+  // because the TV and the pack page both render it and it is the centrepiece
+  // of the format, but it is only ever WRITTEN by burnedFrom(games), so there
+  // is one derivation and undo cannot leave it disagreeing with the log.
+  burned: string[];
+  // Mercy rule: end the series the moment the lead is unassailable. Host
+  // toggle, defaults OFF (all battles get played).
+  mercy: boolean;
 }
 
 export function newSmashState(opts: {
@@ -203,6 +219,8 @@ export function newSmashState(opts: {
   resultDetail: SmashResultDetail;
   roster: SmashPlayer[];
   bestOf?: SeriesBestOf;
+  battleCount?: number;
+  mercy?: boolean;
 }): SmashSessionState {
   const format: SmashFormat = opts.format ?? (opts.mode === "koth" ? "koth" : "ffa");
   return {
@@ -227,6 +245,9 @@ export function newSmashState(opts: {
     bestOf: opts.bestOf ?? 3,
     series: null,
     seriesLog: [],
+    battleCount: opts.battleCount ?? 0,
+    burned: [],
+    mercy: opts.mercy ?? false,
   };
 }
 
@@ -305,6 +326,180 @@ export function validateFfa(
   return null;
 }
 
+// ---------- Smashdown ----------
+// Ultimate's own mode: a series of battles where every fighter used in a
+// battle is struck from the roster for the rest of the series. The battle
+// count is fixed at the start and capped by how many fighters the chosen
+// TITLE has, because each battle burns one fighter per player.
+//
+// Everything below is pure and takes only the session state, so the rules
+// live in one place that both sides import and the tests can drive directly.
+// The engine underneath is the FFA games log: a Smashdown battle is an FFA
+// game where the whole roster plays, which is why 1v1 and 2-8 player series
+// are one code path with no special casing.
+
+/**
+ * The most battles a series can run: every player burns one fighter per
+ * battle, so the ceiling is floor(fighters / players).
+ *
+ * This is not a rounding detail, it is the shape of the format. Ultimate has
+ * 86 fighters, so four players can play 21 battles and nobody thinks about the
+ * cap. Smash 64 has 12, so the same four players get THREE battles, and a host
+ * who typed 10 needs to be told before the night starts rather than at the
+ * moment the roster runs dry.
+ *
+ * Returns 0 when there are not even enough fighters for one battle, which is
+ * a real answer (a title cannot host that many players) rather than an error.
+ */
+export function smashdownCap(fighterCount: number, playerCount: number): number {
+  if (playerCount <= 0 || fighterCount <= 0) return 0;
+  return Math.floor(fighterCount / playerCount);
+}
+
+/**
+ * The burn board, derived from the battles recorded so far, in the order the
+ * fighters were struck out. This is the ONLY thing that ever writes
+ * state.burned, which is what makes undo correct by construction: drop the
+ * last battle from the log, re-derive, and exactly that battle's fighters come
+ * back. Deduped, because a fighter cannot legally be used twice anyway and a
+ * board that repeated one would be a lie about how many are left.
+ */
+export function burnedFrom(games: readonly SmashGame[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const g of games) {
+    for (const l of g.lines) {
+      if (l.character && !seen.has(l.character)) {
+        seen.add(l.character);
+        out.push(l.character);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * The fighters a player may still be given: the title's roster minus the burn
+ * board, minus anyone already picked for the CURRENT battle. Both exclusions
+ * matter and they are different things — burned is permanent for the series,
+ * taken-now lasts until the battle is recorded — but every assignment mode
+ * (self-select, random, host-assign) has to honour both, so they are applied
+ * in one place.
+ */
+export function availableFighters(
+  pool: readonly string[],
+  burned: readonly string[],
+  takenNow: readonly (string | null | undefined)[] = [],
+): string[] {
+  const out = new Set(burned);
+  for (const c of takenNow) if (c) out.add(c);
+  return pool.filter((f) => !out.has(f));
+}
+
+/** The fighters currently held by the roster, i.e. taken for this battle. */
+export function currentPicks(roster: readonly SmashPlayer[], exceptId?: string): string[] {
+  return roster.filter((p) => p.id !== exceptId && p.character).map((p) => p.character!);
+}
+
+export interface SmashdownStanding {
+  playerId: string;
+  name: string;
+  wins: number;
+  played: number;
+  /** Competition ranking: two players tied on 3 wins are both 1, next is 3. */
+  placement: number;
+}
+
+export interface SmashdownStatus {
+  battleCount: number;
+  battlesPlayed: number;
+  battlesLeft: number;
+  burned: string[];
+  /** Fighters in the chosen title. */
+  poolSize: number;
+  /** Fighters still on the board. */
+  fightersLeft: number;
+  standings: SmashdownStanding[];
+  /**
+   * True when the lead is mathematically unassailable, whether or not the
+   * mercy toggle is on. Reported either way so the screen can say "clinched"
+   * on a series that is still being played out.
+   */
+  clinched: boolean;
+  /** The series is finished: every battle played, or mercy ended it early. */
+  over: boolean;
+  /** playerIds on placement 1. More than one is a genuine co-win. */
+  winnerIds: string[];
+}
+
+/**
+ * Everything a Smashdown screen needs, derived from the log. One function so
+ * the pack page, the TV and the server cannot disagree about whether a series
+ * is over or who won it.
+ */
+export function smashdownStatus(state: SmashSessionState): SmashdownStatus {
+  const games = state.games ?? [];
+  const battleCount = state.battleCount ?? 0;
+  const battlesPlayed = games.length;
+  const battlesLeft = Math.max(0, battleCount - battlesPlayed);
+  const burned = burnedFrom(games);
+  const poolSize = rosterForTitle(SMASH_TITLES, state.titleId).length;
+
+  const tally = new Map<string, { wins: number; played: number }>();
+  for (const p of state.roster) tally.set(p.id, { wins: 0, played: 0 });
+  for (const g of games) {
+    for (const l of g.lines) {
+      const t = tally.get(l.playerId) ?? { wins: 0, played: 0 };
+      t.played++;
+      if (l.isWinner) t.wins++;
+      tally.set(l.playerId, t);
+    }
+  }
+
+  const ranked = state.roster
+    .map((p) => ({
+      playerId: p.id,
+      name: p.name,
+      wins: tally.get(p.id)?.wins ?? 0,
+      played: tally.get(p.id)?.played ?? 0,
+    }))
+    .sort((a, b) => b.wins - a.wins || a.name.localeCompare(b.name));
+
+  // Competition ranking: everyone on the same win total shares the best
+  // placement of that group, and the next group skips the ones used up. A tie
+  // at the top is a genuine co-win, not something to break arbitrarily.
+  const standings: SmashdownStanding[] = ranked.map((r) => ({
+    ...r,
+    placement: ranked.findIndex((x) => x.wins === r.wins) + 1,
+  }));
+
+  // Mercy: the leader has clinched when NO other player can still reach them,
+  // even by winning every battle that is left. Strictly greater, on purpose:
+  // when the best a chaser can do is DRAW LEVEL, the series is still live,
+  // because a tie is a co-win here and not a formality.
+  const top = standings[0]?.wins ?? 0;
+  const leaders = standings.filter((s) => s.wins === top);
+  const clinched =
+    battlesPlayed > 0 &&
+    leaders.length === 1 &&
+    standings.every((s) => s.playerId === leaders[0]!.playerId || top > s.wins + battlesLeft);
+
+  const over = battleCount > 0 && (battlesPlayed >= battleCount || (!!state.mercy && clinched));
+
+  return {
+    battleCount,
+    battlesPlayed,
+    battlesLeft,
+    burned,
+    poolSize,
+    fightersLeft: Math.max(0, poolSize - burned.length),
+    standings,
+    clinched,
+    over,
+    winnerIds: over ? standings.filter((s) => s.placement === 1).map((s) => s.playerId) : [],
+  };
+}
+
 // ---------- Derived stats (character focus) ----------
 // Computed from the games log for the live TV/summary views. Lifetime
 // cross-night stats come from the materialized ledger, but these give an
@@ -321,6 +516,13 @@ export interface PlayerStat {
   played: number;
   wins: number;
   mainCharacter: string | null;
+  /**
+   * How many DIFFERENT fighters this player has won with tonight. Derived,
+   * never stored: a win already carries its fighter. It is the headline stat
+   * of a Smashdown series (you cannot repeat a fighter, so it is the whole
+   * game) and it reads fine on an FFA night too.
+   */
+  wonWith: number;
 }
 
 export function summarizeNight(state: SmashSessionState): {
@@ -328,7 +530,10 @@ export function summarizeNight(state: SmashSessionState): {
   players: PlayerStat[];
 } {
   const chars = new Map<string, CharacterStat>();
-  const players = new Map<string, PlayerStat & { charCounts: Map<string, number> }>();
+  const players = new Map<
+    string,
+    PlayerStat & { charCounts: Map<string, number>; wonChars: Set<string> }
+  >();
   const nameOf = new Map(state.roster.map((p) => [p.id, p.name]));
 
   for (const g of state.games) {
@@ -347,11 +552,16 @@ export function summarizeNight(state: SmashSessionState): {
           played: 0,
           wins: 0,
           mainCharacter: null,
+          wonWith: 0,
           charCounts: new Map<string, number>(),
+          wonChars: new Set<string>(),
         };
       p.played++;
       if (l.isWinner) p.wins++;
-      if (l.character) p.charCounts.set(l.character, (p.charCounts.get(l.character) ?? 0) + 1);
+      if (l.character) {
+        p.charCounts.set(l.character, (p.charCounts.get(l.character) ?? 0) + 1);
+        if (l.isWinner) p.wonChars.add(l.character);
+      }
       players.set(l.playerId, p);
     }
   }
@@ -366,6 +576,7 @@ export function summarizeNight(state: SmashSessionState): {
       played: p.played,
       wins: p.wins,
       mainCharacter: main,
+      wonWith: p.wonChars.size,
     };
   });
 

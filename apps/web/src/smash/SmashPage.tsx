@@ -4,11 +4,18 @@ import { api } from "../api";
 import BackButton from "../BackButton";
 import { formatLabel } from "../formats";
 import { usePackSession, type PackCtx as Ctx } from "../usePackSession";
-import { SESSION_PACKS, SMASH_TITLES, rosterForTitle } from "@gamenight/shared";
+import {
+  SESSION_PACKS,
+  SMASH_TITLES,
+  rosterForTitle,
+  availableFighters,
+  currentPicks,
+  smashdownCap,
+} from "@gamenight/shared";
 import "./smash.css";
 
 type Mode = "ffa" | "koth";
-type Format = "ffa" | "koth" | "bestof";
+type Format = "ffa" | "koth" | "bestof" | "smashdown";
 type BestOf = 3 | 5 | 7;
 type Assignment = "self" | "random" | "host";
 type Detail = "winner" | "placement";
@@ -32,6 +39,20 @@ interface SeriesStanding {
   slotId: string; name: string; seriesWins: number; seriesPlayed: number;
   gameWins: number; gamesPlayed: number; currentStreak: number; bestStreak: number;
 }
+interface SdStanding { playerId: string; name: string; wins: number; played: number; placement: number }
+/** Everything Smashdown-shaped, derived server-side (see smashdownStatus). */
+interface SdStatus {
+  battleCount: number;
+  battlesPlayed: number;
+  battlesLeft: number;
+  burned: string[];
+  poolSize: number;
+  fightersLeft: number;
+  standings: SdStanding[];
+  clinched: boolean;
+  over: boolean;
+  winnerIds: string[];
+}
 interface Session {
   status: "setup" | "live" | "completed";
   groupId: string;
@@ -48,9 +69,16 @@ interface Session {
   series: SeriesT | null;
   seriesLog: SeriesT[];
   seriesStandings: SeriesStanding[];
+  battleCount: number;
+  burned: string[];
+  mercy: boolean;
+  smashdown: SdStatus | null;
   summary: {
     characters: { character: string; played: number; wins: number }[];
-    players: { playerId: string; name: string; played: number; wins: number; mainCharacter: string | null }[];
+    players: {
+      playerId: string; name: string; played: number; wins: number;
+      mainCharacter: string | null; wonWith: number;
+    }[];
   };
 }
 function FighterSelect({
@@ -106,7 +134,7 @@ export default function SmashPage() {
         </div>
         <div>
           <div className="sm-brand">Smash <em>Night</em></div>
-          <div className="sm-sub">Free-for-all, King of the Hill &amp; Best Of</div>
+          <div className="sm-sub">Free-for-all, King of the Hill, Best Of &amp; Smashdown</div>
         </div>
 
         {err && <p className="sm-err">{err}</p>}
@@ -115,6 +143,7 @@ export default function SmashPage() {
           <SetupOrWaiting
             ctx={ctx}
             completed={session?.status === "completed"}
+            lastSeries={session?.status === "completed" ? session.smashdown : null}
             busy={busy}
             onStart={(payload) => startSession(payload)}
           />
@@ -137,11 +166,14 @@ export default function SmashPage() {
 function SetupOrWaiting({
   ctx,
   completed,
+  lastSeries,
   busy,
   onStart,
 }: {
   ctx: Ctx | null;
   completed: boolean;
+  /** The finished Smashdown series, so ending it doesn't wipe the result. */
+  lastSeries: SdStatus | null;
   busy: boolean;
   onStart: (p: Record<string, unknown>) => void;
 }) {
@@ -150,13 +182,15 @@ function SetupOrWaiting({
   const qs = new URLSearchParams(window.location.search);
   const qFormat = qs.get("format");
   const initialFormat: Format =
-    qFormat === "koth" || qFormat === "bestof" || qFormat === "ffa"
+    qFormat === "koth" || qFormat === "bestof" || qFormat === "ffa" || qFormat === "smashdown"
       ? qFormat
       : qs.get("mode") === "koth"
       ? "koth"
       : "ffa";
   const [format, setFormat] = useState<Format>(initialFormat);
   const [bestOf, setBestOf] = useState<BestOf>(3);
+  const [battleCount, setBattleCount] = useState(5);
+  const [mercy, setMercy] = useState(false);
   const [titleId, setTitleId] = useState<string>(SMASH_TITLES[0]!.id);
   const [assignment, setAssignment] = useState<Assignment>("self");
   const [detail, setDetail] = useState<Detail>("winner");
@@ -193,12 +227,26 @@ function SetupOrWaiting({
 
   const notAdded = ctx.members.filter((m) => !roster.some((r) => r.userId === m.userId));
 
+  // The battle cap is a property of the TITLE, not of Smash: Ultimate's 86
+  // fighters give four players 21 battles, but Smash 64's 12 give them three.
+  // Shown as a plain sentence up front rather than as a validation error after
+  // the host has typed a number the roster cannot support.
+  const title = SMASH_TITLES.find((t) => t.id === titleId) ?? SMASH_TITLES[0]!;
+  const poolSize = rosterForTitle(SMASH_TITLES, titleId).length;
+  const cap = smashdownCap(poolSize, roster.length);
+  const battles = Math.max(1, Math.min(battleCount, Math.max(cap, 1)));
+  const smashdownImpossible = format === "smashdown" && roster.length >= 2 && cap < 1;
+  const tooManyForSmashdown = format === "smashdown" && roster.length > 8;
+
   return (
     <>
       {completed && (
         <div className="sm-card" style={{ marginTop: 16 }}>
           <p className="sm-hint">That format wrapped. Pick a format below to run another one tonight.</p>
         </div>
+      )}
+      {completed && lastSeries && lastSeries.battlesPlayed > 0 && (
+        <SeriesResult sd={lastSeries} heading="Smashdown result" />
       )}
       <div className="sm-card" style={{ marginTop: 16 }}>
         <div className="sm-h">Which game?</div>
@@ -218,13 +266,16 @@ function SetupOrWaiting({
           <button className={format === "ffa" ? "on" : ""} onClick={() => setFormat("ffa")}>Free-for-all</button>
           <button className={format === "koth" ? "on" : ""} onClick={() => setFormat("koth")}>King of the Hill</button>
           <button className={format === "bestof" ? "on" : ""} onClick={() => setFormat("bestof")}>Best Of</button>
+          <button className={format === "smashdown" ? "on" : ""} onClick={() => setFormat("smashdown")}>Smashdown</button>
         </div>
         <p className="sm-hint" style={{ marginTop: 8 }}>
           {format === "ffa"
             ? "2 to 8 players per game, played across the night."
             : format === "koth"
             ? "Winner stays on, loser rotates out. First up is first in the list."
-            : "1v1 sets. Pick two players; a set records once, when it is won."}
+            : format === "bestof"
+            ? "1v1 sets. Pick two players; a set records once, when it is won."
+            : "Every fighter used is struck off for the rest of the series. Everyone plays every battle; most wins takes it."}
         </p>
         {format === "bestof" && (
           <>
@@ -235,6 +286,55 @@ function SetupOrWaiting({
               ))}
             </div>
             <p className="sm-hint" style={{ marginTop: 8 }}>First to {Math.floor(bestOf / 2) + 1} games wins the set.</p>
+          </>
+        )}
+        {format === "smashdown" && (
+          <>
+            <div className="sm-h" style={{ marginTop: 14 }}>How many battles?</div>
+            {roster.length < 2 ? (
+              <p className="sm-hint">Add players below and the limit for this game appears here.</p>
+            ) : cap < 1 ? (
+              <p className="sm-err" style={{ marginTop: 0 }}>
+                {title.name} only has {poolSize} fighters, so {roster.length} players cannot play a battle.
+                Pick a bigger game or drop a player.
+              </p>
+            ) : (
+              <>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
+                  <input
+                    className="sm-input"
+                    style={{ width: 90 }}
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={cap}
+                    value={battles}
+                    onChange={(e) => setBattleCount(Math.max(1, Math.min(Number(e.target.value) || 1, cap)))}
+                  />
+                  <span className="sm-hint">battle{battles === 1 ? "" : "s"}</span>
+                  {cap > 1 && (
+                    <button className="sm-textbtn" onClick={() => setBattleCount(cap)}>use the max ({cap})</button>
+                  )}
+                </div>
+                <p className="sm-hint" style={{ marginTop: 8 }}>
+                  {title.name} has {poolSize} fighters, so {roster.length} players can play up to{" "}
+                  {cap} battle{cap === 1 ? "" : "s"} before the roster runs out.
+                </p>
+              </>
+            )}
+            <div className="sm-row" style={{ marginTop: 10 }}>
+              <span style={{ flex: 1 }}>
+                Mercy rule
+                <div className="sm-hint">End early once the lead is unbeatable.</div>
+              </span>
+              <button
+                className={`gn-toggle ${mercy ? "gn-toggle--on" : "gn-toggle--off"}`}
+                aria-pressed={mercy}
+                onClick={() => setMercy(!mercy)}
+              >
+                {mercy ? "ON" : "OFF"}
+              </button>
+            </div>
           </>
         )}
       </div>
@@ -293,14 +393,27 @@ function SetupOrWaiting({
         <p className="sm-hint" style={{ marginTop: 8 }}>Guests play, but lifetime stats only count crew members.</p>
       </div>
 
+      {tooManyForSmashdown && (
+        <p className="sm-err">
+          Smashdown is capped at 8 players, because everyone plays every battle. Drop{" "}
+          {roster.length - 8} to run it.
+        </p>
+      )}
       <button
         className="sm-btn"
         style={{ marginTop: 12 }}
-        disabled={busy || roster.length < 2}
-        onClick={() => onStart({ titleId, format, bestOf, assignment, resultDetail: detail, roster })}
+        disabled={busy || roster.length < 2 || smashdownImpossible || tooManyForSmashdown}
+        onClick={() =>
+          onStart({
+            titleId, format, bestOf, assignment, resultDetail: detail, roster,
+            battleCount: battles, mercy,
+          })
+        }
       >
         {roster.length < 2
           ? "Add at least 2 players"
+          : format === "smashdown" && !smashdownImpossible && !tooManyForSmashdown
+          ? `Start Smashdown · ${battles} battle${battles === 1 ? "" : "s"}`
           : `Start ${formatLabel(format)}`}
       </button>
     </>
@@ -338,11 +451,27 @@ function LivePlay({
   const mayEditChar = (slot: Slot) =>
     canHost || (session.assignment === "self" && slot.userId === viewerId);
 
+  const sd = session.smashdown;
+  // Smashdown scopes every picker to what is LEFT: the title's roster minus
+  // the burn board, minus whoever the other players are already on for this
+  // battle. Computed the same way the server checks it, from the shared
+  // helpers, so the dropdown can never offer something the POST will reject.
+  const fighterOptions = (slot: Slot): readonly string[] =>
+    sd ? availableFighters(titleRoster, sd.burned, currentPicks(session.roster, slot.id)) : titleRoster;
+
   return (
     <>
       {/* Roster + fighters */}
       <div className="sm-card" style={{ marginTop: 16 }}>
-        <div className="sm-h">Fighters</div>
+        <div className="sm-h">
+          Fighters{sd && !sd.over ? ` · battle ${sd.battlesPlayed + 1} of ${sd.battleCount}` : ""}
+        </div>
+        {sd && !sd.over && (
+          <p className="sm-hint" style={{ marginBottom: 8 }}>
+            Everyone needs a fighter before the battle, and nobody can repeat one.
+            {" "}{sd.fightersLeft} of {sd.poolSize} still available.
+          </p>
+        )}
         {session.roster.map((slot) => {
           const isKing = session.koth?.kingId === slot.id;
           return (
@@ -353,24 +482,37 @@ function LivePlay({
                 </div>
                 <div className="sm-char">{slot.character ?? "no fighter yet"}</div>
               </div>
-              {mayEditChar(slot) && (
+              {mayEditChar(slot) && !(sd && sd.over) && (
                 <div style={{ width: 160 }}>
-                  <FighterSelect value={slot.character} onChange={(v) => setChar(slot.id, v)} roster={titleRoster} />
+                  <FighterSelect value={slot.character} onChange={(v) => setChar(slot.id, v)} roster={fighterOptions(slot)} />
                 </div>
               )}
             </div>
           );
         })}
-        {canHost && (session.assignment === "random" || session.assignment === "host") && (
+        {canHost && !(sd && sd.over) && (session.assignment === "random" || session.assignment === "host") && (
           <button className="sm-btn sm-btn--ghost" style={{ marginTop: 10 }} disabled={busy} onClick={() => call(`/api/smash/${eventId}/randomize`)}>
             🎲 Randomize all fighters
           </button>
         )}
       </div>
 
+      {/* The burn board: the centrepiece of the format, so it sits above the
+          scoring controls rather than under the standings. */}
+      {sd && <BurnBoard sd={sd} />}
+      {sd && sd.over && <SeriesResult sd={sd} heading="Series over" />}
+
       {/* Play area */}
       {canScore ? (
-        session.format === "bestof" ? (
+        session.format === "smashdown" && sd ? (
+          <SmashdownPlay
+            session={session}
+            sd={sd}
+            busy={busy}
+            onWin={(winnerId) => call(`/api/smash/${eventId}/record`, { winnerId })}
+            onPlacements={(lines) => call(`/api/smash/${eventId}/record`, { lines })}
+          />
+        ) : session.format === "bestof" ? (
           <BestOfPlay
             session={session}
             nameOf={nameOf}
@@ -390,7 +532,35 @@ function LivePlay({
       )}
 
       {/* Night summary */}
-      {session.format === "bestof" ? (
+      {sd ? (
+        <div className="sm-card">
+          <div className="sm-h">
+            Standings ({sd.battlesPlayed} of {sd.battleCount} battle{sd.battleCount === 1 ? "" : "s"})
+          </div>
+          {sd.battlesPlayed === 0 ? (
+            <p className="sm-hint">No battles recorded yet.</p>
+          ) : (
+            sd.standings.map((p) => {
+              const wonWith = session.summary.players.find((x) => x.playerId === p.playerId)?.wonWith ?? 0;
+              return (
+                <div className="sm-row" key={p.playerId}>
+                  <span className="sm-char" style={{ width: 22 }}>{p.placement}</span>
+                  <span style={{ flex: 1 }} className="sm-name">{p.name}</span>
+                  <span className="sm-char">
+                    {p.wins}W / {p.played}
+                    {wonWith > 0 && <> · won with {wonWith}</>}
+                  </span>
+                </div>
+              );
+            })
+          )}
+          {sd.battlesPlayed > 0 && (
+            <p className="sm-hint" style={{ marginTop: 8 }}>
+              "Won with" counts the different fighters each player has won a battle with.
+            </p>
+          )}
+        </div>
+      ) : session.format === "bestof" ? (
         <div className="sm-card">
           <div className="sm-h">Tonight ({session.seriesLog.length} set{session.seriesLog.length === 1 ? "" : "s"})</div>
           {session.seriesStandings.length === 0 ? (
@@ -451,6 +621,25 @@ function LivePlay({
               {session.openScoring ? "ON" : "OFF"}
             </button>
           </div>
+          {sd && (
+            <div className="sm-row">
+              <span style={{ flex: 1 }}>
+                Mercy rule
+                <div className="sm-hint">
+                  {sd.clinched && !session.mercy
+                    ? "The lead is already unbeatable — turning this on ends the series now."
+                    : "End the series once the lead is unbeatable."}
+                </div>
+              </span>
+              <button
+                className={`gn-toggle ${session.mercy ? "gn-toggle--on" : "gn-toggle--off"}`}
+                aria-pressed={session.mercy}
+                onClick={() => call(`/api/smash/${eventId}/mercy`, { on: !session.mercy })}
+              >
+                {session.mercy ? "ON" : "OFF"}
+              </button>
+            </div>
+          )}
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
             <button
               className="sm-btn sm-btn--ghost"
@@ -464,7 +653,9 @@ function LivePlay({
             >
               ↶ Undo last
             </button>
-            <button className="sm-btn sm-btn--go" disabled={busy} onClick={() => call(`/api/smash/${eventId}/complete`)}>End format</button>
+            <button className="sm-btn sm-btn--go" disabled={busy} onClick={() => call(`/api/smash/${eventId}/complete`)}>
+              {sd && sd.over ? "End series" : "End format"}
+            </button>
           </div>
           <p className="sm-hint" style={{ marginTop: 8 }}>
             Ending the format wraps this run and takes you back to the format picker, so you can go from FFA into King of the Hill (or run it back).
@@ -472,6 +663,164 @@ function LivePlay({
         </div>
       )}
     </>
+  );
+}
+
+// ---------- Smashdown ----------
+
+/** The burn board: every fighter struck out, in the order they went. */
+function BurnBoard({ sd }: { sd: SdStatus }) {
+  return (
+    <div className="sm-card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <div className="sm-h" style={{ margin: 0 }}>Burned</div>
+        <span className="sm-hint">{sd.fightersLeft} of {sd.poolSize} left</span>
+      </div>
+      {sd.burned.length === 0 ? (
+        <p className="sm-hint" style={{ marginTop: 8 }}>Nobody is out yet. Every fighter used tonight lands here.</p>
+      ) : (
+        <div className="sm-burn">
+          {sd.burned.map((f) => (
+            <span className="sm-burn__x" key={f}>{f}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Final (or clinched) standings, most wins takes it, ties are co-winners. */
+function SeriesResult({ sd, heading }: { sd: SdStatus; heading: string }) {
+  const winners = sd.standings.filter((s) => sd.winnerIds.includes(s.playerId));
+  const co = winners.length > 1;
+  return (
+    <div className="sm-card">
+      <div className="sm-h">🏆 {heading}</div>
+      {winners.length > 0 && (
+        <div className="sm-score" style={{ margin: "4px 0 10px" }}>
+          {winners.map((w) => w.name).join(" & ")}
+        </div>
+      )}
+      <p className="sm-hint" style={{ marginBottom: 8 }}>
+        {co
+          ? `Tied on ${winners[0]!.wins} win${winners[0]!.wins === 1 ? "" : "s"} — co-winners.`
+          : `${sd.battlesPlayed} of ${sd.battleCount} battle${sd.battleCount === 1 ? "" : "s"} played.`}
+      </p>
+      {sd.standings.map((p) => (
+        <div className="sm-row" key={p.playerId}>
+          <span className="sm-char" style={{ width: 22 }}>{p.placement}</span>
+          <span style={{ flex: 1 }} className="sm-name">{p.name}</span>
+          <span className="sm-char">{p.wins}W / {p.played}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Recording a battle. Everyone in the roster plays every battle (that is what
+ * makes the cap arithmetic honest), so there is no sit-out checklist here: it
+ * is one tap on the winner, or the full 1..N order when the host chose full
+ * placement detail.
+ */
+function SmashdownPlay({
+  session,
+  sd,
+  busy,
+  onWin,
+  onPlacements,
+}: {
+  session: Session;
+  sd: SdStatus;
+  busy: boolean;
+  onWin: (winnerId: string) => void;
+  onPlacements: (lines: { playerId: string; placement: number; isWinner: boolean }[]) => void;
+}) {
+  const [places, setPlaces] = useState<Record<string, number>>({});
+  const n = session.roster.length;
+  const missing = session.roster.filter((p) => !p.character);
+
+  if (sd.over) {
+    return (
+      <div className="sm-card">
+        <p className="sm-hint">
+          The series is done. End it from the host controls below, or undo the last battle to keep going.
+        </p>
+      </div>
+    );
+  }
+  if (missing.length > 0) {
+    return (
+      <div className="sm-card">
+        <div className="sm-h">Battle {sd.battlesPlayed + 1} of {sd.battleCount}</div>
+        <p className="sm-hint">
+          Waiting on a fighter for {missing.map((p) => p.name).join(", ")}. Every player needs one before the battle
+          can be recorded, because that is what gets struck off.
+        </p>
+      </div>
+    );
+  }
+
+  if (session.resultDetail === "placement") {
+    const ready =
+      session.roster.every((p) => (places[p.id] ?? 0) >= 1 && (places[p.id] ?? 0) <= n) &&
+      new Set(session.roster.map((p) => places[p.id] ?? 0)).size === n;
+    return (
+      <div className="sm-card">
+        <div className="sm-h">Battle {sd.battlesPlayed + 1} of {sd.battleCount}</div>
+        {session.roster.map((p) => (
+          <div className="sm-row" key={p.id}>
+            <div style={{ flex: 1 }}>
+              <div className="sm-name">{p.name}</div>
+              <div className="sm-char">{p.character}</div>
+            </div>
+            <select
+              className="sm-select"
+              style={{ width: 72 }}
+              value={places[p.id] ?? ""}
+              onChange={(e) => setPlaces((s) => ({ ...s, [p.id]: Number(e.target.value) }))}
+            >
+              <option value="">–</option>
+              {session.roster.map((_, i) => (
+                <option key={i + 1} value={i + 1}>{i + 1}</option>
+              ))}
+            </select>
+          </div>
+        ))}
+        <button
+          className="sm-btn"
+          style={{ marginTop: 12 }}
+          disabled={busy || !ready}
+          onClick={() => {
+            onPlacements(
+              session.roster.map((p) => ({
+                playerId: p.id,
+                placement: places[p.id] ?? 0,
+                isWinner: (places[p.id] ?? 0) === 1,
+              })),
+            );
+            setPlaces({});
+          }}
+        >
+          Record battle
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="sm-card">
+      <div className="sm-h">Battle {sd.battlesPlayed + 1} of {sd.battleCount}</div>
+      <p className="sm-hint" style={{ marginBottom: 8 }}>Tap the winner. Every fighter below is struck off after this.</p>
+      <div className="sm-picks">
+        {session.roster.map((p) => (
+          <button className="sm-fighter" key={p.id} disabled={busy} onClick={() => onWin(p.id)}>
+            <div className="sm-fighter__n">{p.name}</div>
+            <div className="sm-fighter__c">{p.character}</div>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

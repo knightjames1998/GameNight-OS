@@ -21,6 +21,9 @@ export const FORMAT_LABEL: Record<string, string> = {
   grandprix: "Grand Prix",
   bestof: "Best Of",
   koth: "King of the Hill",
+  // Game-as-unit like ffa, so no FORMAT_UNIT entry: a Smashdown series records
+  // one row per battle and the default "games" is the right noun for it.
+  smashdown: "Smashdown",
   board: "Board night",
   other: "Other",
 };

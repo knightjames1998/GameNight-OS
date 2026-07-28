@@ -78,6 +78,17 @@
 .sm-vsbadge { align-self: center; font-family: "Luckiest Guy", cursive; color: #ff4a3d; font-size: 22px; }
 .sm-score { text-align: center; font-family: "Luckiest Guy", cursive; font-size: 26px; color: var(--gn-ink); letter-spacing: 2px; }
 
+/* Smashdown: the burn board and the one-tap battle grid.
+   A burned fighter is struck through rather than removed, because the point of
+   the board is seeing how much of the roster is GONE, not what is left. */
+.sm-burn { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.sm-burn__x {
+  font-size: 12px; font-weight: 700; padding: 4px 8px; border-radius: 3px;
+  background: #2a1216; color: #b0868c; border: 1px solid #5a2026;
+  text-decoration: line-through; text-decoration-color: #ff4a3d; text-decoration-thickness: 2px;
+}
+.sm-picks { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
 .sm-err { color: var(--gn-danger); font-size: 13px; margin-top: 8px; }
 .sm-textbtn { background: none; border: none; color: var(--gn-dim); font-weight: 700; cursor: pointer; padding: 6px 0; }
 .sm-textbtn:hover { color: var(--gn-ink); }
@@ -94,3 +105,19 @@
 .sm-tv__line { display: flex; justify-content: space-between; font-size: 3vmin; padding: 0.8vmin 0; border-top: 1px solid rgba(255, 255, 255, 0.08); }
 .sm-tv__line:first-of-type { border-top: none; }
 .sm-tv__muted { color: #d8a; }
+
+/* TV burn board. The centrepiece of a Smashdown night (standing rule 3), so it
+   gets the full width and a size a room can read: the whole point is walking
+   past and seeing at a glance how much of the roster is gone. Auto-fill keeps
+   it legible whether 3 fighters are burned or 60. */
+.sm-tv__burn {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(16vmin, 1fr));
+  gap: 1vmin; margin-top: 1.6vmin;
+}
+.sm-tv__burn span {
+  font-size: 2.2vmin; font-weight: 700; padding: 0.6vmin 1vmin; border-radius: 4px;
+  background: rgba(0, 0, 0, 0.4); color: #b0868c; border: 1px solid #7a2028;
+  text-decoration: line-through; text-decoration-color: #ff4a3d; text-decoration-thickness: 0.4vmin;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sm-tv__count { font-family: "Luckiest Guy", cursive; font-size: 7vmin; color: var(--gn-gold); line-height: 1; }
