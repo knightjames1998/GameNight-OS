@@ -2,6 +2,7 @@
 // so async handler rejections return a 500 instead of crashing the process.
 import "./async-safe.js";
 import express from "express";
+import compression from "compression";
 import cookieParser from "cookie-parser";
 import { createServer } from "node:http";
 import path from "node:path";
@@ -28,6 +29,16 @@ const app = express();
 // Render sits behind a proxy; trust it so req.protocol reports https
 // and magic link URLs come out correct.
 app.set("trust proxy", 1);
+// Gzip API responses and the static build at the ORIGIN, so the bundle is
+// never served uncompressed whatever sits in front of it. Cloudflare does
+// compress proxied traffic, but that is a dashboard toggle outside this repo,
+// it does nothing when the record is DNS-only, and it is bypassed entirely by
+// anything hitting the *.onrender.com origin directly (which the keep-warm
+// ping does deliberately, so it cannot be answered from cache). Mounted
+// before the routers and before express.static so it covers both. It skips
+// already-compressed content types on its own, so images and the OG PNG are
+// untouched, and it does not affect the WebSocket upgrade.
+app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
@@ -73,8 +84,26 @@ app.use("/api", bracketsRouter);
 // In production, Express serves the built files.
 
 const webDist = path.resolve(__dirname, "../../web/dist");
-app.use(express.static(webDist));
+
+// Vite gives every file under /assets a content hash, so the filename IS the
+// version: if the contents change the URL changes. That makes them safe to
+// cache forever, and revalidating them on every load (the express.static
+// default of maxAge 0) bought nothing.
+app.use(
+  "/assets",
+  express.static(path.join(webDist, "assets"), { immutable: true, maxAge: "1y" }),
+);
+
+// Everything else in the build (icons, manifest, OG image) is NOT hashed, so
+// it gets a short cache instead of an immutable one. index: false matters:
+// without it this would serve index.html for "/" with that same maxAge, and
+// a cached index.html is the one genuinely dangerous mistake here, because a
+// deploy ships new hashed chunks that a stale index.html never asks for.
+app.use(express.static(webDist, { maxAge: "1h", index: false }));
+
+// The SPA fallback owns index.html, and it must never be cached.
 app.get("*", (_req, res) => {
+  res.setHeader("Cache-Control", "no-cache");
   res.sendFile(path.join(webDist, "index.html"), (err) => {
     if (err) res.status(404).send("Web build not found. Run pnpm build.");
   });
