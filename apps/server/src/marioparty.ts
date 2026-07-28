@@ -19,11 +19,8 @@ import {
   getDb,
   events,
   games,
-  gameSessions,
   matches,
   matchParticipants,
-  memberships,
-  rsvps,
   users,
   and,
   eq,
@@ -43,7 +40,7 @@ import {
   type SmashPlayer,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
-import { insertParticipants } from "./participants.js";
+import { createPackRuntime, roleOf, isHostRole, type LedgerLine } from "./pack-runtime.js";
 import { broadcast } from "./ws.js";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
@@ -52,76 +49,25 @@ const PACK = "mario_party";
 export const marioPartyRouter = Router();
 export const marioPartyTvRouter = Router();
 
-// ---------- helpers ----------
+export const marioPartyRuntime = createPackRuntime<MpSessionState>({
+  pack: PACK,
+  gameName: "Mario Party",
+  wsType: "mario_party_updated",
+  keyPrefix: "mp",
+  table: "game_sessions",
+  extras: (state) => ({ summary: summarizeMpNight(state) }),
+});
 
-async function roleOf(
-  groupId: string,
-  userId: string,
-): Promise<"owner" | "admin" | "member" | undefined> {
-  const rows = await getDb()
-    .select({ role: memberships.role })
-    .from(memberships)
-    .where(and(eq(memberships.groupId, groupId), eq(memberships.userId, userId)))
-    .limit(1);
-  return rows[0]?.role;
-}
+const rt = marioPartyRuntime;
 
-const isHostRole = (r: string | undefined) => r === "owner" || r === "admin";
-
-async function loadState(eventId: string): Promise<
-  { row: typeof gameSessions.$inferSelect; state: MpSessionState } | null
-> {
-  const row = (
-    await getDb()
-      .select()
-      .from(gameSessions)
-      .where(and(eq(gameSessions.eventId, eventId), eq(gameSessions.pack, PACK)))
-      .limit(1)
-  )[0];
-  if (!row) return null;
-  return { row, state: row.state as unknown as MpSessionState };
-}
-
-async function saveState(
-  eventId: string,
-  state: MpSessionState,
-  status: "setup" | "live" | "completed",
-  origin?: string,
-) {
-  await getDb()
-    .update(gameSessions)
-    .set({ state: state as unknown as Record<string, unknown>, status, updatedAt: new Date() })
-    .where(and(eq(gameSessions.eventId, eventId), eq(gameSessions.pack, PACK)));
-  broadcast({ type: "mario_party_updated", eventId }, origin);
-}
-
-/** The group's single Mario Party game row, created on first use. */
-async function ensureGame(groupId: string): Promise<string> {
-  const db = getDb();
-  const existing = (
-    await db
-      .select({ id: games.id })
-      .from(games)
-      .where(and(eq(games.groupId, groupId), eq(games.pack, PACK)))
-      .limit(1)
-  )[0];
-  if (existing) return existing.id;
-  const created = (
-    await db.insert(games).values({ groupId, name: "Mario Party", pack: PACK }).returning()
-  )[0]!;
-  return created.id;
-}
+// ---------- ledger ----------
 
 /**
- * The ledger externalKey for one game. Namespaced by the session's
- * sessionKey so a later session on the same event (idx restarts at 0) can't
- * collide with an earlier session's keys and get dropped as a duplicate.
- * Legacy sessions with no sessionKey keep the old shape and never collide.
+ * Materialize one recorded BOARD. The board goes on matches.label, total stars
+ * on match_participants.score, the character on match_participants.character,
+ * and bonus stars on meta ({ bonusStars: [...] }), null when a player took
+ * none. The winner is the most stars, already decided by rankMpLines.
  */
-function ledgerKey(eventId: string, sessionKey: string | undefined, idx: number): string {
-  return sessionKey ? `mp:${eventId}:${sessionKey}:${idx}` : `mp:${eventId}:${idx}`;
-}
-
 async function materializeGame(
   groupId: string,
   eventId: string,
@@ -131,97 +77,34 @@ async function materializeGame(
   sessionKey: string,
   linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
 ): Promise<{ recorded: number; guests: number }> {
-  const db = getDb();
-  const key = ledgerKey(eventId, sessionKey, game.idx);
-  const existing = (
-    await db
-      .select({ id: matches.id })
-      .from(matches)
-      .where(and(eq(matches.eventId, eventId), eq(matches.externalKey, key)))
-      .limit(1)
-  )[0];
-  // Live path: already materialized, nothing to link. A guest backfill reuses
-  // the existing row and adds the skipped participant, ON CONFLICT DO NOTHING.
-  if (existing && !linkMap?.size) return { recorded: 0, guests: 0 };
+  const lines: LedgerLine[] = game.lines.map((line) => ({
+    playerId: line.playerId,
+    placement: line.placement,
+    isWinner: line.isWinner,
+    character: line.character ?? null,
+    score: line.stars,
+    meta: line.bonusStars.length ? { bonusStars: line.bonusStars } : null,
+  }));
 
-  const matchId = existing
-    ? existing.id
-    : (
-        await db
-          .insert(matches)
-          .values({
-            groupId,
-            gameId,
-            eventId,
-            externalKey: key,
-            label: game.map,
-            format: "board",
-            round: 1,
-            position: game.idx,
-            status: "completed",
-          })
-          .returning()
-      )[0]!.id;
-
-  const slotById = new Map(roster.map((p) => [p.id, p]));
-  const rows = new Map<string, typeof matchParticipants.$inferInsert>();
-  let guests = 0;
-  for (const line of game.lines) {
-    const slot = slotById.get(line.playerId);
-    const userId = slot ? (slot.kind === "guest" ? linkMap?.get(slot.name) : slot.userId) : undefined;
-    if (!userId) {
-      guests++;
-      continue;
-    }
-    // Keyed by userId so one INSERT can never carry the same (matchId,
-    // userId) twice, which two guest slots sharing a linked name would do.
-    // First occurrence wins, matching the old sequential loop.
-    if (rows.has(userId)) continue;
-    rows.set(userId, {
-      groupId,
-      matchId,
-      userId,
-      score: line.stars,
-      placement: line.placement,
-      isWinner: line.isWinner,
-      character: line.character ?? null,
-      meta: line.bonusStars.length ? { bonusStars: line.bonusStars } : null,
-    });
-  }
-  await insertParticipants(db, [...rows.values()]);
-  return { recorded: rows.size, guests };
-}
-
-async function deleteMaterialized(eventId: string, sessionKey: string | undefined, idx: number) {
-  const db = getDb();
-  const key = ledgerKey(eventId, sessionKey, idx);
-  const m = (
-    await db
-      .select({ id: matches.id })
-      .from(matches)
-      .where(and(eq(matches.eventId, eventId), eq(matches.externalKey, key)))
-      .limit(1)
-  )[0];
-  if (!m) return;
-  await db.delete(matchParticipants).where(eq(matchParticipants.matchId, m.id));
-  await db.delete(matches).where(eq(matches.id, m.id));
+  return rt.materializeUnit({
+    groupId,
+    eventId,
+    gameId,
+    idx: game.idx,
+    sessionKey,
+    label: game.map,
+    format: "board",
+    roster,
+    lines,
+    linkMap,
+  });
 }
 
 // ---------- guest -> member backfill (see guest-link.ts) ----------
 
 /** Distinct guest display names across this crew's Mario Party sessions. */
 export async function guestNamesMarioParty(groupId: string): Promise<string[]> {
-  const rows = await getDb()
-    .select({ state: gameSessions.state })
-    .from(gameSessions)
-    .where(and(eq(gameSessions.groupId, groupId), eq(gameSessions.pack, PACK)));
-  const names = new Set<string>();
-  for (const r of rows) {
-    for (const p of (r.state as unknown as MpSessionState).roster ?? []) {
-      if (p.kind === "guest" && p.name) names.add(p.name);
-    }
-  }
-  return [...names];
+  return rt.guestNames(groupId, (state) => state.roster);
 }
 
 /** Credit (or preview) every recoverable Mario Party board the guest played. */
@@ -231,31 +114,26 @@ export async function creditGuestMarioParty(
   memberId: string,
   dryRun: boolean,
 ): Promise<GuestCreditResult> {
-  const db = getDb();
-  const rows = await db
-    .select({ eventId: gameSessions.eventId, state: gameSessions.state })
-    .from(gameSessions)
-    .where(and(eq(gameSessions.groupId, groupId), eq(gameSessions.pack, PACK)));
+  const rows = await rt.sessionsForGroup(groupId);
   const items: GuestCreditResult["items"] = [];
   const linkMap = new Map([[guestName, memberId]]);
   let gameId: string | null = null;
 
-  for (const row of rows) {
-    const state = row.state as unknown as MpSessionState;
+  for (const { eventId, state } of rows) {
     const guestSlots = new Set(
       (state.roster ?? []).filter((p) => p.kind === "guest" && p.name === guestName).map((p) => p.id),
     );
     if (guestSlots.size === 0) continue;
-    const credited = await memberCreditedKeys(row.eventId, memberId);
+    const credited = await memberCreditedKeys(eventId, memberId);
 
     for (const g of state.games ?? []) {
       const line = g.lines.find((l) => guestSlots.has(l.playerId));
       if (!line) continue;
-      if (credited.has(ledgerKey(row.eventId, state.sessionKey, g.idx))) continue;
+      if (credited.has(rt.ledgerKey(eventId, state.sessionKey, g.idx))) continue;
       items.push({
         pack: "mario_party",
         packLabel: "Mario Party",
-        eventId: row.eventId,
+        eventId,
         label: g.map,
         date: g.at ?? null,
         placement: line.placement,
@@ -264,10 +142,10 @@ export async function creditGuestMarioParty(
     }
 
     if (!dryRun) {
-      gameId = gameId ?? (await ensureGame(groupId));
+      gameId = gameId ?? (await rt.ensureGame(groupId));
       for (const g of state.games ?? []) {
         if (g.lines.some((l) => guestSlots.has(l.playerId))) {
-          await materializeGame(groupId, row.eventId, gameId, g, state.roster, state.sessionKey, linkMap);
+          await materializeGame(groupId, eventId, gameId, g, state.roster, state.sessionKey, linkMap);
         }
       }
     }
@@ -278,96 +156,31 @@ export async function creditGuestMarioParty(
 // ---------- launch context ----------
 
 marioPartyRouter.get("/marioparty-context/:eventId", requireAuth, async (req: AuthedRequest, res) => {
-  const db = getDb();
-  const event = (
-    await db.select().from(events).where(eq(events.id, String(req.params.eventId))).limit(1)
-  )[0];
-  if (!event) {
+  const ctx = await rt.launchContext(String(req.params.eventId), req.user!.id);
+  if (!ctx) {
     res.status(404).json({ error: "Event not found" });
     return;
   }
-  // Role, RSVPs, members and any live session all depend only on the event
-  // row, so they go out together: 5 sequential round trips become 2. The
-  // role gate still runs before anything is returned; the other three reads
-  // are just discarded when it fails, which costs nothing on a 404.
-  const [role, yes, members, existing] = await Promise.all([
-    roleOf(event.groupId, req.user!.id),
-    db
-      .select({ userId: rsvps.userId, displayName: users.displayName })
-      .from(rsvps)
-      .innerJoin(users, eq(rsvps.userId, users.id))
-      .where(and(eq(rsvps.eventId, event.id), eq(rsvps.status, "yes")))
-      .orderBy(rsvps.respondedAt),
-    db
-      .select({ userId: memberships.userId, displayName: users.displayName })
-      .from(memberships)
-      .innerJoin(users, eq(memberships.userId, users.id))
-      .where(eq(memberships.groupId, event.groupId)),
-    loadState(event.id),
-  ]);
-  if (!role) {
-    res.status(404).json({ error: "Event not found" });
-    return;
-  }
-
-  res.json({
-    groupId: event.groupId,
-    canHost: isHostRole(role),
-    viewerId: req.user!.id,
-    prefill: yes.map((r) => ({ userId: r.userId, name: r.displayName })),
-    members: members.map((m) => ({ userId: m.userId, name: m.displayName })),
-    live: !!existing && existing.row.status !== "completed",
-  });
+  res.json(ctx);
 });
 
 // ---------- read live state ----------
 
-/**
- * The session payload the page renders. Mutations return this directly so
- * the acting client applies the response instead of refetching; the GETs
- * serve the same shape so the two can never disagree.
- */
-type Loaded = Awaited<ReturnType<typeof loadState>>;
-
-async function sessionView(eventId: string, preloaded?: Loaded) {
-  // A caller that already holds the row and state passes it in rather than
-  // making this re-SELECT the row it just read or wrote. `null` is a real
-  // answer (no session), so the check is for `undefined`, not falsiness.
-  const loaded = preloaded !== undefined ? preloaded : await loadState(eventId);
-  if (!loaded) return { session: null };
-  return {
-    session: {
-      status: loaded.row.status,
-      groupId: loaded.row.groupId,
-      ...loaded.state,
-      summary: summarizeMpNight(loaded.state),
-    },
-  };
-}
-
-async function respondState(
-  eventId: string,
-  res: import("express").Response,
-  preloaded?: Loaded,
-) {
-  res.json(await sessionView(eventId, preloaded));
-}
-
 marioPartyRouter.get("/marioparty/:eventId", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (loaded && !(await roleOf(loaded.row.groupId, req.user!.id))) {
     res.status(404).json({ error: "Not found" });
     return;
   }
   // Reuse the row the role check just read instead of selecting it twice.
-  await respondState(eventId, res, loaded);
+  await rt.respondState(eventId, res, loaded);
 });
 
 // Public big-screen read. Event UUID is the access key. Mounted before the
 // bare /api authed routers.
 marioPartyTvRouter.get("/marioparty/:eventId", async (req, res) => {
-  await respondState(String(req.params.eventId), res);
+  await rt.respondState(String(req.params.eventId), res);
 });
 
 // ---------- host: start / configure ----------
@@ -392,7 +205,7 @@ marioPartyRouter.post("/events/:eventId/marioparty", requireAuth, async (req: Au
     return;
   }
 
-  const existing = await loadState(eventId);
+  const existing = await rt.loadState(eventId);
   if (existing && existing.row.status !== "completed" && existing.state.games.length > 0) {
     res.status(409).json({ error: "A session is already in progress for this event" });
     return;
@@ -427,22 +240,14 @@ marioPartyRouter.post("/events/:eventId/marioparty", requireAuth, async (req: Au
   let state = newMpState({ titleId, assignment, roster });
   if (assignment === "random") state.roster = assignRandomFighters(state.roster, pool);
 
-  await db
-    .insert(gameSessions)
-    .values({ eventId, pack: PACK, groupId: event.groupId, status: "live", state: state as any })
-    .onConflictDoUpdate({
-      target: [gameSessions.eventId, gameSessions.pack],
-      set: { groupId: event.groupId, status: "live", state: state as any, updatedAt: new Date() },
-    });
-  broadcast({ type: "mario_party_updated", eventId }, req.get("x-gn-client"));
-  res.json(await sessionView(eventId));
+  res.json(await rt.startSession(eventId, event.groupId, state, req.get("x-gn-client")));
 });
 
 // ---------- assignment ----------
 
 marioPartyRouter.post("/marioparty/:eventId/character", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -474,13 +279,12 @@ marioPartyRouter.post("/marioparty/:eventId/character", requireAuth, async (req:
     return;
   }
   slot.character = character ?? null;
-  await saveState(eventId, loaded.state, loaded.row.status, req.get("x-gn-client"));
-  res.json(await sessionView(eventId));
+  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
 
 marioPartyRouter.post("/marioparty/:eventId/randomize", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -493,15 +297,14 @@ marioPartyRouter.post("/marioparty/:eventId/randomize", requireAuth, async (req:
     loaded.state.roster,
     rosterForTitle(MARIO_PARTY_TITLES, loaded.state.titleId),
   );
-  await saveState(eventId, loaded.state, loaded.row.status, req.get("x-gn-client"));
-  res.json(await sessionView(eventId));
+  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
 
 // ---------- record a board ----------
 
 marioPartyRouter.post("/marioparty/:eventId/record", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -554,18 +357,18 @@ marioPartyRouter.post("/marioparty/:eventId/record", requireAuth, async (req: Au
   };
   state.games.push(game);
 
-  const gameId = await ensureGame(row.groupId);
+  const gameId = await rt.ensureGame(row.groupId);
   const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster, state.sessionKey);
 
   const origin = req.get("x-gn-client");
-  await saveState(eventId, state, "live", origin);
+  const view = await rt.saveState(loaded, "live", origin);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
-  res.json({ ...(await sessionView(eventId)), ...report });
+  res.json({ ...view, ...report });
 });
 
 marioPartyRouter.post("/marioparty/:eventId/undo", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -577,19 +380,19 @@ marioPartyRouter.post("/marioparty/:eventId/undo", requireAuth, async (req: Auth
   }
   const last = state.games.pop();
   if (!last) {
-    res.json({ ...(await sessionView(eventId)), empty: true });
+    res.json({ ...rt.viewOf(loaded), empty: true });
     return;
   }
-  await deleteMaterialized(eventId, state.sessionKey, last.idx);
+  await rt.deleteMaterialized(eventId, state.sessionKey, last.idx);
   const origin = req.get("x-gn-client");
-  await saveState(eventId, state, "live", origin);
+  const view = await rt.saveState(loaded, "live", origin);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
-  res.json(await sessionView(eventId));
+  res.json(view);
 });
 
 marioPartyRouter.post("/marioparty/:eventId/open-scoring", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -599,13 +402,12 @@ marioPartyRouter.post("/marioparty/:eventId/open-scoring", requireAuth, async (r
     return;
   }
   loaded.state.openScoring = !!req.body?.open;
-  await saveState(eventId, loaded.state, loaded.row.status, req.get("x-gn-client"));
-  res.json(await sessionView(eventId));
+  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
 
 marioPartyRouter.post("/marioparty/:eventId/complete", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -614,8 +416,7 @@ marioPartyRouter.post("/marioparty/:eventId/complete", requireAuth, async (req: 
     res.status(403).json({ error: "Host only" });
     return;
   }
-  await saveState(eventId, loaded.state, "completed", req.get("x-gn-client"));
-  res.json(await sessionView(eventId));
+  res.json(await rt.saveState(loaded, "completed", req.get("x-gn-client")));
 });
 
 // ---------- lifetime Mario Party stats ----------

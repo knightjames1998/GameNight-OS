@@ -14,20 +14,7 @@
 // rule: router-level auth 401s before fall-through).
 
 import { Router } from "express";
-import {
-  getDb,
-  events,
-  games,
-  matches,
-  matchParticipants,
-  memberships,
-  rsvps,
-  smashSessions,
-  users,
-  and,
-  eq,
-  inArray,
-} from "@gamenight/db";
+import { getDb, events, games, matches, matchParticipants, users, and, eq } from "@gamenight/db";
 import {
   newSmashState,
   assignRandomFighters,
@@ -54,87 +41,37 @@ import {
   type SeriesBestOf,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
-import { insertParticipants } from "./participants.js";
+import { createPackRuntime, roleOf, isHostRole, type LedgerLine } from "./pack-runtime.js";
 import { broadcast } from "./ws.js";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
 export const smashRouter = Router();
 export const smashTvRouter = Router();
 
-// ---------- helpers ----------
+// Smash predates the shared game_sessions table and keeps smash_sessions,
+// keyed by eventId alone. That is deliberate and stays: moving it would be a
+// data migration, not a refactor.
+export const smashRuntime = createPackRuntime<SmashSessionState>({
+  pack: "smash",
+  gameName: "Smash Bros",
+  wsType: "smash_updated",
+  keyPrefix: "smash",
+  table: "smash_sessions",
+  extras: (state) => ({
+    summary: summarizeNight(state),
+    seriesStandings: state.format === "bestof" ? seriesStandings(state) : [],
+  }),
+});
 
-async function roleOf(
-  groupId: string,
-  userId: string,
-): Promise<"owner" | "admin" | "member" | undefined> {
-  const rows = await getDb()
-    .select({ role: memberships.role })
-    .from(memberships)
-    .where(and(eq(memberships.groupId, groupId), eq(memberships.userId, userId)))
-    .limit(1);
-  return rows[0]?.role;
-}
+const rt = smashRuntime;
 
-const isHostRole = (r: string | undefined) => r === "owner" || r === "admin";
-
-async function loadState(eventId: string): Promise<
-  { row: typeof smashSessions.$inferSelect; state: SmashSessionState } | null
-> {
-  const row = (
-    await getDb().select().from(smashSessions).where(eq(smashSessions.eventId, eventId)).limit(1)
-  )[0];
-  if (!row) return null;
-  return { row, state: row.state as unknown as SmashSessionState };
-}
-
-async function saveState(
-  eventId: string,
-  groupId: string,
-  state: SmashSessionState,
-  status: "setup" | "live" | "completed",
-  origin?: string,
-) {
-  await getDb()
-    .update(smashSessions)
-    .set({ state: state as unknown as Record<string, unknown>, status, updatedAt: new Date() })
-    .where(eq(smashSessions.eventId, eventId));
-  broadcast({ type: "smash_updated", eventId }, origin);
-}
-
-/** The group's single Smash game row, created on first use (pack "smash"). */
-async function ensureSmashGame(groupId: string): Promise<string> {
-  const db = getDb();
-  const existing = (
-    await db
-      .select({ id: games.id })
-      .from(games)
-      .where(and(eq(games.groupId, groupId), eq(games.pack, "smash")))
-      .limit(1)
-  )[0];
-  if (existing) return existing.id;
-  const created = (
-    await db.insert(games).values({ groupId, name: "Smash Bros", pack: "smash" }).returning()
-  )[0]!;
-  return created.id;
-}
+// ---------- ledger ----------
 
 /**
- * Materialize one recorded game into the ledger. One matches row keyed by
- * smash:{eventId}:{idx} (idempotent via the event/externalKey unique
- * index), one match_participants row per MEMBER with placement, winner
- * flag, and the fighter played. Guests (no userId) are skipped but
- * counted, and we report the count rather than dropping them silently.
+ * Materialize one recorded GAME (game-as-unit): one match_participants row
+ * per member with placement, winner flag, and the fighter played, so lifetime
+ * "wins with <fighter>" survives the night.
  */
-/**
- * The ledger externalKey for one game. Namespaced by the session's
- * sessionKey so a later session on the same event (idx restarts at 0) can't
- * collide with an earlier session's keys and get dropped as a duplicate.
- * Legacy sessions with no sessionKey keep the old shape and never collide.
- */
-function ledgerKey(eventId: string, sessionKey: string | undefined, idx: number): string {
-  return sessionKey ? `smash:${eventId}:${sessionKey}:${idx}` : `smash:${eventId}:${idx}`;
-}
-
 async function materializeGame(
   groupId: string,
   eventId: string,
@@ -145,72 +82,32 @@ async function materializeGame(
   format: SmashFormat,
   linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
 ): Promise<{ recorded: number; guests: number }> {
-  const db = getDb();
-  const key = ledgerKey(eventId, sessionKey, game.idx);
-  const existing = (
-    await db
-      .select({ id: matches.id })
-      .from(matches)
-      .where(and(eq(matches.eventId, eventId), eq(matches.externalKey, key)))
-      .limit(1)
-  )[0];
-  // Live path: already materialized and nothing to link -> nothing to do. A
-  // guest backfill (linkMap present) instead reuses the existing row and adds
-  // the participant that was skipped, keyed the same, ON CONFLICT DO NOTHING.
-  if (existing && !linkMap?.size) return { recorded: 0, guests: 0 };
+  const lines: LedgerLine[] = game.lines.map((line) => ({
+    playerId: line.playerId,
+    placement: line.placement,
+    isWinner: line.isWinner,
+    character: line.character ?? null,
+  }));
 
-  const matchId = existing
-    ? existing.id
-    : (
-        await db
-          .insert(matches)
-          .values({
-            groupId,
-            gameId,
-            eventId,
-            externalKey: key,
-            format,
-            round: 1,
-            position: game.idx,
-            status: "completed",
-          })
-          .returning()
-      )[0]!.id;
-
-  const slotById = new Map(roster.map((p) => [p.id, p]));
-  const rows = new Map<string, typeof matchParticipants.$inferInsert>();
-  let guests = 0;
-  for (const line of game.lines) {
-    const slot = slotById.get(line.playerId);
-    const userId = slot ? (slot.kind === "guest" ? linkMap?.get(slot.name) : slot.userId) : undefined;
-    if (!userId) {
-      guests++;
-      continue;
-    }
-    // Keyed by userId so one INSERT can never carry the same (matchId,
-    // userId) twice, which two guest slots sharing a linked name would do.
-    // First occurrence wins, matching the old sequential loop where the
-    // second insert hit ON CONFLICT and wrote nothing.
-    if (rows.has(userId)) continue;
-    rows.set(userId, {
-      groupId,
-      matchId,
-      userId,
-      placement: line.placement,
-      isWinner: line.isWinner,
-      character: line.character ?? null,
-    });
-  }
-  await insertParticipants(db, [...rows.values()]);
-  return { recorded: rows.size, guests };
+  return rt.materializeUnit({
+    groupId,
+    eventId,
+    gameId,
+    idx: game.idx,
+    sessionKey,
+    format,
+    roster,
+    lines,
+    linkMap,
+  });
 }
 
 /**
  * Materialize one completed best-of SERIES (match-as-unit, like Ping Pong):
- * one matches row (label bo{N}), winner placement 1 / loser 2, each player's
+ * one matches row labeled bo{N}, winner placement 1 / loser 2, each player's
  * fighter on character, per-player game wins/played in meta. Shares the same
- * sessionKey-namespaced ledger key as games; a bestof session only produces
- * series (no games) so idx never collides within it.
+ * sessionKey-namespaced ledger key space as games; a bestof session only
+ * produces series (no games) so idx never collides within it.
  */
 async function materializeSeries(
   groupId: string,
@@ -223,62 +120,33 @@ async function materializeSeries(
   linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
 ): Promise<{ recorded: number; guests: number }> {
   if (!series.winnerId) return { recorded: 0, guests: 0 };
-  const db = getDb();
-  const key = ledgerKey(eventId, sessionKey, series.idx);
-  const existing = (
-    await db
-      .select({ id: matches.id })
-      .from(matches)
-      .where(and(eq(matches.eventId, eventId), eq(matches.externalKey, key)))
-      .limit(1)
-  )[0];
-  if (existing && !linkMap?.size) return { recorded: 0, guests: 0 };
-
-  const matchId = existing
-    ? existing.id
-    : (
-        await db
-          .insert(matches)
-          .values({
-            groupId,
-            gameId,
-            eventId,
-            externalKey: key,
-            label: `bo${bestOf}`,
-            format: "bestof",
-            round: 1,
-            position: series.idx,
-            status: "completed",
-          })
-          .returning()
-      )[0]!.id;
 
   const tally = seriesGameTally(series);
   const loserId = series.winnerId === series.aId ? series.bId : series.aId;
-  const slotById = new Map(roster.map((p) => [p.id, p]));
-  const rows = new Map<string, typeof matchParticipants.$inferInsert>();
-  let guests = 0;
-  for (const slotId of [series.winnerId, loserId]) {
-    const slot = slotById.get(slotId);
-    const userId = slot ? (slot.kind === "guest" ? linkMap?.get(slot.name) : slot.userId) : undefined;
-    if (!userId) {
-      guests++;
-      continue;
-    }
-    if (rows.has(userId)) continue;
+  const charOf = new Map(roster.map((p) => [p.id, p.character ?? null]));
+  const lines: LedgerLine[] = [series.winnerId, loserId].map((slotId) => {
     const g = tally.get(slotId) ?? { wins: 0, played: 0 };
-    rows.set(userId, {
-      groupId,
-      matchId,
-      userId,
+    return {
+      playerId: slotId,
       placement: slotId === series.winnerId ? 1 : 2,
       isWinner: slotId === series.winnerId,
-      character: slot?.character ?? null,
+      character: charOf.get(slotId) ?? null,
       meta: { gameWins: g.wins, gamesPlayed: g.played },
-    });
-  }
-  await insertParticipants(db, [...rows.values()]);
-  return { recorded: rows.size, guests };
+    };
+  });
+
+  return rt.materializeUnit({
+    groupId,
+    eventId,
+    gameId,
+    idx: series.idx,
+    sessionKey,
+    label: `bo${bestOf}`,
+    format: "bestof",
+    roster,
+    lines,
+    linkMap,
+  });
 }
 
 /** Per-player best-of standings with names, for the live page + TV. */
@@ -290,36 +158,11 @@ function seriesStandings(state: SmashSessionState) {
     .sort((a, b) => b.seriesWins - a.seriesWins || b.gameWins - a.gameWins || b.seriesPlayed - a.seriesPlayed);
 }
 
-async function deleteMaterialized(eventId: string, sessionKey: string | undefined, idx: number) {
-  const db = getDb();
-  const key = ledgerKey(eventId, sessionKey, idx);
-  const m = (
-    await db
-      .select({ id: matches.id })
-      .from(matches)
-      .where(and(eq(matches.eventId, eventId), eq(matches.externalKey, key)))
-      .limit(1)
-  )[0];
-  if (!m) return;
-  await db.delete(matchParticipants).where(eq(matchParticipants.matchId, m.id));
-  await db.delete(matches).where(eq(matches.id, m.id));
-}
-
 // ---------- guest -> member backfill (see guest-link.ts) ----------
 
 /** Distinct guest display names across this crew's Smash sessions. */
 export async function guestNamesSmash(groupId: string): Promise<string[]> {
-  const rows = await getDb()
-    .select({ state: smashSessions.state })
-    .from(smashSessions)
-    .where(eq(smashSessions.groupId, groupId));
-  const names = new Set<string>();
-  for (const r of rows) {
-    for (const p of (r.state as unknown as SmashSessionState).roster ?? []) {
-      if (p.kind === "guest" && p.name) names.add(p.name);
-    }
-  }
-  return [...names];
+  return rt.guestNames(groupId, (state) => state.roster);
 }
 
 /**
@@ -333,31 +176,26 @@ export async function creditGuestSmash(
   memberId: string,
   dryRun: boolean,
 ): Promise<GuestCreditResult> {
-  const db = getDb();
-  const rows = await db
-    .select({ eventId: smashSessions.eventId, state: smashSessions.state })
-    .from(smashSessions)
-    .where(eq(smashSessions.groupId, groupId));
+  const rows = await rt.sessionsForGroup(groupId);
   const items: GuestCreditResult["items"] = [];
   const linkMap = new Map([[guestName, memberId]]);
   let gameId: string | null = null;
 
-  for (const row of rows) {
-    const state = row.state as unknown as SmashSessionState;
+  for (const { eventId, state } of rows) {
     const guestSlots = new Set(
       (state.roster ?? []).filter((p) => p.kind === "guest" && p.name === guestName).map((p) => p.id),
     );
     if (guestSlots.size === 0) continue;
-    const credited = await memberCreditedKeys(row.eventId, memberId);
+    const credited = await memberCreditedKeys(eventId, memberId);
 
     for (const g of state.games ?? []) {
       const line = g.lines.find((l) => guestSlots.has(l.playerId));
       if (!line) continue;
-      if (credited.has(ledgerKey(row.eventId, state.sessionKey, g.idx))) continue;
+      if (credited.has(rt.ledgerKey(eventId, state.sessionKey, g.idx))) continue;
       items.push({
         pack: "smash",
         packLabel: "Smash Bros",
-        eventId: row.eventId,
+        eventId,
         label: g.mode === "koth" ? "King of the Hill" : "Free For All",
         date: g.at ?? null,
         placement: line.placement,
@@ -366,12 +204,12 @@ export async function creditGuestSmash(
     }
     for (const ser of state.seriesLog ?? []) {
       if (!ser.winnerId || !(guestSlots.has(ser.aId) || guestSlots.has(ser.bId))) continue;
-      if (credited.has(ledgerKey(row.eventId, state.sessionKey, ser.idx))) continue;
+      if (credited.has(rt.ledgerKey(eventId, state.sessionKey, ser.idx))) continue;
       const won = guestSlots.has(ser.winnerId);
       items.push({
         pack: "smash",
         packLabel: "Smash Bros",
-        eventId: row.eventId,
+        eventId,
         label: `Best of ${state.bestOf}`,
         date: ser.at ?? null,
         placement: won ? 1 : 2,
@@ -380,15 +218,15 @@ export async function creditGuestSmash(
     }
 
     if (!dryRun) {
-      gameId = gameId ?? (await ensureSmashGame(groupId));
+      gameId = gameId ?? (await rt.ensureGame(groupId));
       for (const g of state.games ?? []) {
         if (g.lines.some((l) => guestSlots.has(l.playerId))) {
-          await materializeGame(groupId, row.eventId, gameId, g, state.roster, state.sessionKey, state.format, linkMap);
+          await materializeGame(groupId, eventId, gameId, g, state.roster, state.sessionKey, state.format, linkMap);
         }
       }
       for (const ser of state.seriesLog ?? []) {
         if (ser.winnerId && (guestSlots.has(ser.aId) || guestSlots.has(ser.bId))) {
-          await materializeSeries(groupId, row.eventId, gameId, ser, state.bestOf, state.roster, state.sessionKey, linkMap);
+          await materializeSeries(groupId, eventId, gameId, ser, state.bestOf, state.roster, state.sessionKey, linkMap);
         }
       }
     }
@@ -398,105 +236,33 @@ export async function creditGuestSmash(
 
 // ---------- launch context ----------
 
-/**
- * Setup context for the launcher: yes-RSVP prefill (never clobbers an
- * in-progress session, standing rule 8), the crew's members for roster
- * building, whether the viewer can host, and the viewer's own userId so
- * the client knows which slot is "you" for self-select.
- */
 smashRouter.get("/smash-context/:eventId", requireAuth, async (req: AuthedRequest, res) => {
-  const db = getDb();
-  const event = (
-    await db.select().from(events).where(eq(events.id, String(req.params.eventId))).limit(1)
-  )[0];
-  if (!event) {
+  const ctx = await rt.launchContext(String(req.params.eventId), req.user!.id);
+  if (!ctx) {
     res.status(404).json({ error: "Event not found" });
     return;
   }
-  // Role, RSVPs, members and any live session all depend only on the event
-  // row, so they go out together: 5 sequential round trips become 2. The
-  // role gate still runs before anything is returned; the other three reads
-  // are just discarded when it fails, which costs nothing on a 404.
-  const [role, yes, members, existing] = await Promise.all([
-    roleOf(event.groupId, req.user!.id),
-    db
-      .select({ userId: rsvps.userId, displayName: users.displayName })
-      .from(rsvps)
-      .innerJoin(users, eq(rsvps.userId, users.id))
-      .where(and(eq(rsvps.eventId, event.id), eq(rsvps.status, "yes")))
-      .orderBy(rsvps.respondedAt),
-    db
-      .select({ userId: memberships.userId, displayName: users.displayName })
-      .from(memberships)
-      .innerJoin(users, eq(memberships.userId, users.id))
-      .where(eq(memberships.groupId, event.groupId)),
-    loadState(event.id),
-  ]);
-  if (!role) {
-    res.status(404).json({ error: "Event not found" });
-    return;
-  }
-
-  res.json({
-    groupId: event.groupId,
-    canHost: isHostRole(role),
-    viewerId: req.user!.id,
-    prefill: yes.map((r) => ({ userId: r.userId, name: r.displayName })),
-    members: members.map((m) => ({ userId: m.userId, name: m.displayName })),
-    live: !!existing && existing.row.status !== "completed",
-  });
+  res.json(ctx);
 });
 
 // ---------- read live state ----------
 
-/**
- * The session payload the page renders. Mutations return this directly so
- * the acting client applies the response instead of refetching; the GETs
- * serve the same shape so the two can never disagree.
- */
-type Loaded = Awaited<ReturnType<typeof loadState>>;
-
-async function sessionView(eventId: string, preloaded?: Loaded) {
-  // A caller that already holds the row and state passes it in rather than
-  // making this re-SELECT the row it just read or wrote. `null` is a real
-  // answer (no session), so the check is for `undefined`, not falsiness.
-  const loaded = preloaded !== undefined ? preloaded : await loadState(eventId);
-  if (!loaded) return { session: null };
-  return {
-    session: {
-      status: loaded.row.status,
-      groupId: loaded.row.groupId,
-      ...loaded.state,
-      summary: summarizeNight(loaded.state),
-      seriesStandings: loaded.state.format === "bestof" ? seriesStandings(loaded.state) : [],
-    },
-  };
-}
-
-async function respondState(
-  eventId: string,
-  res: import("express").Response,
-  preloaded?: Loaded,
-) {
-  res.json(await sessionView(eventId, preloaded));
-}
-
 smashRouter.get("/smash/:eventId", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (loaded && !(await roleOf(loaded.row.groupId, req.user!.id))) {
     res.status(404).json({ error: "Not found" });
     return;
   }
   // Reuse the row the role check just read instead of selecting it twice.
-  await respondState(eventId, res, loaded);
+  await rt.respondState(eventId, res, loaded);
 });
 
 // Public big-screen read. Event UUID is the access key, same model as the
 // bracket TV view. Mounted before authed routers so it is reachable
 // without a session.
 smashTvRouter.get("/smash/:eventId", async (req, res) => {
-  await respondState(String(req.params.eventId), res);
+  await rt.respondState(String(req.params.eventId), res);
 });
 
 // ---------- host: start / configure ----------
@@ -544,7 +310,7 @@ smashRouter.post("/events/:eventId/smash", requireAuth, async (req: AuthedReques
   // Don't clobber a session already in progress (standing rule 8) unless the
   // host confirmed a replace (client resends force after a 409). A session is
   // "in progress" if it has recorded games (ffa/koth) or series (bestof).
-  const existing = await loadState(eventId);
+  const existing = await rt.loadState(eventId);
   const inProgress =
     !!existing &&
     existing.row.status !== "completed" &&
@@ -583,15 +349,7 @@ smashRouter.post("/events/:eventId/smash", requireAuth, async (req: AuthedReques
   let state = newSmashState({ format, titleId, mode, assignment, resultDetail, roster, bestOf });
   if (assignment === "random") state.roster = assignRandomFighters(state.roster, pool);
 
-  await db
-    .insert(smashSessions)
-    .values({ eventId, groupId: event.groupId, status: "live", state: state as any })
-    .onConflictDoUpdate({
-      target: smashSessions.eventId,
-      set: { groupId: event.groupId, status: "live", state: state as any, updatedAt: new Date() },
-    });
-  broadcast({ type: "smash_updated", eventId }, req.get("x-gn-client"));
-  res.json(await sessionView(eventId));
+  res.json(await rt.startSession(eventId, event.groupId, state, req.get("x-gn-client")));
 });
 
 // ---------- assignment ----------
@@ -600,7 +358,7 @@ smashRouter.post("/events/:eventId/smash", requireAuth, async (req: AuthedReques
 // Host may set any slot. Guests are always host-set.
 smashRouter.post("/smash/:eventId/character", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -632,14 +390,13 @@ smashRouter.post("/smash/:eventId/character", requireAuth, async (req: AuthedReq
     return;
   }
   slot.character = character ?? null;
-  await saveState(eventId, loaded.row.groupId, loaded.state, loaded.row.status, req.get("x-gn-client"));
-  res.json(await sessionView(eventId));
+  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
 
 // Host re-rolls random fighters for everyone.
 smashRouter.post("/smash/:eventId/randomize", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -652,15 +409,14 @@ smashRouter.post("/smash/:eventId/randomize", requireAuth, async (req: AuthedReq
     loaded.state.roster,
     rosterForTitle(SMASH_TITLES, loaded.state.titleId),
   );
-  await saveState(eventId, loaded.row.groupId, loaded.state, loaded.row.status, req.get("x-gn-client"));
-  res.json(await sessionView(eventId));
+  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
 
 // ---------- best of: start the next set (host picks two players) ----------
 
 smashRouter.post("/smash/:eventId/start-series", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -696,15 +452,14 @@ smashRouter.post("/smash/:eventId/start-series", requireAuth, async (req: Authed
     return;
   }
   state.series = s;
-  await saveState(eventId, row.groupId, state, "live", req.get("x-gn-client"));
-  res.json(await sessionView(eventId));
+  res.json(await rt.saveState(loaded, "live", req.get("x-gn-client")));
 });
 
 // ---------- record a game / round ----------
 
 smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -740,12 +495,12 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
       done.idx = state.seriesLog.length;
       state.seriesLog.push(done);
       state.series = null;
-      const gameId = await ensureSmashGame(row.groupId);
+      const gameId = await rt.ensureGame(row.groupId);
       report = await materializeSeries(row.groupId, eventId, gameId, done, state.bestOf, state.roster, state.sessionKey);
     }
-    await saveState(eventId, row.groupId, state, "live", origin);
+    const view = await rt.saveState(loaded, "live", origin);
     if (completed) broadcast({ type: "leaderboard_updated", eventId }, origin);
-    res.json({ ...(await sessionView(eventId)), ...(report ?? {}) });
+    res.json({ ...view, ...(report ?? {}) });
     return;
   }
 
@@ -804,20 +559,20 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
   };
   state.games.push(game);
 
-  const gameId = await ensureSmashGame(row.groupId);
+  const gameId = await rt.ensureGame(row.groupId);
   const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster, state.sessionKey, state.format);
 
   const origin = req.get("x-gn-client");
-  await saveState(eventId, row.groupId, state, "live", origin);
+  const view = await rt.saveState(loaded, "live", origin);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
-  res.json({ ...(await sessionView(eventId)), ...report });
+  res.json({ ...view, ...report });
 });
 
 // Undo the last recorded game (host only): drop the ledger rows and replay
 // KOTH state from scratch so the throne/queue can't drift.
 smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -834,34 +589,33 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
     const origin = req.get("x-gn-client");
     if (state.series && state.series.games.length > 0) {
       state.series.games.pop();
-      await saveState(eventId, row.groupId, state, "live", origin);
-      res.json(await sessionView(eventId));
+      res.json(await rt.saveState(loaded, "live", origin));
       return;
     }
     const lastSet = state.seriesLog.pop();
     if (!lastSet) {
-      res.json({ ...(await sessionView(eventId)), empty: true });
+      res.json({ ...rt.viewOf(loaded), empty: true });
       return;
     }
-    await deleteMaterialized(eventId, state.sessionKey, lastSet.idx);
+    await rt.deleteMaterialized(eventId, state.sessionKey, lastSet.idx);
     // Re-open the undone set so its games can be replayed, matching how the
     // KOTH undo leaves the state ready to continue.
     lastSet.winnerId = null;
     lastSet.at = null;
     lastSet.idx = -1;
     state.series = lastSet;
-    await saveState(eventId, row.groupId, state, "live", origin);
+    const view = await rt.saveState(loaded, "live", origin);
     broadcast({ type: "leaderboard_updated", eventId }, origin);
-    res.json(await sessionView(eventId));
+    res.json(view);
     return;
   }
 
   const last = state.games.pop();
   if (!last) {
-    res.json({ ...(await sessionView(eventId)), empty: true });
+    res.json({ ...rt.viewOf(loaded), empty: true });
     return;
   }
-  await deleteMaterialized(eventId, state.sessionKey, last.idx);
+  await rt.deleteMaterialized(eventId, state.sessionKey, last.idx);
 
   if (state.mode === "koth") {
     // Rebuild from the opening throne (roster[0]) by replaying survivors.
@@ -879,15 +633,15 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
     state.koth = koth;
   }
   const origin = req.get("x-gn-client");
-  await saveState(eventId, row.groupId, state, "live", origin);
+  const view = await rt.saveState(loaded, "live", origin);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
-  res.json(await sessionView(eventId));
+  res.json(view);
 });
 
 // Host toggles open scoring (members may record when on). Defaults off.
 smashRouter.post("/smash/:eventId/open-scoring", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -897,14 +651,13 @@ smashRouter.post("/smash/:eventId/open-scoring", requireAuth, async (req: Authed
     return;
   }
   loaded.state.openScoring = !!req.body?.open;
-  await saveState(eventId, loaded.row.groupId, loaded.state, loaded.row.status, req.get("x-gn-client"));
-  res.json(await sessionView(eventId));
+  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
 
 // Host ends the night.
 smashRouter.post("/smash/:eventId/complete", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -924,13 +677,13 @@ smashRouter.post("/smash/:eventId/complete", requireAuth, async (req: AuthedRequ
     done.idx = state.seriesLog.length;
     state.seriesLog.push(done);
     state.series = null;
-    const gameId = await ensureSmashGame(row.groupId);
+    const gameId = await rt.ensureGame(row.groupId);
     await materializeSeries(row.groupId, eventId, gameId, done, state.bestOf, state.roster, state.sessionKey);
     finalized = true;
   }
-  await saveState(eventId, row.groupId, state, "completed", origin);
+  const view = await rt.saveState(loaded, "completed", origin);
   if (finalized) broadcast({ type: "leaderboard_updated", eventId }, origin);
-  res.json(await sessionView(eventId));
+  res.json(view);
 });
 
 // ---------- lifetime character stats ----------

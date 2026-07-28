@@ -16,8 +16,9 @@
 // rawResult has no guest names to match and simply contributes nothing.
 
 import { Router } from "express";
-import { getDb, events, memberships, and, eq, inArray } from "@gamenight/db";
+import { getDb, events, and, eq, inArray } from "@gamenight/db";
 import { requireAuth, type AuthedRequest } from "./auth.js";
+import { roleOf } from "./pack-runtime.js";
 import { broadcast } from "./ws.js";
 import type { GuestCreditItem } from "./guest-link-util.js";
 import { guestNamesBracket, creditGuestBracket } from "./brackets.js";
@@ -49,15 +50,6 @@ const creditAdapters: {
   { key: "pingpong", credit: creditGuestPingPong },
   { key: "beerio", credit: creditGuestBeerio },
 ];
-
-async function roleOf(groupId: string, userId: string): Promise<string | undefined> {
-  const rows = await getDb()
-    .select({ role: memberships.role })
-    .from(memberships)
-    .where(and(eq(memberships.groupId, groupId), eq(memberships.userId, userId)))
-    .limit(1);
-  return rows[0]?.role;
-}
 
 /** Map each event id to a display title, for the preview list. */
 async function eventTitles(ids: string[]): Promise<Map<string, string>> {

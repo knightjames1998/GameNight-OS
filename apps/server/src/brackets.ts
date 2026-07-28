@@ -7,7 +7,6 @@ import {
   groups,
   matches,
   matchParticipants,
-  memberships,
   rsvps,
   users,
   and,
@@ -28,6 +27,7 @@ import {
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { insertParticipants } from "./participants.js";
+import { roleOf } from "./pack-runtime.js";
 import { broadcast } from "./ws.js";
 import { type GuestCreditResult } from "./guest-link-util.js";
 
@@ -571,18 +571,6 @@ async function loadEventForMember(eventId: string, userId: string) {
 
 async function isMember(groupId: string, userId: string): Promise<boolean> {
   return !!(await roleOf(groupId, userId));
-}
-
-async function roleOf(
-  groupId: string,
-  userId: string,
-): Promise<"owner" | "admin" | "member" | undefined> {
-  const rows = await getDb()
-    .select({ role: memberships.role })
-    .from(memberships)
-    .where(and(eq(memberships.groupId, groupId), eq(memberships.userId, userId)))
-    .limit(1);
-  return rows[0]?.role;
 }
 
 function canScore(b: LoadedBracket): boolean {

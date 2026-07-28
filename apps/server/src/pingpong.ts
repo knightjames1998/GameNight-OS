@@ -1,15 +1,16 @@
 // Ping Pong pack server routes: King of the Hill and Singles.
 //
-// Same server-owned-session shape as the other session packs (members join
-// the host's session, live sync on every write, backed by the generic
-// game_sessions table keyed by (eventId, pack='pingpong') so it can coexist
-// with other packs on the same event). The difference is the ledger unit:
-// the MATCH, not the game. One completed best-of-N match materializes one
-// matches row plus two match_participants rows (winner placement 1, loser 2);
-// the individual games and any optional points live only in the session
-// jsonb. Match length rides matches.label; optional per-player points ride
-// match_participants.score. No schema change (additive use of existing
-// tables, same path Mario Kart uses).
+// The plumbing (session load/save, ledger keys, game row, launch context,
+// broadcast) comes from pack-runtime.ts; this file is the pack's own routes,
+// its request validation, and its ledger unit.
+//
+// The ledger unit is what makes this pack different: the MATCH, not the game.
+// One completed best-of-N match materializes one matches row plus two
+// match_participants rows (winner placement 1, loser 2); the individual games
+// and any optional points live only in the session jsonb. Match length rides
+// matches.label; optional per-player points ride match_participants.score.
+// Backed by game_sessions keyed (eventId, pack='pingpong') so it can coexist
+// with other packs on the same event.
 //
 // Doubles is explicitly out: match_participants is per player, so nothing
 // here builds toward a team model.
@@ -19,11 +20,8 @@ import {
   getDb,
   events,
   games,
-  gameSessions,
   matches,
   matchParticipants,
-  memberships,
-  rsvps,
   users,
   and,
   eq,
@@ -46,7 +44,7 @@ import {
   type PpMatch,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
-import { insertParticipants } from "./participants.js";
+import { createPackRuntime, roleOf, isHostRole, type LedgerLine } from "./pack-runtime.js";
 import { broadcast } from "./ws.js";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
@@ -55,73 +53,29 @@ const PACK = "pingpong";
 export const pingPongRouter = Router();
 export const pingPongTvRouter = Router();
 
-// ---------- helpers ----------
+export const pingPongRuntime = createPackRuntime<PpSessionState>({
+  pack: PACK,
+  gameName: "Ping Pong",
+  wsType: "ping_pong_updated",
+  keyPrefix: "pp",
+  table: "game_sessions",
+  extras: (state) => ({
+    needed: neededWins(state.bestOf),
+    summary: summarizePingPong(state),
+  }),
+});
 
-async function roleOf(
-  groupId: string,
-  userId: string,
-): Promise<"owner" | "admin" | "member" | undefined> {
-  const rows = await getDb()
-    .select({ role: memberships.role })
-    .from(memberships)
-    .where(and(eq(memberships.groupId, groupId), eq(memberships.userId, userId)))
-    .limit(1);
-  return rows[0]?.role;
-}
+const rt = pingPongRuntime;
 
-const isHostRole = (r: string | undefined) => r === "owner" || r === "admin";
-
-async function loadState(eventId: string): Promise<
-  { row: typeof gameSessions.$inferSelect; state: PpSessionState } | null
-> {
-  const row = (
-    await getDb()
-      .select()
-      .from(gameSessions)
-      .where(and(eq(gameSessions.eventId, eventId), eq(gameSessions.pack, PACK)))
-      .limit(1)
-  )[0];
-  if (!row) return null;
-  return { row, state: row.state as unknown as PpSessionState };
-}
-
-async function saveState(
-  eventId: string,
-  state: PpSessionState,
-  status: "setup" | "live" | "completed",
-  origin?: string,
-) {
-  await getDb()
-    .update(gameSessions)
-    .set({ state: state as unknown as Record<string, unknown>, status, updatedAt: new Date() })
-    .where(and(eq(gameSessions.eventId, eventId), eq(gameSessions.pack, PACK)));
-  broadcast({ type: "ping_pong_updated", eventId }, origin);
-}
-
-/** The group's single Ping Pong game row, created on first use. */
-async function ensureGame(groupId: string): Promise<string> {
-  const db = getDb();
-  const existing = (
-    await db
-      .select({ id: games.id })
-      .from(games)
-      .where(and(eq(games.groupId, groupId), eq(games.pack, PACK)))
-      .limit(1)
-  )[0];
-  if (existing) return existing.id;
-  const created = (
-    await db.insert(games).values({ groupId, name: "Ping Pong", pack: PACK }).returning()
-  )[0]!;
-  return created.id;
-}
+// ---------- ledger ----------
 
 /**
- * Materialize one completed MATCH into the ledger. Keyed pp:{eventId}:{idx}.
- * Winner placement 1, loser placement 2. Match length rides matches.label;
- * each player's optional points (summed across the games they lost, the only
- * points we capture) ride match_participants.score, null when none entered.
- * Guests carry no lifetime stats, so they are skipped but counted and
- * reported rather than silently dropped.
+ * Materialize one completed MATCH. Winner placement 1, loser placement 2.
+ * Match length rides matches.label; each player's optional points (summed
+ * across the games they lost, the only points we capture) ride
+ * match_participants.score, null when none were entered. Per-player game
+ * wins/played ride meta, so lifetime "single game" totals survive to the
+ * ledger even though the games themselves are never materialized as rows.
  */
 async function materializeMatch(
   groupId: string,
@@ -132,37 +86,6 @@ async function materializeMatch(
   linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
 ): Promise<{ recorded: number; guests: number }> {
   if (!match.winnerId) return { recorded: 0, guests: 0 };
-  const db = getDb();
-  const key = ledgerKey(eventId, state, match.idx);
-  const existing = (
-    await db
-      .select({ id: matches.id })
-      .from(matches)
-      .where(and(eq(matches.eventId, eventId), eq(matches.externalKey, key)))
-      .limit(1)
-  )[0];
-  // Live path: already materialized, nothing to link. A guest backfill reuses
-  // the existing row and adds the skipped participant, ON CONFLICT DO NOTHING.
-  if (existing && !linkMap?.size) return { recorded: 0, guests: 0 };
-
-  const matchId = existing
-    ? existing.id
-    : (
-        await db
-          .insert(matches)
-          .values({
-            groupId,
-            gameId,
-            eventId,
-            externalKey: key,
-            label: `bo${state.bestOf}`,
-            format: state.format,
-            round: 1,
-            position: match.idx,
-            status: "completed",
-          })
-          .returning()
-      )[0]!.id;
 
   // Points captured are the loser's points per game; sum them per player.
   const points = new Map<string, number>();
@@ -175,82 +98,38 @@ async function materializeMatch(
     }
   }
 
-  // Per-player game wins/played, so lifetime "single game" totals survive
-  // to the ledger (the games themselves are not materialized as rows).
   const tally = matchGameTally(match);
-
   const loserId = match.winnerId === match.aId ? match.bId : match.aId;
-  const slotById = new Map(state.roster.map((p) => [p.id, p]));
-  const rows = new Map<string, typeof matchParticipants.$inferInsert>();
-  let guests = 0;
-  for (const slotId of [match.winnerId, loserId]) {
-    const slot = slotById.get(slotId);
-    const userId = slot ? (slot.kind === "guest" ? linkMap?.get(slot.name) : slot.userId) : undefined;
-    if (!userId) {
-      guests++;
-      continue;
-    }
-    // Keyed by userId so one INSERT can never carry the same (matchId,
-    // userId) twice, which two guest slots sharing a linked name would do.
-    // First occurrence wins, matching the old sequential loop.
-    if (rows.has(userId)) continue;
+  const lines: LedgerLine[] = [match.winnerId, loserId].map((slotId) => {
     const g = tally.get(slotId) ?? { wins: 0, played: 0 };
-    rows.set(userId, {
-      groupId,
-      matchId,
-      userId,
+    return {
+      playerId: slotId,
       placement: slotId === match.winnerId ? 1 : 2,
       isWinner: slotId === match.winnerId,
       score: anyPoints ? points.get(slotId) ?? 0 : null,
       meta: { gameWins: g.wins, gamesPlayed: g.played },
-    });
-  }
-  await insertParticipants(db, [...rows.values()]);
-  return { recorded: rows.size, guests };
-}
+    };
+  });
 
-/**
- * The ledger externalKey for one match. Namespaced by the session's
- * sessionKey so a later session on the same event (idx restarts at 0) can't
- * collide with an earlier session's keys and get dropped as a duplicate.
- * Legacy sessions started before sessionKey existed fall back to a fixed
- * suffix; their keys keep the old shape and never collide with new ones.
- */
-function ledgerKey(eventId: string, state: PpSessionState, idx: number): string {
-  const sk = state.sessionKey;
-  return sk ? `pp:${eventId}:${sk}:${idx}` : `pp:${eventId}:${idx}`;
-}
-
-async function deleteMaterialized(eventId: string, state: PpSessionState, idx: number) {
-  const db = getDb();
-  const key = ledgerKey(eventId, state, idx);
-  const m = (
-    await db
-      .select({ id: matches.id })
-      .from(matches)
-      .where(and(eq(matches.eventId, eventId), eq(matches.externalKey, key)))
-      .limit(1)
-  )[0];
-  if (!m) return;
-  await db.delete(matchParticipants).where(eq(matchParticipants.matchId, m.id));
-  await db.delete(matches).where(eq(matches.id, m.id));
+  return rt.materializeUnit({
+    groupId,
+    eventId,
+    gameId,
+    idx: match.idx,
+    sessionKey: state.sessionKey,
+    label: `bo${state.bestOf}`,
+    format: state.format,
+    roster: state.roster,
+    lines,
+    linkMap,
+  });
 }
 
 // ---------- guest -> member backfill (see guest-link.ts) ----------
 
 /** Distinct guest display names across this crew's Ping Pong sessions. */
 export async function guestNamesPingPong(groupId: string): Promise<string[]> {
-  const rows = await getDb()
-    .select({ state: gameSessions.state })
-    .from(gameSessions)
-    .where(and(eq(gameSessions.groupId, groupId), eq(gameSessions.pack, PACK)));
-  const names = new Set<string>();
-  for (const r of rows) {
-    for (const p of (r.state as unknown as PpSessionState).roster ?? []) {
-      if (p.kind === "guest" && p.name) names.add(p.name);
-    }
-  }
-  return [...names];
+  return rt.guestNames(groupId, (state) => state.roster);
 }
 
 /** Credit (or preview) every recoverable Ping Pong match the guest played. */
@@ -260,32 +139,27 @@ export async function creditGuestPingPong(
   memberId: string,
   dryRun: boolean,
 ): Promise<GuestCreditResult> {
-  const db = getDb();
-  const rows = await db
-    .select({ eventId: gameSessions.eventId, state: gameSessions.state })
-    .from(gameSessions)
-    .where(and(eq(gameSessions.groupId, groupId), eq(gameSessions.pack, PACK)));
+  const rows = await rt.sessionsForGroup(groupId);
   const items: GuestCreditResult["items"] = [];
   const linkMap = new Map([[guestName, memberId]]);
   let gameId: string | null = null;
 
-  for (const row of rows) {
-    const state = row.state as unknown as PpSessionState;
+  for (const { eventId, state } of rows) {
     const guestSlots = new Set(
       (state.roster ?? []).filter((p) => p.kind === "guest" && p.name === guestName).map((p) => p.id),
     );
     if (guestSlots.size === 0) continue;
-    const credited = await memberCreditedKeys(row.eventId, memberId);
+    const credited = await memberCreditedKeys(eventId, memberId);
     const label = state.format === "koth" ? "King of the Hill" : state.format === "bestof" ? `Best of ${state.bestOf}` : "Ping Pong game";
 
     for (const m of state.matches ?? []) {
       if (!m.winnerId || !(guestSlots.has(m.aId) || guestSlots.has(m.bId))) continue;
-      if (credited.has(ledgerKey(row.eventId, state, m.idx))) continue;
+      if (credited.has(rt.ledgerKey(eventId, state.sessionKey, m.idx))) continue;
       const won = guestSlots.has(m.winnerId);
       items.push({
         pack: "pingpong",
         packLabel: "Ping Pong",
-        eventId: row.eventId,
+        eventId,
         label,
         date: m.at ?? null,
         placement: won ? 1 : 2,
@@ -294,10 +168,10 @@ export async function creditGuestPingPong(
     }
 
     if (!dryRun) {
-      gameId = gameId ?? (await ensureGame(groupId));
+      gameId = gameId ?? (await rt.ensureGame(groupId));
       for (const m of state.matches ?? []) {
         if (m.winnerId && (guestSlots.has(m.aId) || guestSlots.has(m.bId))) {
-          await materializeMatch(groupId, row.eventId, gameId, m, state, linkMap);
+          await materializeMatch(groupId, eventId, gameId, m, state, linkMap);
         }
       }
     }
@@ -308,97 +182,31 @@ export async function creditGuestPingPong(
 // ---------- launch context ----------
 
 pingPongRouter.get("/pingpong-context/:eventId", requireAuth, async (req: AuthedRequest, res) => {
-  const db = getDb();
-  const event = (
-    await db.select().from(events).where(eq(events.id, String(req.params.eventId))).limit(1)
-  )[0];
-  if (!event) {
+  const ctx = await rt.launchContext(String(req.params.eventId), req.user!.id);
+  if (!ctx) {
     res.status(404).json({ error: "Event not found" });
     return;
   }
-  // Role, RSVPs, members and any live session all depend only on the event
-  // row, so they go out together: 5 sequential round trips become 2. The
-  // role gate still runs before anything is returned; the other three reads
-  // are just discarded when it fails, which costs nothing on a 404.
-  const [role, yes, members, existing] = await Promise.all([
-    roleOf(event.groupId, req.user!.id),
-    db
-      .select({ userId: rsvps.userId, displayName: users.displayName })
-      .from(rsvps)
-      .innerJoin(users, eq(rsvps.userId, users.id))
-      .where(and(eq(rsvps.eventId, event.id), eq(rsvps.status, "yes")))
-      .orderBy(rsvps.respondedAt),
-    db
-      .select({ userId: memberships.userId, displayName: users.displayName })
-      .from(memberships)
-      .innerJoin(users, eq(memberships.userId, users.id))
-      .where(eq(memberships.groupId, event.groupId)),
-    loadState(event.id),
-  ]);
-  if (!role) {
-    res.status(404).json({ error: "Event not found" });
-    return;
-  }
-
-  res.json({
-    groupId: event.groupId,
-    canHost: isHostRole(role),
-    viewerId: req.user!.id,
-    prefill: yes.map((r) => ({ userId: r.userId, name: r.displayName })),
-    members: members.map((m) => ({ userId: m.userId, name: m.displayName })),
-    live: !!existing && existing.row.status !== "completed",
-  });
+  res.json(ctx);
 });
 
 // ---------- read live state ----------
 
-/**
- * The session payload the page renders. Mutations return this directly so
- * the acting client applies the response instead of refetching; the GETs
- * serve the same shape so the two can never disagree.
- */
-type Loaded = Awaited<ReturnType<typeof loadState>>;
-
-async function sessionView(eventId: string, preloaded?: Loaded) {
-  // A caller that already holds the row and state passes it in rather than
-  // making this re-SELECT the row it just read or wrote. `null` is a real
-  // answer (no session), so the check is for `undefined`, not falsiness.
-  const loaded = preloaded !== undefined ? preloaded : await loadState(eventId);
-  if (!loaded) return { session: null };
-  return {
-    session: {
-      status: loaded.row.status,
-      groupId: loaded.row.groupId,
-      ...loaded.state,
-      needed: neededWins(loaded.state.bestOf),
-      summary: summarizePingPong(loaded.state),
-    },
-  };
-}
-
-async function respondState(
-  eventId: string,
-  res: import("express").Response,
-  preloaded?: Loaded,
-) {
-  res.json(await sessionView(eventId, preloaded));
-}
-
 pingPongRouter.get("/pingpong/:eventId", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (loaded && !(await roleOf(loaded.row.groupId, req.user!.id))) {
     res.status(404).json({ error: "Not found" });
     return;
   }
   // Reuse the row the role check just read instead of selecting it twice.
-  await respondState(eventId, res, loaded);
+  await rt.respondState(eventId, res, loaded);
 });
 
 // Public big-screen read. Event UUID is the access key. Mounted before the
 // bare /api authed routers.
 pingPongTvRouter.get("/pingpong/:eventId", async (req, res) => {
-  await respondState(String(req.params.eventId), res);
+  await rt.respondState(String(req.params.eventId), res);
 });
 
 // ---------- host: start ----------
@@ -442,7 +250,7 @@ pingPongRouter.post("/events/:eventId/pingpong", requireAuth, async (req: Authed
 
   // Don't clobber a session already in progress (standing rule 8) unless the
   // host explicitly confirmed a replace (client sends force after a 409).
-  const existing = await loadState(eventId);
+  const existing = await rt.loadState(eventId);
   if (
     !req.body?.force &&
     existing &&
@@ -469,22 +277,14 @@ pingPongRouter.post("/events/:eventId/pingpong", requireAuth, async (req: Authed
   }
 
   const state = newPingPongState({ format, mode, bestOf, roster });
-  await db
-    .insert(gameSessions)
-    .values({ eventId, pack: PACK, groupId: event.groupId, status: "live", state: state as any })
-    .onConflictDoUpdate({
-      target: [gameSessions.eventId, gameSessions.pack],
-      set: { groupId: event.groupId, status: "live", state: state as any, updatedAt: new Date() },
-    });
-  broadcast({ type: "ping_pong_updated", eventId }, req.get("x-gn-client"));
-  res.json(await sessionView(eventId));
+  res.json(await rt.startSession(eventId, event.groupId, state, req.get("x-gn-client")));
 });
 
 // ---------- singles: start the next match (FFA only) ----------
 
 pingPongRouter.post("/pingpong/:eventId/start-match", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -503,15 +303,14 @@ pingPongRouter.post("/pingpong/:eventId/start-match", requireAuth, async (req: A
     res.status(400).json({ error: "Pick two different players; finish the current match first" });
     return;
   }
-  await saveState(eventId, loaded.state, loaded.row.status, req.get("x-gn-client"));
-  res.json(await sessionView(eventId));
+  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
 
 // ---------- record a game (one tap on the winner) ----------
 
 pingPongRouter.post("/pingpong/:eventId/record", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -544,19 +343,19 @@ pingPongRouter.post("/pingpong/:eventId/record", requireAuth, async (req: Authed
   const origin = req.get("x-gn-client");
   let report: { recorded: number; guests: number } | null = null;
   if (completed) {
-    const gameId = await ensureGame(row.groupId);
+    const gameId = await rt.ensureGame(row.groupId);
     report = await materializeMatch(row.groupId, eventId, gameId, completed, state);
   }
-  await saveState(eventId, state, "live", origin);
+  const view = await rt.saveState(loaded, "live", origin);
   if (completed) broadcast({ type: "leaderboard_updated", eventId }, origin);
-  res.json({ ...(await sessionView(eventId)), ...(report ?? {}) });
+  res.json({ ...view, ...(report ?? {}) });
 });
 
 // ---------- undo (one game, or the last completed match) ----------
 
 pingPongRouter.post("/pingpong/:eventId/undo", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -569,20 +368,20 @@ pingPongRouter.post("/pingpong/:eventId/undo", requireAuth, async (req: AuthedRe
   const { unmaterializeIdx } = undoLast(state);
   const origin = req.get("x-gn-client");
   if (unmaterializeIdx != null) {
-    await deleteMaterialized(eventId, state, unmaterializeIdx);
-    await saveState(eventId, state, "live", origin);
+    await rt.deleteMaterialized(eventId, state.sessionKey, unmaterializeIdx);
+    const view = await rt.saveState(loaded, "live", origin);
     broadcast({ type: "leaderboard_updated", eventId }, origin);
-  } else {
-    await saveState(eventId, state, "live", origin);
+    res.json(view);
+    return;
   }
-  res.json(await sessionView(eventId));
+  res.json(await rt.saveState(loaded, "live", origin));
 });
 
 // ---------- host toggles + complete ----------
 
 pingPongRouter.post("/pingpong/:eventId/open-scoring", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -592,13 +391,12 @@ pingPongRouter.post("/pingpong/:eventId/open-scoring", requireAuth, async (req: 
     return;
   }
   loaded.state.openScoring = !!req.body?.open;
-  await saveState(eventId, loaded.state, loaded.row.status, req.get("x-gn-client"));
-  res.json(await sessionView(eventId));
+  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
 
 pingPongRouter.post("/pingpong/:eventId/complete", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await loadState(eventId);
+  const loaded = await rt.loadState(eventId);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -614,12 +412,12 @@ pingPongRouter.post("/pingpong/:eventId/complete", requireAuth, async (req: Auth
   const origin = req.get("x-gn-client");
   const finalized = finalizeCurrent(loaded.state);
   if (finalized) {
-    const gameId = await ensureGame(loaded.row.groupId);
+    const gameId = await rt.ensureGame(loaded.row.groupId);
     await materializeMatch(loaded.row.groupId, eventId, gameId, finalized, loaded.state);
   }
-  await saveState(eventId, loaded.state, "completed", origin);
+  const view = await rt.saveState(loaded, "completed", origin);
   if (finalized) broadcast({ type: "leaderboard_updated", eventId }, origin);
-  res.json(await sessionView(eventId));
+  res.json(view);
 });
 
 // ---------- lifetime crew stats ----------
