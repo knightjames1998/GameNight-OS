@@ -11,6 +11,7 @@ import { authRouter, attachUser } from "./auth.js";
 import { groupsRouter, joinRouter } from "./groups.js";
 import { eventsRouter } from "./events.js";
 import { bracketsRouter, tvRouter } from "./brackets.js";
+import { eventTvRouter } from "./tv.js";
 import { beerioRouter } from "./beerio.js";
 import { beerioGnRouter } from "./beerio-gn.js";
 import { quickPlayRouter } from "./quickplay.js";
@@ -62,6 +63,7 @@ app.use("/api/join", joinRouter);
 // tv must mount BEFORE any router on the bare /api path: those routers
 // apply requireAuth at router level, which runs for every /api request
 // entering them and 401s before the request can fall through.
+app.use("/api/tv", eventTvRouter); // public: resolves what an EVENT is playing now
 app.use("/api/tv", tvRouter);
 app.use("/api/tv", smashTvRouter); // public: big-screen read for the Smash pack
 app.use("/api/tv", marioKartTvRouter); // public: big-screen read for Mario Kart

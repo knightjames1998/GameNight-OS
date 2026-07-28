@@ -84,7 +84,8 @@ export default function MarioPartyPage() {
       <div className="mp-wrap">
         <div className="mp-top">
           <BackButton className="mp-textbtn" />
-          <Link to={`/marioparty/tv/${eventId}`} className="mp-textbtn">📺 TV</Link>
+          {/* The NIGHT's TV address, not this pack's (see SmashPage). */}
+          <Link to={`/e/${eventId}/tv`} className="mp-textbtn">📺 TV</Link>
         </div>
         <div>
           <div className="mp-brand">Mario <em>Party</em></div>

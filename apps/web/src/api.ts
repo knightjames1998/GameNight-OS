@@ -74,6 +74,12 @@ export interface EventDetail {
   title: string;
   bracket: { id: string; status: "setup" | "live" | "completed" } | null;
   beerioCode: string | null;
+  /**
+   * The session packs still running on this night (never completed ones), so
+   * every pack tile can show "live now" the way the Beerio and Tournament
+   * tiles always could.
+   */
+  sessions: { pack: string; status: "setup" | "live" }[];
   myRole: "owner" | "admin" | "member";
   createdBy: string;
   groupName: string;
@@ -128,6 +134,24 @@ export interface EventRecap {
   }[];
   players: { userId: string; name: string; games: number; wins: number; avgPlacement: number | null }[];
   mvp: { userId: string; name: string } | null;
+}
+
+// What /e/:id/tv resolves to: the night's one TV address, answering "what is
+// being played right now" so the big screen can follow the night on its own.
+// `now` is null before anyone starts anything, which is not an error — it is
+// the normal state of the evening's first twenty minutes, and it renders the
+// lobby.
+export type EventTvNow =
+  | { kind: "pack"; pack: "smash" | "mariokart" | "marioparty" | "pingpong"; status: "setup" | "live" }
+  | { kind: "bracket"; bracketId: string; status: "setup" | "live" }
+  | { kind: "beerio"; code: string }
+  | null;
+
+export interface EventTv {
+  event: { id: string; title: string; scheduledFor: string | null; groupName: string };
+  now: EventTvNow;
+  /** Populated only when `now` is null; the lobby is the only thing that reads it. */
+  lobby: { yes: string[]; inviteCode: string };
 }
 
 export type BracketSlot =

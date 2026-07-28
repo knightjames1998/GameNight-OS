@@ -61,7 +61,10 @@ export default function GamePicker({ games }: { games: PickerGame[] }) {
                 {g.emoji} {g.name}
               </span>
               <span className="gn-cab__sub">
-                {single.disabled ? single.label : (single.sub ?? g.sub ?? single.label)}
+                {/* The game's own sub wins when it is set, because the only
+                    thing that sets it is "this pack is live right now", which
+                    beats the format blurb. */}
+                {single.disabled ? single.label : (g.sub ?? single.sub ?? single.label)}
               </span>
             </button>
           );

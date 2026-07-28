@@ -19,6 +19,7 @@ import EventPage from "./pages/EventPage";
 // CSS rides along automatically: `import "./smash.css"` inside a lazily
 // loaded SmashPage moves that CSS into the pack's own chunk.
 const RecapPage = lazy(() => import("./pages/RecapPage"));
+const EventTvPage = lazy(() => import("./pages/EventTvPage"));
 const BracketPage = lazy(() => import("./pages/BracketPage"));
 const TvPage = lazy(() => import("./pages/TvPage"));
 const QuickPlayPage = lazy(() => import("./pages/QuickPlayPage"));
@@ -163,6 +164,12 @@ export default function App() {
             />
             <Route path="/e/:id" element={<EventPage me={me} />} />
             <Route path="/e/:id/recap" element={<RecapPage me={me} />} />
+            {/* The night's one TV address: public, read-only, and stable for
+                the whole evening. It resolves what is being played and renders
+                that pack's own TV view in place, so the screen follows the
+                night. The five pack-specific TV routes below stay forever:
+                deep links, bookmarks and any QR already in the wild. */}
+            <Route path="/e/:id/tv" element={<EventTvPage />} />
             <Route path="/b/:id" element={<BracketPage />} />
             <Route path="/tv/:id" element={<TvPage />} />
             <Route path="/beerio" element={<BeerioRoute />} />

@@ -139,7 +139,13 @@ beerioGnRouter.post("/events/:eventId/beerio-session", async (req: AuthedRequest
     res.status(403).json({ error: "Only crew owners and admins can start a game" });
     return;
   }
-  await db.update(events).set({ beerioCode: code }).where(eq(events.id, event.id));
+  // Clearing the completion stamp is what reopens the pack: a new room on an
+  // event whose last tournament finished must count as live again, and the
+  // stamp is the only thing that would say otherwise.
+  await db
+    .update(events)
+    .set({ beerioCode: code, beerioCompletedAt: null })
+    .where(eq(events.id, event.id));
   broadcast({ type: "event_session_changed", eventId: event.id }, req.get("x-gn-client"));
   res.json({ ok: true });
 });
@@ -234,6 +240,15 @@ beerioGnRouter.post("/beerio-complete", requireAuth, async (req: AuthedRequest, 
     clean,
     await membersByName(event.groupId),
   );
+
+  // Beerio's completion marker, the equivalent of the other four packs
+  // reaching status "completed": it is what lets a finished room age out of
+  // the event TV resolver instead of staying "open" forever. A crew starting
+  // a second tournament on the same code needs nothing here — the engine
+  // writes state, beerio_sessions.updatedAt moves past this stamp, and the
+  // resolver counts the room live again on its own.
+  await db.update(events).set({ beerioCompletedAt: new Date() }).where(eq(events.id, eventId));
+  broadcast({ type: "event_session_changed", eventId }, req.get("x-gn-client"));
 
   res.json({ ok: true, recorded, guests });
 });

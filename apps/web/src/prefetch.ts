@@ -59,6 +59,7 @@ export const routes = {
   recap: () => import("./pages/RecapPage"),
   bracket: () => import("./pages/BracketPage"),
   tv: () => import("./pages/TvPage"),
+  eventTv: () => import("./pages/EventTvPage"),
   beerio: () => import("./beerio/BeerioRoute"),
   smash: () => import("./smash/SmashPage"),
   marioKart: () => import("./mariokart/MarioKartPage"),

@@ -15,8 +15,12 @@ type TvView = BracketView & { groupName: string };
 type Side = BracketView["rounds"][number]["side"];
 type FlatMatch = BracketMatchView & { round: string; side: Side; depth: number };
 
-export default function TvPage() {
-  const { id } = useParams();
+// The bracket id comes from /tv/:id, or from a prop when the event TV route
+// (/e/:id/tv) renders this view inside itself because a tournament is what the
+// night is currently playing.
+export default function TvPage({ bracketId }: { bracketId?: string }) {
+  const params = useParams();
+  const id = bracketId ?? params.id;
   const [bracket, setBracket] = useState<TvView | null>(null);
   const [error, setError] = useState<string | null>(null);
 

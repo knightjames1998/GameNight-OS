@@ -289,6 +289,19 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
     broadcast({ type: wsType, eventId }, origin);
   };
 
+  /**
+   * "Something about WHICH game is on changed", as opposed to "the score
+   * changed". Two screens need it and neither was getting it: the event page,
+   * which listens for exactly this type and so never noticed a host starting
+   * Smash (smash_updated fired, and EventPage does not listen for that), and
+   * the event TV route, which has to re-resolve what it is showing when a
+   * session starts or ends. Before this it was broadcast from exactly ONE
+   * place in the server, beerio-gn's room-open route.
+   */
+  const broadcastSessionChanged = (eventId: string, origin?: string) => {
+    broadcast({ type: "event_session_changed", eventId }, origin);
+  };
+
   function viewOf(loaded: Loaded<S> | null): SessionPayload {
     if (!loaded) return { session: null };
     return {
@@ -327,6 +340,12 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
       await db.update(gameSessions).set(set).where(whereSession(loaded.row.eventId));
     }
     broadcastPack(loaded.row.eventId, origin);
+    // Ending the night changes what is live on this event, not just what the
+    // scoreboard says, so the event page and the event TV both need telling.
+    // Only on the transition: a completed session saved again is not news.
+    if (status === "completed" && loaded.row.status !== "completed") {
+      broadcastSessionChanged(loaded.row.eventId, origin);
+    }
     // The caller's row object still carries the pre-write status, and the
     // payload must describe what was just stored, so reflect it back before
     // building the view.
@@ -360,6 +379,7 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
         });
     }
     broadcastPack(eventId, origin);
+    broadcastSessionChanged(eventId, origin);
     return viewOf({ row: { eventId, groupId, status: "live", state: value }, state });
   }
 

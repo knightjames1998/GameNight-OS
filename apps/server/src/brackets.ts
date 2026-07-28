@@ -134,7 +134,13 @@ bracketsRouter.post("/events/:eventId/bracket", async (req: AuthedRequest, res) 
       .returning()
   )[0]!;
 
-  broadcast({ type: "bracket_updated", bracketId: bracket.id }, req.get("x-gn-client"));
+  const origin = req.get("x-gn-client");
+  broadcast({ type: "bracket_updated", bracketId: bracket.id }, origin);
+  // A tournament starting is a change to what this NIGHT is playing, which is
+  // a different topic from the bracket's own scoreboard: bracket_updated is
+  // keyed by bracketId, and the event page and the event TV both watch by
+  // eventId. Without this the TV would never notice the bracket exists.
+  broadcast({ type: "event_session_changed", eventId: event.id }, origin);
   res.json({ id: bracket.id });
 });
 
@@ -185,16 +191,23 @@ bracketsRouter.post("/brackets/:id/matches/:matchId/result", async (req: AuthedR
 
   const results: BracketResults = { ...loaded.results, [matchId]: winner };
   const after = computeBracket(loaded.entrants.length, structure, results);
+  // updatedAt is the event TV's ranking key: it is what lets a bracket being
+  // scored all night beat a session someone started later and abandoned.
   await getDb()
     .update(brackets)
-    .set({ results, status: after.championSeed ? "completed" : "live" })
+    .set({ results, status: after.championSeed ? "completed" : "live", updatedAt: new Date() })
     .where(eq(brackets.id, loaded.id));
 
   if (after.championSeed) {
     await materialize({ ...loaded, results }, structure);
   }
 
-  broadcast({ type: "bracket_updated", bracketId: loaded.id }, req.get("x-gn-client"));
+  const origin = req.get("x-gn-client");
+  broadcast({ type: "bracket_updated", bracketId: loaded.id }, origin);
+  // Every score, not just the one that ends it. A recorded result moves this
+  // bracket to the front of "most recently touched", so the event TV has to
+  // re-resolve or the ranking would only ever be observed by accident.
+  broadcast({ type: "event_session_changed", eventId: loaded.eventId }, origin);
   res.json(await deriveView({ ...loaded, results, status: after.championSeed ? "completed" : "live" }));
 });
 
@@ -229,7 +242,10 @@ bracketsRouter.delete("/brackets/:id/matches/:matchId/result", async (req: Authe
   }
 
   const db2 = getDb();
-  await db2.update(brackets).set({ results, status: "live" }).where(eq(brackets.id, loaded.id));
+  await db2
+    .update(brackets)
+    .set({ results, status: "live", updatedAt: new Date() })
+    .where(eq(brackets.id, loaded.id));
 
   // The bracket is no longer finished, so its recorded results must go.
   const stale = await db2
@@ -241,7 +257,12 @@ bracketsRouter.delete("/brackets/:id/matches/:matchId/result", async (req: Authe
   }
   await db2.delete(matches).where(eq(matches.bracketId, loaded.id));
 
-  broadcast({ type: "bracket_updated", bracketId: loaded.id }, req.get("x-gn-client"));
+  const origin = req.get("x-gn-client");
+  broadcast({ type: "bracket_updated", bracketId: loaded.id }, origin);
+  // An undo can bring a COMPLETED bracket back to life, which the event TV
+  // must notice: the bracket goes from filtered-out to the freshest thing on
+  // the night.
+  broadcast({ type: "event_session_changed", eventId: loaded.eventId }, origin);
   res.json(await deriveView({ ...loaded, results, status: "live" }));
 });
 

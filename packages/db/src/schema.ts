@@ -117,6 +117,16 @@ export const events = pgTable(
     // local tournament (session codes used to live only in localStorage,
     // so every member got a private night).
     beerioCode: text("beerio_code"),
+    // When the Beerio room on this event last finished a tournament. Beerio
+    // is the one pack with no status column of its own (it reports results
+    // fire-and-forget and its state blob is the vendored engine's opaque
+    // shape), so without this a room stayed "open" forever once opened and
+    // could never age out of the event TV resolver the way the other packs
+    // do. Set at completion, cleared when a new room opens on this event.
+    // A crew that runs a SECOND tournament on the same code comes back to
+    // life on its own: the engine writes state, beerio_sessions.updatedAt
+    // moves past this stamp, and the resolver counts it live again.
+    beerioCompletedAt: timestamp("beerio_completed_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("events_group_idx").on(t.groupId)],
@@ -204,6 +214,15 @@ export const brackets = pgTable(
       .notNull()
       .default({}),
     createdAt: timestamp("created_at").notNull().defaultNow(),
+    // Last time a result was recorded or undone. The four session packs have
+    // carried an updatedAt since they were built; brackets had only createdAt,
+    // so the event TV resolver had no way to tell a bracket being scored all
+    // night from one created hours ago and abandoned. Touched on score and on
+    // undo, which are the only writes that change what is on the screen.
+    // Existing rows take the migration timestamp and so all look freshly
+    // touched for one moment; harmless, because completed brackets are
+    // filtered out before ranking and a live one genuinely is current.
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (t) => [index("brackets_group_idx").on(t.groupId)],
 );

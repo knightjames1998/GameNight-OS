@@ -98,7 +98,8 @@ export default function MarioKartPage() {
       <div className="mk-wrap">
         <div className="mk-top">
           <BackButton className="mk-textbtn" />
-          <Link to={`/mariokart/tv/${eventId}`} className="mk-textbtn">📺 TV</Link>
+          {/* The NIGHT's TV address, not this pack's (see SmashPage). */}
+          <Link to={`/e/${eventId}/tv`} className="mk-textbtn">📺 TV</Link>
         </div>
         <div>
           <div className="mk-brand">Mario Kart</div>

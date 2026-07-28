@@ -57,7 +57,8 @@ export default function PingPongPage() {
       <div className="pp-wrap">
         <div className="pp-top">
           <BackButton className="pp-textbtn" />
-          <Link to={`/pingpong/tv/${eventId}`} className="pp-textbtn">📺 TV</Link>
+          {/* The NIGHT's TV address, not this pack's (see SmashPage). */}
+          <Link to={`/e/${eventId}/tv`} className="pp-textbtn">📺 TV</Link>
         </div>
         <div>
           <div className="pp-brand">Ping <em>Pong</em></div>

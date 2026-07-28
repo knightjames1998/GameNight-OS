@@ -110,6 +110,14 @@ export interface BuildPickerOptions {
   destination: (packKey: PackKey, formatKey: string) => () => void;
   /** Overrides the Beerio subline; the event page makes it live-aware. */
   beerioSub?: string;
+  /**
+   * Per-pack tile subline, used by the event page to mark a pack that is
+   * running RIGHT NOW. Only Beerio and Tournament could say "live now" before,
+   * because those were the only two the event payload described, so a night
+   * already playing Mario Kart looked idle. Quick play never sets it: there is
+   * no shared night to be live on.
+   */
+  liveSub?: Partial<Record<PackKey, string>>;
   /** The Tournament pack's formats, always caller-supplied. */
   tournamentFormats: PickerFormat[];
 }
@@ -121,6 +129,7 @@ export function buildPickerGames(opts: BuildPickerOptions): PickerGame[] {
     name: pack.name,
     emoji: pack.emoji,
     cabClass: pack.cabClass,
+    sub: opts.liveSub?.[pack.key],
     formats:
       pack.key === "tournament"
         ? opts.tournamentFormats

@@ -14,8 +14,11 @@ interface TvSession {
   };
 }
 
-export default function MarioPartyTvPage() {
-  const { eventId = "" } = useParams();
+// Route param on /marioparty/tv/:eventId, or a prop when the event TV route
+// renders this view in place. See SmashTvPage for the why.
+export default function MarioPartyTvPage({ eventId: propEventId }: { eventId?: string }) {
+  const params = useParams();
+  const eventId = propEventId ?? params.eventId ?? "";
   const [session, setSession] = useState<TvSession | null>(null);
   const [loaded, setLoaded] = useState(false);
 

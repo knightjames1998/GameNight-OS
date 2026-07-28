@@ -128,12 +128,15 @@ export default function BracketPage() {
         <BackButton />
         <div className="flex items-center justify-between mt-2 gap-2">
           <h1 className="gn-title text-2xl">{bracket.gameName}</h1>
-          <Link to={`/tv/${bracket.id}`} className="gn-btn gn-btn--ghost shrink-0" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }} {...onIntent(routes.tv)}>
+          {/* Points at the NIGHT, not at this bracket: the TV then keeps
+              working when the crew moves on to another pack. /tv/:bracketId
+              still works for anything already bookmarked. */}
+          <Link to={`/e/${bracket.eventId}/tv`} className="gn-btn gn-btn--ghost shrink-0" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }} {...onIntent(routes.eventTv)}>
             📺 TV mode
           </Link>
         </div>
         <p className="gn-hint" style={{ fontSize: "13px" }}>
-          {bracket.entrantCount} players &middot; {isDouble ? "double elimination" : "single elimination"} &middot; open the /tv link on the big screen
+          {bracket.entrantCount} players &middot; {isDouble ? "double elimination" : "single elimination"} &middot; open the TV link on the big screen
         </p>
       </div>
 

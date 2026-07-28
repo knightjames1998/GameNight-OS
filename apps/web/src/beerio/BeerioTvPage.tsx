@@ -23,8 +23,13 @@ const POLL_MS = 3000;
 /** { spectatorId: { name, picks: { "M:<matchId>": "A"|"B", "H:<i>": "<seed>" } } } */
 type PredMap = Record<string, { name?: string; picks?: Record<string, string> }>;
 
-export default function BeerioTvPage() {
-  const { code } = useParams();
+// The room code comes from /beerio/tv/:code, or from a prop when the event TV
+// route renders this board in place because Beerio is what is on. This page is
+// ours, not part of the vendored 1:1 port (BeerioApp.tsx / beerio.ts), so it
+// may take a prop; it reads the same public endpoints either way.
+export default function BeerioTvPage({ code: propCode }: { code?: string }) {
+  const params = useParams();
+  const code = propCode ?? params.code;
   const [state, setState] = useState<SavedState | null>(null);
   const [preds, setPreds] = useState<PredMap>({});
   const [error, setError] = useState<string | null>(null);

@@ -24,8 +24,14 @@ interface TvSession {
   };
 }
 
-export default function SmashTvPage() {
-  const { eventId = "" } = useParams();
+// eventId comes from the route param on /smash/tv/:eventId, or from a prop
+// when the event TV route (/e/:id/tv) renders this view inside itself. Same
+// component either way: the night's one TV address swaps packs in place, and
+// it can only do that by rendering the pack's own view rather than navigating
+// to it (a TV must not accumulate history entries).
+export default function SmashTvPage({ eventId: propEventId }: { eventId?: string }) {
+  const params = useParams();
+  const eventId = propEventId ?? params.eventId ?? "";
   const [session, setSession] = useState<TvSession | null>(null);
   const [loaded, setLoaded] = useState(false);
 

@@ -97,7 +97,12 @@ export default function SmashPage() {
       <div className="sm-wrap">
         <div className="sm-top">
           <BackButton className="sm-textbtn" />
-          <Link to={`/smash/tv/${eventId}`} className="sm-textbtn">📺 TV</Link>
+          {/* The NIGHT's TV address, not this pack's: one url in circulation,
+              and the screen keeps working when the crew switches games. Quick
+              play has an eventId too (it creates a hidden personal crew and a
+              real event), so this is unconditional. /smash/tv/:eventId still
+              works for anything already bookmarked. */}
+          <Link to={`/e/${eventId}/tv`} className="sm-textbtn">📺 TV</Link>
         </div>
         <div>
           <div className="sm-brand">Smash <em>Night</em></div>

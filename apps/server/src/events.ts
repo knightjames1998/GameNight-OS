@@ -6,7 +6,9 @@ import {
   games,
   rsvps,
   eventAttendance,
+  gameSessions,
   memberships,
+  smashSessions,
   users,
   brackets,
   matches,
@@ -210,6 +212,13 @@ eventsRouter.get("/groups/:groupId/events", async (req: AuthedRequest, res) => {
   );
 });
 
+/** game_sessions.pack -> the key the client's game picker uses for that tile. */
+const PICKER_PACK: Record<string, string> = {
+  mario_kart: "mariokart",
+  mario_party: "marioparty",
+  ping_pong: "pingpong",
+};
+
 /**
  * The full event-detail payload the client renders. Shared by the GET and
  * every mutation on this router, so a mutation's response IS the updated
@@ -221,7 +230,16 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
   // are independent of each other and go out together. Run in series this
   // was six sequential Neon round trips on the event page load AND on every
   // RSVP, attendance and date mutation response, which all end here.
-  const [responses, members, bracketRows, myRoleRows, attendanceRows, groupRows] = await Promise.all([
+  const [
+    responses,
+    members,
+    bracketRows,
+    myRoleRows,
+    attendanceRows,
+    groupRows,
+    sharedSessions,
+    smashRows,
+  ] = await Promise.all([
     db
       .select({
         userId: rsvps.userId,
@@ -263,6 +281,21 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
       .from(groups)
       .where(eq(groups.id, found.groupId))
       .limit(1),
+
+    // The four session packs. The payload carried `bracket` and `beerioCode`
+    // and nothing else, so those were the only two tiles in the game picker
+    // that could say "live now" — a night already running Mario Kart looked
+    // idle. Two more parallel reads on a Promise.all already running six.
+    db
+      .select({ pack: gameSessions.pack, status: gameSessions.status })
+      .from(gameSessions)
+      .where(eq(gameSessions.eventId, found.id)),
+
+    db
+      .select({ status: smashSessions.status })
+      .from(smashSessions)
+      .where(eq(smashSessions.eventId, found.id))
+      .limit(1),
   ]);
 
   const answered = new Set(responses.map((r) => r.userId));
@@ -271,9 +304,21 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
   const attendance = attendanceRows[0];
   const group = groupRows[0];
 
+  // Only what is still going: a completed session is history, and the picker
+  // would be lying if it offered to "rejoin" one.
+  const sessions: { pack: string; status: "setup" | "live" }[] = [];
+  for (const s of sharedSessions) {
+    const pack = PICKER_PACK[s.pack];
+    if (pack && s.status !== "completed") sessions.push({ pack, status: s.status });
+  }
+  if (smashRows[0] && smashRows[0].status !== "completed") {
+    sessions.push({ pack: "smash", status: smashRows[0].status });
+  }
+
   return {
     ...found,
     bracket: bracket ?? null,
+    sessions,
     myRole,
     groupName: group?.name ?? "",
     inviteCode: group?.inviteCode ?? "",

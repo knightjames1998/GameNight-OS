@@ -501,3 +501,17 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   border-top:.25vmin dashed rgba(255,207,63,.35);
 }
 .gn-tv-empty{font-family:Fredoka,system-ui,sans-serif;font-weight:700;font-size:2.2vmin;color:var(--gn-dim);opacity:.7}
+/* The event TV lobby: the yes-RSVP list, sized to read from the couch before
+   anything has been started. Wraps rather than scrolls, since nobody is there
+   to scroll it. */
+.gn-tv-names{display:flex;flex-wrap:wrap;gap:1.4vmin}
+.gn-tv-name{
+  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;color:var(--gn-ink);
+  background:var(--gn-surf);border:.3vmin solid var(--gn-line);border-radius:2vmin;padding:1vmin 2.2vmin;
+}
+/* The night's live-now marker on a game-picker tile. */
+.gn-live-tag{
+  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:11px;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--gn-yes-ink);background:var(--gn-yes);
+  border-radius:999px;padding:2px 8px;margin-left:8px;white-space:nowrap;
+}
