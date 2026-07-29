@@ -149,7 +149,16 @@ button.bj-pill { cursor: pointer; }
   --bj-accent: var(--gn-gold);
   --bj-line: #3b2f24;
 
-  min-height: 100dvh; padding: 4vmin;
+  min-height: 100dvh;
+  /* Its own padding, so it must fold the safe-area insets into the calc()
+     itself: a class rule beats the zero-specificity shell inset in
+     index.css, which is deliberate (see the comment there). A TV has no
+     notch, but this screen is reachable on a phone too. */
+  padding:
+    calc(4vmin + env(safe-area-inset-top, 0px))
+    calc(4vmin + env(safe-area-inset-right, 0px))
+    calc(4vmin + env(safe-area-inset-bottom, 0px))
+    calc(4vmin + env(safe-area-inset-left, 0px));
   background:
     radial-gradient(120% 80% at 50% -10%, #52141c 0%, transparent 55%),
     linear-gradient(180deg, #17100e, #090605);

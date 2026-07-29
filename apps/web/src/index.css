@@ -112,9 +112,30 @@
 /* black-translucent status bar + viewport-fit=cover means the app paints
    under the iPhone notch and home indicator. Every root shell insets its
    CONTENT with the device's safe-area values while the shell's own
-   background still bleeds edge to edge. Mode TV classes with their own
-   padding handle this via calc() in their mode css. */
-.gn-app, .gn-tv, .beerio-root, .mk-root, .mp-root, .sm-root, .pp-root{
+   background still bleeds edge to edge (padding is inside the background
+   box, so nothing is clipped). Mode TV classes that set their own padding
+   fold the same env() values into their calc() in the mode's css.
+
+   THIS USED TO BE A HAND-WRITTEN LIST of shell class names, and it failed
+   exactly the way every hand-written list in this repo has: the blackjack
+   pack shipped on 2026-07-29 with .bj-root missing from it, so the whole
+   pack painted under the status bar and its back button sat behind the
+   clock on an installed iOS app. Nothing errored, the page looked fine in
+   a browser and on the TV, and there was no compiler to notice — the same
+   silent-registration shape as the "ping_pong" ledger typo.
+
+   So it is structural now. Every route renders exactly ONE shell element
+   as the child of #root (Routes/Suspense/BrowserRouter emit no DOM), which
+   makes "#root's child" a precise description of "the shell", and a new
+   pack inherits the inset by existing rather than by being remembered.
+
+   :where() drops the #id to ZERO specificity on purpose. Any shell that
+   sets its own padding — the pack TV screens with their calc() insets,
+   .gn-tv's inline padding, beerio's — beats this with a plain class rule
+   and keeps full control, exactly as before. Without :where(), the #root
+   in the selector would outrank all of them and silently replace their
+   padding. */
+:where(#root) > *{
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px);

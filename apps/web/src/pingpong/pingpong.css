@@ -96,7 +96,16 @@
 
 /* ---- TV view ---- */
 .pp-tv {
-  min-height: 100dvh; padding: 4vmin;
+  min-height: 100dvh;
+  /* The one pack TV that never folded the safe-area insets into its own
+     padding, found while fixing the same bug on blackjack (2026-07-29). Its
+     class rule beats the zero-specificity shell inset in index.css, so it
+     has to do it here like mk-tv / sm-tv / mp-tv already did. */
+  padding:
+    calc(4vmin + env(safe-area-inset-top, 0px))
+    calc(4vmin + env(safe-area-inset-right, 0px))
+    calc(4vmin + env(safe-area-inset-bottom, 0px))
+    calc(4vmin + env(safe-area-inset-left, 0px));
   background:
     radial-gradient(120% 80% at 50% -10%, #0f5a3a 0%, transparent 55%),
     linear-gradient(180deg, #0a2a1c, #061912);
