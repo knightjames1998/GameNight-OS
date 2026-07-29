@@ -1,0 +1,34 @@
+/* ============================================================
+   Roulette pack theme: the felt, not the card room. Deep green
+   baize with the wheel's red, and a teal accent so it is never
+   mistaken for Blackjack's gold on a glance across a room —
+   which matters, because the two packs draw the SAME board.
+
+   The structure lives in ../casino/casino.css. This file is the
+   backdrop, the brand glow and the --cg-* tokens, which is all a
+   casino pack's stylesheet should ever be.
+   ============================================================ */
+
+.rl-root,
+.rl-tv {
+  --cg-accent: var(--gn-p2);
+  --cg-accent-ink: var(--gn-p2-ink);
+  --cg-accent-sh: var(--gn-p2-sh);
+  --cg-line: #1d4a3a;
+  --cg-surface: #0d2a20;
+  --cg-raise: #14382b;
+  --cg-card: linear-gradient(180deg, #123527, #0d2a20);
+  --cg-glow: rgba(53, 224, 196, 0.4);
+}
+
+.rl-root {
+  background:
+    radial-gradient(120% 80% at 50% -10%, #7a1620 0%, transparent 52%),
+    linear-gradient(180deg, #0b241b, #061410);
+}
+
+.rl-tv {
+  background:
+    radial-gradient(120% 80% at 50% -10%, #7a1620 0%, transparent 52%),
+    linear-gradient(180deg, #0b241b, #04100c);
+}

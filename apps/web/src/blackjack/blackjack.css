@@ -1,207 +1,36 @@
 /* ============================================================
-   Blackjack pack theme, and the first CASINO GROUP theme.
-   Its own design language (standing rule 3): a late-night card
-   room. Near-black baize with an oxblood table glow and gold
-   trim, deliberately unlike Ping Pong's bright felt-and-orange
-   and Mario Party's purple.
+   Blackjack pack theme: a late-night card room. Near-black baize
+   with an oxblood table glow and gold trim, deliberately unlike
+   Ping Pong's bright felt-and-orange and Mario Party's purple
+   (standing rule 3).
 
-   THE MONEY BOARD IS BUILT TO BE REUSED. Roulette, craps and
-   poker all want the same up/down board with different colours,
-   so every colour the board uses is read from a token declared
-   once, at the top of .bj-root / .bj-tv. A later pack copies the
-   board markup and re-points four variables rather than forking
-   the CSS. It is NOT extracted into a shared component yet, on
-   purpose: that decision belongs to roulette, which will be the
-   first evidence of what actually generalises.
-
-   Money colours come from the shared arcade tokens (--gn-yes,
-   --gn-p1, --gn-gold) rather than new hexes, so a theme switch
-   moves them with everything else.
+   THE STRUCTURE LIVES IN ../casino/casino.css. This file is only
+   the backdrop, the brand glow and the --cg-* token values, which
+   is what a casino pack's stylesheet should be from now on: about
+   twenty lines, not two hundred. Roulette's is the same shape
+   with different numbers.
    ============================================================ */
 
-.bj-root {
-  --bj-up: var(--gn-yes);
-  --bj-up-ink: var(--gn-yes-ink);
-  --bj-down: var(--gn-p1);
-  --bj-down-ink: var(--gn-p1-ink);
-  --bj-accent: var(--gn-gold);
-  --bj-line: #3b2f24;
-  --bj-card: linear-gradient(180deg, #241a16, #1a120f);
+.bj-root,
+.bj-tv {
+  --cg-accent: var(--gn-gold);
+  --cg-accent-ink: #21180a;
+  --cg-accent-sh: #9d7a1c;
+  --cg-line: #3b2f24;
+  --cg-surface: #1a120f;
+  --cg-raise: #2a1f19;
+  --cg-card: linear-gradient(180deg, #241a16, #1a120f);
+  --cg-glow: rgba(232, 194, 90, 0.45);
+}
 
-  min-height: 100dvh;
+.bj-root {
   background:
     radial-gradient(120% 80% at 50% -10%, #52141c 0%, transparent 55%),
     linear-gradient(180deg, #17100e, #0c0806);
-  color: var(--gn-ink);
-  font-family: Nunito, system-ui, sans-serif;
-}
-.bj-wrap { max-width: 30rem; margin: 0 auto; padding: 16px 16px 56px; }
-
-.bj-top { display: flex; justify-content: space-between; align-items: center; }
-
-.bj-brand {
-  font-family: "Luckiest Guy", system-ui, cursive;
-  font-size: 30px; letter-spacing: 1px; line-height: 1; color: #fff;
-  text-transform: uppercase;
-  text-shadow: 0 0 18px rgba(232, 194, 90, 0.45), 2px 3px 0 rgba(0, 0, 0, 0.6);
-}
-.bj-brand em { color: var(--bj-accent); font-style: normal; }
-.bj-sub { color: var(--gn-dim); font-size: 13px; margin-top: 2px; }
-
-.bj-card {
-  background: var(--bj-card);
-  border: 1px solid var(--bj-line);
-  border-radius: 10px;
-  padding: 14px;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.55);
-}
-.bj-card + .bj-card { margin-top: 12px; }
-.bj-h { font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 16px; margin: 0 0 10px; }
-.bj-lab { color: var(--gn-dim); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
-.bj-hint { color: var(--gn-dim); font-size: 13px; }
-.bj-err { color: var(--gn-danger); font-size: 13px; margin-top: 8px; }
-
-/* The balance warning. Loud on purpose: it is the one thing on this screen
-   that means a number is wrong, and it must not read as a hint. */
-.bj-warn {
-  border: 2px solid var(--bj-down);
-  background: rgba(255, 90, 95, 0.12);
-  border-radius: 10px; padding: 11px 13px; margin-top: 12px;
-  color: var(--gn-ink); font-size: 13px; font-weight: 700; line-height: 1.45;
 }
 
-.bj-seg { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-.bj-seg button {
-  border: 1px solid var(--bj-line); background: #1a120f; color: var(--gn-ink);
-  border-radius: 999px; padding: 7px 13px; font-family: inherit; font-weight: 700;
-  font-size: 13px; cursor: pointer;
-}
-.bj-seg button.on { background: var(--bj-accent); color: #21180a; border-color: var(--bj-accent); }
-
-.bj-input, .bj-select {
-  width: 100%; min-height: 40px; border-radius: 8px; background: #1a120f;
-  border: 1px solid var(--bj-line); color: var(--gn-ink); padding: 0 12px;
-  /* 16px min avoids iOS Safari's zoom-on-focus that leaves the app enlarged. */
-  font-size: 16px; font-family: inherit; color-scheme: dark;
-}
-.bj-input--sm { min-height: 36px; padding: 0 10px; }
-
-.bj-btn {
-  width: 100%; min-height: 46px; border-radius: 10px; border: 0;
-  font-weight: 800; font-size: 15px; font-family: inherit; cursor: pointer;
-  background: var(--bj-accent); color: #21180a; box-shadow: 0 3px 0 #9d7a1c;
-}
-.bj-btn:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
-.bj-btn--ghost { background: #2a1f19; color: var(--gn-ink); box-shadow: inset 0 -3px 0 rgba(0,0,0,.45); }
-.bj-btn--go { background: var(--gn-p2); color: var(--gn-p2-ink); box-shadow: 0 3px 0 var(--gn-p2-sh); }
-.bj-btn--sm { min-height: 36px; font-size: 13px; width: auto; padding: 0 14px; }
-
-.bj-textbtn {
-  background: transparent; border: 0; color: var(--gn-dim); font-weight: 700;
-  font-size: 13px; font-family: inherit; cursor: pointer; padding: 6px 4px;
-  text-decoration: none;
-}
-.bj-textbtn:hover { color: var(--gn-ink); }
-
-.bj-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; }
-.bj-row + .bj-row { border-top: 1px solid rgba(59, 47, 36, 0.7); }
-.bj-name { font-weight: 700; }
-/* Used on both a span (a label) and a button (the setup screen's banker
-   picker), so it carries the button reset rather than needing a second class. */
-.bj-pill {
-  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;
-  padding: 3px 8px; border-radius: 999px; background: rgba(232, 194, 90, 0.14); color: var(--bj-accent);
-  flex-shrink: 0; border: 0; font-family: inherit; line-height: 1.5;
-}
-button.bj-pill { cursor: pointer; }
-.bj-pill--guest { background: rgba(195, 182, 214, 0.14); color: var(--gn-dim); }
-
-/* ---- the money tokens: the one visual idea the whole group shares ---- */
-.bj-tok {
-  font-family: Fredoka, system-ui, sans-serif; font-weight: 800; font-size: 14px;
-  padding: 4px 10px; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
-}
-.bj-tok--up { background: var(--bj-up); color: var(--bj-up-ink); }
-.bj-tok--down { background: var(--bj-down); color: var(--bj-down-ink); }
-.bj-tok--even { background: #2a1f19; color: var(--gn-dim); }
-.bj-tok--in { background: transparent; color: var(--gn-dim); border: 1px solid var(--bj-line); }
-
-.bj-money { display: flex; align-items: center; gap: 8px; }
-.bj-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-.bj-sub2 { color: var(--gn-dim); font-size: 12px; }
-
-.bj-totals {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px;
-}
-.bj-total {
-  background: #1a120f; border: 1px solid var(--bj-line); border-radius: 8px;
-  padding: 8px 10px; text-align: center;
-}
-.bj-total__n { font-family: Fredoka, sans-serif; font-weight: 800; font-size: 16px; }
-.bj-total__l { color: var(--gn-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
-
-/* ---- TV: the live money board ---- */
 .bj-tv {
-  --bj-up: var(--gn-yes);
-  --bj-up-ink: var(--gn-yes-ink);
-  --bj-down: var(--gn-p1);
-  --bj-down-ink: var(--gn-p1-ink);
-  --bj-accent: var(--gn-gold);
-  --bj-line: #3b2f24;
-
-  min-height: 100dvh;
-  /* Its own padding, so it must fold the safe-area insets into the calc()
-     itself: a class rule beats the zero-specificity shell inset in
-     index.css, which is deliberate (see the comment there). A TV has no
-     notch, but this screen is reachable on a phone too. */
-  padding:
-    calc(4vmin + env(safe-area-inset-top, 0px))
-    calc(4vmin + env(safe-area-inset-right, 0px))
-    calc(4vmin + env(safe-area-inset-bottom, 0px))
-    calc(4vmin + env(safe-area-inset-left, 0px));
   background:
     radial-gradient(120% 80% at 50% -10%, #52141c 0%, transparent 55%),
     linear-gradient(180deg, #17100e, #090605);
-  color: var(--gn-ink); font-family: Nunito, system-ui, sans-serif;
-}
-.bj-tv__head { display: flex; justify-content: space-between; align-items: baseline; gap: 3vmin; }
-.bj-tv__brand {
-  font-family: "Luckiest Guy", cursive; font-size: 6vmin; color: #fff; text-transform: uppercase;
-  text-shadow: 0 0 3vmin rgba(232, 194, 90, 0.45);
-}
-.bj-tv__brand em { color: var(--bj-accent); font-style: normal; }
-.bj-tv__muted { color: var(--gn-dim); }
-
-/* Big numbers. The board is the feature, so it gets the room. */
-.bj-tv__board { margin-top: 3vmin; display: flex; flex-direction: column; gap: 1.2vmin; }
-.bj-tv__line {
-  display: grid; grid-template-columns: 6vmin 1fr auto; align-items: center; gap: 2vmin;
-  border: 2px solid var(--bj-line); border-radius: 1.6vmin;
-  background: rgba(26, 18, 15, 0.72); padding: 1.6vmin 2.4vmin;
-}
-.bj-tv__line--lead { border-color: var(--bj-accent); background: rgba(232, 194, 90, 0.09); }
-.bj-tv__line--out { opacity: 0.72; }
-.bj-tv__rank { font-family: "Luckiest Guy", cursive; font-size: 3.4vmin; color: var(--gn-dim); }
-.bj-tv__nm { font-family: Fredoka, sans-serif; font-weight: 800; font-size: 4.4vmin; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bj-tv__meta { color: var(--gn-dim); font-size: 2.2vmin; font-weight: 700; margin-top: 0.3vmin; }
-.bj-tv__net {
-  font-family: "Luckiest Guy", cursive; font-size: 5.4vmin; line-height: 1;
-  padding: 1vmin 2.2vmin; border-radius: 1.2vmin; white-space: nowrap;
-}
-.bj-tv__net--up { background: var(--bj-up); color: var(--bj-up-ink); }
-.bj-tv__net--down { background: var(--bj-down); color: var(--bj-down-ink); }
-.bj-tv__net--even { background: #2a1f19; color: var(--gn-dim); }
-.bj-tv__net--in { background: transparent; color: var(--gn-dim); border: 2px solid var(--bj-line); font-size: 3.4vmin; }
-
-.bj-tv__foot { display: flex; flex-wrap: wrap; gap: 2vmin; margin-top: 3vmin; }
-.bj-tv__stat {
-  border: 2px solid var(--bj-line); border-radius: 1.4vmin; padding: 1.4vmin 2.4vmin;
-  background: rgba(26, 18, 15, 0.5); flex: 1 1 22%;
-}
-.bj-tv__stat b { display: block; font-family: Fredoka, sans-serif; font-weight: 800; font-size: 3.6vmin; }
-.bj-tv__stat span { color: var(--gn-dim); font-size: 2vmin; text-transform: uppercase; letter-spacing: 0.3vmin; }
-
-.bj-tv__warn {
-  margin-top: 2.5vmin; border: 3px solid var(--bj-down); background: rgba(255, 90, 95, 0.14);
-  border-radius: 1.6vmin; padding: 2vmin 2.6vmin; font-size: 2.6vmin; font-weight: 800;
 }

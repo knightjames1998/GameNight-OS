@@ -145,3 +145,4 @@ export * from "./pingpong.js";
 // The casino group: one shared engine, one thin module per pack.
 export * from "./cashgame.js";
 export * from "./blackjack.js";
+export * from "./roulette.js";

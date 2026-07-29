@@ -1,0 +1,221 @@
+/* ============================================================
+   The CASINO GROUP's structural stylesheet.
+
+   Blackjack, roulette, craps and poker all draw the same money
+   board, the same table rows and the same setup screen. This
+   file owns the STRUCTURE of all of it; each pack's own css owns
+   only its BACKDROP, its brand lettering, and the token values
+   below. That split is why a new casino pack is a token block
+   and a background rather than 200 lines of copied css.
+
+   Every colour here reads a --cg-* token, and every token has a
+   fallback to a shared --gn-* arcade token, so a pack that sets
+   nothing still renders correctly in the app's own palette and a
+   theme switch moves it with everything else. A pack customises
+   by re-pointing tokens on its root:
+
+     .rl-root { --cg-accent: #35e0c4; --cg-line: #1d4a3f; ... }
+
+   NOT extracted on one example. Blackjack shipped alone on
+   2026-07-29 with all of this inline in blackjack.css, and it
+   stayed that way until roulette was actually being built, which
+   is what "the first real second example" means. Extracting on
+   one case is guessing at what generalises.
+   ============================================================ */
+
+.cg-root {
+  /* Money reads the same in every casino pack, on purpose: green is up and
+     red is down whatever game produced the number. These come from the
+     shared arcade tokens rather than new hexes. */
+  --cg-up: var(--gn-yes);
+  --cg-up-ink: var(--gn-yes-ink);
+  --cg-down: var(--gn-p1);
+  --cg-down-ink: var(--gn-p1-ink);
+  /* The pack's own accent. Gold is the default because it is the group's
+     shared "chips" colour; roulette and poker re-point it. */
+  --cg-accent: var(--gn-gold);
+  --cg-accent-ink: #21180a;
+  --cg-accent-sh: #9d7a1c;
+  --cg-line: var(--gn-line);
+  --cg-surface: var(--gn-surf);
+  --cg-card: var(--gn-surf);
+
+  min-height: 100dvh;
+  color: var(--gn-ink);
+  font-family: Nunito, system-ui, sans-serif;
+}
+.cg-wrap { max-width: 30rem; margin: 0 auto; padding: 16px 16px 56px; }
+.cg-top { display: flex; justify-content: space-between; align-items: center; }
+
+.cg-brand {
+  font-family: "Luckiest Guy", system-ui, cursive;
+  font-size: 30px; letter-spacing: 1px; line-height: 1; color: #fff;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px var(--cg-glow, rgba(255, 207, 63, 0.45)), 2px 3px 0 rgba(0, 0, 0, 0.6);
+}
+.cg-brand em { color: var(--cg-accent); font-style: normal; }
+.cg-sub { color: var(--gn-dim); font-size: 13px; margin-top: 2px; }
+
+.cg-card {
+  background: var(--cg-card);
+  border: 1px solid var(--cg-line);
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.55);
+}
+.cg-card + .cg-card { margin-top: 12px; }
+.cg-h { font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 16px; margin: 0 0 10px; }
+.cg-lab { color: var(--gn-dim); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+.cg-hint { color: var(--gn-dim); font-size: 13px; }
+.cg-sub2 { color: var(--gn-dim); font-size: 12px; }
+.cg-err { color: var(--gn-danger); font-size: 13px; margin-top: 8px; }
+
+/* The balance warning. Loud on purpose: it is the one thing on these screens
+   that means a number is WRONG, and it must never read as a hint. */
+.cg-warn {
+  border: 2px solid var(--cg-down);
+  background: rgba(255, 90, 95, 0.12);
+  border-radius: 10px; padding: 11px 13px; margin-top: 12px;
+  color: var(--gn-ink); font-size: 13px; font-weight: 700; line-height: 1.45;
+}
+
+.cg-seg { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.cg-seg button {
+  border: 1px solid var(--cg-line); background: var(--cg-surface); color: var(--gn-ink);
+  border-radius: 999px; padding: 7px 13px; font-family: inherit; font-weight: 700;
+  font-size: 13px; cursor: pointer;
+}
+.cg-seg button.on { background: var(--cg-accent); color: var(--cg-accent-ink); border-color: var(--cg-accent); }
+.cg-seg button:disabled { opacity: 0.45; cursor: default; }
+
+.cg-input {
+  width: 100%; min-height: 40px; border-radius: 8px; background: var(--cg-surface);
+  border: 1px solid var(--cg-line); color: var(--gn-ink); padding: 0 12px;
+  /* 16px min avoids iOS Safari's zoom-on-focus that leaves the app enlarged. */
+  font-size: 16px; font-family: inherit; color-scheme: dark;
+}
+.cg-input--sm { min-height: 36px; padding: 0 10px; }
+
+.cg-btn {
+  width: 100%; min-height: 46px; border-radius: 10px; border: 0;
+  font-weight: 800; font-size: 15px; font-family: inherit; cursor: pointer;
+  background: var(--cg-accent); color: var(--cg-accent-ink);
+  box-shadow: 0 3px 0 var(--cg-accent-sh);
+}
+.cg-btn:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
+.cg-btn--ghost { background: var(--cg-raise, #2a1f19); color: var(--gn-ink); box-shadow: inset 0 -3px 0 rgba(0,0,0,.45); }
+.cg-btn--go { background: var(--gn-p2); color: var(--gn-p2-ink); box-shadow: 0 3px 0 var(--gn-p2-sh); }
+.cg-btn--sm { min-height: 36px; font-size: 13px; width: auto; padding: 0 14px; }
+
+.cg-textbtn {
+  background: transparent; border: 0; color: var(--gn-dim); font-weight: 700;
+  font-size: 13px; font-family: inherit; cursor: pointer; padding: 6px 4px;
+  text-decoration: none;
+}
+.cg-textbtn:hover { color: var(--gn-ink); }
+
+.cg-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; }
+.cg-row + .cg-row { border-top: 1px solid var(--cg-line); }
+.cg-name { font-weight: 700; }
+
+/* Used on both a span (a label) and a button (the banker picker), so it
+   carries the button reset rather than needing a second class. */
+.cg-pill {
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;
+  padding: 3px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--cg-accent) 16%, transparent); color: var(--cg-accent);
+  flex-shrink: 0; border: 0; font-family: inherit; line-height: 1.5;
+}
+button.cg-pill { cursor: pointer; }
+.cg-pill--muted { background: rgba(195, 182, 214, 0.14); color: var(--gn-dim); }
+
+/* ---- the money tokens: the one visual idea the whole group shares ---- */
+.cg-tok {
+  font-family: Fredoka, system-ui, sans-serif; font-weight: 800; font-size: 14px;
+  padding: 4px 10px; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
+}
+.cg-tok--up { background: var(--cg-up); color: var(--cg-up-ink); }
+.cg-tok--down { background: var(--cg-down); color: var(--cg-down-ink); }
+.cg-tok--even { background: var(--cg-raise, #2a1f19); color: var(--gn-dim); }
+.cg-tok--in { background: transparent; color: var(--gn-dim); border: 1px solid var(--cg-line); }
+
+.cg-totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.cg-total {
+  background: var(--cg-surface); border: 1px solid var(--cg-line); border-radius: 8px;
+  padding: 8px 10px; text-align: center;
+}
+.cg-total__n { font-family: Fredoka, sans-serif; font-weight: 800; font-size: 16px; }
+.cg-total__l { color: var(--gn-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+
+/* Per-player buy-in row on the setup screen: name on the left, the amount
+   this person is sitting down with on the right. */
+.cg-seat { display: flex; align-items: center; gap: 8px; padding: 8px 0; }
+.cg-seat + .cg-seat { border-top: 1px solid var(--cg-line); }
+.cg-seat__who { flex: 1; min-width: 0; }
+.cg-seat__amt { width: 6.5rem; flex-shrink: 0; }
+.cg-seat__own { color: var(--cg-accent); font-weight: 800; }
+
+/* ---- TV: the live money board ---- */
+.cg-tv {
+  min-height: 100dvh;
+  /* Its own padding, so it must fold the safe-area insets into the calc()
+     itself: a class rule beats the zero-specificity shell inset in
+     index.css, which is deliberate (see the comment there). A TV has no
+     notch, but these screens are reachable on a phone too. */
+  padding:
+    calc(4vmin + env(safe-area-inset-top, 0px))
+    calc(4vmin + env(safe-area-inset-right, 0px))
+    calc(4vmin + env(safe-area-inset-bottom, 0px))
+    calc(4vmin + env(safe-area-inset-left, 0px));
+  color: var(--gn-ink); font-family: Nunito, system-ui, sans-serif;
+
+  --cg-up: var(--gn-yes);
+  --cg-up-ink: var(--gn-yes-ink);
+  --cg-down: var(--gn-p1);
+  --cg-down-ink: var(--gn-p1-ink);
+  --cg-accent: var(--gn-gold);
+  --cg-line: var(--gn-line);
+  --cg-surface: var(--gn-surf);
+}
+.cg-tv__head { display: flex; justify-content: space-between; align-items: baseline; gap: 3vmin; }
+.cg-tv__brand {
+  font-family: "Luckiest Guy", cursive; font-size: 6vmin; color: #fff; text-transform: uppercase;
+  text-shadow: 0 0 3vmin var(--cg-glow, rgba(255, 207, 63, 0.45));
+}
+.cg-tv__brand em { color: var(--cg-accent); font-style: normal; }
+.cg-tv__muted { color: var(--gn-dim); }
+
+/* Big numbers. The board is the feature, so it gets the room. */
+.cg-tv__board { margin-top: 3vmin; display: flex; flex-direction: column; gap: 1.2vmin; }
+.cg-tv__line {
+  display: grid; grid-template-columns: 6vmin 1fr auto; align-items: center; gap: 2vmin;
+  border: 2px solid var(--cg-line); border-radius: 1.6vmin;
+  background: color-mix(in srgb, var(--cg-surface) 72%, transparent);
+  padding: 1.6vmin 2.4vmin;
+}
+.cg-tv__line--lead { border-color: var(--cg-accent); background: color-mix(in srgb, var(--cg-accent) 9%, transparent); }
+.cg-tv__line--out { opacity: 0.72; }
+.cg-tv__rank { font-family: "Luckiest Guy", cursive; font-size: 3.4vmin; color: var(--gn-dim); }
+.cg-tv__nm { font-family: Fredoka, sans-serif; font-weight: 800; font-size: 4.4vmin; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cg-tv__meta { color: var(--gn-dim); font-size: 2.2vmin; font-weight: 700; margin-top: 0.3vmin; }
+.cg-tv__net {
+  font-family: "Luckiest Guy", cursive; font-size: 5.4vmin; line-height: 1;
+  padding: 1vmin 2.2vmin; border-radius: 1.2vmin; white-space: nowrap;
+}
+.cg-tv__net--up { background: var(--cg-up); color: var(--cg-up-ink); }
+.cg-tv__net--down { background: var(--cg-down); color: var(--cg-down-ink); }
+.cg-tv__net--even { background: var(--cg-raise, #2a1f19); color: var(--gn-dim); }
+.cg-tv__net--in { background: transparent; color: var(--gn-dim); border: 2px solid var(--cg-line); font-size: 3.4vmin; }
+
+.cg-tv__foot { display: flex; flex-wrap: wrap; gap: 2vmin; margin-top: 3vmin; }
+.cg-tv__stat {
+  border: 2px solid var(--cg-line); border-radius: 1.4vmin; padding: 1.4vmin 2.4vmin;
+  background: color-mix(in srgb, var(--cg-surface) 50%, transparent); flex: 1 1 22%;
+}
+.cg-tv__stat b { display: block; font-family: Fredoka, sans-serif; font-weight: 800; font-size: 3.6vmin; }
+.cg-tv__stat span { color: var(--gn-dim); font-size: 2vmin; text-transform: uppercase; letter-spacing: 0.3vmin; }
+
+.cg-tv__warn {
+  margin-top: 2.5vmin; border: 3px solid var(--cg-down); background: rgba(255, 90, 95, 0.14);
+  border-radius: 1.6vmin; padding: 2vmin 2.6vmin; font-size: 2.6vmin; font-weight: 800;
+}

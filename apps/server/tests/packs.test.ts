@@ -50,6 +50,7 @@ const SHIPPED = {
   // above: from here on, changing any of these without changing production
   // orphans blackjack's history silently.
   blackjack: { ledger: "blackjack", gameName: "Blackjack", keyPrefix: "blackjack", wsType: "blackjack_updated", table: "game_sessions", route: "blackjack" },
+  roulette: { ledger: "roulette", gameName: "Roulette", keyPrefix: "roulette", wsType: "roulette_updated", table: "game_sessions", route: "roulette" },
 } as const;
 
 test("every pack's shipped identifiers are unchanged", () => {
@@ -73,7 +74,10 @@ test("every pack's shipped identifiers are unchanged", () => {
 });
 
 test("the registry holds exactly the session packs, in order", () => {
-  assert.deepEqual(SESSION_PACK_KEYS, ["smash", "mariokart", "marioparty", "pingpong", "blackjack"]);
+  // ORDER IS SHIP ORDER, and it is asserted rather than incidental: this list
+  // feeds the event TV's tiebreak, so a new pack inserted ABOVE a live one
+  // would silently re-rank the live one. Append; never insert.
+  assert.deepEqual(SESSION_PACK_KEYS, ["smash", "mariokart", "marioparty", "pingpong", "blackjack", "roulette"]);
 });
 
 test("Ping Pong's ledger key is pingpong, not ping_pong", () => {
@@ -135,6 +139,7 @@ test("packEmoji resolves every value games.pack can hold", () => {
   assert.equal(packEmoji("mario_party"), "\u{1F3B2}"); // 🎲
   assert.equal(packEmoji("pingpong"), "\u{1F3D3}"); // 🏓
   assert.equal(packEmoji("blackjack"), "\u{1F0CF}"); // 🃏
+  assert.equal(packEmoji("roulette"), "\u{1F3A1}"); // 🎡
   assert.equal(packEmoji(BEERIO_LEDGER), "\u{1F37A}"); // 🍺
   assert.equal(packEmoji(GENERIC_LEDGER), "\u{1F3C6}"); // 🏆
 });

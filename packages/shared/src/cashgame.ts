@@ -427,3 +427,180 @@ export function balanceWarning(balance: CashBalance): string | null {
       : "Less was cashed out than was bought in, so a cash-out is too low or one is missing."
   }`;
 }
+
+// ---------- the night, as every casino screen reads it ----------
+//
+// Every pack in the group renders the same money board — on a phone and on a
+// TV — and every one needs the same object to do it. The ONLY thing that
+// differs is the pack's own per-player detail, so that is the generic:
+// blackjack's D is { biggestBet, biggestWin, blackjacks }, roulette's is
+// { favouriteBet, bestStreak }. Everything else is shared, which is what stops
+// two packs quoting different numbers for the same shape of table.
+
+export interface CashPlayerRow<D> {
+  playerId: string;
+  name: string;
+  kind: "member" | "guest";
+  isBanker: boolean;
+  /** cents */
+  buyIn: number;
+  rebuys: number;
+  /** cents */
+  rebuyTotal: number;
+  /** cents */
+  totalIn: number;
+  /** cents; null while still at the table */
+  cashOut: number | null;
+  cashedOut: boolean;
+  /** cents; null while still at the table (the banker's is always known) */
+  net: number | null;
+  /** True when this net was derived from the rest of the table. */
+  derived: boolean;
+  placement: number | null;
+  /**
+   * How many tracked EVENTS this player has: blackjack hands, roulette spins,
+   * craps rolls. Zero when the tracker was never on. Named generically because
+   * the number always means "how much the tracker saw" and only the noun is
+   * per-pack, which is the pack's own UI copy rather than a data difference.
+   */
+  events: number;
+  detail: D;
+}
+
+export interface CashSummary<D> {
+  bank: CashBank;
+  bankerId: string | null;
+  /** Sorted: up first, down last, still-at-the-table after both. */
+  players: CashPlayerRow<D>[];
+  /** cents */
+  totalIn: number;
+  /** cents */
+  totalOut: number;
+  /** cents still in play */
+  onTable: number;
+  stillIn: number;
+  cashedOut: number;
+  /** Tracked events across the whole table. */
+  events: number;
+  balance: CashBalance;
+  /** Null unless the table is player-banked AND does not balance. */
+  warning: string | null;
+}
+
+/**
+ * The whole night in one object, for the pack page, the TV board and the
+ * session payload.
+ *
+ * DERIVED ON EVERY READ rather than maintained, for the same reason
+ * Smashdown's burn board is: a maintained running total and an undone rebuy
+ * drift apart silently, and money that drifts is the worst kind of wrong.
+ */
+export function summarizeCash<D>(
+  core: CashSessionCore,
+  detail: {
+    /** The pack's per-player detail, typed-beats-derived already applied. */
+    of: (playerId: string) => D;
+    /** How many tracked events this player has. */
+    events: (playerId: string) => number;
+    /** Tracked events across the whole table. */
+    total: number;
+  },
+): CashSummary<D> {
+  const settlement = settleCash(core);
+  const slotOf = new Map(core.roster.map((p) => [p.id, p]));
+  const bankerId = core.bank === "player" ? core.bankerId : null;
+
+  const players: CashPlayerRow<D>[] = settlement.lines.map((l) => {
+    const slot = slotOf.get(l.playerId);
+    return {
+      playerId: l.playerId,
+      name: slot?.name ?? "",
+      kind: slot?.kind ?? "guest",
+      isBanker: bankerId === l.playerId,
+      buyIn: l.buyIn,
+      rebuys: l.rebuys,
+      rebuyTotal: l.rebuyTotal,
+      totalIn: l.totalIn,
+      cashOut: l.cashOut,
+      cashedOut: l.cashedOut,
+      net: l.net,
+      derived: l.derived,
+      placement: l.placement,
+      events: detail.events(l.playerId),
+      detail: detail.of(l.playerId),
+    };
+  });
+
+  return {
+    bank: core.bank,
+    bankerId,
+    players,
+    totalIn: settlement.totalIn,
+    totalOut: settlement.totalOut,
+    onTable: settlement.onTable,
+    stillIn: settlement.stillIn,
+    cashedOut: players.length - settlement.stillIn,
+    events: detail.total,
+    balance: settlement.balance,
+    // Null until the banker has counted their own rack, which is the moment
+    // there is anything to disagree with. See settleCash's balance rules.
+    warning: balanceWarning(settlement.balance),
+  };
+}
+
+/**
+ * The shape every casino pack's session state has. Each pack extends it with
+ * its own tracker log and detail map; everything here is what the shared
+ * setup screen, the shared table and the shared money board read.
+ */
+export interface CashPackState extends CashSessionCore {
+  /** Unique per session start; namespaces the ledger key. */
+  sessionKey: string;
+  /** ISO. Start of play, so net-per-hour is derivable at completion. */
+  startedAt: string;
+  /** cents. Prefilled on the buy-in and rebuy controls; not a rule. */
+  defaultBuyIn: number;
+  /** The live tracker. OFF by default; the host may flip it mid-session. */
+  tracker: boolean;
+  /** Standing rule 1: only owners/admins record unless the host opens it. */
+  openScoring: boolean;
+}
+
+/**
+ * Everything a casino pack needs to open a table, shared because the answer
+ * is the same for all four. `buyIns` is what makes PER-PLAYER amounts work:
+ * the banker's float is nearly always different from everyone else's, and a
+ * table where one person sits down with $100 and another with $20 is the
+ * normal case rather than an edge one.
+ */
+export function newCashState(opts: {
+  bank: CashBank;
+  bankerId: string | null;
+  roster: CashPlayer[];
+  defaultBuyIn: number;
+  /** playerId -> that player's own opening buy-in, in cents. */
+  buyIns?: Record<string, number>;
+  tracker?: boolean;
+}): CashPackState {
+  const buy = Math.max(0, Math.trunc(opts.defaultBuyIn));
+  return {
+    sessionKey: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+    bank: opts.bank,
+    // A host who picks a banker, changes their mind and goes casino-banked
+    // must not leave a derived line behind, so this is cleared rather than
+    // remembered.
+    bankerId: opts.bank === "player" ? opts.bankerId : null,
+    startedAt: new Date().toISOString(),
+    defaultBuyIn: buy,
+    tracker: opts.tracker ?? false,
+    openScoring: false,
+    roster: opts.roster,
+    entries: opts.roster.map((p) => ({
+      playerId: p.id,
+      buyIn: Math.max(0, Math.trunc(opts.buyIns?.[p.id] ?? buy)),
+      rebuys: [],
+      cashOut: null,
+      at: null,
+    })),
+  };
+}

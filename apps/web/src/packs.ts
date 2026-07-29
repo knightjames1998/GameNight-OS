@@ -121,6 +121,13 @@ export const PACKS: PackSpec[] = [
     formats: [{ key: "cash", label: "🃏 Cash game", sub: "buy-ins, rebuys, cash-outs" }],
   },
   {
+    key: "roulette",
+    name: S.roulette.name,
+    emoji: S.roulette.emoji,
+    cabClass: "gn-cab--rl",
+    formats: [{ key: "cash", label: "🎡 Cash game", sub: "buy-ins, rebuys, cash-outs" }],
+  },
+  {
     key: "tournament",
     name: "Tournament",
     emoji: "🏆",

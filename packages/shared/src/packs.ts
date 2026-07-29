@@ -112,11 +112,16 @@ export const SESSION_PACKS = {
     emoji: "\u{1F3D3}", // 🏓
     quickTitle: "Ping Pong",
   },
-  // The first of the CASINO GROUP (blackjack, roulette, craps, poker). Four
-  // separate packs on purpose, each with its own ledger key, because a
-  // blackjack net and a poker net are different skills and belong on
-  // different leaderboard tabs. They share one engine
-  // (packages/shared/src/cashgame.ts), so each pack file stays thin.
+  // The CASINO GROUP (blackjack, roulette, craps, poker). Four separate packs
+  // on purpose, each with its own ledger key, because a blackjack net and a
+  // poker net are different skills and belong on different leaderboard tabs.
+  // They share one engine (packages/shared/src/cashgame.ts), so each pack file
+  // stays thin.
+  //
+  // ORDER IS SHIP ORDER, and it is not decorative: SESSION_PACK_KEYS feeds the
+  // event TV's TIEBREAK, so inserting a new pack ABOVE one that is already
+  // live would silently re-rank the live one on an exact-millisecond tie.
+  // Append; never insert.
   blackjack: {
     ledger: "blackjack",
     gameName: "Blackjack",
@@ -127,6 +132,20 @@ export const SESSION_PACKS = {
     name: "Blackjack",
     emoji: "\u{1F0CF}", // 🃏
     quickTitle: "Blackjack night",
+  },
+  roulette: {
+    ledger: "roulette",
+    gameName: "Roulette",
+    keyPrefix: "roulette",
+    route: "roulette",
+    wsType: "roulette_updated",
+    table: "game_sessions",
+    name: "Roulette",
+    // There is no roulette-wheel emoji. 🎲 is Mario Party's and 🎰 is a slot
+    // machine, which is a different game; a ferris wheel at least reads as a
+    // wheel, which is what the pack is about.
+    emoji: "\u{1F3A1}", // 🎡
+    quickTitle: "Roulette night",
   },
 } as const satisfies Record<string, SessionPackDef>;
 

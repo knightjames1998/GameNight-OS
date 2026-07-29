@@ -68,6 +68,7 @@ export const routes = {
   marioParty: () => import("./marioparty/MarioPartyPage"),
   pingPong: () => import("./pingpong/PingPongPage"),
   blackjack: () => import("./blackjack/BlackjackPage"),
+  roulette: () => import("./roulette/RoulettePage"),
   quickPlay: () => import("./pages/QuickPlayPage"),
 } as const;
 
@@ -90,5 +91,6 @@ export const packRoute: Record<PackKey | "beerio", Importer> = {
   marioparty: routes.marioParty,
   pingpong: routes.pingPong,
   blackjack: routes.blackjack,
+  roulette: routes.roulette,
   tournament: routes.bracket,
 };

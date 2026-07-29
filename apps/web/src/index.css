@@ -262,9 +262,12 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-cab--mp .gn-cab__name{color:#ffd24a}
 .gn-cab--pp{border-color:#1f6b46;background:linear-gradient(180deg,#0f3826,#241a30)}
 .gn-cab--pp .gn-cab__name{color:#ff9a4d}
-/* Casino group: oxblood card room, gold name. Roulette/craps/poker share it. */
+/* Casino group: each pack keeps its own accent so two money boards are never
+   mistaken for each other across a room. Craps and poker join this block. */
 .gn-cab--bj{border-color:#5c2b22;background:linear-gradient(180deg,#2a1613,#241a30)}
 .gn-cab--bj .gn-cab__name{color:var(--gn-gold)}
+.gn-cab--rl{border-color:#1d4a3a;background:linear-gradient(180deg,#0e2c21,#241a30)}
+.gn-cab--rl .gn-cab__name{color:var(--gn-p2)}
 
 /* Shared on/off pill toggle (the "let members record results" control in
    every pack). The label is the current state; green = on, red = off. */

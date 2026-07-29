@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { useCachedApi } from "../cache";
 import { StatsSkeleton } from "../Skeleton";
-import { formatCents, formatCentsSigned } from "@gamenight/shared";
+import { betLabel, formatCents, formatCentsSigned } from "@gamenight/shared";
 import { formatLabel, formatUnit } from "../formats";
 import BackButton from "../BackButton";
 import { type CharacterStats } from "../CharacterStats";
@@ -461,20 +461,29 @@ function PingPongPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
 }
 
 const BLACKJACK_GAME_NAME = "Blackjack";
+const ROULETTE_GAME_NAME = "Roulette";
 
 /**
- * The blackjack lifetime panel: MONEY, which no other pack has.
+ * The casino group's lifetime panel: MONEY, which no other pack has.
  *
- * Every number below falls out of the buy-in and the cash-out alone, which is
- * the whole design promise of the casino group — a night played the
- * minimal-input way (one buy-in, one cash-out) produces all of it. The three
- * blackjack details are the only extras, and each is absent rather than zero
- * when nobody answered.
+ * ONE panel for all four packs, because every figure below falls out of the
+ * BUY-IN AND THE CASH-OUT ALONE — the design promise of the whole group. A
+ * night played the minimal-input way produces all of it, so there is nothing
+ * per-pack to compute. Each pack's own detail stats are the only extras and
+ * arrive through `extras`, read from the raw meta bags the endpoint returns.
  *
  * Amounts arrive as integer CENTS and are formatted here, at the edge. See
  * packages/shared/src/cashgame.ts for why that matters.
  */
-interface BjStats {
+interface CashMetaBag {
+  biggestBet?: number | null;
+  biggestWin?: number | null;
+  blackjacks?: number | null;
+  favouriteBet?: string | null;
+  bestStreak?: number | null;
+}
+
+interface CashStats {
   sessions: number;
   byPlayer: {
     userId: string;
@@ -496,41 +505,50 @@ interface BjStats {
     minutes: number;
     netPerHour: number | null;
     banked: number;
-    biggestBet: number | null;
-    biggestWin: number | null;
-    blackjacks: number;
+    metas: CashMetaBag[];
   }[];
 }
 
-function BlackjackPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
-  const { data, error } = useCachedApi<BjStats>(
-    `group:${groupId}:blackjack`,
-    `/api/groups/${groupId}/blackjack-stats`,
+type CashRow = CashStats["byPlayer"][number];
+
+function CasinoPanel({
+  groupId,
+  rows,
+  open,
+  setOpen,
+  pack,
+  empty,
+  extras,
+}: PackPanelProps & {
+  /** The pack's route segment: keys the cache and the endpoint. */
+  pack: string;
+  empty: string;
+  /** The pack's own detail line, from the raw meta bags. Empty to omit it. */
+  extras: (p: CashRow) => string;
+}) {
+  const { data, error } = useCachedApi<CashStats>(
+    `group:${groupId}:${pack}`,
+    `/api/groups/${groupId}/${pack}-stats`,
   );
 
   if (!data && error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
   if (!data) return <StatsSkeleton />;
-  if (data.sessions === 0) {
-    return <p className="gn-hint">No blackjack recorded yet. Run a table and the money shows up here.</p>;
-  }
+  if (data.sessions === 0) return <p className="gn-hint">{empty}</p>;
 
   // The shared row's "wins" are nights finished up, because placement comes
   // from the net rank. The money is the pack-specific part and rides the
   // subline, the same way Mario Party's stars and Ping Pong's game wins do.
-  const extras = new Map(
+  const money = [...data.byPlayer].sort((a, b) => b.net - a.net);
+  const tone = (n: number) => (n > 0 ? "var(--gn-yes)" : n < 0 ? "var(--gn-p1)" : undefined);
+  const playerExtras = new Map(
     data.byPlayer.map((p) => [
       p.userId,
       <>
         {" "}&middot;{" "}
-        <span style={{ color: p.net > 0 ? "var(--gn-yes)" : p.net < 0 ? "var(--gn-p1)" : undefined, fontWeight: 700 }}>
-          {formatCentsSigned(p.net)}
-        </span>{" "}
-        lifetime
+        <span style={{ color: tone(p.net), fontWeight: 700 }}>{formatCentsSigned(p.net)}</span> lifetime
       </>,
     ]),
   );
-
-  const money = [...data.byPlayer].sort((a, b) => b.net - a.net);
 
   return (
     <div className="space-y-3">
@@ -538,47 +556,108 @@ function BlackjackPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
         Wins are nights that finished UP: placement comes from the net, so first place is whoever
         won the most money. Every figure below comes from buy-ins and cash-outs alone.
       </p>
-      <PlayerRows rows={rows} open={open} setOpen={setOpen} extras={extras} />
+      <PlayerRows rows={rows} open={open} setOpen={setOpen} extras={playerExtras} />
 
       <section className="space-y-2">
         <h2 className="gn-h2">The money</h2>
-        {money.map((p) => (
-          <div key={p.userId} className="gn-card" style={{ padding: "12px 16px" }}>
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="font-bold truncate">{p.name}</span>
-              <span
-                className="font-bold shrink-0"
-                style={{ color: p.net > 0 ? "var(--gn-yes)" : p.net < 0 ? "var(--gn-p1)" : "var(--gn-dim)" }}
-              >
-                {formatCentsSigned(p.net)}
-              </span>
-            </div>
-            <p className="gn-hint" style={{ fontSize: "12px", marginTop: 4 }}>
-              {p.sessions} night{p.sessions === 1 ? "" : "s"} &middot; up {p.upNights} (
-              {Math.round(p.winRate * 100)}%) &middot; avg {formatCentsSigned(p.avgNet)} &middot; avg buy-in{" "}
-              {formatCents(p.avgBuyIn)}
-              {p.roi != null && ` · ROI ${(p.roi * 100).toFixed(0)}%`}
-              {p.netPerHour != null && ` · ${formatCentsSigned(p.netPerHour)}/hr`}
-            </p>
-            <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
-              {p.best != null && `best night ${formatCentsSigned(p.best)}`}
-              {p.worst != null && ` · worst ${formatCentsSigned(p.worst)}`}
-              {p.rebuys > 0 && ` · ${p.rebuys} rebuy${p.rebuys === 1 ? "" : "s"} (${Math.round(p.rebuyRate * 100)}% of nights)`}
-              {p.streak >= 2 && ` · 🔥${p.streak} up in a row`}
-              {p.bestStreak >= 2 && ` · best run ${p.bestStreak}`}
-              {p.banked > 0 && ` · banked ${p.banked}`}
-            </p>
-            {(p.biggestBet != null || p.biggestWin != null || p.blackjacks > 0) && (
-              <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
-                {p.biggestBet != null && `biggest bet ${formatCents(p.biggestBet)}`}
-                {p.biggestWin != null && `${p.biggestBet != null ? " · " : ""}biggest win ${formatCents(p.biggestWin)}`}
-                {p.blackjacks > 0 && ` · ${p.blackjacks} blackjack${p.blackjacks === 1 ? "" : "s"}`}
+        {money.map((p) => {
+          const detail = extras(p);
+          return (
+            <div key={p.userId} className="gn-card" style={{ padding: "12px 16px" }}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-bold truncate">{p.name}</span>
+                <span className="font-bold shrink-0" style={{ color: tone(p.net) ?? "var(--gn-dim)" }}>
+                  {formatCentsSigned(p.net)}
+                </span>
+              </div>
+              <p className="gn-hint" style={{ fontSize: "12px", marginTop: 4 }}>
+                {p.sessions} night{p.sessions === 1 ? "" : "s"} &middot; up {p.upNights} (
+                {Math.round(p.winRate * 100)}%) &middot; avg {formatCentsSigned(p.avgNet)} &middot; avg buy-in{" "}
+                {formatCents(p.avgBuyIn)}
+                {p.roi != null && ` · ROI ${(p.roi * 100).toFixed(0)}%`}
+                {p.netPerHour != null && ` · ${formatCentsSigned(p.netPerHour)}/hr`}
               </p>
-            )}
-          </div>
-        ))}
+              <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
+                {p.best != null && `best night ${formatCentsSigned(p.best)}`}
+                {p.worst != null && ` · worst ${formatCentsSigned(p.worst)}`}
+                {p.rebuys > 0 && ` · ${p.rebuys} rebuy${p.rebuys === 1 ? "" : "s"} (${Math.round(p.rebuyRate * 100)}% of nights)`}
+                {p.streak >= 2 && ` · 🔥${p.streak} up in a row`}
+                {p.bestStreak >= 2 && ` · best run ${p.bestStreak}`}
+                {p.banked > 0 && ` · banked ${p.banked}`}
+              </p>
+              {detail && (
+                <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>{detail}</p>
+              )}
+            </div>
+          );
+        })}
       </section>
     </div>
+  );
+}
+
+/** Biggest across every night, ignoring the nights nobody answered for. */
+const maxMeta = (p: CashRow, k: keyof CashMetaBag): number | null => {
+  let best: number | null = null;
+  for (const m of p.metas) {
+    const v = m[k];
+    if (typeof v === "number" && (best === null || v > best)) best = v;
+  }
+  return best;
+};
+const sumMeta = (p: CashRow, k: keyof CashMetaBag): number => {
+  let n = 0;
+  for (const m of p.metas) {
+    const v = m[k];
+    if (typeof v === "number") n += v;
+  }
+  return n;
+};
+
+function BlackjackPanel(props: PackPanelProps) {
+  return (
+    <CasinoPanel
+      {...props}
+      pack="blackjack"
+      empty="No blackjack recorded yet. Run a table and the money shows up here."
+      extras={(p) => {
+        const bet = maxMeta(p, "biggestBet");
+        const win = maxMeta(p, "biggestWin");
+        const bj = sumMeta(p, "blackjacks");
+        const bits: string[] = [];
+        if (bet != null) bits.push(`biggest bet ${formatCents(bet)}`);
+        if (win != null) bits.push(`biggest win ${formatCents(win)}`);
+        if (bj > 0) bits.push(`${bj} blackjack${bj === 1 ? "" : "s"}`);
+        return bits.join(" · ");
+      }}
+    />
+  );
+}
+
+function RoulettePanel(props: PackPanelProps) {
+  return (
+    <CasinoPanel
+      {...props}
+      pack="roulette"
+      empty="No roulette recorded yet. Spin a night and the money shows up here."
+      extras={(p) => {
+        const streak = maxMeta(p, "bestStreak");
+        // Most-used favourite across every night, so one odd night does not
+        // rewrite what somebody plays.
+        const counts = new Map<string, number>();
+        for (const m of p.metas) {
+          if (typeof m.favouriteBet === "string") counts.set(m.favouriteBet, (counts.get(m.favouriteBet) ?? 0) + 1);
+        }
+        let fav: string | null = null;
+        let top = 0;
+        for (const [k, n] of counts) if (n > top) ((top = n), (fav = k));
+        const bits: string[] = [];
+        if (fav) bits.push(`mostly ${betLabel(fav).toLowerCase()}`);
+        // A streak of one is not a streak.
+        if (streak != null && streak >= 2) bits.push(`best run ${streak} spins`);
+        return bits.join(" · ");
+      }}
+    />
   );
 }
 
@@ -619,6 +698,8 @@ export default function StatsPage() {
                 ? `${count} ${count === 1 ? "race" : "races"} of Mario Kart`
                 : tab === BLACKJACK_GAME_NAME
                 ? `${count} blackjack ${count === 1 ? "night" : "nights"}`
+                : tab === ROULETTE_GAME_NAME
+                ? `${count} roulette ${count === 1 ? "night" : "nights"}`
                 : `${count} ${count === 1 ? "result" : "results"}${active ? ` of ${active.name}` : " across all game modes"}`}
             </p>
           )}
@@ -659,6 +740,8 @@ export default function StatsPage() {
           <PingPongPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : tab === BLACKJACK_GAME_NAME && id ? (
           <BlackjackPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
+        ) : tab === ROULETTE_GAME_NAME && id ? (
+          <RoulettePanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : (
           <PlayerRows rows={shown ?? []} open={open} setOpen={setOpen} showByGame={tab === null} />
         )}

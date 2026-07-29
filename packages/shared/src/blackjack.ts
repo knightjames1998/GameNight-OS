@@ -23,13 +23,13 @@
 // roulette streak or a craps roll length, which genuinely are).
 
 import {
-  balanceWarning,
-  settleCash,
+  newCashState,
+  summarizeCash,
   type CashBank,
   type CashEntry,
+  type CashPackState,
   type CashPlayer,
-  type CashSessionCore,
-  type CashSettlement,
+  type CashSummary,
 } from "./cashgame.js";
 
 /** How one tracked hand finished. */
@@ -60,26 +60,7 @@ export interface BjDetail {
 
 export const EMPTY_DETAIL: BjDetail = { biggestBet: null, biggestWin: null, blackjacks: null };
 
-export interface BjSessionState extends CashSessionCore {
-  /**
-   * Unique per session start, exactly as every other pack uses it: the ledger
-   * key is blackjack:{eventId}:{sessionKey}:0, so a second night on the same
-   * recurring event cannot collide with the first and get dropped as a
-   * duplicate.
-   */
-  sessionKey: string;
-  bank: CashBank;
-  bankerId: string | null;
-  /** ISO. Start of play, so net-per-hour is derivable at completion. */
-  startedAt: string;
-  /** cents. Prefilled on the buy-in and rebuy controls; not a rule. */
-  defaultBuyIn: number;
-  /** The live tracker. OFF by default; the host may flip it mid-session. */
-  tracker: boolean;
-  /** Standing rule 1: only owners/admins record unless the host opens it. */
-  openScoring: boolean;
-  roster: CashPlayer[];
-  entries: CashEntry[];
+export interface BjSessionState extends CashPackState {
   /** Empty unless the tracker has been on at some point. */
   hands: BjHand[];
   /** playerId -> whatever the host typed on the cash-out form. */
@@ -97,26 +78,7 @@ export function newBlackjackState(opts: {
   buyIns?: Record<string, number>;
   tracker?: boolean;
 }): BjSessionState {
-  const buy = Math.max(0, Math.trunc(opts.defaultBuyIn));
-  return {
-    sessionKey: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
-    bank: opts.bank,
-    bankerId: opts.bank === "player" ? opts.bankerId : null,
-    startedAt: new Date().toISOString(),
-    defaultBuyIn: buy,
-    tracker: opts.tracker ?? false,
-    openScoring: false,
-    roster: opts.roster,
-    entries: opts.roster.map((p) => ({
-      playerId: p.id,
-      buyIn: Math.max(0, Math.trunc(opts.buyIns?.[p.id] ?? buy)),
-      rebuys: [],
-      cashOut: null,
-      at: null,
-    })),
-    hands: [],
-    detail: {},
-  };
+  return { ...newCashState(opts), hands: [], detail: {} };
 }
 
 /**
@@ -184,94 +146,15 @@ export function handCount(state: BjSessionState, playerId: string): number {
 
 // ---------- the night, as every screen reads it ----------
 
-export interface BjPlayerRow {
-  playerId: string;
-  name: string;
-  kind: "member" | "guest";
-  isBanker: boolean;
-  /** cents */
-  buyIn: number;
-  rebuys: number;
-  /** cents */
-  rebuyTotal: number;
-  /** cents */
-  totalIn: number;
-  /** cents; null while still at the table */
-  cashOut: number | null;
-  cashedOut: boolean;
-  /** cents; null while still at the table (the banker's is always known) */
-  net: number | null;
-  /** True when this net was derived from the rest of the table. */
-  derived: boolean;
-  placement: number | null;
-  hands: number;
-  detail: BjDetail;
-}
+export type BjSummary = CashSummary<BjDetail>;
 
-export interface BjSummary {
-  bank: CashBank;
-  bankerId: string | null;
-  /** Sorted: up first, down last, still-at-the-table after both. */
-  players: BjPlayerRow[];
-  /** cents */
-  totalIn: number;
-  /** cents */
-  totalOut: number;
-  /** cents still in play */
-  onTable: number;
-  stillIn: number;
-  cashedOut: number;
-  hands: number;
-  balance: CashSettlement["balance"];
-  /** Null unless the table is player-banked AND does not balance. */
-  warning: string | null;
-}
-
-/**
- * The whole night in one object, for the pack page, the TV board and the
- * session payload. Derived on every read rather than maintained, for the same
- * reason Smashdown's burn board is: a maintained total and an undone rebuy
- * drift apart silently, and money that drifts is the worst kind.
- */
+/** The whole night in one object, for the pack page, the TV board and the payload. */
 export function summarizeBlackjack(state: BjSessionState): BjSummary {
-  const settlement = settleCash(state);
-  const nameOf = new Map(state.roster.map((p) => [p.id, p]));
-  const players: BjPlayerRow[] = settlement.lines.map((l) => {
-    const slot = nameOf.get(l.playerId);
-    return {
-      playerId: l.playerId,
-      name: slot?.name ?? "",
-      kind: slot?.kind ?? "guest",
-      isBanker: state.bank === "player" && state.bankerId === l.playerId,
-      buyIn: l.buyIn,
-      rebuys: l.rebuys,
-      rebuyTotal: l.rebuyTotal,
-      totalIn: l.totalIn,
-      cashOut: l.cashOut,
-      cashedOut: l.cashedOut,
-      net: l.net,
-      derived: l.derived,
-      placement: l.placement,
-      hands: handCount(state, l.playerId),
-      detail: bjDetail(state, l.playerId),
-    };
+  return summarizeCash<BjDetail>(state, {
+    of: (id) => bjDetail(state, id),
+    events: (id) => handCount(state, id),
+    total: state.hands.length,
   });
-
-  return {
-    bank: state.bank,
-    bankerId: state.bankerId,
-    players,
-    totalIn: settlement.totalIn,
-    totalOut: settlement.totalOut,
-    onTable: settlement.onTable,
-    stillIn: settlement.stillIn,
-    cashedOut: players.length - settlement.stillIn,
-    hands: state.hands.length,
-    balance: settlement.balance,
-    // Null until the banker has counted their own rack, which is the moment
-    // there is anything to disagree with. See settleCash's balance rules.
-    warning: balanceWarning(settlement.balance),
-  };
 }
 
 /** The entry for one player, created on demand so a late arrival is cheap. */

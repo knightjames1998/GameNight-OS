@@ -527,7 +527,9 @@ test("a typed detail beats the tracker per FIELD, not per player", () => {
   assert.equal(row.detail.biggestBet, 6000);
   assert.equal(row.detail.biggestWin, 1500);
   assert.equal(row.detail.blackjacks, 1);
-  assert.equal(row.hands, 2);
+  // `events`, not `hands`: the summary is generic now so roulette counts
+  // spins and craps counts rolls through the same field.
+  assert.equal(row.events, 2);
 });
 
 test("the tracker being off loses nothing the cash-out form can capture", () => {
@@ -542,7 +544,7 @@ test("the tracker being off loses nothing the cash-out form can capture", () => 
   state.detail.a = { biggestBet: 5000, biggestWin: 7500, blackjacks: 3 };
   const row = summarizeBlackjack(state).players[0]!;
   assert.deepEqual(row.detail, { biggestBet: 5000, biggestWin: 7500, blackjacks: 3 });
-  assert.equal(row.hands, 0);
+  assert.equal(row.events, 0);
 });
 
 test("a blackjack session summarizes into a money board the TV can sort", () => {
