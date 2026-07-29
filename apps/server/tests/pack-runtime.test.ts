@@ -34,6 +34,7 @@ import { smashRuntime } from "../src/smash.js";
 import { marioKartRuntime } from "../src/mariokart.js";
 import { marioPartyRuntime } from "../src/marioparty.js";
 import { pingPongRuntime } from "../src/pingpong.js";
+import { blackjackRuntime } from "../src/blackjack.js";
 
 // ---------- the four configs ----------
 
@@ -74,6 +75,14 @@ const PACKS = [
     wsType: "ping_pong_updated",
     table: "game_sessions",
   },
+  {
+    runtime: blackjackRuntime,
+    pack: "blackjack",
+    keyPrefix: "blackjack",
+    gameName: "Blackjack",
+    wsType: "blackjack_updated",
+    table: "game_sessions",
+  },
 ] as const;
 
 for (const p of PACKS) {
@@ -86,11 +95,11 @@ for (const p of PACKS) {
   });
 }
 
-test("Smash keeps its own table and the other three share game_sessions", () => {
+test("Smash keeps its own table and every other pack shares game_sessions", () => {
   // Not a restatement of the loop above: this is the constraint itself, so it
   // fails loudly if a later pass "simplifies" Smash onto the shared table.
   assert.equal(smashRuntime.table, "smash_sessions");
-  for (const p of [marioKartRuntime, marioPartyRuntime, pingPongRuntime]) {
+  for (const p of [marioKartRuntime, marioPartyRuntime, pingPongRuntime, blackjackRuntime]) {
     assert.equal(p.table, "game_sessions");
   }
 });

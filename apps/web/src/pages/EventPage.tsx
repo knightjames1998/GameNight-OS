@@ -513,7 +513,8 @@ function eventGames(
     destination: (pack, format) => () => {
       if (pack === "mariokart" && format === "beerio") return navigate(`/beerio?event=${id}`);
       if (pack === "tournament") return;
-      if (pack === "marioparty") return navigate(`/marioparty?event=${id}`);
+      // One-format packs carry no format suffix.
+      if (pack === "marioparty" || pack === "blackjack") return navigate(`/${pack}?event=${id}`);
       navigate(`/${pack}?event=${id}&format=${format}`);
     },
   });

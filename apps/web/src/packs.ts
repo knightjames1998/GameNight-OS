@@ -111,6 +111,16 @@ export const PACKS: PackSpec[] = [
     ],
   },
   {
+    key: "blackjack",
+    name: S.blackjack.name,
+    emoji: S.blackjack.emoji,
+    cabClass: "gn-cab--bj",
+    // One format today. The other three casino packs (roulette, craps,
+    // poker) are their own tiles when they land, not formats under this one:
+    // separate ledger keys, separate leaderboard tabs.
+    formats: [{ key: "cash", label: "🃏 Cash game", sub: "buy-ins, rebuys, cash-outs" }],
+  },
+  {
     key: "tournament",
     name: "Tournament",
     emoji: "🏆",

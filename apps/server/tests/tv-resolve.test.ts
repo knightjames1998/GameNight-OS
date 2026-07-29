@@ -165,7 +165,7 @@ test("identical timestamps resolve to the declared tiebreak order", () => {
   // Same tie, bracket removed: beerio is next in the declared order.
   assert.deepEqual(resolveNow({ ...all, bracket: null }), { kind: "beerio", code: "AB12" });
 
-  // Then the four packs, in their declared order, whatever order they arrive.
+  // Then the packs, in their declared order, whatever order they arrive.
   assert.deepEqual(resolveNow({ ...all, bracket: null, beerio: null }), {
     kind: "pack",
     pack: "smash",

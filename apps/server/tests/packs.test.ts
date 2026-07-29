@@ -46,6 +46,10 @@ const SHIPPED = {
   mariokart: { ledger: "mario_kart", gameName: "Mario Kart", keyPrefix: "mk", wsType: "mario_kart_updated", table: "game_sessions", route: "mariokart" },
   marioparty: { ledger: "mario_party", gameName: "Mario Party", keyPrefix: "mp", wsType: "mario_party_updated", table: "game_sessions", route: "marioparty" },
   pingpong: { ledger: "pingpong", gameName: "Ping Pong", keyPrefix: "pp", wsType: "ping_pong_updated", table: "game_sessions", route: "pingpong" },
+  // Pinned the day it shipped (2026-07-29), the same discipline as the four
+  // above: from here on, changing any of these without changing production
+  // orphans blackjack's history silently.
+  blackjack: { ledger: "blackjack", gameName: "Blackjack", keyPrefix: "blackjack", wsType: "blackjack_updated", table: "game_sessions", route: "blackjack" },
 } as const;
 
 test("every pack's shipped identifiers are unchanged", () => {
@@ -68,8 +72,8 @@ test("every pack's shipped identifiers are unchanged", () => {
   }
 });
 
-test("the registry holds exactly the four session packs", () => {
-  assert.deepEqual(SESSION_PACK_KEYS, ["smash", "mariokart", "marioparty", "pingpong"]);
+test("the registry holds exactly the session packs, in order", () => {
+  assert.deepEqual(SESSION_PACK_KEYS, ["smash", "mariokart", "marioparty", "pingpong", "blackjack"]);
 });
 
 test("Ping Pong's ledger key is pingpong, not ping_pong", () => {
@@ -130,6 +134,7 @@ test("packEmoji resolves every value games.pack can hold", () => {
   assert.equal(packEmoji("mario_kart"), "\u{1F3CE}\u{FE0F}"); // 🏎️
   assert.equal(packEmoji("mario_party"), "\u{1F3B2}"); // 🎲
   assert.equal(packEmoji("pingpong"), "\u{1F3D3}"); // 🏓
+  assert.equal(packEmoji("blackjack"), "\u{1F0CF}"); // 🃏
   assert.equal(packEmoji(BEERIO_LEDGER), "\u{1F37A}"); // 🍺
   assert.equal(packEmoji(GENERIC_LEDGER), "\u{1F3C6}"); // 🏆
 });

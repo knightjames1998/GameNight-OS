@@ -118,8 +118,9 @@ function Groups({
       if (pack === "mariokart" && format === "beerio") return navigate("/beerio");
       // Tournament never reaches here: its formats are supplied below.
       if (pack === "tournament") return;
-      // Mario Party has one format, so it carries no format suffix.
-      if (pack === "marioparty") return startSession("marioparty");
+      // Mario Party and Blackjack have one format each, so they carry no
+      // format suffix.
+      if (pack === "marioparty" || pack === "blackjack") return startSession(pack);
       startSession(pack, `&format=${format}`);
     },
     tournamentFormats: [

@@ -241,6 +241,9 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-cab--mp .gn-cab__name{color:#ffd24a}
 .gn-cab--pp{border-color:#1f6b46;background:linear-gradient(180deg,#0f3826,#241a30)}
 .gn-cab--pp .gn-cab__name{color:#ff9a4d}
+/* Casino group: oxblood card room, gold name. Roulette/craps/poker share it. */
+.gn-cab--bj{border-color:#5c2b22;background:linear-gradient(180deg,#2a1613,#241a30)}
+.gn-cab--bj .gn-cab__name{color:var(--gn-gold)}
 
 /* Shared on/off pill toggle (the "let members record results" control in
    every pack). The label is the current state; green = on, red = off. */

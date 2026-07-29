@@ -27,6 +27,7 @@ import { guestNamesSmash, creditGuestSmash } from "./smash.js";
 import { guestNamesMarioKart, creditGuestMarioKart } from "./mariokart.js";
 import { guestNamesMarioParty, creditGuestMarioParty } from "./marioparty.js";
 import { guestNamesPingPong, creditGuestPingPong } from "./pingpong.js";
+import { guestNamesBlackjack, creditGuestBlackjack } from "./blackjack.js";
 import { guestNamesBeerio, creditGuestBeerio } from "./beerio-gn.js";
 
 export const guestLinkRouter = Router();
@@ -37,6 +38,7 @@ const nameAdapters = [
   guestNamesMarioKart,
   guestNamesMarioParty,
   guestNamesPingPong,
+  guestNamesBlackjack,
   guestNamesBeerio,
 ];
 
@@ -45,13 +47,14 @@ const creditAdapters: {
   credit: (g: string, name: string, member: string, dry: boolean) => Promise<{ items: GuestCreditItem[]; written: number }>;
 }[] = [
   { key: "bracket", credit: creditGuestBracket },
-  // The four session packs key off the registry's LEDGER spelling, which is
+  // The session packs key off the registry's LEDGER spelling, which is
   // the same string their materializers write to games.pack. Retyping them
   // here is how the two used to be able to disagree.
   { key: SESSION_PACKS.smash.ledger, credit: creditGuestSmash },
   { key: SESSION_PACKS.mariokart.ledger, credit: creditGuestMarioKart },
   { key: SESSION_PACKS.marioparty.ledger, credit: creditGuestMarioParty },
   { key: SESSION_PACKS.pingpong.ledger, credit: creditGuestPingPong },
+  { key: SESSION_PACKS.blackjack.ledger, credit: creditGuestBlackjack },
   { key: "beerio", credit: creditGuestBeerio },
 ];
 

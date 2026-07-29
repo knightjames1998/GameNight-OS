@@ -123,7 +123,7 @@ type WsEvent =
   | { type: "bracket_updated"; bracketId: string }
   | { type: "match_updated"; matchId: string }
   | { type: "leaderboard_updated"; eventId: string }
-  // The four pack types are DERIVED from the pack registry rather than listed
+  // The pack types are DERIVED from the pack registry rather than listed
   // here, so adding a pack cannot leave its broadcast type undeclared (which
   // fails silently: the client never matches the message and that pack's
   // screens simply stop updating).
@@ -142,3 +142,6 @@ export * from "./smash.js";
 export * from "./mariokart.js";
 export * from "./marioparty.js";
 export * from "./pingpong.js";
+// The casino group: one shared engine, one thin module per pack.
+export * from "./cashgame.js";
+export * from "./blackjack.js";

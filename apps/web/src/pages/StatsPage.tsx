@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { useCachedApi } from "../cache";
 import { StatsSkeleton } from "../Skeleton";
+import { formatCents, formatCentsSigned } from "@gamenight/shared";
 import { formatLabel, formatUnit } from "../formats";
 import BackButton from "../BackButton";
 import { type CharacterStats } from "../CharacterStats";
@@ -459,6 +460,128 @@ function PingPongPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
   );
 }
 
+const BLACKJACK_GAME_NAME = "Blackjack";
+
+/**
+ * The blackjack lifetime panel: MONEY, which no other pack has.
+ *
+ * Every number below falls out of the buy-in and the cash-out alone, which is
+ * the whole design promise of the casino group — a night played the
+ * minimal-input way (one buy-in, one cash-out) produces all of it. The three
+ * blackjack details are the only extras, and each is absent rather than zero
+ * when nobody answered.
+ *
+ * Amounts arrive as integer CENTS and are formatted here, at the edge. See
+ * packages/shared/src/cashgame.ts for why that matters.
+ */
+interface BjStats {
+  sessions: number;
+  byPlayer: {
+    userId: string;
+    name: string;
+    sessions: number;
+    net: number;
+    staked: number;
+    avgBuyIn: number;
+    avgNet: number;
+    winRate: number;
+    upNights: number;
+    roi: number | null;
+    rebuys: number;
+    rebuyRate: number;
+    best: number | null;
+    worst: number | null;
+    streak: number;
+    bestStreak: number;
+    minutes: number;
+    netPerHour: number | null;
+    banked: number;
+    biggestBet: number | null;
+    biggestWin: number | null;
+    blackjacks: number;
+  }[];
+}
+
+function BlackjackPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
+  const { data, error } = useCachedApi<BjStats>(
+    `group:${groupId}:blackjack`,
+    `/api/groups/${groupId}/blackjack-stats`,
+  );
+
+  if (!data && error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
+  if (!data) return <StatsSkeleton />;
+  if (data.sessions === 0) {
+    return <p className="gn-hint">No blackjack recorded yet. Run a table and the money shows up here.</p>;
+  }
+
+  // The shared row's "wins" are nights finished up, because placement comes
+  // from the net rank. The money is the pack-specific part and rides the
+  // subline, the same way Mario Party's stars and Ping Pong's game wins do.
+  const extras = new Map(
+    data.byPlayer.map((p) => [
+      p.userId,
+      <>
+        {" "}&middot;{" "}
+        <span style={{ color: p.net > 0 ? "var(--gn-yes)" : p.net < 0 ? "var(--gn-p1)" : undefined, fontWeight: 700 }}>
+          {formatCentsSigned(p.net)}
+        </span>{" "}
+        lifetime
+      </>,
+    ]),
+  );
+
+  const money = [...data.byPlayer].sort((a, b) => b.net - a.net);
+
+  return (
+    <div className="space-y-3">
+      <p className="gn-hint">
+        Wins are nights that finished UP: placement comes from the net, so first place is whoever
+        won the most money. Every figure below comes from buy-ins and cash-outs alone.
+      </p>
+      <PlayerRows rows={rows} open={open} setOpen={setOpen} extras={extras} />
+
+      <section className="space-y-2">
+        <h2 className="gn-h2">The money</h2>
+        {money.map((p) => (
+          <div key={p.userId} className="gn-card" style={{ padding: "12px 16px" }}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-bold truncate">{p.name}</span>
+              <span
+                className="font-bold shrink-0"
+                style={{ color: p.net > 0 ? "var(--gn-yes)" : p.net < 0 ? "var(--gn-p1)" : "var(--gn-dim)" }}
+              >
+                {formatCentsSigned(p.net)}
+              </span>
+            </div>
+            <p className="gn-hint" style={{ fontSize: "12px", marginTop: 4 }}>
+              {p.sessions} night{p.sessions === 1 ? "" : "s"} &middot; up {p.upNights} (
+              {Math.round(p.winRate * 100)}%) &middot; avg {formatCentsSigned(p.avgNet)} &middot; avg buy-in{" "}
+              {formatCents(p.avgBuyIn)}
+              {p.roi != null && ` · ROI ${(p.roi * 100).toFixed(0)}%`}
+              {p.netPerHour != null && ` · ${formatCentsSigned(p.netPerHour)}/hr`}
+            </p>
+            <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
+              {p.best != null && `best night ${formatCentsSigned(p.best)}`}
+              {p.worst != null && ` · worst ${formatCentsSigned(p.worst)}`}
+              {p.rebuys > 0 && ` · ${p.rebuys} rebuy${p.rebuys === 1 ? "" : "s"} (${Math.round(p.rebuyRate * 100)}% of nights)`}
+              {p.streak >= 2 && ` · 🔥${p.streak} up in a row`}
+              {p.bestStreak >= 2 && ` · best run ${p.bestStreak}`}
+              {p.banked > 0 && ` · banked ${p.banked}`}
+            </p>
+            {(p.biggestBet != null || p.biggestWin != null || p.blackjacks > 0) && (
+              <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
+                {p.biggestBet != null && `biggest bet ${formatCents(p.biggestBet)}`}
+                {p.biggestWin != null && `${p.biggestBet != null ? " · " : ""}biggest win ${formatCents(p.biggestWin)}`}
+                {p.blackjacks > 0 && ` · ${p.blackjacks} blackjack${p.blackjacks === 1 ? "" : "s"}`}
+              </p>
+            )}
+          </div>
+        ))}
+      </section>
+    </div>
+  );
+}
+
 export default function StatsPage() {
   const { id } = useParams();
   const [open, setOpen] = useState<string | null>(null);
@@ -494,6 +617,8 @@ export default function StatsPage() {
                 ? `${count} ${count === 1 ? "match" : "matches"} of Ping Pong`
                 : tab === MARIO_KART_GAME_NAME
                 ? `${count} ${count === 1 ? "race" : "races"} of Mario Kart`
+                : tab === BLACKJACK_GAME_NAME
+                ? `${count} blackjack ${count === 1 ? "night" : "nights"}`
                 : `${count} ${count === 1 ? "result" : "results"}${active ? ` of ${active.name}` : " across all game modes"}`}
             </p>
           )}
@@ -532,6 +657,8 @@ export default function StatsPage() {
           <MarioPartyPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : tab === PING_PONG_GAME_NAME && id ? (
           <PingPongPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
+        ) : tab === BLACKJACK_GAME_NAME && id ? (
+          <BlackjackPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : (
           <PlayerRows rows={shown ?? []} open={open} setOpen={setOpen} showByGame={tab === null} />
         )}

@@ -25,6 +25,9 @@ export const FORMAT_LABEL: Record<string, string> = {
   // one row per battle and the default "games" is the right noun for it.
   smashdown: "Smashdown",
   board: "Board night",
+  // The whole casino group records one row per SESSION, so they share one
+  // format key. The pack (games.name) is what tells blackjack from poker.
+  cash: "Cash game",
   other: "Other",
 };
 
@@ -40,6 +43,9 @@ export const FORMAT_UNIT: Record<string, string> = {
   grandprix: "races",
   bestof: "sets",
   board: "boards",
+  // A cash night's unit is the night. "8 games of blackjack" would be a lie
+  // about a ledger that holds one row per table.
+  cash: "sessions",
   other: "results",
 };
 

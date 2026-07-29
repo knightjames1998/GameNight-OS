@@ -60,7 +60,7 @@ export interface SessionPackDef {
 }
 
 /**
- * The four packs that run a server-side session, keyed by their CLIENT route
+ * The packs that run a server-side session, keyed by their CLIENT route
  * segment, because that is the spelling that appears in a URL a person can
  * see. The server spelling is the `ledger` field, so the two can never drift
  * apart again without one of them failing to compile.
@@ -112,12 +112,28 @@ export const SESSION_PACKS = {
     emoji: "\u{1F3D3}", // 🏓
     quickTitle: "Ping Pong",
   },
+  // The first of the CASINO GROUP (blackjack, roulette, craps, poker). Four
+  // separate packs on purpose, each with its own ledger key, because a
+  // blackjack net and a poker net are different skills and belong on
+  // different leaderboard tabs. They share one engine
+  // (packages/shared/src/cashgame.ts), so each pack file stays thin.
+  blackjack: {
+    ledger: "blackjack",
+    gameName: "Blackjack",
+    keyPrefix: "blackjack",
+    route: "blackjack",
+    wsType: "blackjack_updated",
+    table: "game_sessions",
+    name: "Blackjack",
+    emoji: "\u{1F0CF}", // 🃏
+    quickTitle: "Blackjack night",
+  },
 } as const satisfies Record<string, SessionPackDef>;
 
 /**
- * The four session packs, as a union. Derived from the map, so a pack without
- * an entry is a compile error at every site that switches on a pack rather
- * than a blank space on a screen.
+ * Every session pack, as a union. Derived from the map, so a pack without an
+ * entry is a compile error at every site that switches on a pack rather than
+ * a blank space on a screen.
  */
 export type SessionPackKey = keyof typeof SESSION_PACKS;
 
@@ -150,7 +166,7 @@ export const GENERIC_LEDGER = "generic";
 
 /**
  * Display name and emoji for ANY value that can appear in games.pack, which is
- * the four session packs plus Beerio and the generic bracket. Keyed by the
+ * every session pack plus Beerio and the generic bracket. Keyed by the
  * LEDGER spelling, because that is what a row read back out of the database
  * carries.
  */

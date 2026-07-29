@@ -21,15 +21,16 @@ import { useLiveRefetch } from "../useLiveUpdates";
 // swapping the child in place is exactly what makes the pack switch happen
 // with nobody touching the screen.
 //
-// The five children are lazily loaded with the SAME import specifiers App.tsx
+// The children are lazily loaded with the SAME import specifiers App.tsx
 // uses, so Vite resolves them to the same chunks and this route does not drag
-// all five packs (Beerio especially, which brings lz-string) into one bundle.
+// every pack (Beerio especially, which brings lz-string) into one bundle.
 // Only the pack actually being played is ever fetched.
 
 const SmashTvPage = lazy(() => import("../smash/SmashTvPage"));
 const MarioKartTvPage = lazy(() => import("../mariokart/MarioKartTvPage"));
 const MarioPartyTvPage = lazy(() => import("../marioparty/MarioPartyTvPage"));
 const PingPongTvPage = lazy(() => import("../pingpong/PingPongTvPage"));
+const BlackjackTvPage = lazy(() => import("../blackjack/BlackjackTvPage"));
 const TvPage = lazy(() => import("./TvPage"));
 const BeerioTvPage = lazy(() => import("../beerio/BeerioTvPage"));
 
@@ -100,6 +101,8 @@ export default function EventTvPage() {
         <MarioKartTvPage eventId={tv.event.id} />
       ) : now.pack === "marioparty" ? (
         <MarioPartyTvPage eventId={tv.event.id} />
+      ) : now.pack === "blackjack" ? (
+        <BlackjackTvPage eventId={tv.event.id} />
       ) : (
         <PingPongTvPage eventId={tv.event.id} />
       )}
