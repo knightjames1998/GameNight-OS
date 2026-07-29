@@ -13,21 +13,30 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "July 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-07-28 (THIRD pass that day) at the start of the Smashdown session.
-// The three sessions that shipped since the second pass (phase 6, one TV button per
-// night, one pack registry) all landed on 07-28 and handed over a counter of exactly 3.
-// This pass: zone 1 gained the two shipped sessions the map had never rendered (the
-// event TV and the pack registry, both (NEW)); the pre-pack cleanup item lost its (NEW)
-// highlight, and the whole cleanup run remains ONE item; zone 3 renumbered with
-// Smashdown in slot 1. Row 1 was raised 800 -> 860 and row 2 pushed 920 -> 980, because
-// zone 1's remaining 92px of slack was exactly what the two new items cost.
+// Redrawn 2026-07-29 at the START of the roulette session, because the counter handed
+// over by the blackjack session was exactly 3. This pass:
+//   - Zone 2 gained the THREE packs the map had never rendered, all (NEW): Smashdown,
+//     Smashdown series rows, and Blackjack + the shared cash-game engine. The first two
+//     shipped on 07-28 AFTER the last redraw (which ran at the start of the Smashdown
+//     session, so it drew Smashdown as a NEXT UP item rather than a shipped one).
+//   - Zone 1's two (NEW) highlights aged out; it gained nothing this session, since the
+//     safe-area fix is a bug and belongs in zone 5.
+//   - Zone 3 is now the casino group in build order (roulette / craps / poker) in the
+//     numbered committed three, pushing Smash Tournament and the Tabletop theme down.
+//   - Zone 4 gained cross-pack night net. Zone 5 gained its first FIXED item since the
+//     07-28 pass aged the previous two out. Zone 6 lost poker from the cornhole/darts
+//     line (it is committed now) and the Wager ledger's "bragging rights only" wording
+//     (superseded 07-29).
+//   - Row 1 raised 860 -> 920 and row 2 pushed 980 -> 1040. Zone 1 had 42px of slack and
+//     an item costs 46, so the NEXT foundation entry would have overflowed it by 4px.
+//     Raised pre-emptively per MAP PROTOCOL, the same call the last two passes made.
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
-// each 480 wide, row 1 y=95 h=860, row 2 y=980 h=530. Items 440x40, 46px
+// each 480 wide, row 1 y=95 h=920, row 2 y=1040 h=530. Items 440x40, 46px
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
-    x: 40, y: 95, h: 860,
+    x: 40, y: 95, h: 920,
     title: "SHIPPED — FOUNDATION", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Auth: 6-digit codes + links + passwords" },
@@ -43,12 +52,12 @@ const ZONES = [
       { t: "Stats depth: characters, placements, streaks, history", h: 52 },
       { t: "Crew leaderboard: shared agg, unified pack rows", h: 52 },
       { t: "Pre-pack cleanup COMPLETE: hygiene, tests, request cost, indexes, code splitting, caching, one pack runtime, perceived speed, one client implementation per idea", h: 70 },
-      { t: "One TV button per night: /e/:id/tv auto-follows (NEW)", bg: "#c3fae8" },
-      { t: "One pack registry: SESSION_PACKS, one entry per pack (NEW)", bg: "#c3fae8" },
+      { t: "One TV button per night: /e/:id/tv auto-follows" },
+      { t: "One pack registry: SESSION_PACKS, one entry per pack" },
     ],
   },
   {
-    x: 560, y: 95, h: 860,
+    x: 560, y: 95, h: 920,
     title: "SHIPPED — GAME PACKS", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Beerio Kart: full replica, predictions, TV" },
@@ -60,20 +69,25 @@ const ZONES = [
       { t: "Generic bracket tracker + TV + recap" },
       { t: "Shared primitives: FFA, KOTH, series, brackets" },
       { t: "Beerio guest linking (forward-only snapshot)" },
+      { t: "Smashdown: a 4th Smash FORMAT, burn board, mercy rule (NEW)", bg: "#c3fae8", h: 52 },
+      { t: "Smashdown series rows: winning a series is its own stat (NEW)", bg: "#c3fae8", h: 52 },
+      { t: "Blackjack + the shared CASH-GAME ENGINE: cents, derived banker, balance check (NEW)", bg: "#c3fae8", h: 70 },
     ],
   },
   {
-    x: 1080, y: 95, h: 860,
+    x: 1080, y: 95, h: 920,
     title: "NEXT UP (queued)", zoneBg: "#fff3bf", header: "#b45309", itemBg: "#ffd8a8",
     items: [
-      { t: "1. Smashdown night (burned-fighter board)", sw: 2 },
-      { t: "2. Smash Tournament format (bracket + fighters)", sw: 2 },
-      { t: "3. Tabletop theme + theme switcher", sw: 2 },
-      { t: "More packs: board games, darts, poker" },
+      { t: "1. Roulette (cash engine; streak needs the tracker)", sw: 2, h: 52 },
+      { t: "2. Craps (cash engine; tap-dice / tap-seven-out)", sw: 2, h: 52 },
+      { t: "3. Poker (cash engine PLUS a tournament format)", sw: 2, h: 52 },
+      { t: "4. Smash Tournament format (bracket + fighters)" },
+      { t: "5. Tabletop theme + theme switcher" },
+      { t: "More packs: board games, darts" },
     ],
   },
   {
-    x: 40, y: 980, h: 530,
+    x: 40, y: 1040, h: 530,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
       { t: "Unified event TV + single active pack" },
@@ -81,29 +95,31 @@ const ZONES = [
       { t: "Per-route dynamic link previews" },
       { t: "Mario Kart crew-wide racer table; MP minigame H2H", h: 52 },
       { t: "Smack talk feed; TV stats + predictions ticker", h: 52 },
+      { t: "Cross-pack night net (blackjack + poker on one night)", h: 52 },
       { t: "Seasons; round robin; availability polling", h: 52 },
     ],
   },
   {
-    x: 560, y: 980, h: 530,
+    x: 560, y: 1040, h: 530,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
       { t: "Watch: countLastPlace IN list grows without bound", bg: "#fff3bf", h: 52 },
       { t: "Watch: ws hub broadcasts everything to everyone (no rooms)", bg: "#fff3bf", h: 52 },
       { t: "Watch: drizzle push can no-op in CI, check build log", bg: "#fff3bf", h: 52 },
+      { t: "FIXED: safe-area inset was a hand-written list; blackjack sat under the iOS clock", bg: "#b2f2bb", h: 70 },
     ],
   },
   {
-    x: 1080, y: 980, h: 530,
+    x: 1080, y: 1040, h: 530,
     title: "IDEAS — NOT SOLIDIFIED", zoneBg: "#e5dbff", header: "#6d28d9", itemBg: "#d0bfff",
     items: [
       { t: "Draft night mode (snake drafts, TV board)" },
-      { t: "Wager ledger (bragging rights only)" },
+      { t: "Wager ledger (money allowed since 07-29)" },
       { t: "Achievements + custom crew badges" },
       { t: "Beer pong pack (forces the team model)" },
       { t: "Pool pack (rides ping pong's KOTH engine)" },
-      { t: "Cornhole, darts, poker night" },
+      { t: "Cornhole and darts (poker is committed now)" },
       { t: "Capacitor native wrapper (push notifs)" },
       { t: "Offline score entry sync (PWA)" },
       { t: "Event-aware warm ping (only before a night)" },
