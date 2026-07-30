@@ -26,6 +26,7 @@ import {
   newCashState,
   summarizeCash,
   type CashBank,
+  type CashStakes,
   type CashEntry,
   type CashPackState,
   type CashPlayer,
@@ -73,6 +74,7 @@ export const DEFAULT_BUY_IN = 2000;
 export function newBlackjackState(opts: {
   bank: CashBank;
   bankerId: string | null;
+  stakes?: CashStakes;
   roster: CashPlayer[];
   defaultBuyIn: number;
   buyIns?: Record<string, number>;

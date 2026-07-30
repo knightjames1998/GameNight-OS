@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { formatCentsShort, formatCentsSigned, parseCents } from "@gamenight/shared";
+import { money, parseCents, type CashStakes } from "@gamenight/shared";
 
 // The money primitives every casino pack uses.
 //
@@ -81,10 +81,36 @@ export function CountInput({
  * still holding chips — because "in for $40" is an honest answer and a net of
  * minus forty is not, until they cash out.
  */
-export function NetToken({ net, totalIn }: { net: number | null; totalIn: number }): ReactNode {
+export function NetToken({
+  net,
+  totalIn,
+  stakes,
+}: {
+  net: number | null;
+  totalIn: number;
+  /** Absent is real, so a caller that has no session yet still renders. */
+  stakes?: CashStakes;
+}): ReactNode {
+  const m = money(stakes);
   if (net === null) {
-    return <span className="cg-tok cg-tok--in">in {formatCentsShort(totalIn)}</span>;
+    return <span className="cg-tok cg-tok--in">in {m.short(totalIn)}</span>;
   }
+  // Up/down stay green/red whatever the chips are worth: those colours mean
+  // DIRECTION, not currency. What marks play money is the P$ prefix and the
+  // badge on the header, which is a separate signal rather than a hijacked one.
   const cls = net > 0 ? "cg-tok--up" : net < 0 ? "cg-tok--down" : "cg-tok--even";
-  return <span className={`cg-tok ${cls}`}>{formatCentsSigned(net)}</span>;
+  return <span className={`cg-tok ${cls}`}>{m.signed(net)}</span>;
+}
+
+/**
+ * The persistent "this is not real money" marker.
+ *
+ * Rendered on the pack page header and the TV header whenever a table is play
+ * money, in its own colour token. The prefix on every amount is the precise
+ * signal; this is the one you catch from across a room without reading a
+ * number, which is the case the design brief was actually worried about.
+ */
+export function StakesBadge({ stakes }: { stakes?: CashStakes }): ReactNode {
+  if (stakes !== "play") return null;
+  return <span className="cg-play">Play money</span>;
 }

@@ -4,10 +4,10 @@ import BackButton from "../BackButton";
 import { usePackSession } from "../usePackSession";
 import CasinoSetup from "../casino/CasinoSetup";
 import { CasinoTable, type Call, type CashOutDetail } from "../casino/CasinoTable";
-import { CountInput, MoneyInput } from "../casino/money";
+import { CountInput, MoneyInput, StakesBadge } from "../casino/money";
 import {
   SESSION_PACKS,
-  formatCents,
+  money,
   type BjDetail,
   type BjHandResult,
   type BjSessionState,
@@ -105,7 +105,15 @@ export default function BlackjackPage() {
           <div className="cg-brand">
             Black<em>jack</em>
           </div>
-          <div className="cg-sub">Cash game &middot; buy-ins, rebuys, cash-outs</div>
+          <div className="cg-sub">
+            Cash game &middot; buy-ins, rebuys, cash-outs
+            {session && session.status !== "completed" && (
+              <>
+                {" "}
+                <StakesBadge stakes={session.summary.stakes} />
+              </>
+            )}
+          </div>
         </div>
 
         {err && <p className="cg-err">{err}</p>}
@@ -168,6 +176,7 @@ function HandTracker({
   const [playerId, setPlayerId] = useState(live[0]?.playerId ?? "");
   const [bet, setBet] = useState<number | null>(null);
   const chosen = live.some((p) => p.playerId === playerId) ? playerId : live[0]?.playerId ?? "";
+  const m = money(session.summary.stakes);
 
   return (
     <div className="cg-card">
@@ -209,7 +218,7 @@ function HandTracker({
       </div>
       {bet !== null && bet > 0 && (
         <p className="cg-hint" style={{ marginTop: 6 }}>
-          A blackjack on {formatCents(bet)} pays {formatCents(Math.floor((bet * 3) / 2))}.
+          A blackjack on {m.fmt(bet)} pays {m.fmt(Math.floor((bet * 3) / 2))}.
         </p>
       )}
 

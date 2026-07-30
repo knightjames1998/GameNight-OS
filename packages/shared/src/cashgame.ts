@@ -32,6 +32,38 @@
 // recap card and the profile aggregates all work today because a cash night
 // looks exactly like any other night to the reader.
 
+// ---------- stakes: real money or play money ----------
+
+/**
+ * What the chips are worth.
+ *
+ * "real": actual currency, formatted with `$`.
+ * "play": play money, formatted with a distinct prefix AND flagged in its own
+ * colour, because the one thing that must never happen is somebody reading a
+ * play-money board across a room and thinking it is dollars. Both signals are
+ * deliberate: a prefix survives a photo of the screen, a colour survives a
+ * glance from the sofa, and either alone is a coin flip on a TV.
+ *
+ * A session with NO stakes value is real, so every night recorded before this
+ * shipped reads exactly as it did. That is why the parameter is optional
+ * everywhere rather than required.
+ */
+export type CashStakes = "real" | "play";
+
+/**
+ * The prefix in front of an amount. "P$" rather than a symbol on purpose: it is
+ * plain ASCII, so it renders on every TV browser and in a canvas recap card,
+ * and it reads as "play dollars" without a legend.
+ *
+ * Deliberately NOT "Monopoly money", here or in any UI copy. Monopoly is a
+ * trademark and this app is public.
+ */
+export const stakesPrefix = (stakes?: CashStakes): string => (stakes === "play" ? "P$" : "$");
+
+/** "Real money" / "Play money", for a label or a badge. */
+export const stakesLabel = (stakes?: CashStakes): string =>
+  stakes === "play" ? "Play money" : "Real money";
+
 // ---------- money at the edges ----------
 
 /**
@@ -60,30 +92,58 @@ export function parseCents(text: string): number | null {
   return sign === "-" ? -total : total;
 }
 
-/** "$1,234.56" / "-$12.50". The only place cents become a decimal. */
-export function formatCents(cents: number): string {
+/**
+ * "$1,234.56" / "-$12.50", or "P$1,234.56" on a play-money table. The only
+ * place cents become a decimal.
+ *
+ * `stakes` is optional and absent means REAL, so every call site written before
+ * play money existed keeps its exact output and every night recorded before it
+ * shipped reads unchanged.
+ */
+export function formatCents(cents: number, stakes?: CashStakes): string {
   const n = Math.trunc(cents);
   const neg = n < 0;
   const abs = Math.abs(n);
   const whole = Math.floor(abs / 100).toLocaleString("en-US");
   const frac = String(abs % 100).padStart(2, "0");
-  return `${neg ? "-" : ""}$${whole}.${frac}`;
+  return `${neg ? "-" : ""}${stakesPrefix(stakes)}${whole}.${frac}`;
 }
 
 /** "+$12.50" / "-$12.50" / "$0.00". For a net, where the sign is the point. */
-export function formatCentsSigned(cents: number): string {
+export function formatCentsSigned(cents: number, stakes?: CashStakes): string {
   const n = Math.trunc(cents);
-  if (n === 0) return "$0.00";
-  return n > 0 ? `+${formatCents(n)}` : formatCents(n);
+  if (n === 0) return `${stakesPrefix(stakes)}0.00`;
+  return n > 0 ? `+${formatCents(n, stakes)}` : formatCents(n, stakes);
 }
 
 /** "$40" when the cents are round, "$12.50" when they are not. Compact UI. */
-export function formatCentsShort(cents: number): string {
+export function formatCentsShort(cents: number, stakes?: CashStakes): string {
   const n = Math.trunc(cents);
-  if (n % 100 !== 0) return formatCents(n);
+  if (n % 100 !== 0) return formatCents(n, stakes);
   const neg = n < 0;
   const whole = Math.floor(Math.abs(n) / 100).toLocaleString("en-US");
-  return `${neg ? "-" : ""}$${whole}`;
+  return `${neg ? "-" : ""}${stakesPrefix(stakes)}${whole}`;
+}
+
+/**
+ * The three formatters bound to one table's stakes.
+ *
+ * Every casino screen takes this ONCE and uses it everywhere, rather than
+ * threading `stakes` through twenty call sites by hand. That matters because
+ * the failure mode of a missed call site is a play-money amount rendering as
+ * dollars, which is silent and is exactly the confusion the prefix exists to
+ * prevent.
+ */
+export function money(stakes?: CashStakes) {
+  return {
+    stakes: stakes ?? ("real" as CashStakes),
+    prefix: stakesPrefix(stakes),
+    label: stakesLabel(stakes),
+    isPlay: stakes === "play",
+    fmt: (c: number) => formatCents(c, stakes),
+    signed: (c: number) => formatCentsSigned(c, stakes),
+    short: (c: number) => formatCentsShort(c, stakes),
+  };
 }
 
 // ---------- the table ----------
@@ -129,6 +189,12 @@ export interface CashSessionCore {
   bank: CashBank;
   /** Roster slot id of the banker. Only meaningful when bank === "player". */
   bankerId: string | null;
+  /**
+   * Real money or play money. Optional HERE because the settlement does not
+   * care — a net is a net whatever the chips are worth — and because a session
+   * row written before play money existed has no value. Absent means real.
+   */
+  stakes?: CashStakes;
   roster: CashPlayer[];
   entries: CashEntry[];
 }
@@ -389,13 +455,24 @@ export interface CashLedgerLine {
  */
 export function cashLedgerLines(
   settlement: CashSettlement,
-  bank: CashBank,
-  bankerId: string | null,
-  extraMeta?: (playerId: string) => Record<string, unknown>,
+  opts: {
+    bank: CashBank;
+    bankerId: string | null;
+    /**
+     * Written to EVERY row, including the ones recorded before play money
+     * existed, which carry nothing and are therefore read as real. That is what
+     * lets the lifetime read split the money without a migration: an absent
+     * value is not ambiguous, it means real.
+     */
+    stakes: CashStakes;
+    extraMeta?: (playerId: string) => Record<string, unknown>;
+  },
 ): CashLedgerLine[] {
+  const { bank, bankerId, stakes, extraMeta } = opts;
   return settlement.lines.map((l) => {
     const meta: Record<string, unknown> = {
       bank,
+      stakes,
       buyIn: l.buyIn,
       rebuys: l.rebuys,
       rebuyTotal: l.rebuyTotal,
@@ -418,10 +495,10 @@ export function cashLedgerLines(
  * than thrown, because the host is allowed to record it anyway once they have
  * been told — the app records what a home game did, it does not referee it.
  */
-export function balanceWarning(balance: CashBalance): string | null {
+export function balanceWarning(balance: CashBalance, stakes?: CashStakes): string | null {
   if (!balance.checked || balance.balanced) return null;
   const over = balance.delta > 0;
-  return `The table does not balance, off by ${formatCents(Math.abs(balance.delta))}. ${
+  return `The table does not balance, off by ${formatCents(Math.abs(balance.delta), stakes)}. ${
     over
       ? "More was cashed out than was bought in, so a cash-out is too high."
       : "Less was cashed out than was bought in, so a cash-out is too low or one is missing."
@@ -470,6 +547,13 @@ export interface CashPlayerRow<D> {
 export interface CashSummary<D> {
   bank: CashBank;
   bankerId: string | null;
+  /**
+   * Carried on the SUMMARY rather than threaded as a prop, so every screen that
+   * can draw an amount already has the stakes in hand. A component cannot render
+   * this board without it, which is what stops a play-money table showing
+   * dollars because somebody forgot to pass a flag down.
+   */
+  stakes: CashStakes;
   /** Sorted: up first, down last, still-at-the-table after both. */
   players: CashPlayerRow<D>[];
   /** cents */
@@ -534,6 +618,7 @@ export function summarizeCash<D>(
   return {
     bank: core.bank,
     bankerId,
+    stakes: core.stakes ?? "real",
     players,
     totalIn: settlement.totalIn,
     totalOut: settlement.totalOut,
@@ -544,7 +629,7 @@ export function summarizeCash<D>(
     balance: settlement.balance,
     // Null until the banker has counted their own rack, which is the moment
     // there is anything to disagree with. See settleCash's balance rules.
-    warning: balanceWarning(settlement.balance),
+    warning: balanceWarning(settlement.balance, core.stakes),
   };
 }
 
@@ -556,6 +641,8 @@ export function summarizeCash<D>(
 export interface CashPackState extends CashSessionCore {
   /** Unique per session start; namespaces the ledger key. */
   sessionKey: string;
+  /** Required on a live session, unlike the optional field on the core. */
+  stakes: CashStakes;
   /** ISO. Start of play, so net-per-hour is derivable at completion. */
   startedAt: string;
   /** cents. Prefilled on the buy-in and rebuy controls; not a rule. */
@@ -576,6 +663,8 @@ export interface CashPackState extends CashSessionCore {
 export function newCashState(opts: {
   bank: CashBank;
   bankerId: string | null;
+  /** Real money or play money, chosen by the host at start. Absent is real. */
+  stakes?: CashStakes;
   roster: CashPlayer[];
   defaultBuyIn: number;
   /** playerId -> that player's own opening buy-in, in cents. */
@@ -590,6 +679,10 @@ export function newCashState(opts: {
     // must not leave a derived line behind, so this is cleared rather than
     // remembered.
     bankerId: opts.bank === "player" ? opts.bankerId : null,
+    // Fixed for the night. A table cannot be half play money, and changing it
+    // mid-session would retroactively re-denominate every buy-in already taken,
+    // so it is a start-only choice exactly like who is banking.
+    stakes: opts.stakes ?? "real",
     startedAt: new Date().toISOString(),
     defaultBuyIn: buy,
     tracker: opts.tracker ?? false,
@@ -603,4 +696,175 @@ export function newCashState(opts: {
       at: null,
     })),
   };
+}
+
+// ---------- the lifetime read, and the stakes split ----------
+//
+// THE RULE, and it is the whole of this section: WINS AND PLACEMENTS UNIFY
+// ACROSS STAKES, ONLY MONEY SPLITS. A win is a win — you either finished the
+// night up or you did not, and play money does not make that less true — so
+// sessions, nights finished up, win rate, streaks, rebuys and hours are counted
+// once over every night. What mixing genuinely corrupts is the TOTALS: adding a
+// $60 real night to an 80-play-dollar one produces a number that means nothing,
+// so net, staked, averages, ROI, best/worst and net-per-hour are computed twice
+// from the same rows and reported side by side.
+//
+// This is pure so it can be tested without a database. The server's job is one
+// query; the arithmetic and the split are here.
+
+/** One night as the ledger describes it: when, and the meta bag it carried. */
+export interface CashNight {
+  /** ms since epoch. 0 when the row has no timestamp. */
+  at: number;
+  /** cents */
+  net: number;
+  /** cents put on the table across the buy-in and every rebuy */
+  totalIn: number;
+  rebuys: number;
+  /** minutes of play, or null when the night did not record a length */
+  minutes: number | null;
+  /** True when this player banked the table. */
+  banker: boolean;
+  /** Absent on every night recorded before play money existed, so: real. */
+  stakes?: CashStakes;
+}
+
+/** The money half, computed per stakes. */
+export interface CashMoneyAgg {
+  stakes: CashStakes;
+  /** How many nights were played at THIS stakes. Zero means hide it entirely. */
+  sessions: number;
+  /** cents */
+  net: number;
+  /** cents ever put on the table */
+  staked: number;
+  avgBuyIn: number;
+  avgNet: number;
+  /** Net over everything staked. Null rather than a divide by zero. */
+  roi: number | null;
+  best: number | null;
+  worst: number | null;
+  /** cents per hour. Null when no night at this stakes recorded a length. */
+  netPerHour: number | null;
+}
+
+/** Everything that counts once, whatever the chips were worth. */
+export interface CashLifetimeAgg {
+  sessions: number;
+  upNights: number;
+  winRate: number;
+  /** Nights finished UP in a row, right now. */
+  streak: number;
+  bestStreak: number;
+  rebuys: number;
+  rebuyRate: number;
+  minutes: number;
+  banked: number;
+  /** The money, split. Look at `sessions` on each before rendering it. */
+  money: { real: CashMoneyAgg; play: CashMoneyAgg };
+}
+
+function emptyMoney(stakes: CashStakes): CashMoneyAgg {
+  return {
+    stakes,
+    sessions: 0,
+    net: 0,
+    staked: 0,
+    avgBuyIn: 0,
+    avgNet: 0,
+    roi: null,
+    best: null,
+    worst: null,
+    netPerHour: null,
+  };
+}
+
+/**
+ * Roll one player's nights up.
+ *
+ * The streak walk needs OLDEST FIRST so the run it ends on is the current one,
+ * and it counts across both stakes deliberately: finishing up three nights
+ * running is three nights running whether the third was for real money.
+ * A break-even night ends a winning streak, because the streak counts nights
+ * finishing UP and even is not up.
+ */
+export function aggregateCashNights(nights: CashNight[]): CashLifetimeAgg {
+  const ordered = [...nights].sort((a, b) => a.at - b.at);
+
+  const money: Record<CashStakes, CashMoneyAgg> = {
+    real: emptyMoney("real"),
+    play: emptyMoney("play"),
+  };
+  const perStakesMinutes: Record<CashStakes, number> = { real: 0, play: 0 };
+
+  let upNights = 0;
+  let rebuys = 0;
+  let nightsWithRebuy = 0;
+  let minutes = 0;
+  let banked = 0;
+  let streak = 0;
+  let bestStreak = 0;
+
+  for (const n of ordered) {
+    // Unified: these are about whether you won, not about what you won.
+    if (n.net > 0) {
+      upNights++;
+      streak++;
+      if (streak > bestStreak) bestStreak = streak;
+    } else {
+      streak = 0;
+    }
+    rebuys += n.rebuys;
+    if (n.rebuys > 0) nightsWithRebuy++;
+    if (n.minutes) minutes += n.minutes;
+    if (n.banker) banked++;
+
+    // Split: adding a real net to a play net produces a meaningless number.
+    const m = money[n.stakes === "play" ? "play" : "real"];
+    m.sessions++;
+    m.net += n.net;
+    m.staked += n.totalIn;
+    if (m.best === null || n.net > m.best) m.best = n.net;
+    if (m.worst === null || n.net < m.worst) m.worst = n.net;
+    if (n.minutes) perStakesMinutes[n.stakes === "play" ? "play" : "real"] += n.minutes;
+  }
+
+  for (const key of ["real", "play"] as CashStakes[]) {
+    const m = money[key];
+    if (m.sessions > 0) {
+      m.avgBuyIn = Math.round(m.staked / m.sessions);
+      m.avgNet = Math.round(m.net / m.sessions);
+    }
+    m.roi = m.staked ? m.net / m.staked : null;
+    const mins = perStakesMinutes[key];
+    m.netPerHour = mins ? Math.round((m.net * 60) / mins) : null;
+  }
+
+  const sessions = ordered.length;
+  return {
+    sessions,
+    upNights,
+    winRate: sessions ? upNights / sessions : 0,
+    streak,
+    bestStreak,
+    rebuys,
+    rebuyRate: sessions ? nightsWithRebuy / sessions : 0,
+    minutes,
+    banked,
+    money: { real: money.real, play: money.play },
+  };
+}
+
+/**
+ * How to order a leaderboard when one player's totals are in dollars and
+ * another's are in play chips: REAL MONEY FIRST, always, and play money only
+ * breaks a tie between people who have never played for real. Anything else
+ * would let a big play-money night outrank an actual one.
+ */
+export function compareCashLifetime(a: CashLifetimeAgg, b: CashLifetimeAgg): number {
+  if (a.money.real.sessions > 0 || b.money.real.sessions > 0) {
+    if (b.money.real.net !== a.money.real.net) return b.money.real.net - a.money.real.net;
+  }
+  if (b.money.play.net !== a.money.play.net) return b.money.play.net - a.money.play.net;
+  return b.sessions - a.sessions;
 }

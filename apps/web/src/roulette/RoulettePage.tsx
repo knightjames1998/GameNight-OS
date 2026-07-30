@@ -4,12 +4,12 @@ import BackButton from "../BackButton";
 import { usePackSession } from "../usePackSession";
 import CasinoSetup from "../casino/CasinoSetup";
 import { CasinoTable, type Call, type CashOutDetail } from "../casino/CasinoTable";
-import { MoneyInput } from "../casino/money";
+import { MoneyInput, StakesBadge } from "../casino/money";
 import {
   ROULETTE_BETS,
   SESSION_PACKS,
   betLabel,
-  formatCents,
+  money,
   type CashPlayerRow,
   type RlDetail,
   type RlSessionState,
@@ -118,7 +118,15 @@ export default function RoulettePage() {
           <div className="cg-brand">
             Rou<em>lette</em>
           </div>
-          <div className="cg-sub">Cash game &middot; buy-ins, rebuys, cash-outs</div>
+          <div className="cg-sub">
+            Cash game &middot; buy-ins, rebuys, cash-outs
+            {session && session.status !== "completed" && (
+              <>
+                {" "}
+                <StakesBadge stakes={session.summary.stakes} />
+              </>
+            )}
+          </div>
         </div>
 
         {err && <p className="cg-err">{err}</p>}
@@ -176,6 +184,7 @@ function SpinTracker({
   const [stake, setStake] = useState<number | null>(null);
   const chosen = live.some((p) => p.playerId === playerId) ? playerId : live[0]?.playerId ?? "";
   const def = ROULETTE_BETS.find((b) => b.id === bet);
+  const m = money(session.summary.stakes);
 
   const record = (won: boolean) => {
     void call(at("spin"), { playerId: chosen, bet, stake, won });
@@ -218,7 +227,7 @@ function SpinTracker({
       <MoneyInput value={stake} onChange={setStake} ariaLabel="Spin stake" />
       {def && stake !== null && stake > 0 && (
         <p className="cg-hint" style={{ marginTop: 6 }}>
-          {betLabel(bet)} pays {def.to1}:1, so that comes in for {formatCents(stake * def.to1)}.
+          {betLabel(bet)} pays {def.to1}:1, so that comes in for {m.fmt(stake * def.to1)}.
         </p>
       )}
 

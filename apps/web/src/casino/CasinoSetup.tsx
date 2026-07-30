@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  formatCents,
-  formatCentsShort,
+  money,
   type CashBank,
+  type CashStakes,
   type CashSummary,
 } from "@gamenight/shared";
 import type { PackCtx } from "../usePackSession";
@@ -58,6 +58,10 @@ export default function CasinoSetup({
   onStart: (payload: Record<string, unknown>) => void;
 }) {
   const [bank, setBank] = useState<CashBank>("player");
+  // Real money by default. A host who means play money says so; the reverse
+  // default would let a real night be recorded as pretend, which is the more
+  // damaging mistake of the two.
+  const [stakes, setStakes] = useState<CashStakes>("real");
   const [bankerIndex, setBankerIndex] = useState(0);
   const [defaultBuyIn, setDefaultBuyIn] = useState<number | null>(2000);
   const [tracker, setTracker] = useState(false);
@@ -104,6 +108,7 @@ export default function CasinoSetup({
 
   const notAdded = ctx.members.filter((m) => !seats.some((r) => r.userId === m.userId));
   const minPlayers = bank === "player" ? 2 : 1;
+  const m = money(stakes);
   const fallback = defaultBuyIn ?? 0;
   const amountOf = (s: Seat) => s.buyIn ?? fallback;
   const onTable = seats.reduce((a, s) => a + amountOf(s), 0);
@@ -114,6 +119,28 @@ export default function CasinoSetup({
       {completed && finished && <FinishedRecap summary={finished} noun={copy.noun} />}
 
       <div className="cg-card" style={{ marginTop: 16 }}>
+        <div className="cg-h">What are the chips worth?</div>
+        {/* A SELECT rather than the segmented buttons the other choices use, on
+            purpose: this is the one setting a host should have to look at and
+            deliberately change, and a dropdown reads as a decision where two
+            side-by-side pills read as a toggle you might fat-finger. */}
+        <select
+          className="cg-input"
+          aria-label="Stakes"
+          value={stakes}
+          onChange={(e) => setStakes(e.target.value === "play" ? "play" : "real")}
+        >
+          <option value="real">Real money</option>
+          <option value="play">Play money</option>
+        </select>
+        <p className="cg-hint" style={{ marginTop: 8 }}>
+          {stakes === "real"
+            ? "Amounts are recorded in dollars and count towards lifetime real-money totals."
+            : "Amounts are recorded as play money, shown as P$ everywhere, and kept apart from real-money totals. Wins and placings still count: a win is a win."}
+        </p>
+      </div>
+
+      <div className="cg-card">
         <div className="cg-h">Who is banking?</div>
         <div className="cg-seg">
           <button className={bank === "player" ? "on" : ""} onClick={() => setBank("player")}>
@@ -165,7 +192,7 @@ export default function CasinoSetup({
                       "on the default"
                     ) : (
                       <>
-                        <span className="cg-seat__own">their own {formatCentsShort(s.buyIn)}</span>{" "}
+                        <span className="cg-seat__own">their own {m.short(s.buyIn)}</span>{" "}
                         <button className="cg-textbtn" style={{ padding: 0 }} onClick={() => setBuyIn(i, null)}>
                           use default
                         </button>
@@ -195,7 +222,7 @@ export default function CasinoSetup({
               </div>
             ))}
             <p className="cg-hint" style={{ marginTop: 10 }}>
-              {formatCents(onTable)} going on {copy.noun} to start. Any of these can rebuy for a
+              {m.fmt(onTable)} going on {copy.noun} to start. Any of these can rebuy for a
               different amount later.
             </p>
           </>
@@ -260,6 +287,7 @@ export default function CasinoSetup({
         onClick={() =>
           onStart({
             bank,
+            stakes,
             bankerIndex: bank === "player" ? bankerIndex : undefined,
             defaultBuyIn,
             // Only the seats the host deliberately overrode. Everything else
@@ -279,7 +307,7 @@ export default function CasinoSetup({
             : "Add at least 1 player"
           : defaultBuyIn === null
           ? "Set a default buy-in"
-          : `Open ${copy.noun} · ${formatCents(onTable)} on it`}
+          : `Open ${copy.noun} · ${m.fmt(onTable)} on it`}
       </button>
     </>
   );
@@ -296,7 +324,7 @@ function FinishedRecap({ summary, noun }: { summary: CashSummary<unknown>; noun:
             {p.name}
             {p.isBanker && <span className="cg-pill" style={{ marginLeft: 6 }}>bank</span>}
           </span>
-          <NetToken net={p.net} totalIn={p.totalIn} />
+          <NetToken net={p.net} totalIn={p.totalIn} stakes={summary.stakes} />
         </div>
       ))}
       <p className="cg-hint" style={{ marginTop: 10 }}>

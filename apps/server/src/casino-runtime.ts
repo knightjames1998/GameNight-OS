@@ -40,13 +40,18 @@ import {
   eq,
 } from "@gamenight/db";
 import {
+  aggregateCashNights,
   cashLedgerLines,
+  compareCashLifetime,
   formatCentsSigned,
   settleCash,
   SESSION_PACKS,
   type CashBank,
+  type CashLifetimeAgg,
+  type CashNight,
   type CashPackState,
   type CashPlayer,
+  type CashStakes,
   type CashSummary,
   type SessionPackKey,
 } from "@gamenight/shared";
@@ -92,6 +97,7 @@ export interface CasinoConfig<S extends CashPackState> {
   newState(opts: {
     bank: CashBank;
     bankerId: string | null;
+    stakes: CashStakes;
     roster: CashPlayer[];
     defaultBuyIn: number;
     buyIns: Record<string, number>;
@@ -183,12 +189,19 @@ export function registerCasinoRoutes<S extends CashPackState>(
     const minutes = sessionMinutes(state);
     // `character` is left undefined rather than null, which keeps the column
     // out of the insert entirely: it stays null for every casino pack.
-    const lines: LedgerLine[] = cashLedgerLines(settlement, state.bank, state.bankerId, (playerId) => ({
-      ...cfg.ledgerMeta(state, playerId),
-      // Net per hour needs the night's LENGTH, and matches.playedAt is only
-      // the end of it. Stored per row so the read layer never has to guess.
-      minutes,
-    }));
+    const lines: LedgerLine[] = cashLedgerLines(settlement, {
+      bank: state.bank,
+      bankerId: state.bankerId,
+      // Written to every row so the lifetime read can split the money without
+      // a migration. An absent value on an older row means real.
+      stakes: state.stakes ?? "real",
+      extraMeta: (playerId) => ({
+        ...cfg.ledgerMeta(state, playerId),
+        // Net per hour needs the night's LENGTH, and matches.playedAt is only
+        // the end of it. Stored per row so the read layer never has to guess.
+        minutes,
+      }),
+    });
 
     return rt.materializeUnit({
       groupId,
@@ -243,7 +256,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
         eventId,
         // formatCentsSigned, not hand-rolled division: dollars exist only at
         // the edges, and this string IS an edge.
-        label: `net ${formatCentsSigned(line.net ?? 0)}`,
+        label: `net ${formatCentsSigned(line.net ?? 0, state.stakes)}`,
         date: state.entries.find((e) => slots.has(e.playerId))?.at ?? null,
         placement: line.placement,
         isWinner: line.isWinner,
@@ -351,6 +364,10 @@ export function registerCasinoRoutes<S extends CashPackState>(
     }
 
     const bank: CashBank = req.body?.bank === "casino" ? "casino" : "player";
+    // Anything that is not the word "play" is real. Defaulting the OTHER way
+    // would mean a malformed body could quietly record a real-money night as
+    // play money, which is the more damaging mistake of the two.
+    const stakes: CashStakes = req.body?.stakes === "play" ? "play" : "real";
     const defaultBuyIn = cents(req.body?.defaultBuyIn) ?? 2000;
 
     const rawRoster = Array.isArray(req.body?.roster) ? req.body.roster : [];
@@ -409,6 +426,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
     const state = cfg.newState({
       bank,
       bankerId,
+      stakes,
       roster,
       defaultBuyIn,
       buyIns,
@@ -641,32 +659,21 @@ export interface CashMeta {
   cashOut?: number;
   rebuys?: number;
   bank?: string;
+  /** Absent on rows written before play money existed, which means real. */
+  stakes?: string;
   banker?: boolean;
   minutes?: number;
   [k: string]: unknown;
 }
 
-export interface CashLifetimeRow {
+/**
+ * One player's lifetime row: the unified counts, the money SPLIT by stakes, and
+ * every raw meta bag so the pack's own panel can pull its detail stats out
+ * without another endpoint.
+ */
+export interface CashLifetimeRow extends CashLifetimeAgg {
   userId: string;
   name: string;
-  sessions: number;
-  net: number;
-  staked: number;
-  avgBuyIn: number;
-  avgNet: number;
-  winRate: number;
-  upNights: number;
-  roi: number | null;
-  rebuys: number;
-  rebuyRate: number;
-  best: number | null;
-  worst: number | null;
-  streak: number;
-  bestStreak: number;
-  minutes: number;
-  netPerHour: number | null;
-  banked: number;
-  /** Every meta bag this player's rows carried, for the pack's own extras. */
   metas: CashMeta[];
 }
 
@@ -698,82 +705,36 @@ export async function cashLifetimeStats(
     .where(and(eq(matches.groupId, groupId), eq(matches.gameId, game.id), eq(matches.status, "completed")));
 
   const sessionIds = new Set<string>();
-  const byUser = new Map<
-    string,
-    { userId: string; name: string; nights: { at: number; meta: CashMeta }[]; banked: number }
-  >();
+  const byUser = new Map<string, { userId: string; name: string; nights: CashNight[]; metas: CashMeta[] }>();
 
   for (const r of rows) {
     sessionIds.add(r.matchId);
     const m = (r.meta as CashMeta | null) ?? {};
-    const p = byUser.get(r.userId) ?? { userId: r.userId, name: r.displayName, nights: [], banked: 0 };
-    p.nights.push({ at: r.playedAt ? new Date(r.playedAt).getTime() : 0, meta: m });
-    if (m.banker) p.banked++;
+    const p = byUser.get(r.userId) ?? { userId: r.userId, name: r.displayName, nights: [], metas: [] };
+    p.nights.push({
+      at: r.playedAt ? new Date(r.playedAt).getTime() : 0,
+      net: m.net ?? 0,
+      totalIn: m.totalIn ?? m.buyIn ?? 0,
+      rebuys: m.rebuys ?? 0,
+      minutes: m.minutes ?? null,
+      banker: !!m.banker,
+      stakes: m.stakes === "play" ? "play" : "real",
+    });
+    p.metas.push(m);
     byUser.set(r.userId, p);
   }
 
+  // The arithmetic and the stakes split are PURE and live in the shared engine
+  // (aggregateCashNights), so they are unit tested without a database anywhere
+  // near them. This function is a query and a shape.
   const byPlayer = [...byUser.values()]
-    .map((p) => {
-      // Oldest first, so the streak walk below ends on the CURRENT run.
-      const nights = [...p.nights].sort((a, b) => a.at - b.at);
-      const sessions = nights.length;
-      let net = 0;
-      let staked = 0;
-      let rebuys = 0;
-      let nightsWithRebuy = 0;
-      let up = 0;
-      let minutes = 0;
-      let best: number | null = null;
-      let worst: number | null = null;
-      let streak = 0;
-      let bestStreak = 0;
-      for (const n of nights) {
-        const v = n.meta.net ?? 0;
-        net += v;
-        staked += n.meta.totalIn ?? n.meta.buyIn ?? 0;
-        rebuys += n.meta.rebuys ?? 0;
-        if ((n.meta.rebuys ?? 0) > 0) nightsWithRebuy++;
-        if (v > 0) {
-          up++;
-          streak++;
-          if (streak > bestStreak) bestStreak = streak;
-        } else {
-          // A break-even night ends a winning streak: the streak counts nights
-          // finishing UP, and even is not up.
-          streak = 0;
-        }
-        if (best === null || v > best) best = v;
-        if (worst === null || v < worst) worst = v;
-        if (n.meta.minutes) minutes += n.meta.minutes;
-      }
-      return {
-        userId: p.userId,
-        name: p.name,
-        sessions,
-        net,
-        staked,
-        avgBuyIn: sessions ? Math.round(staked / sessions) : 0,
-        avgNet: sessions ? Math.round(net / sessions) : 0,
-        winRate: sessions ? up / sessions : 0,
-        upNights: up,
-        // ROI as net over everything ever put on the table. Null rather than a
-        // divide-by-zero when somebody has only ever played for nothing.
-        roi: staked ? net / staked : null,
-        rebuys,
-        rebuyRate: sessions ? nightsWithRebuy / sessions : 0,
-        best,
-        worst,
-        streak,
-        bestStreak,
-        minutes,
-        // Cents per hour. Null when no night recorded a length, which is every
-        // night played before the pack started storing one.
-        netPerHour: minutes ? Math.round((net * 60) / minutes) : null,
-        banked: p.banked,
-        metas: nights.map((n) => n.meta),
-      };
-    })
-    .sort((a, b) => b.net - a.net || b.sessions - a.sessions);
+    .map((p) => ({
+      userId: p.userId,
+      name: p.name,
+      ...aggregateCashNights(p.nights),
+      metas: p.metas,
+    }))
+    .sort(compareCashLifetime);
 
   return { sessions: sessionIds.size, byPlayer };
 }

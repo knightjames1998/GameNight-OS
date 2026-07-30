@@ -486,28 +486,37 @@ interface CashMetaBag {
   points?: number | null;
 }
 
+/** The money half, per stakes. `sessions: 0` means do not render it at all. */
+interface MoneyAgg {
+  stakes: "real" | "play";
+  sessions: number;
+  net: number;
+  staked: number;
+  avgBuyIn: number;
+  avgNet: number;
+  roi: number | null;
+  best: number | null;
+  worst: number | null;
+  netPerHour: number | null;
+}
+
 interface CashStats {
   sessions: number;
   byPlayer: {
     userId: string;
     name: string;
+    /** Counted ONCE across both stakes: a win is a win. */
     sessions: number;
-    net: number;
-    staked: number;
-    avgBuyIn: number;
-    avgNet: number;
     winRate: number;
     upNights: number;
-    roi: number | null;
-    rebuys: number;
-    rebuyRate: number;
-    best: number | null;
-    worst: number | null;
     streak: number;
     bestStreak: number;
+    rebuys: number;
+    rebuyRate: number;
     minutes: number;
-    netPerHour: number | null;
     banked: number;
+    /** SPLIT, because adding a real net to a play net means nothing. */
+    money: { real: MoneyAgg; play: MoneyAgg };
     metas: CashMetaBag[];
   }[];
 }
@@ -548,14 +557,33 @@ function CasinoPanel({
   // The shared row's "wins" are nights finished up, because placement comes
   // from the net rank. The money is the pack-specific part and rides the
   // subline, the same way Mario Party's stars and Ping Pong's game wins do.
-  const money = [...data.byPlayer].sort((a, b) => b.net - a.net);
+  //
+  // ROWS ARRIVE SORTED by the shared comparator (real money first, play money
+  // only breaking a tie between people who have never played for real), so a
+  // big play-money night can never outrank an actual one.
+  const rows2 = data.byPlayer;
   const tone = (n: number) => (n > 0 ? "var(--gn-yes)" : n < 0 ? "var(--gn-p1)" : undefined);
+
+  /** "up $60 lifetime, down P$80 lifetime" — both on ONE line, per stakes. */
+  const lifetime = (p: CashRow) =>
+    (["real", "play"] as const)
+      .map((k) => p.money[k])
+      .filter((mm) => mm.sessions > 0)
+      .map((mm) => (
+        <span key={mm.stakes}>
+          {" "}
+          <span style={{ color: tone(mm.net), fontWeight: 700 }}>
+            {formatCentsSigned(mm.net, mm.stakes)}
+          </span>
+        </span>
+      ));
+
   const playerExtras = new Map(
     data.byPlayer.map((p) => [
       p.userId,
       <>
-        {" "}&middot;{" "}
-        <span style={{ color: tone(p.net), fontWeight: 700 }}>{formatCentsSigned(p.net)}</span> lifetime
+        {" "}&middot;
+        {lifetime(p)} lifetime
       </>,
     ]),
   );
@@ -571,31 +599,41 @@ function CasinoPanel({
 
       <section className="space-y-2">
         <h2 className="gn-h2">The money</h2>
-        {money.map((p) => {
+        {rows2.map((p) => {
           const detail = extras(p);
+          const played = (["real", "play"] as const).map((k) => p.money[k]).filter((mm) => mm.sessions > 0);
           return (
             <div key={p.userId} className="gn-card" style={{ padding: "12px 16px" }}>
               <div className="flex items-baseline justify-between gap-2">
                 <span className="font-bold truncate">{p.name}</span>
-                <span className="font-bold shrink-0" style={{ color: tone(p.net) ?? "var(--gn-dim)" }}>
-                  {formatCentsSigned(p.net)}
-                </span>
+                <span className="font-bold shrink-0">{lifetime(p)}</span>
               </div>
+              {/* UNIFIED counts first: nights, win rate and streaks are about
+                  whether you won, which play money does not change. */}
               <p className="gn-hint" style={{ fontSize: "12px", marginTop: 4 }}>
                 {p.sessions} night{p.sessions === 1 ? "" : "s"} &middot; up {p.upNights} (
-                {Math.round(p.winRate * 100)}%) &middot; avg {formatCentsSigned(p.avgNet)} &middot; avg buy-in{" "}
-                {formatCents(p.avgBuyIn)}
-                {p.roi != null && ` · ROI ${(p.roi * 100).toFixed(0)}%`}
-                {p.netPerHour != null && ` · ${formatCentsSigned(p.netPerHour)}/hr`}
-              </p>
-              <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
-                {p.best != null && `best night ${formatCentsSigned(p.best)}`}
-                {p.worst != null && ` · worst ${formatCentsSigned(p.worst)}`}
+                {Math.round(p.winRate * 100)}%)
                 {p.rebuys > 0 && ` · ${p.rebuys} rebuy${p.rebuys === 1 ? "" : "s"} (${Math.round(p.rebuyRate * 100)}% of nights)`}
                 {p.streak >= 2 && ` · 🔥${p.streak} up in a row`}
                 {p.bestStreak >= 2 && ` · best run ${p.bestStreak}`}
                 {p.banked > 0 && ` · banked ${p.banked}`}
               </p>
+              {/* Then the money, ONE LINE PER STAKES, because a total that mixes
+                  dollars and play chips is a number that means nothing. */}
+              {played.map((mm) => (
+                <p key={mm.stakes} className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
+                  <span style={{ color: mm.stakes === "play" ? "#c4b5fd" : "var(--gn-dim)", fontWeight: 700 }}>
+                    {mm.stakes === "play" ? "play" : "real"}
+                  </span>{" "}
+                  {mm.sessions} night{mm.sessions === 1 ? "" : "s"} &middot; avg{" "}
+                  {formatCentsSigned(mm.avgNet, mm.stakes)} &middot; avg buy-in{" "}
+                  {formatCents(mm.avgBuyIn, mm.stakes)}
+                  {mm.roi != null && ` · ROI ${(mm.roi * 100).toFixed(0)}%`}
+                  {mm.best != null && ` · best ${formatCentsSigned(mm.best, mm.stakes)}`}
+                  {mm.worst != null && ` · worst ${formatCentsSigned(mm.worst, mm.stakes)}`}
+                  {mm.netPerHour != null && ` · ${formatCentsSigned(mm.netPerHour, mm.stakes)}/hr`}
+                </p>
+              ))}
               {detail && (
                 <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>{detail}</p>
               )}

@@ -24,6 +24,7 @@ import {
   newCashState,
   summarizeCash,
   type CashBank,
+  type CashStakes,
   type CashPackState,
   type CashPlayer,
   type CashSummary,
@@ -95,6 +96,7 @@ export interface CrSessionState extends CashPackState {
 export function newCrapsState(opts: {
   bank: CashBank;
   bankerId: string | null;
+  stakes?: CashStakes;
   roster: CashPlayer[];
   defaultBuyIn: number;
   buyIns?: Record<string, number>;

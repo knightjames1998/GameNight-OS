@@ -1,12 +1,7 @@
 import type { ReactNode } from "react";
-import {
-  formatCents,
-  formatCentsShort,
-  formatCentsSigned,
-  type CashPlayerRow,
-  type CashSummary,
-} from "@gamenight/shared";
+import { money, type CashPlayerRow, type CashSummary } from "@gamenight/shared";
 import BackButton from "../BackButton";
+import { StakesBadge } from "./money";
 import "./casino.css";
 
 // THE LIVE MONEY BOARD, shared by every casino pack's TV view.
@@ -56,12 +51,15 @@ export function MoneyBoard<D>({
   // them, because "in for $40" is not a position on a leaderboard.
   const ranked = summary.players.filter((p) => p.net !== null);
   const playing = summary.players.filter((p) => p.net === null);
+  const m = money(summary.stakes);
 
   return (
     <div className={`cg-tv ${className}`}>
       <div className="cg-tv__head">
         <div className="cg-tv__brand">{brand}</div>
         <div className="cg-tv__muted" style={{ fontSize: "2.4vmin" }}>
+          <StakesBadge stakes={summary.stakes} />
+          {summary.stakes === "play" && " "}
           {summary.bank === "player" ? "player banked" : "casino banked"} ·{" "}
           {summary.players.length} at the table
           {summary.stillIn > 0 && ` · ${summary.stillIn} still in`}
@@ -90,9 +88,9 @@ export function MoneyBoard<D>({
                 {p.isBanker && " 🏦"}
               </span>
               <div className="cg-tv__meta">
-                in {formatCentsShort(p.totalIn)}
+                in {m.short(p.totalIn)}
                 {p.rebuys > 0 && ` · ${p.rebuys} rebuy${p.rebuys === 1 ? "" : "s"}`}
-                {p.cashedOut && p.cashOut !== null && ` · out ${formatCentsShort(p.cashOut)}`}
+                {p.cashedOut && p.cashOut !== null && ` · out ${m.short(p.cashOut)}`}
                 {p.derived && " · the bank"}
                 {extraMeta?.(p) ?? ""}
               </div>
@@ -102,7 +100,7 @@ export function MoneyBoard<D>({
                 (p.net ?? 0) > 0 ? "cg-tv__net--up" : (p.net ?? 0) < 0 ? "cg-tv__net--down" : "cg-tv__net--even"
               }`}
             >
-              {formatCentsSigned(p.net ?? 0)}
+              {m.signed(p.net ?? 0)}
             </span>
           </div>
         ))}
@@ -121,22 +119,22 @@ export function MoneyBoard<D>({
                 {extraMeta?.(p) ?? ""}
               </div>
             </span>
-            <span className="cg-tv__net cg-tv__net--in">in {formatCentsShort(p.totalIn)}</span>
+            <span className="cg-tv__net cg-tv__net--in">in {m.short(p.totalIn)}</span>
           </div>
         ))}
       </div>
 
       <div className="cg-tv__foot">
         <div className="cg-tv__stat">
-          <b>{formatCents(summary.totalIn)}</b>
+          <b>{m.fmt(summary.totalIn)}</b>
           <span>bought in</span>
         </div>
         <div className="cg-tv__stat">
-          <b>{formatCents(summary.totalOut)}</b>
+          <b>{m.fmt(summary.totalOut)}</b>
           <span>cashed out</span>
         </div>
         <div className="cg-tv__stat">
-          <b>{formatCents(summary.onTable)}</b>
+          <b>{m.fmt(summary.onTable)}</b>
           <span>on the table</span>
         </div>
         <div className="cg-tv__stat">

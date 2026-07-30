@@ -21,6 +21,7 @@ import {
   newCashState,
   summarizeCash,
   type CashBank,
+  type CashStakes,
   type CashPackState,
   type CashPlayer,
   type CashSummary,
@@ -116,6 +117,7 @@ export interface RlSessionState extends CashPackState {
 export function newRouletteState(opts: {
   bank: CashBank;
   bankerId: string | null;
+  stakes?: CashStakes;
   roster: CashPlayer[];
   defaultBuyIn: number;
   buyIns?: Record<string, number>;

@@ -1,9 +1,8 @@
 import { useState, type ReactNode } from "react";
 import {
-  formatCents,
-  formatCentsShort,
-  formatCentsSigned,
+  money,
   type CashPlayerRow,
+  type CashStakes,
   type CashSummary,
 } from "@gamenight/shared";
 import type { PackCtx } from "../usePackSession";
@@ -68,6 +67,9 @@ export function CasinoTable<D, R>({
   const canScore = canHost || openScoring;
   const [cashingOut, setCashingOut] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // Taken ONCE from the summary and passed down, so no screen in this group can
+  // render an amount without the stakes in hand.
+  const m = money(summary.stakes);
 
   function endSession() {
     // The balance warning is shown, then the host decides. The app records
@@ -114,6 +116,7 @@ export function CasinoTable<D, R>({
             open={cashingOut === p.playerId}
             copy={copy}
             detail={detail}
+            stakes={summary.stakes}
             onToggleCashOut={() => setCashingOut(cashingOut === p.playerId ? null : p.playerId)}
             call={call}
             at={at}
@@ -123,15 +126,15 @@ export function CasinoTable<D, R>({
 
         <div className="cg-totals">
           <div className="cg-total">
-            <div className="cg-total__n">{formatCents(summary.totalIn)}</div>
+            <div className="cg-total__n">{m.fmt(summary.totalIn)}</div>
             <div className="cg-total__l">bought in</div>
           </div>
           <div className="cg-total">
-            <div className="cg-total__n">{formatCents(summary.totalOut)}</div>
+            <div className="cg-total__n">{m.fmt(summary.totalOut)}</div>
             <div className="cg-total__l">cashed out</div>
           </div>
           <div className="cg-total">
-            <div className="cg-total__n">{formatCents(summary.onTable)}</div>
+            <div className="cg-total__n">{m.fmt(summary.onTable)}</div>
             <div className="cg-total__l">on the table</div>
           </div>
         </div>
@@ -211,6 +214,7 @@ function PlayerLine<D, R>({
   open,
   copy,
   detail,
+  stakes,
   onToggleCashOut,
   call,
   at,
@@ -222,6 +226,7 @@ function PlayerLine<D, R>({
   open: boolean;
   copy: CasinoTableCopy;
   detail: CashOutDetail<D, R>;
+  stakes: CashStakes;
   onToggleCashOut: () => void;
   call: Call;
   at: (path: string) => string;
@@ -229,6 +234,7 @@ function PlayerLine<D, R>({
 }) {
   const [editBuyIn, setEditBuyIn] = useState(false);
   const [buyInDraft, setBuyInDraft] = useState<number | null>(p.buyIn);
+  const m = money(stakes);
 
   return (
     <>
@@ -238,13 +244,13 @@ function PlayerLine<D, R>({
           {p.isBanker && <span className="cg-pill" style={{ marginLeft: 6 }}>bank</span>}
           {p.kind === "guest" && <span className="cg-pill cg-pill--muted" style={{ marginLeft: 6 }}>guest</span>}
           <div className="cg-sub2">
-            in {formatCentsShort(p.totalIn)}
+            in {m.short(p.totalIn)}
             {p.rebuys > 0 && ` · ${p.rebuys} rebuy${p.rebuys === 1 ? "" : "s"}`}
-            {p.cashedOut && p.cashOut !== null && ` · out ${formatCentsShort(p.cashOut)}`}
+            {p.cashedOut && p.cashOut !== null && ` · out ${m.short(p.cashOut)}`}
             {p.derived && " · worked out from the table"}
           </div>
         </span>
-        <NetToken net={p.net} totalIn={p.totalIn} />
+        <NetToken net={p.net} totalIn={p.totalIn} stakes={stakes} />
       </div>
 
       {canScore && (
@@ -322,6 +328,7 @@ function PlayerLine<D, R>({
           busy={busy}
           copy={copy}
           detail={detail}
+          stakes={stakes}
           onSubmit={(body) => {
             void call(at("cash-out"), { playerId: p.playerId, ...body });
             onDone();
@@ -345,16 +352,19 @@ function CashOutForm<D, R>({
   busy,
   copy,
   detail,
+  stakes,
   onSubmit,
 }: {
   p: CashPlayerRow<R>;
   busy: boolean;
   copy: CasinoTableCopy;
   detail: CashOutDetail<D, R>;
+  stakes: CashStakes;
   onSubmit: (body: Record<string, unknown>) => void;
 }) {
   const [cashOut, setCashOut] = useState<number | null>(p.cashOut);
   const [fields, setFields] = useState<D>(() => detail.initial(p));
+  const m = money(stakes);
 
   return (
     <div className="cg-card" style={{ marginBottom: 10 }}>
@@ -362,8 +372,8 @@ function CashOutForm<D, R>({
       <div className="cg-lab">Cashing out for</div>
       <MoneyInput value={cashOut} onChange={setCashOut} ariaLabel={`${p.name} cash-out`} />
       <p className="cg-hint" style={{ marginTop: 6 }}>
-        In for {formatCents(p.totalIn)}. Enter 0 if they busted.
-        {cashOut !== null && ` That's ${formatCentsSigned(cashOut - p.totalIn)} on the night.`}
+        In for {m.fmt(p.totalIn)}. Enter 0 if they busted.
+        {cashOut !== null && ` That's ${m.signed(cashOut - p.totalIn)} on the night.`}
       </p>
       {p.isBanker && (
         <p className="cg-hint" style={{ marginTop: 6 }}>
@@ -382,7 +392,7 @@ function CashOutForm<D, R>({
         disabled={busy || cashOut === null}
         onClick={() => onSubmit({ cashOut, ...(fields as Record<string, unknown>) })}
       >
-        {cashOut === null ? "Enter an amount" : `Cash out ${formatCentsShort(cashOut)}`}
+        {cashOut === null ? "Enter an amount" : `Cash out ${m.short(cashOut)}`}
       </button>
     </div>
   );

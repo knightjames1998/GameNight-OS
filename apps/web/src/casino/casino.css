@@ -129,6 +129,24 @@
 button.cg-pill { cursor: pointer; }
 .cg-pill--muted { background: rgba(195, 182, 214, 0.14); color: var(--gn-dim); }
 
+/* ---- play money ----
+   Its own hue, deliberately not one of the money colours: up/down stay green
+   and red on a play table because those mean DIRECTION. This marks the
+   CURRENCY, and it has to be catchable from across a room without reading a
+   number, which the P$ prefix alone is not. Violet is unused elsewhere in the
+   casino palette, so it cannot be mistaken for an accent. */
+.cg-play {
+  display: inline-block; vertical-align: middle;
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 3px 9px; border-radius: 999px;
+  background: rgba(167, 139, 250, 0.18); color: #c4b5fd;
+  border: 1px solid rgba(167, 139, 250, 0.45);
+}
+.cg-tv .cg-play {
+  font-size: 2vmin; padding: 0.6vmin 1.6vmin; letter-spacing: 0.3vmin;
+  border-width: 2px;
+}
+
 /* ---- the money tokens: the one visual idea the whole group shares ---- */
 .cg-tok {
   font-family: Fredoka, system-ui, sans-serif; font-weight: 800; font-size: 14px;

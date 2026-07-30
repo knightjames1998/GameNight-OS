@@ -432,12 +432,15 @@ test("ledger lines carry the money in meta and the placement from net rank", () 
     ]),
     { final: true },
   );
-  const lines = cashLedgerLines(s, "player", "bank");
+  // The options-object signature arrived with the stakes flag; `stakes` is
+  // written to every row so the lifetime read can split the money.
+  const lines = cashLedgerLines(s, { bank: "player", bankerId: "bank", stakes: "real" });
   const a = lines.find((l) => l.playerId === "a")!;
   assert.equal(a.placement, 1);
   assert.equal(a.isWinner, true);
   assert.deepEqual(a.meta, {
     bank: "player",
+    stakes: "real",
     buyIn: 2000,
     rebuys: 1,
     rebuyTotal: 2000,
@@ -453,9 +456,12 @@ test("ledger lines carry the money in meta and the placement from net rank", () 
 
   // Pack-specific detail rides alongside, and nulls are left out entirely
   // rather than written as zeros a lifetime average would then believe.
-  const withDetail = cashLedgerLines(s, "player", "bank", (id) =>
-    id === "a" ? { biggestBet: 5000, biggestWin: null } : {},
-  );
+  const withDetail = cashLedgerLines(s, {
+    bank: "player",
+    bankerId: "bank",
+    stakes: "real",
+    extraMeta: (id) => (id === "a" ? { biggestBet: 5000, biggestWin: null } : {}),
+  });
   const a2 = withDetail.find((l) => l.playerId === "a")!;
   assert.equal(a2.meta.biggestBet, 5000);
   assert.equal("biggestWin" in a2.meta, false);

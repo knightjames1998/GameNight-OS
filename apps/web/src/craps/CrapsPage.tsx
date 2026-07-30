@@ -3,7 +3,7 @@ import BackButton from "../BackButton";
 import { usePackSession } from "../usePackSession";
 import CasinoSetup from "../casino/CasinoSetup";
 import { CasinoTable, type Call, type CashOutDetail } from "../casino/CasinoTable";
-import { CountInput, MoneyInput } from "../casino/money";
+import { CountInput, MoneyInput, StakesBadge } from "../casino/money";
 import {
   SESSION_PACKS,
   type CrDetail,
@@ -112,7 +112,15 @@ export default function CrapsPage() {
           <div className="cg-brand">
             Cr<em>aps</em>
           </div>
-          <div className="cg-sub">Cash game &middot; buy-ins, rebuys, cash-outs</div>
+          <div className="cg-sub">
+            Cash game &middot; buy-ins, rebuys, cash-outs
+            {session && session.status !== "completed" && (
+              <>
+                {" "}
+                <StakesBadge stakes={session.summary.stakes} />
+              </>
+            )}
+          </div>
         </div>
 
         {err && <p className="cg-err">{err}</p>}
