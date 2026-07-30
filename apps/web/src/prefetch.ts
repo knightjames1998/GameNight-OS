@@ -69,6 +69,7 @@ export const routes = {
   pingPong: () => import("./pingpong/PingPongPage"),
   blackjack: () => import("./blackjack/BlackjackPage"),
   roulette: () => import("./roulette/RoulettePage"),
+  craps: () => import("./craps/CrapsPage"),
   quickPlay: () => import("./pages/QuickPlayPage"),
 } as const;
 
@@ -92,5 +93,6 @@ export const packRoute: Record<PackKey | "beerio", Importer> = {
   pingpong: routes.pingPong,
   blackjack: routes.blackjack,
   roulette: routes.roulette,
+  craps: routes.craps,
   tournament: routes.bracket,
 };

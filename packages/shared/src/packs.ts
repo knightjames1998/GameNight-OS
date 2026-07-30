@@ -98,7 +98,11 @@ export const SESSION_PACKS = {
     wsType: "mario_party_updated",
     table: "game_sessions",
     name: "Mario Party",
-    emoji: "\u{1F3B2}", // 🎲
+    // ⭐ rather than 🎲: craps has the stronger claim on the die, and stars ARE
+    // Mario Party's scoring unit. Safe to change because emoji is DERIVED from
+    // this registry and never written to the database — only ledger, gameName
+    // and keyPrefix are permanent.
+    emoji: "\u{2B50}", // ⭐
     quickTitle: "Mario Party",
   },
   pingpong: {
@@ -141,11 +145,24 @@ export const SESSION_PACKS = {
     wsType: "roulette_updated",
     table: "game_sessions",
     name: "Roulette",
-    // There is no roulette-wheel emoji. 🎲 is Mario Party's and 🎰 is a slot
-    // machine, which is a different game; a ferris wheel at least reads as a
-    // wheel, which is what the pack is about.
     emoji: "\u{1F3A1}", // 🎡
     quickTitle: "Roulette night",
+  },
+  craps: {
+    ledger: "craps",
+    gameName: "Craps",
+    keyPrefix: "craps",
+    route: "craps",
+    // Bare, not "craps_updated". The other packs carry the suffix; this one is
+    // as the session brief specified it. It works because both sides read the
+    // string from THIS entry, which is the whole point of the registry — but
+    // it is the odd one out, and changing it is a one-line edit (wsType is not
+    // written to the database).
+    wsType: "craps",
+    table: "game_sessions",
+    name: "Craps",
+    emoji: "\u{1F3B2}", // 🎲
+    quickTitle: "Craps night",
   },
 } as const satisfies Record<string, SessionPackDef>;
 

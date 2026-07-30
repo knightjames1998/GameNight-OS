@@ -30,6 +30,7 @@ export function MoneyBoard<D>({
   className,
   brand,
   meta,
+  hero,
   extraMeta,
   emptyHint,
 }: {
@@ -40,6 +41,13 @@ export function MoneyBoard<D>({
   brand: ReactNode;
   /** Extra header text after the shared bank/seat counts. */
   meta?: ReactNode;
+  /**
+   * A pack's own headline, above the board. Craps puts the current shooter and
+   * their live roll count here, which is the most watchable thing in that pack
+   * and has no equivalent in blackjack or roulette. Omitted, the board simply
+   * starts where it always did.
+   */
+  hero?: ReactNode;
   /** A per-player tail on the subline: "· 2 blackjacks", "· mostly red". */
   extraMeta?: (p: CashPlayerRow<D>) => string;
   emptyHint: string;
@@ -62,6 +70,8 @@ export function MoneyBoard<D>({
       </div>
 
       {summary.warning && <div className="cg-tv__warn">⚠️ {summary.warning}</div>}
+
+      {hero}
 
       <div className="cg-tv__board">
         {summary.players.length === 0 && (

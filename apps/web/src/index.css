@@ -262,12 +262,26 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-cab--mp .gn-cab__name{color:#ffd24a}
 .gn-cab--pp{border-color:#1f6b46;background:linear-gradient(180deg,#0f3826,#241a30)}
 .gn-cab--pp .gn-cab__name{color:#ff9a4d}
+/* Picker group divider: a hairline with a small caption sitting on it. Same
+   idea as .gn-divider but quieter and left-aligned, because these are section
+   captions inside one list rather than a break between screens. */
+.gn-pickgroup{
+  display:flex;align-items:center;gap:10px;margin:16px 2px 2px;
+  color:var(--gn-dim);font-size:11px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;
+}
+.gn-pickgroup>span{flex-shrink:0}
+.gn-pickgroup::after{content:"";height:2px;flex:1;background:var(--gn-line);border-radius:2px}
+/* The first caption in the picker needs no gap above it. */
+.gn-pickgroup:first-child{margin-top:2px}
+
 /* Casino group: each pack keeps its own accent so two money boards are never
-   mistaken for each other across a room. Craps and poker join this block. */
+   mistaken for each other across a room. Poker joins this block. */
 .gn-cab--bj{border-color:#5c2b22;background:linear-gradient(180deg,#2a1613,#241a30)}
 .gn-cab--bj .gn-cab__name{color:var(--gn-gold)}
 .gn-cab--rl{border-color:#1d4a3a;background:linear-gradient(180deg,#0e2c21,#241a30)}
 .gn-cab--rl .gn-cab__name{color:var(--gn-p2)}
+.gn-cab--cr{border-color:#1f3a63;background:linear-gradient(180deg,#0f2445,#241a30)}
+.gn-cab--cr .gn-cab__name{color:#ff8a3d}
 
 /* Shared on/off pill toggle (the "let members record results" control in
    every pack). The label is the current state; green = on, red = off. */

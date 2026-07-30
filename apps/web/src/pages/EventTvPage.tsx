@@ -32,6 +32,7 @@ const MarioPartyTvPage = lazy(() => import("../marioparty/MarioPartyTvPage"));
 const PingPongTvPage = lazy(() => import("../pingpong/PingPongTvPage"));
 const BlackjackTvPage = lazy(() => import("../blackjack/BlackjackTvPage"));
 const RouletteTvPage = lazy(() => import("../roulette/RouletteTvPage"));
+const CrapsTvPage = lazy(() => import("../craps/CrapsTvPage"));
 const TvPage = lazy(() => import("./TvPage"));
 const BeerioTvPage = lazy(() => import("../beerio/BeerioTvPage"));
 
@@ -106,6 +107,8 @@ export default function EventTvPage() {
         <BlackjackTvPage eventId={tv.event.id} />
       ) : now.pack === "roulette" ? (
         <RouletteTvPage eventId={tv.event.id} />
+      ) : now.pack === "craps" ? (
+        <CrapsTvPage eventId={tv.event.id} />
       ) : (
         <PingPongTvPage eventId={tv.event.id} />
       )}

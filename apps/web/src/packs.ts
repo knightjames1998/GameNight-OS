@@ -48,12 +48,42 @@ export interface PackFormatSpec {
   sub: string;
 }
 
+/**
+ * The picker's display groups, in the order they appear.
+ *
+ * DISPLAY ONLY. Unlike `ledger`, `gameName` and `keyPrefix` in the shared
+ * registry, a group key is never written to the database, never a join key and
+ * never in a URL — it exists to draw a divider and a caption. Rename them,
+ * reorder them, split them or merge them at any time; the only consequence is
+ * where a tile appears on one screen.
+ *
+ * Grouping lives HERE rather than in `SESSION_PACKS` because this list is the
+ * client's display catalogue, and it already carries things the registry does
+ * not: Tournament is not a registry pack at all, and Beerio Kart is a format
+ * under the Mario Kart tile rather than a tile of its own. Those belong in the
+ * same list as the real packs, so the grouping has to be where they all are.
+ */
+export const PACK_GROUPS = [
+  { key: "nintendo", label: "Nintendo" },
+  { key: "casino", label: "Casino" },
+  { key: "bar", label: "Bar and sports" },
+  { key: "other", label: "Other" },
+] as const;
+
+export type PackGroup = (typeof PACK_GROUPS)[number]["key"];
+
 /** A pack as the catalogue describes it. */
 export interface PackSpec {
   key: PackKey;
   name: string;
   emoji: string;
   cabClass: string;
+  /**
+   * Which picker section this tile sits under. DISPLAY ONLY and safe to change
+   * whenever — see PACK_GROUPS above. A group with no members renders nothing,
+   * so a new pack only has to set this and it appears in the right place.
+   */
+  group: PackGroup;
   /** Empty for Tournament, whose formats are always supplied by the caller. */
   formats: PackFormatSpec[];
 }
@@ -70,6 +100,7 @@ export const PACKS: PackSpec[] = [
     name: S.mariokart.name,
     emoji: S.mariokart.emoji,
     cabClass: "gn-cab--mk",
+    group: "nintendo",
     formats: [
       // Beerio is a separate pack that lives under the Mario Kart tile,
       // because that is where someone looks for it.
@@ -85,6 +116,7 @@ export const PACKS: PackSpec[] = [
     name: S.smash.name,
     emoji: S.smash.emoji,
     cabClass: "gn-cab--smash",
+    group: "nintendo",
     formats: [
       { key: "ffa", label: "Free-for-all", sub: "2–8 players a game" },
       { key: "koth", label: "King of the Hill", sub: "winner stays on" },
@@ -97,6 +129,7 @@ export const PACKS: PackSpec[] = [
     name: S.marioparty.name,
     emoji: S.marioparty.emoji,
     cabClass: "gn-cab--mp",
+    group: "nintendo",
     formats: [{ key: "board", label: "🎲 Board night", sub: "stars, boards, bonus stars" }],
   },
   {
@@ -104,6 +137,8 @@ export const PACKS: PackSpec[] = [
     name: S.pingpong.name,
     emoji: S.pingpong.emoji,
     cabClass: "gn-cab--pp",
+    // Pool, darts and beer pong join this group when they land.
+    group: "bar",
     formats: [
       { key: "free", label: "Free Play", sub: "single games, one tap each" },
       { key: "bestof", label: "Best Of", sub: "3, 5 or 7 game series" },
@@ -115,6 +150,7 @@ export const PACKS: PackSpec[] = [
     name: S.blackjack.name,
     emoji: S.blackjack.emoji,
     cabClass: "gn-cab--bj",
+    group: "casino",
     // One format today. The other three casino packs (roulette, craps,
     // poker) are their own tiles when they land, not formats under this one:
     // separate ledger keys, separate leaderboard tabs.
@@ -125,13 +161,23 @@ export const PACKS: PackSpec[] = [
     name: S.roulette.name,
     emoji: S.roulette.emoji,
     cabClass: "gn-cab--rl",
+    group: "casino",
     formats: [{ key: "cash", label: "🎡 Cash game", sub: "buy-ins, rebuys, cash-outs" }],
+  },
+  {
+    key: "craps",
+    name: S.craps.name,
+    emoji: S.craps.emoji,
+    cabClass: "gn-cab--cr",
+    group: "casino",
+    formats: [{ key: "cash", label: "🎲 Cash game", sub: "buy-ins, rebuys, cash-outs" }],
   },
   {
     key: "tournament",
     name: "Tournament",
     emoji: "🏆",
     cabClass: "gn-cab--brk",
+    group: "other",
     formats: [],
   },
 ];
@@ -160,6 +206,7 @@ export function buildPickerGames(opts: BuildPickerOptions): PickerGame[] {
     name: pack.name,
     emoji: pack.emoji,
     cabClass: pack.cabClass,
+    group: pack.group,
     sub: opts.liveSub?.[pack.key],
     formats:
       pack.key === "tournament"

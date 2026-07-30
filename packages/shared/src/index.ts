@@ -146,3 +146,4 @@ export * from "./pingpong.js";
 export * from "./cashgame.js";
 export * from "./blackjack.js";
 export * from "./roulette.js";
+export * from "./craps.js";

@@ -51,6 +51,11 @@ const SHIPPED = {
   // orphans blackjack's history silently.
   blackjack: { ledger: "blackjack", gameName: "Blackjack", keyPrefix: "blackjack", wsType: "blackjack_updated", table: "game_sessions", route: "blackjack" },
   roulette: { ledger: "roulette", gameName: "Roulette", keyPrefix: "roulette", wsType: "roulette_updated", table: "game_sessions", route: "roulette" },
+  // Craps' wsType is BARE, with no _updated suffix, unlike every other pack.
+  // Pinned here so it is a deliberate value rather than something a later pass
+  // "tidies" — both sides read it from the registry, so it works, but it is
+  // the odd one out and the test should say so out loud.
+  craps: { ledger: "craps", gameName: "Craps", keyPrefix: "craps", wsType: "craps", table: "game_sessions", route: "craps" },
 } as const;
 
 test("every pack's shipped identifiers are unchanged", () => {
@@ -77,7 +82,7 @@ test("the registry holds exactly the session packs, in order", () => {
   // ORDER IS SHIP ORDER, and it is asserted rather than incidental: this list
   // feeds the event TV's tiebreak, so a new pack inserted ABOVE a live one
   // would silently re-rank the live one. Append; never insert.
-  assert.deepEqual(SESSION_PACK_KEYS, ["smash", "mariokart", "marioparty", "pingpong", "blackjack", "roulette"]);
+  assert.deepEqual(SESSION_PACK_KEYS, ["smash", "mariokart", "marioparty", "pingpong", "blackjack", "roulette", "craps"]);
 });
 
 test("Ping Pong's ledger key is pingpong, not ping_pong", () => {
@@ -136,7 +141,10 @@ test("packEmoji resolves every value games.pack can hold", () => {
   // for Beerio and nobody saw it, because a wrong emoji does not throw.
   assert.equal(packEmoji("smash"), "\u{1F94A}"); // 🥊
   assert.equal(packEmoji("mario_kart"), "\u{1F3CE}\u{FE0F}"); // 🏎️
-  assert.equal(packEmoji("mario_party"), "\u{1F3B2}"); // 🎲
+  // Mario Party gave the die up to craps on 2026-07-30 and took a star. Safe,
+  // because emoji is DERIVED from the registry and never stored.
+  assert.equal(packEmoji("mario_party"), "\u{2B50}"); // ⭐
+  assert.equal(packEmoji("craps"), "\u{1F3B2}"); // 🎲
   assert.equal(packEmoji("pingpong"), "\u{1F3D3}"); // 🏓
   assert.equal(packEmoji("blackjack"), "\u{1F0CF}"); // 🃏
   assert.equal(packEmoji("roulette"), "\u{1F3A1}"); // 🎡

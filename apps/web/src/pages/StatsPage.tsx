@@ -462,6 +462,7 @@ function PingPongPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
 
 const BLACKJACK_GAME_NAME = "Blackjack";
 const ROULETTE_GAME_NAME = "Roulette";
+const CRAPS_GAME_NAME = "Craps";
 
 /**
  * The casino group's lifetime panel: MONEY, which no other pack has.
@@ -481,6 +482,8 @@ interface CashMetaBag {
   blackjacks?: number | null;
   favouriteBet?: string | null;
   bestStreak?: number | null;
+  longestRoll?: number | null;
+  points?: number | null;
 }
 
 interface CashStats {
@@ -519,12 +522,19 @@ function CasinoPanel({
   pack,
   empty,
   extras,
+  record,
 }: PackPanelProps & {
   /** The pack's route segment: keys the cache and the endpoint. */
   pack: string;
   empty: string;
   /** The pack's own detail line, from the raw meta bags. Empty to omit it. */
   extras: (p: CashRow) => string;
+  /**
+   * A CREW-WIDE record, if the pack has one worth a headline of its own.
+   * Craps' longest hand is the case this exists for: it is a table record
+   * people chase, not a personal average, so it reads across everybody.
+   */
+  record?: (rows: CashRow[]) => ReactNode;
 }) {
   const { data, error } = useCachedApi<CashStats>(
     `group:${groupId}:${pack}`,
@@ -556,6 +566,7 @@ function CasinoPanel({
         Wins are nights that finished UP: placement comes from the net, so first place is whoever
         won the most money. Every figure below comes from buy-ins and cash-outs alone.
       </p>
+      {record?.(data.byPlayer)}
       <PlayerRows rows={rows} open={open} setOpen={setOpen} extras={playerExtras} />
 
       <section className="space-y-2">
@@ -661,6 +672,57 @@ function RoulettePanel(props: PackPanelProps) {
   );
 }
 
+function CrapsPanel(props: PackPanelProps) {
+  return (
+    <CasinoPanel
+      {...props}
+      pack="craps"
+      empty="No craps recorded yet. Run a table and the money shows up here."
+      /**
+       * LONGEST ROLL IS A CREW RECORD, not a personal stat — James's call, and
+       * it is the right one: at a real table the number everybody knows is who
+       * has held the dice longest, full stop. So it gets its own line above the
+       * money, naming the holder.
+       */
+      record={(all) => {
+        let best: { name: string; rolls: number } | null = null;
+        for (const p of all) {
+          const r = maxMeta(p, "longestRoll");
+          if (r != null && (!best || r > best.rolls)) best = { name: p.name, rolls: r };
+        }
+        if (!best) return null;
+        return (
+          <div className="gn-champ" style={{ padding: "12px 16px" }}>
+            <div className="gn-lab">Longest hand — crew record</div>
+            <div className="flex items-baseline justify-between gap-2" style={{ marginTop: 2 }}>
+              <span className="font-bold truncate">🎲 {best.name}</span>
+              <span className="font-bold shrink-0" style={{ color: "var(--gn-gold)" }}>
+                {best.rolls} roll{best.rolls === 1 ? "" : "s"}
+              </span>
+            </div>
+            <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
+              Rolls survived before sevening out. Needs the live tracker, or somebody typing it on
+              the cash-out form.
+            </p>
+          </div>
+        );
+      }}
+      extras={(p) => {
+        const longest = maxMeta(p, "longestRoll");
+        const points = sumMeta(p, "points");
+        const bet = maxMeta(p, "biggestBet");
+        const win = maxMeta(p, "biggestWin");
+        const bits: string[] = [];
+        if (longest != null) bits.push(`best hand ${longest} roll${longest === 1 ? "" : "s"}`);
+        if (points > 0) bits.push(`${points} point${points === 1 ? "" : "s"} made`);
+        if (bet != null) bits.push(`biggest bet ${formatCents(bet)}`);
+        if (win != null) bits.push(`biggest win ${formatCents(win)}`);
+        return bits.join(" · ");
+      }}
+    />
+  );
+}
+
 export default function StatsPage() {
   const { id } = useParams();
   const [open, setOpen] = useState<string | null>(null);
@@ -700,6 +762,8 @@ export default function StatsPage() {
                 ? `${count} blackjack ${count === 1 ? "night" : "nights"}`
                 : tab === ROULETTE_GAME_NAME
                 ? `${count} roulette ${count === 1 ? "night" : "nights"}`
+                : tab === CRAPS_GAME_NAME
+                ? `${count} craps ${count === 1 ? "night" : "nights"}`
                 : `${count} ${count === 1 ? "result" : "results"}${active ? ` of ${active.name}` : " across all game modes"}`}
             </p>
           )}
@@ -742,6 +806,8 @@ export default function StatsPage() {
           <BlackjackPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : tab === ROULETTE_GAME_NAME && id ? (
           <RoulettePanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
+        ) : tab === CRAPS_GAME_NAME && id ? (
+          <CrapsPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : (
           <PlayerRows rows={shown ?? []} open={open} setOpen={setOpen} showByGame={tab === null} />
         )}

@@ -29,6 +29,7 @@ import { guestNamesMarioParty, creditGuestMarioParty } from "./marioparty.js";
 import { guestNamesPingPong, creditGuestPingPong } from "./pingpong.js";
 import { guestNamesBlackjack, creditGuestBlackjack } from "./blackjack.js";
 import { guestNamesRoulette, creditGuestRoulette } from "./roulette.js";
+import { guestNamesCraps, creditGuestCraps } from "./craps.js";
 import { guestNamesBeerio, creditGuestBeerio } from "./beerio-gn.js";
 
 export const guestLinkRouter = Router();
@@ -41,6 +42,7 @@ const nameAdapters = [
   guestNamesPingPong,
   guestNamesBlackjack,
   guestNamesRoulette,
+  guestNamesCraps,
   guestNamesBeerio,
 ];
 
@@ -58,6 +60,7 @@ const creditAdapters: {
   { key: SESSION_PACKS.pingpong.ledger, credit: creditGuestPingPong },
   { key: SESSION_PACKS.blackjack.ledger, credit: creditGuestBlackjack },
   { key: SESSION_PACKS.roulette.ledger, credit: creditGuestRoulette },
+  { key: SESSION_PACKS.craps.ledger, credit: creditGuestCraps },
   { key: "beerio", credit: creditGuestBeerio },
 ];
 

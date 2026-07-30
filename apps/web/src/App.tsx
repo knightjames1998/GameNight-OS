@@ -46,6 +46,8 @@ const BlackjackPage = lazy(() => import("./blackjack/BlackjackPage"));
 const BlackjackTvPage = lazy(() => import("./blackjack/BlackjackTvPage"));
 const RoulettePage = lazy(() => import("./roulette/RoulettePage"));
 const RouletteTvPage = lazy(() => import("./roulette/RouletteTvPage"));
+const CrapsPage = lazy(() => import("./craps/CrapsPage"));
+const CrapsTvPage = lazy(() => import("./craps/CrapsTvPage"));
 
 function SmashSearchKeyed() {
   // /smash?event=A -> /smash?event=B is a same-route navigation and won't
@@ -77,6 +79,11 @@ function BlackjackSearchKeyed() {
 function RouletteSearchKeyed() {
   const location = useLocation();
   return <RoulettePage key={location.search} />;
+}
+
+function CrapsSearchKeyed() {
+  const location = useLocation();
+  return <CrapsPage key={location.search} />;
 }
 
 /**
@@ -206,6 +213,8 @@ export default function App() {
             <Route path="/blackjack/tv/:eventId" element={<BlackjackTvPage />} />
             <Route path="/roulette" element={<RouletteSearchKeyed />} />
             <Route path="/roulette/tv/:eventId" element={<RouletteTvPage />} />
+            <Route path="/craps" element={<CrapsSearchKeyed />} />
+            <Route path="/craps/tv/:eventId" element={<CrapsTvPage />} />
             <Route path="/join/:code" element={<JoinPage me={me} />} />
           </Routes>
         </Suspense>

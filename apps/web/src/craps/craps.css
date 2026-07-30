@@ -1,0 +1,49 @@
+/* ============================================================
+   Craps pack theme: the pit. Deep blue baize with a hot-dice
+   orange accent, so it is never mistaken for blackjack's gold
+   card room or roulette's green wheel — which matters, since all
+   three draw the SAME money board.
+
+   The structure lives in ../casino/casino.css. This file is the
+   backdrop, the brand glow and the --cg-* tokens, which is all a
+   casino pack's stylesheet should ever be.
+   ============================================================ */
+
+.cr-root,
+.cr-tv {
+  --cg-accent: #ff8a3d;
+  --cg-accent-ink: #241004;
+  --cg-accent-sh: #b8551d;
+  --cg-line: #1f3a63;
+  --cg-surface: #0e1e38;
+  --cg-raise: #16294a;
+  --cg-card: linear-gradient(180deg, #12253f, #0e1e38);
+  --cg-glow: rgba(255, 138, 61, 0.42);
+}
+
+.cr-root {
+  background:
+    radial-gradient(120% 80% at 50% -10%, #1c4b8a 0%, transparent 55%),
+    linear-gradient(180deg, #0b1a30, #060e1c);
+}
+
+.cr-tv {
+  background:
+    radial-gradient(120% 80% at 50% -10%, #1c4b8a 0%, transparent 55%),
+    linear-gradient(180deg, #0b1a30, #04090f);
+}
+
+/* The shooter panel on the PHONE. The TV's version is the shared
+   .cg-tv__hero in casino.css; this one is small and lives here because
+   it is the pack page's own layout rather than something poker will
+   reuse. */
+.cr-shooter {
+  margin-top: 10px; padding: 12px; text-align: center;
+  border: 2px solid var(--cg-accent); border-radius: 10px;
+  background: color-mix(in srgb, var(--cg-accent) 8%, transparent);
+}
+.cr-shooter__who { font-family: Fredoka, system-ui, sans-serif; font-weight: 800; font-size: 17px; }
+.cr-shooter__n {
+  font-family: "Luckiest Guy", system-ui, cursive; font-size: 46px; line-height: 1.05;
+  color: var(--cg-accent);
+}
