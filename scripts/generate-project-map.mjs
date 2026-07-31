@@ -13,8 +13,22 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "July 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-07-29 at the START of the roulette session, because the counter handed
-// over by the blackjack session was exactly 3. This pass:
+// Redrawn 2026-07-30 at the START of the modifiers session, because the counter handed
+// over by the stakes session was exactly 3. This pass:
+//   - Zone 2 gained the three casino sessions since the last pass, all (NEW): Roulette +
+//     the shared casino screens, Craps + the shooter, and the stakes flag. Blackjack,
+//     Smashdown and the series rows lost their (NEW) highlights.
+//   - Zone 1 gained the pack picker groups. The safe-area fix is a BUG and stayed in
+//     zone 5; per-player buy-ins folded into the roulette item, since they shipped in
+//     the same session and are one idea.
+//   - Zone 3's committed three are now declarative modifiers / Casino Run / Poker.
+//     CASINO RUN REPLACED CO-OP MODE: it is its own pack rather than a format inside the
+//     existing ones, decided 2026-07-30 (see DECISION LOG).
+//   - Row 1 raised 920 -> 990 and row 2 pushed 1040 -> 1110. Zone 2 needed the room for
+//     three multi-line items; zone 1 was raised with it to keep the columns aligned,
+//     which MAP PROTOCOL requires.
+//
+// The 2026-07-29 pass, kept for the record:
 //   - Zone 2 gained the THREE packs the map had never rendered, all (NEW): Smashdown,
 //     Smashdown series rows, and Blackjack + the shared cash-game engine. The first two
 //     shipped on 07-28 AFTER the last redraw (which ran at the start of the Smashdown
@@ -32,11 +46,11 @@ const SUBTITLE = "July 2026 · source of truth: BACKLOG.md";
 //     Raised pre-emptively per MAP PROTOCOL, the same call the last two passes made.
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
-// each 480 wide, row 1 y=95 h=920, row 2 y=1040 h=530. Items 440x40, 46px
+// each 480 wide, row 1 y=95 h=990, row 2 y=1110 h=530. Items 440x40, 46px
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
-    x: 40, y: 95, h: 920,
+    x: 40, y: 95, h: 990,
     title: "SHIPPED — FOUNDATION", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Auth: 6-digit codes + links + passwords" },
@@ -54,10 +68,11 @@ const ZONES = [
       { t: "Pre-pack cleanup COMPLETE: hygiene, tests, request cost, indexes, code splitting, caching, one pack runtime, perceived speed, one client implementation per idea", h: 70 },
       { t: "One TV button per night: /e/:id/tv auto-follows" },
       { t: "One pack registry: SESSION_PACKS, one entry per pack" },
+      { t: "Pack picker groups: Nintendo / Casino / Bar / Other (NEW)", bg: "#c3fae8" },
     ],
   },
   {
-    x: 560, y: 95, h: 920,
+    x: 560, y: 95, h: 990,
     title: "SHIPPED — GAME PACKS", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Beerio Kart: full replica, predictions, TV" },
@@ -69,17 +84,20 @@ const ZONES = [
       { t: "Generic bracket tracker + TV + recap" },
       { t: "Shared primitives: FFA, KOTH, series, brackets" },
       { t: "Beerio guest linking (forward-only snapshot)" },
-      { t: "Smashdown: a 4th Smash FORMAT, burn board, mercy rule (NEW)", bg: "#c3fae8", h: 52 },
-      { t: "Smashdown series rows: winning a series is its own stat (NEW)", bg: "#c3fae8", h: 52 },
-      { t: "Blackjack + the shared CASH-GAME ENGINE: cents, derived banker, balance check (NEW)", bg: "#c3fae8", h: 70 },
+      { t: "Smashdown: a 4th Smash FORMAT, burn board, mercy rule", h: 52 },
+      { t: "Smashdown series rows: winning a series is its own stat", h: 52 },
+      { t: "Blackjack + the shared CASH-GAME ENGINE: cents, derived banker, balance check", h: 70 },
+      { t: "Roulette + the shared CASINO SCREENS: one setup, table, money board; per-player buy-ins (NEW)", bg: "#c3fae8", h: 70 },
+      { t: "Craps + the shooter's hand: longest roll as a crew record (NEW)", bg: "#c3fae8", h: 52 },
+      { t: "Stakes: real vs play money. Wins unify, only money splits (NEW)", bg: "#c3fae8", h: 52 },
     ],
   },
   {
-    x: 1080, y: 95, h: 920,
+    x: 1080, y: 95, h: 990,
     title: "NEXT UP (queued)", zoneBg: "#fff3bf", header: "#b45309", itemBg: "#ffd8a8",
     items: [
-      { t: "1. Roulette (cash engine; streak needs the tracker)", sw: 2, h: 52 },
-      { t: "2. Craps (cash engine; tap-dice / tap-seven-out)", sw: 2, h: 52 },
+      { t: "1. Declarative modifiers (shown + recorded, never computed)", sw: 2, h: 52 },
+      { t: "2. CASINO RUN: own pack, one shared bank, quotas, floors", sw: 2, h: 52 },
       { t: "3. Poker (cash engine PLUS a tournament format)", sw: 2, h: 52 },
       { t: "4. Smash Tournament format (bracket + fighters)" },
       { t: "5. Tabletop theme + theme switcher" },
@@ -87,7 +105,7 @@ const ZONES = [
     ],
   },
   {
-    x: 40, y: 1040, h: 530,
+    x: 40, y: 1110, h: 530,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
       { t: "Unified event TV + single active pack" },
@@ -100,7 +118,7 @@ const ZONES = [
     ],
   },
   {
-    x: 560, y: 1040, h: 530,
+    x: 560, y: 1110, h: 530,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
@@ -111,7 +129,7 @@ const ZONES = [
     ],
   },
   {
-    x: 1080, y: 1040, h: 530,
+    x: 1080, y: 1110, h: 530,
     title: "IDEAS — NOT SOLIDIFIED", zoneBg: "#e5dbff", header: "#6d28d9", itemBg: "#d0bfff",
     items: [
       { t: "Draft night mode (snake drafts, TV board)" },

@@ -12,62 +12,41 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-07-29 (start of the roulette session)
-    Shipped sessions since that redraw: 3 (per-player buy-ins + Roulette + the shared
-                                          casino screens; Craps + picker groups; the
-                                          stakes flag)
-
-    *** THE COUNTER IS AT 3. THE NEXT SESSION REDRAWS THE MAP BEFORE ITS FEATURE WORK. ***
-    Reconcile this file first, then regenerate project-map.excalidraw from it (MAP
-    PROTOCOL), then set "Last map redraw" to that day's date and this counter back to 0.
-    What that redraw has to render, beyond the usual reconcile: zone 2 gains Craps and
-    the stakes flag (Roulette + the shared screens too, if the last pass has not drawn
-    them), and zone 3's numbered three become declarative modifiers / co-op mode / poker.
+    Last map redraw:                    2026-07-30 (start of the modifiers session)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
     Counter is below 3: continue with the requested work and increment it by 1 in the
-    same commit as any session that ships. Reconciled + redrawn on 2026-07-29 at the
-    START of this session, because the blackjack session handed over a counter of
-    exactly 3. The feature work (per-player buy-ins, then roulette) began only after the
-    regenerated map was committed, which is what the rule is for: a long session must not
-    be able to end with the map skipped.
+    same commit as any session that ships. Reconciled + redrawn on 2026-07-30 at the
+    START of this session, because the stakes session handed over a counter of exactly 3.
+    The feature work (declarative modifiers) began only after the regenerated map was
+    committed, which is what the rule is for.
 
     What this pass changed beyond the counter:
-      - Zone 2 gained the THREE packs the map had never rendered, all marked (NEW):
-        Smashdown, Smashdown series rows, and Blackjack + the shared cash-game engine.
-        The first two are the interesting miss — they shipped on 07-28 AFTER the last
-        redraw, which ran at the START of the Smashdown session and so drew Smashdown as
-        a NEXT UP item rather than a shipped one. That is the redraw-first rule working
-        exactly as intended rather than a mistake: drawing at the start of a session
-        always leaves that session's own delivery for the next pass to render.
-      - Zone 1's two (NEW) highlights (event TV, pack registry) aged out. It gained no
-        item: the safe-area fix is a BUG, so it went to zone 5.
-      - Zone 3 is now the casino group in build order — roulette, craps, poker — in the
-        numbered committed three, pushing Smash Tournament to 4 and the Tabletop theme
-        to 5. Both keep their priority relative to each other, they are just behind the
-        pack James committed to.
-      - Zone 4 gained cross-pack night net. Zone 5 gained its first FIXED item since the
-        07-28 pass aged the previous two out (the safe-area inset list). Zone 6 lost
-        poker from the cornhole/darts line, since poker is committed now, and lost the
-        Wager ledger's "bragging rights only" wording, superseded 07-29.
-      - Row 1 zones raised 860 -> 920 and row 2 pushed down 980 -> 1040. Zone 1 was
-        sitting on 42px of slack and an item costs 46, so the NEXT foundation entry would
-        have overflowed it by 4px — the trap would have landed on whoever added that
-        line rather than on this pass. Raised pre-emptively per MAP PROTOCOL, the same
-        call the last two passes made. The closing panorama camera grew with it
-        (1600x1560 -> 1600x1620).
+      - Zone 2 gained the three casino sessions since the last pass, all marked (NEW):
+        Roulette + the shared casino screens (per-player buy-ins folded in, since they
+        shipped together and are one idea), Craps + the shooter's hand, and the stakes
+        flag. Blackjack, Smashdown and the Smashdown series rows lost their (NEW)
+        highlights, which is the second time zone 2 has turned over three items in a
+        pass — the casino group is moving fast enough that every redraw finds three.
+      - Zone 1 gained the pack picker groups. The safe-area fix stayed in zone 5, where
+        a bug belongs.
+      - Zone 3's committed three are now declarative modifiers, CASINO RUN and poker.
+        Casino Run REPLACED co-op mode: it is its own pack rather than a format inside
+        the existing ones (decided 2026-07-30, see DECISION LOG), which also means the
+        old NEXT UP wording about co-op-as-a-format is gone rather than left to
+        contradict the new entry.
+      - Row 1 zones raised 920 -> 990 and row 2 pushed down 1040 -> 1110. Zone 2 needed
+        the room for three multi-line items and would have overflowed by ~50px; zone 1
+        was raised with it because MAP PROTOCOL requires the columns stay aligned. The
+        closing panorama camera grew with it (1600x1620 -> 1600x1690).
     Zone heights checked against their contents by reading the generated file back, not
-    by hand: all six fit, smallest slack 72px (zone 6), full canvas 1560x1570. The
-    reconcile found one genuinely stale thing beyond the three unrendered packs: NEXT UP
-    still listed poker as an uncommitted "candidate" in the same breath as having it at
-    slot 3, which is fixed above.
+    by hand: all six fit, smallest slack 72px (zone 6), full canvas 1560x1640.
 
-    Previous pass, kept for the record: reconciled + redrawn on 2026-07-28 (third pass
-    that day) at the START of the Smashdown session, because the three sessions that
-    shipped since the previous pass (phase 6, one TV button per night, one pack registry)
-    all landed on 07-28 and handed over a counter of exactly 3. That pass rendered the
-    event TV and the pack registry into zone 1, renumbered NEXT UP, and raised row 1 from
-    800 to 860.
+    Previous pass, kept for the record: reconciled + redrawn on 2026-07-29 at the START
+    of the roulette session, because the blackjack session handed over a counter of
+    exactly 3. That pass rendered Smashdown, the series rows and Blackjack into zone 2
+    and raised row 1 from 860 to 920.
 
 **Every session that ships anything (feature, pack, or fix set) increments the counter by 1
 as part of its delivery, in the same commit as its other changes.** Doc-only sessions do not
@@ -105,15 +84,16 @@ another reference section does not change the map; adding or renaming one of the
 above does, and must update this table in the same commit.
 
 **Layout (fixed, so redraws are stable):** 3 columns x 2 rows. Columns at x=40, 560, 1080,
-each 480 wide. Row 1 at y=95 (height 920), row 2 at y=1040 (height 530). Zone header text
+each 480 wide. Row 1 at y=95 (height 990), row 2 at y=1110 (height 530). Zone header text
 15px below zone top, fontSize 22. Items 440 wide, 40 tall, 46px step, first item 50px below
 zone top; give a taller box (52-70) to any item whose label wraps past one line. Row 1 grew
 from 540 to 730 on 2026-07-27 (SHIPPED FOUNDATION reached 14 items and overflowed its
 zone), from 730 to 800 on 2026-07-28, when the completed pre-pack cleanup item grew
 to a three-line box and left only 10px of slack, from 800 to 860 on the third 07-28
 pass, when the two newly rendered shipped sessions needed exactly the 92px of slack zone 1
-had left, and from 860 to 920 on 2026-07-29, when zone 1's remaining 42px was 4px short of
-the 46px one more item costs. Each time it was raised pre-emptively rather than waiting for the next entry to
+had left, from 860 to 920 on 2026-07-29, when zone 1's remaining 42px was 4px short of
+the 46px one more item costs, and from 920 to 990 on 2026-07-30, when zone 2 took three
+multi-line casino items in one pass. Each time it was raised pre-emptively rather than waiting for the next entry to
 overflow it, since the fix is mechanical and the trap would have landed on whoever added
 the next line.
 When a zone outgrows its height again, raise BOTH row-1 zones together and push row 2 down by
@@ -127,7 +107,7 @@ they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb).
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x1620 at the current zone heights). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
+on a panorama covering the full canvas (1600x1690 at the current zone heights). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 
 **Reconcile step (do this before drawing):** move finished items from NEXT UP into the right
 SHIPPED section with a one-line summary and date; renumber the top three of NEXT UP; move
