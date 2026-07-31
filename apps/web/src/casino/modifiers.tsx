@@ -155,18 +155,46 @@ export function ModifierStrip({ ids }: { ids: string[] }) {
   );
 }
 
-// ---------- the TV: big enough to read from the sofa ----------
+// ---------- the TV: big enough to read from the sofa, small enough to fit ----------
 
+/**
+ * IT HAS A BUDGET, AND THAT IS THE WHOLE DESIGN OF THIS COMPONENT.
+ *
+ * The money board is the feature; the rules are a reference. So the wall is
+ * never allowed to grow without limit and push the board down — it gets denser
+ * as cards are added instead. Measured on a 1080p screen, the first version of
+ * this (three-across boxes, name over rule) cost 173px for ONE card against a
+ * four-player layout that had 116px of slack, so it pushed the footer off the
+ * bottom. This ladder makes that structurally impossible rather than unlikely:
+ *
+ *   1 or 2 cards  name and rule on ONE line, full size, one row. What
+ *                 "Surprise me" produces, and the common night.
+ *   3 or more     NAMES ONLY, packed as chips.
+ *
+ * THE CUT AT THREE IS FORCED, not a taste call, and it is worth writing down
+ * because it looks needlessly strict. Three rules do not fit on one 1920px row
+ * — the longest cards in the deck run ~60 characters — and a second row costs
+ * ~135px against 116px of slack. That leaves three options: wrap and cover the
+ * money board, ellipsis the rules mid-sentence, or drop them. Wrapping loses
+ * the feature. A half-shown rule is worse than no rule, because it reads as
+ * complete. So: the names stay on the TV as the reminder that something is on,
+ * and the full text is one glance away on the strip on every phone at the
+ * table. If the rules should survive to a higher count, the fix is not here —
+ * it is the money board scaling with player count, which would buy the room
+ * (see the TV overflow bug in BACKLOG; it already overflows at six players
+ * with no modifiers at all).
+ */
 export function ModifierWall({ ids }: { ids: string[] }) {
   if (ids.length === 0) return null;
+  const density = ids.length <= 2 ? "roomy" : "names";
   return (
-    <div className="cg-tv__mods">
+    <div className="cg-tv__mods" data-density={density}>
       {ids.map((id) => {
         const m = modifierById(id);
         return (
           <div className={`cg-tv__mod ${m ? `cg-tv__mod--${m.kind}` : ""}`} key={id}>
-            <div className="cg-tv__mod__n">{m?.name ?? id}</div>
-            {m && <div className="cg-tv__mod__r">{m.rule}</div>}
+            <span className="cg-tv__mod__n">{m?.name ?? id}</span>
+            {m && density !== "names" && <span className="cg-tv__mod__r">{m.rule}</span>}
           </div>
         );
       })}
