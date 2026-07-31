@@ -124,6 +124,7 @@ export default function BlackjackPage() {
             completed={session?.status === "completed"}
             finished={session?.status === "completed" ? session.summary : null}
             busy={busy}
+            ledger={PACK.ledger}
             onStart={startSession}
             copy={{
               noun: "the table",

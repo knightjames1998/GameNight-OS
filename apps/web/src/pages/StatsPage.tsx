@@ -2,9 +2,16 @@ import { useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { useCachedApi } from "../cache";
 import { StatsSkeleton } from "../Skeleton";
-import { betLabel, formatCents, formatCentsSigned } from "@gamenight/shared";
+import {
+  betLabel,
+  formatCents,
+  formatCentsSigned,
+  modifierById,
+  type CashModifierAgg,
+} from "@gamenight/shared";
 import { formatLabel, formatUnit } from "../formats";
 import BackButton from "../BackButton";
+import Disclosure from "../Disclosure";
 import { type CharacterStats } from "../CharacterStats";
 import { Pip, type FormStats } from "../FormStats";
 
@@ -519,6 +526,12 @@ interface CashStats {
     money: { real: MoneyAgg; play: MoneyAgg };
     metas: CashMetaBag[];
   }[];
+  /**
+   * The same nights sliced by house rule. Empty on a crew that has never turned
+   * one on, which is most of them, so the whole section stays absent rather
+   * than rendering an empty heading.
+   */
+  byModifier: CashModifierAgg[];
 }
 
 type CashRow = CashStats["byPlayer"][number];
@@ -641,7 +654,90 @@ function CasinoPanel({
           );
         })}
       </section>
+
+      {data.byModifier.length > 0 && (
+        <Disclosure label="More stats">
+          <ModifierStats rows={data.byModifier} />
+        </Disclosure>
+      )}
     </div>
+  );
+}
+
+/**
+ * Win rate and net PER HOUSE RULE.
+ *
+ * The one stat the modifier deck creates, and the only one it can honestly
+ * support. The app never applies a modifier's effect — the humans do that at
+ * the table — so this cannot say a card caused anything; it says how the nights
+ * that carried it actually went, which is the question people ask out loud
+ * ("we're cursed with Silence on") and previously could only argue about.
+ *
+ * PER PLAYER, not crew-wide, because a crew-wide net is zero on every
+ * player-banked night by construction: the table has to balance. Only one
+ * person's own nights carry a number that means anything.
+ *
+ * The caveat is printed rather than implied. Three nights at 100% is three
+ * nights, and a panel that renders it as a bare percentage invites a crew to
+ * retire a card over noise.
+ */
+function ModifierStats({ rows }: { rows: CashModifierAgg[] }) {
+  return (
+    <section className="space-y-2">
+      <p className="gn-hint">
+        How the nights with each house rule on actually went. The app never applies a rule, so
+        this is what happened alongside it, not what it caused &mdash; and a couple of nights is
+        a couple of nights.
+      </p>
+      {rows.map((r) => {
+        const card = modifierById(r.id);
+        return (
+          <div key={r.id} className="gn-card" style={{ padding: "12px 16px" }}>
+            <div className="flex items-baseline justify-between gap-2">
+              {/* An id the deck no longer has still renders as itself: the
+                  history is real even when the card has been retired. */}
+              <span className="font-bold truncate">{card?.name ?? r.id}</span>
+              <span className="gn-hint shrink-0" style={{ fontSize: "12px" }}>
+                {r.nights} player-night{r.nights === 1 ? "" : "s"} &middot; up{" "}
+                {Math.round(r.winRate * 100)}%
+              </span>
+            </div>
+            {card && (
+              <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>{card.rule}</p>
+            )}
+            <ul className="space-y-1" style={{ marginTop: 6 }}>
+              {r.players.slice(0, 5).map((p) => {
+                const played = (["real", "play"] as const)
+                  .map((k) => p.money[k])
+                  .filter((mm) => mm.sessions > 0);
+                return (
+                  <li key={p.userId} className="flex justify-between gap-2" style={{ fontSize: "13px" }}>
+                    <span className="truncate">{p.name}</span>
+                    <span className="gn-hint shrink-0">
+                      {p.upNights}/{p.sessions} up
+                      {played.map((mm) => (
+                        <span key={mm.stakes}>
+                          {" · "}
+                          <span
+                            style={{
+                              color:
+                                mm.net > 0 ? "var(--gn-yes)" : mm.net < 0 ? "var(--gn-p1)" : undefined,
+                              fontWeight: 700,
+                            }}
+                          >
+                            {formatCentsSigned(mm.net, mm.stakes)}
+                          </span>
+                        </span>
+                      ))}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 

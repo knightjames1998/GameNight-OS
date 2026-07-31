@@ -79,6 +79,7 @@ export function newBlackjackState(opts: {
   defaultBuyIn: number;
   buyIns?: Record<string, number>;
   tracker?: boolean;
+  modifiers?: string[];
 }): BjSessionState {
   return { ...newCashState(opts), hands: [], detail: {} };
 }

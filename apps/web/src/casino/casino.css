@@ -173,6 +173,26 @@ button.cg-pill { cursor: pointer; }
 .cg-seat__amt { width: 6.5rem; flex-shrink: 0; }
 .cg-seat__own { color: var(--cg-accent); font-weight: 800; }
 
+/* ---- house rules (modifiers) ----
+   A card is a NAME and a SENTENCE, always together, because the sentence is the
+   entire return on turning one on: nobody has to remember it or ask. Boon and
+   bane get the up/down hues so which way a rule cuts is readable before the
+   words are — those two colours already mean good-for-you and bad-for-you
+   everywhere else in the group, so this is the existing vocabulary, not a new
+   one. Severity is three pips rather than a number, so it reads as a texture
+   and never competes with the money for attention. */
+.cg-mods { display: flex; flex-direction: column; gap: 8px; }
+.cg-mod {
+  border: 1px solid var(--cg-line); border-left: 4px solid var(--gn-dim);
+  border-radius: 8px; padding: 8px 11px; background: var(--cg-surface);
+}
+.cg-mod--boon { border-left-color: var(--cg-up); }
+.cg-mod--bane { border-left-color: var(--cg-down); }
+.cg-mod__top { display: flex; align-items: baseline; gap: 8px; }
+.cg-mod__n { font-family: Fredoka, system-ui, sans-serif; font-weight: 800; font-size: 14px; flex: 1; min-width: 0; }
+.cg-mod__sev { color: var(--gn-dim); font-size: 13px; letter-spacing: 1px; flex-shrink: 0; }
+.cg-mod__r { color: var(--gn-dim); font-size: 13px; line-height: 1.4; margin-top: 2px; }
+
 /* ---- TV: the live money board ---- */
 .cg-tv {
   min-height: 100dvh;
@@ -249,6 +269,23 @@ button.cg-pill { cursor: pointer; }
   color: var(--cg-accent);
 }
 .cg-tv__hero__sub { color: var(--gn-dim); font-size: 2.2vmin; font-weight: 700; }
+
+/* House rules, TV size. LARGE on purpose: this is the one thing on the screen
+   people read rather than glance at, and it has to work from a sofa. The rules
+   sit ABOVE the board, because a rule you find out about after the hand is
+   worthless — and they wrap across the width rather than stacking, so three
+   cards cannot push the money off the screen. */
+.cg-tv__mods { display: flex; flex-wrap: wrap; gap: 2vmin; margin-top: 3vmin; }
+.cg-tv__mod {
+  flex: 1 1 30%; min-width: 26vmin;
+  border: 3px solid var(--cg-line); border-left-width: 1.2vmin;
+  border-radius: 1.6vmin; padding: 1.8vmin 2.6vmin;
+  background: color-mix(in srgb, var(--cg-surface) 72%, transparent);
+}
+.cg-tv__mod--boon { border-left-color: var(--cg-up); }
+.cg-tv__mod--bane { border-left-color: var(--cg-down); }
+.cg-tv__mod__n { font-family: Fredoka, sans-serif; font-weight: 800; font-size: 3.4vmin; }
+.cg-tv__mod__r { color: var(--gn-dim); font-size: 2.4vmin; font-weight: 700; line-height: 1.35; margin-top: 0.5vmin; }
 
 .cg-tv__foot { display: flex; flex-wrap: wrap; gap: 2vmin; margin-top: 3vmin; }
 .cg-tv__stat {

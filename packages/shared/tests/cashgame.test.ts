@@ -16,6 +16,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  aggregateByModifier,
   balanceWarning,
   cashLedgerLines,
   detailFromHands,
@@ -31,6 +32,7 @@ import {
   totalIn,
   type BjHand,
   type CashEntry,
+  type CashNight,
   type CashPlayer,
   type CashSessionCore,
 } from "../src/index.js";
@@ -474,6 +476,179 @@ test("a player who never cashed out is recorded as busting, but only once final"
   assert.equal(lineFor(final, "a").net, -2000);
   assert.equal(lineFor(final, "a").cashOut, 0);
   assert.equal(lineFor(final, "a").placement, 2);
+});
+
+// ---------- modifiers on the ledger ----------
+//
+// The deck itself is tested in modifiers.test.ts. What is asserted here is the
+// RECORDING: which row the ids land on, and that a night without any is
+// byte-for-byte what it was before modifiers existed.
+
+test("the active house rules land on EVERY participant, not once on the session", () => {
+  const s = settleCash(
+    table("casino", null, [entry("a", 2000, [], 5000), entry("b", 2000, [], 0)]),
+    { final: true },
+  );
+  const lines = cashLedgerLines(s, {
+    bank: "casino",
+    bankerId: null,
+    stakes: "real",
+    modifiers: ["silence", "no_splitting"],
+  });
+  // Per participant is the grain the stat needs: win rate per modifier is per
+  // PLAYER, so the ids have to sit beside that player's own net. There is also
+  // nowhere else for them to go without a schema change — matches has `label`
+  // (one display string, already Mario Party's) and no generic meta column.
+  assert.equal(lines.length, 2);
+  for (const l of lines) {
+    assert.deepEqual(l.meta.modifiers, ["silence", "no_splitting"]);
+  }
+});
+
+test("a night with no house rules writes no modifiers key at all", () => {
+  // Absent, not []. Every row recorded before modifiers existed is absent, so
+  // making a plain night write an empty array would create two encodings of
+  // the same fact for the read layer to disagree about.
+  const s = settleCash(table("casino", null, [entry("a", 2000, [], 5000)]), { final: true });
+  const none = cashLedgerLines(s, { bank: "casino", bankerId: null, stakes: "real" });
+  assert.equal("modifiers" in none[0]!.meta, false);
+  const empty = cashLedgerLines(s, {
+    bank: "casino",
+    bankerId: null,
+    stakes: "real",
+    modifiers: [],
+  });
+  assert.equal("modifiers" in empty[0]!.meta, false);
+});
+
+test("the ids the host picked survive from setup to the money board", () => {
+  const state = newBlackjackState({
+    bank: "casino",
+    bankerId: null,
+    roster: [player("a")],
+    defaultBuyIn: 2000,
+    modifiers: ["silence"],
+  });
+  assert.deepEqual(state.modifiers, ["silence"]);
+  // Carried onto the summary rather than threaded through every screen, the
+  // same way stakes is: the TV and the table both read it off one object.
+  assert.deepEqual(summarizeBlackjack(state).modifiers, ["silence"]);
+  // And a session opened without any has an empty list, never undefined, so no
+  // screen has to guard before mapping over it.
+  const plain = newBlackjackState({
+    bank: "casino",
+    bankerId: null,
+    roster: [player("a")],
+    defaultBuyIn: 2000,
+  });
+  assert.deepEqual(plain.modifiers, []);
+  assert.deepEqual(summarizeBlackjack(plain).modifiers, []);
+});
+
+// ---------- reading them back: win rate and net per house rule ----------
+
+const night = (
+  net: number,
+  modifiers: string[],
+  opts?: { stakes?: "real" | "play"; at?: number },
+): CashNight => ({
+  at: opts?.at ?? 0,
+  net,
+  totalIn: 2000,
+  rebuys: 0,
+  minutes: null,
+  banker: false,
+  stakes: opts?.stakes ?? "real",
+  modifiers,
+});
+
+test("win rate and net are counted per player per house rule", () => {
+  const rows = aggregateByModifier([
+    {
+      userId: "u_a",
+      name: "Ada",
+      nights: [
+        night(4000, ["silence"]),
+        night(-1000, ["silence", "loser_buys"]),
+        night(2000, []), // a plain night belongs to no card
+      ],
+    },
+    { userId: "u_b", name: "Bo", nights: [night(-500, ["silence"])] },
+  ]);
+
+  const silence = rows.find((r) => r.id === "silence")!;
+  // PLAYER-nights: three people-nights across two people.
+  assert.equal(silence.nights, 3);
+  assert.equal(silence.up, 1);
+  assert.equal(silence.winRate, 1 / 3);
+  // Busiest player first.
+  assert.deepEqual(silence.players.map((p) => p.name), ["Ada", "Bo"]);
+  assert.equal(silence.players[0]!.money.real.net, 3000);
+  assert.equal(silence.players[0]!.upNights, 1);
+  assert.equal(silence.players[0]!.sessions, 2);
+  assert.equal(silence.players[1]!.money.real.net, -500);
+
+  // The second card on that one night is its own row, with only that night in
+  // it — a card is not credited with nights it was not on.
+  const loser = rows.find((r) => r.id === "loser_buys")!;
+  assert.equal(loser.nights, 1);
+  assert.equal(loser.players[0]!.money.real.net, -1000);
+
+  // Busiest card first, so the rows with something to say lead.
+  assert.deepEqual(rows.map((r) => r.id), ["silence", "loser_buys"]);
+});
+
+test("a card nobody has played with is absent rather than an empty row", () => {
+  const rows = aggregateByModifier([
+    { userId: "u_a", name: "Ada", nights: [night(100, ["silence"]), night(100, [])] },
+  ]);
+  assert.deepEqual(rows.map((r) => r.id), ["silence"]);
+  assert.deepEqual(aggregateByModifier([{ userId: "u_a", name: "Ada", nights: [] }]), []);
+});
+
+test("a retired id still aggregates, because its history is real", () => {
+  // The deck is display data; the ledger is not. A card dropped from
+  // MODIFIERS still has rows, and the panel renders them by id.
+  const rows = aggregateByModifier([
+    { userId: "u_a", name: "Ada", nights: [night(1000, ["a_card_we_dropped"])] },
+  ]);
+  assert.equal(rows[0]!.id, "a_card_we_dropped");
+  assert.equal(rows[0]!.nights, 1);
+});
+
+test("per-modifier money splits by stakes like everything else does", () => {
+  // Adding a real net to a play net produces a number that means nothing, and
+  // that rule does not stop applying because the slice is narrower.
+  const rows = aggregateByModifier([
+    {
+      userId: "u_a",
+      name: "Ada",
+      nights: [
+        night(4000, ["silence"], { stakes: "real" }),
+        night(-9000, ["silence"], { stakes: "play" }),
+      ],
+    },
+  ]);
+  const p = rows[0]!.players[0]!;
+  assert.equal(p.money.real.net, 4000);
+  assert.equal(p.money.real.sessions, 1);
+  assert.equal(p.money.play.net, -9000);
+  assert.equal(p.money.play.sessions, 1);
+  // The counts stay UNIFIED: a win is a win whatever the chips were worth.
+  assert.equal(p.sessions, 2);
+  assert.equal(p.upNights, 1);
+});
+
+test("a night recorded before modifiers existed counts towards no card", () => {
+  const legacy: CashNight = {
+    at: 0,
+    net: 5000,
+    totalIn: 2000,
+    rebuys: 0,
+    minutes: null,
+    banker: false,
+  };
+  assert.deepEqual(aggregateByModifier([{ userId: "u_a", name: "Ada", nights: [legacy] }]), []);
 });
 
 // ---------- blackjack on top of the engine ----------

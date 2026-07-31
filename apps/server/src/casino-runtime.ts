@@ -40,14 +40,17 @@ import {
   eq,
 } from "@gamenight/db";
 import {
+  aggregateByModifier,
   aggregateCashNights,
   cashLedgerLines,
   compareCashLifetime,
   formatCentsSigned,
+  sanitizeModifierIds,
   settleCash,
   SESSION_PACKS,
   type CashBank,
   type CashLifetimeAgg,
+  type CashModifierAgg,
   type CashNight,
   type CashPackState,
   type CashPlayer,
@@ -98,6 +101,7 @@ export interface CasinoConfig<S extends CashPackState> {
     bank: CashBank;
     bankerId: string | null;
     stakes: CashStakes;
+    modifiers: string[];
     roster: CashPlayer[];
     defaultBuyIn: number;
     buyIns: Record<string, number>;
@@ -195,6 +199,11 @@ export function registerCasinoRoutes<S extends CashPackState>(
       // Written to every row so the lifetime read can split the money without
       // a migration. An absent value on an older row means real.
       stakes: state.stakes ?? "real",
+      // The active cards, on EVERY participant rather than once on the match.
+      // The lifetime read groups by player, so a modifier's win rate needs the
+      // ids beside each player's net; a single copy on matches.label would have
+      // to be joined back in and could not be filtered on at all.
+      modifiers: state.modifiers ?? [],
       extraMeta: (playerId) => ({
         ...cfg.ledgerMeta(state, playerId),
         // Net per hour needs the night's LENGTH, and matches.playedAt is only
@@ -370,6 +379,14 @@ export function registerCasinoRoutes<S extends CashPackState>(
     const stakes: CashStakes = req.body?.stakes === "play" ? "play" : "real";
     const defaultBuyIn = cents(req.body?.defaultBuyIn) ?? 2000;
 
+    // SANITIZED AGAINST THE DECK AND THIS PACK, not taken as given. An id that
+    // the deck no longer has, or one belonging to another pack, is dropped
+    // rather than recorded: these strings go straight into the ledger, and a
+    // junk id there would show up forever as its own row on the stats panel
+    // (modifierName falls back to the raw id, so it would render as garbage
+    // rather than as nothing).
+    const modifiers = sanitizeModifierIds(req.body?.modifiers, def.ledger);
+
     const rawRoster = Array.isArray(req.body?.roster) ? req.body.roster : [];
     const roster: CashPlayer[] = rawRoster
       .map((p: any, i: number): CashPlayer => {
@@ -427,6 +444,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
       bank,
       bankerId,
       stakes,
+      modifiers,
       roster,
       defaultBuyIn,
       buyIns,
@@ -661,6 +679,12 @@ export interface CashMeta {
   bank?: string;
   /** Absent on rows written before play money existed, which means real. */
   stakes?: string;
+  /**
+   * The cards that were live for that session. Absent on a night with none and
+   * on every row written before modifiers existed — both of which mean "no
+   * modifiers", which is why the writer omits the key rather than storing [].
+   */
+  modifiers?: string[];
   banker?: boolean;
   minutes?: number;
   [k: string]: unknown;
@@ -680,7 +704,7 @@ export interface CashLifetimeRow extends CashLifetimeAgg {
 export async function cashLifetimeStats(
   groupId: string,
   ledgerKey: string,
-): Promise<{ sessions: number; byPlayer: CashLifetimeRow[] }> {
+): Promise<{ sessions: number; byPlayer: CashLifetimeRow[]; byModifier: CashModifierAgg[] }> {
   const db = getDb();
   const game = (
     await db
@@ -689,7 +713,7 @@ export async function cashLifetimeStats(
       .where(and(eq(games.groupId, groupId), eq(games.pack, ledgerKey)))
       .limit(1)
   )[0];
-  if (!game) return { sessions: 0, byPlayer: [] };
+  if (!game) return { sessions: 0, byPlayer: [], byModifier: [] };
 
   const rows = await db
     .select({
@@ -719,6 +743,10 @@ export async function cashLifetimeStats(
       minutes: m.minutes ?? null,
       banker: !!m.banker,
       stakes: m.stakes === "play" ? "play" : "real",
+      // Sanitized on the way IN (the start route), so what is stored is already
+      // deck ids. Read back as-is: a card since retired still has history and
+      // the panel renders it by id rather than dropping the row.
+      modifiers: Array.isArray(m.modifiers) ? m.modifiers.filter((x): x is string => typeof x === "string") : [],
     });
     p.metas.push(m);
     byUser.set(r.userId, p);
@@ -736,5 +764,11 @@ export async function cashLifetimeStats(
     }))
     .sort(compareCashLifetime);
 
-  return { sessions: sessionIds.size, byPlayer };
+  // The same nights sliced the other way. Computed here rather than on the
+  // client because the client only ever receives the meta bags, and rebuilding
+  // a night out of those on every render would be a second definition of the
+  // same arithmetic waiting to drift from this one.
+  const byModifier = aggregateByModifier([...byUser.values()]);
+
+  return { sessions: sessionIds.size, byPlayer, byModifier };
 }

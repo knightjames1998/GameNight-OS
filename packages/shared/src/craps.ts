@@ -101,6 +101,7 @@ export function newCrapsState(opts: {
   defaultBuyIn: number;
   buyIns?: Record<string, number>;
   tracker?: boolean;
+  modifiers?: string[];
 }): CrSessionState {
   const base = newCashState(opts);
   return {

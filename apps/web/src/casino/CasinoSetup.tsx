@@ -7,6 +7,7 @@ import {
 } from "@gamenight/shared";
 import type { PackCtx } from "../usePackSession";
 import { MoneyInput, NetToken } from "./money";
+import { ModifierPicker } from "./modifiers";
 import "./casino.css";
 
 // The setup screen every casino pack opens a table with.
@@ -44,6 +45,7 @@ export default function CasinoSetup({
   completed,
   finished,
   busy,
+  ledger,
   copy,
   extra,
   onStart,
@@ -52,6 +54,12 @@ export default function CasinoSetup({
   completed: boolean;
   finished: CashSummary<unknown> | null;
   busy: boolean;
+  /**
+   * The pack's LEDGER key, which is what filters the modifier deck. The ledger
+   * rather than the route segment because it is what gets written beside the
+   * ids, so the two can never disagree about which cards a pack owns.
+   */
+  ledger: string;
   copy: CasinoSetupCopy;
   /** A pack's own setup card, rendered above the start button. */
   extra?: ReactNode;
@@ -65,6 +73,9 @@ export default function CasinoSetup({
   const [bankerIndex, setBankerIndex] = useState(0);
   const [defaultBuyIn, setDefaultBuyIn] = useState<number | null>(2000);
   const [tracker, setTracker] = useState(false);
+  // Ids, never the cards: the deck's names and rule text are display data that
+  // should stay free to improve, and only the ids are on the never-change list.
+  const [modifiers, setModifiers] = useState<string[]>([]);
   const [seats, setSeats] = useState<Seat[]>([]);
   const [guest, setGuest] = useState("");
 
@@ -278,6 +289,11 @@ export default function CasinoSetup({
         </div>
       </div>
 
+      {/* Last of the shared cards, and after the required ones on purpose: it
+          is entirely optional, and a host in a hurry should reach the start
+          button without having to decide anything here. */}
+      <ModifierPicker ledger={ledger} value={modifiers} onChange={setModifiers} />
+
       {extra}
 
       <button
@@ -297,6 +313,7 @@ export default function CasinoSetup({
               seats.map((s, i) => [i, s.buyIn]).filter(([, v]) => v !== null),
             ),
             tracker,
+            modifiers,
             roster: seats.map((s) => ({ userId: s.userId, name: s.name })),
           })
         }

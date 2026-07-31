@@ -7,6 +7,7 @@ import {
 } from "@gamenight/shared";
 import type { PackCtx } from "../usePackSession";
 import { MoneyInput, NetToken } from "./money";
+import { ModifierStrip } from "./modifiers";
 import "./casino.css";
 
 // The live money table every casino pack runs a night on: the board, the
@@ -139,6 +140,12 @@ export function CasinoTable<D, R>({
           </div>
         </div>
       </div>
+
+      {/* Under the board, not over it: the money is what the table is watching,
+          and the rules are a reference you drop to when somebody asks. Shown to
+          everyone, not just whoever can score — a rule that only the host can
+          see is not a house rule. */}
+      <ModifierStrip ids={summary.modifiers} />
 
       {tracker && canScore && trackerPanel}
 

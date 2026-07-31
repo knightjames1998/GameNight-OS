@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { money, type CashPlayerRow, type CashSummary } from "@gamenight/shared";
 import BackButton from "../BackButton";
 import { StakesBadge } from "./money";
+import { ModifierWall } from "./modifiers";
 import "./casino.css";
 
 // THE LIVE MONEY BOARD, shared by every casino pack's TV view.
@@ -68,6 +69,12 @@ export function MoneyBoard<D>({
       </div>
 
       {summary.warning && <div className="cg-tv__warn">⚠️ {summary.warning}</div>}
+
+      {/* ABOVE the hero and the board, and big. A rule you learn about after the
+          hand is worthless, so the one screen everybody is already looking at is
+          where it belongs — and it costs nothing on a night with no cards on,
+          where this renders nothing at all. */}
+      <ModifierWall ids={summary.modifiers} />
 
       {hero}
 

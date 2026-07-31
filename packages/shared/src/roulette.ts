@@ -122,6 +122,7 @@ export function newRouletteState(opts: {
   defaultBuyIn: number;
   buyIns?: Record<string, number>;
   tracker?: boolean;
+  modifiers?: string[];
 }): RlSessionState {
   return { ...newCashState(opts), spins: [], detail: {} };
 }

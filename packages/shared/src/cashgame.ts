@@ -195,6 +195,8 @@ export interface CashSessionCore {
    * row written before play money existed has no value. Absent means real.
    */
   stakes?: CashStakes;
+  /** Active modifier ids. Optional for the same reason: older rows have none. */
+  modifiers?: string[];
   roster: CashPlayer[];
   entries: CashEntry[];
 }
@@ -465,10 +467,21 @@ export function cashLedgerLines(
      * value is not ambiguous, it means real.
      */
     stakes: CashStakes;
+    /**
+     * Active modifier ids, written to EVERY participant row.
+     *
+     * Redundant across a session's rows, and that is the right grain anyway:
+     * the stat is win rate PER PLAYER per modifier, so it has to sit on the
+     * participant. The alternative — a list on `matches` — has nowhere to go,
+     * since that table has `label` (a single display string Mario Party already
+     * uses for the board) and no generic meta column. This needs no schema
+     * change and answers the question directly.
+     */
+    modifiers?: string[];
     extraMeta?: (playerId: string) => Record<string, unknown>;
   },
 ): CashLedgerLine[] {
-  const { bank, bankerId, stakes, extraMeta } = opts;
+  const { bank, bankerId, stakes, modifiers, extraMeta } = opts;
   return settlement.lines.map((l) => {
     const meta: Record<string, unknown> = {
       bank,
@@ -480,6 +493,9 @@ export function cashLedgerLines(
       cashOut: l.cashOut ?? 0,
       net: l.net ?? 0,
     };
+    // Omitted entirely when nothing was active, so a plain night's meta bag is
+    // exactly what it was before modifiers existed.
+    if (modifiers && modifiers.length) meta.modifiers = [...modifiers];
     if (bank === "player" && l.playerId === bankerId) {
       meta.banker = true;
       meta.derivedNet = true;
@@ -547,6 +563,8 @@ export interface CashPlayerRow<D> {
 export interface CashSummary<D> {
   bank: CashBank;
   bankerId: string | null;
+  /** Active modifier ids. Same reasoning as `stakes`: carried, not threaded. */
+  modifiers: string[];
   /**
    * Carried on the SUMMARY rather than threaded as a prop, so every screen that
    * can draw an amount already has the stakes in hand. A component cannot render
@@ -619,6 +637,7 @@ export function summarizeCash<D>(
     bank: core.bank,
     bankerId,
     stakes: core.stakes ?? "real",
+    modifiers: core.modifiers ?? [],
     players,
     totalIn: settlement.totalIn,
     totalOut: settlement.totalOut,
@@ -651,6 +670,15 @@ export interface CashPackState extends CashSessionCore {
   tracker: boolean;
   /** Standing rule 1: only owners/admins record unless the host opens it. */
   openScoring: boolean;
+  /**
+   * Active MODIFIER ids for this table (packages/shared/src/modifiers.ts).
+   *
+   * Ids only, never the cards themselves: the deck's names, rule text and
+   * severities are display data that should be free to improve, and storing a
+   * snapshot would freeze tonight's wording into the session jsonb forever.
+   * The app DISPLAYS and RECORDS these; it never computes their effect.
+   */
+  modifiers: string[];
 }
 
 /**
@@ -670,6 +698,8 @@ export function newCashState(opts: {
   /** playerId -> that player's own opening buy-in, in cents. */
   buyIns?: Record<string, number>;
   tracker?: boolean;
+  /** Active modifier ids, already sanitized against the deck by the caller. */
+  modifiers?: string[];
 }): CashPackState {
   const buy = Math.max(0, Math.trunc(opts.defaultBuyIn));
   return {
@@ -687,6 +717,7 @@ export function newCashState(opts: {
     defaultBuyIn: buy,
     tracker: opts.tracker ?? false,
     openScoring: false,
+    modifiers: opts.modifiers ?? [],
     roster: opts.roster,
     entries: opts.roster.map((p) => ({
       playerId: p.id,
@@ -727,6 +758,12 @@ export interface CashNight {
   banker: boolean;
   /** Absent on every night recorded before play money existed, so: real. */
   stakes?: CashStakes;
+  /**
+   * The modifier ids that were live. Absent on a plain night and on every night
+   * recorded before modifiers existed — both of which mean the same thing, so
+   * there is nothing to disambiguate.
+   */
+  modifiers?: string[];
 }
 
 /** The money half, computed per stakes. */
@@ -853,6 +890,87 @@ export function aggregateCashNights(nights: CashNight[]): CashLifetimeAgg {
     banked,
     money: { real: money.real, play: money.play },
   };
+}
+
+// ---------- the same nights, sliced by MODIFIER ----------
+//
+// "Are we actually worse with Silence on?" is the one question the modifier
+// deck creates and nothing else can answer, and it costs nothing to answer:
+// the ids are already on every participant row beside that player's net.
+//
+// THE UNIT IS THE PLAYER, not the crew. A crew-wide net per modifier would read
+// as zero on every player-banked night — the table is zero-sum by construction,
+// that is the whole point of the balance check — so the only honest grain for
+// money is one person's own nights.
+//
+// AND IT IS CORRELATION, NOT CAUSE. The app never applies a modifier's effect
+// (see modifiers.ts), so this cannot claim the card did anything; it reports
+// how the nights that carried it actually went. Three nights is three nights.
+// The panel says so out loud rather than letting a 100% win rate off one night
+// look like a finding.
+
+/** One player's record with one card live. Everything CashLifetimeAgg carries. */
+export interface CashModifierPlayerAgg extends CashLifetimeAgg {
+  userId: string;
+  name: string;
+}
+
+export interface CashModifierAgg {
+  id: string;
+  /** PLAYER-nights: one per person per night the card was live. */
+  nights: number;
+  /** How many of those finished up. */
+  up: number;
+  winRate: number;
+  /** Busiest first, so the rows with something to say are at the top. */
+  players: CashModifierPlayerAgg[];
+}
+
+/**
+ * Roll every player's nights up per modifier.
+ *
+ * Reuses aggregateCashNights on the FILTERED subset rather than re-deriving
+ * anything, so a per-modifier row is the same shape, the same stakes split and
+ * the same arithmetic as a lifetime row — there is no second definition of
+ * "win rate" to drift.
+ *
+ * A card nobody has played with is simply absent: the deck is display data and
+ * this is history, so listing every unplayed card would be twenty-four empty
+ * rows on a panel whose whole job is the ones with something in them.
+ */
+export function aggregateByModifier(
+  players: { userId: string; name: string; nights: CashNight[] }[],
+): CashModifierAgg[] {
+  const byId = new Map<string, CashModifierAgg>();
+
+  for (const p of players) {
+    // One pass to find which cards this player has any history with, so the
+    // filter below runs once per card they actually played rather than once
+    // per card in the deck.
+    const seen = new Set<string>();
+    for (const n of p.nights) for (const id of n.modifiers ?? []) seen.add(id);
+
+    for (const id of seen) {
+      const mine = p.nights.filter((n) => (n.modifiers ?? []).includes(id));
+      const agg = aggregateCashNights(mine);
+      const row = byId.get(id) ?? { id, nights: 0, up: 0, winRate: 0, players: [] };
+      row.nights += agg.sessions;
+      row.up += agg.upNights;
+      row.players.push({ userId: p.userId, name: p.name, ...agg });
+      byId.set(id, row);
+    }
+  }
+
+  const out = [...byId.values()];
+  for (const row of out) {
+    row.winRate = row.nights ? row.up / row.nights : 0;
+    row.players.sort(
+      (a, b) => b.sessions - a.sessions || b.winRate - a.winRate || a.name.localeCompare(b.name),
+    );
+  }
+  // Ties broken by id rather than left to Map order, so the panel does not
+  // reshuffle itself between two reads of the same data.
+  return out.sort((a, b) => b.nights - a.nights || a.id.localeCompare(b.id));
 }
 
 /**
