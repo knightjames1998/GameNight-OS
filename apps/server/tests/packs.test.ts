@@ -56,6 +56,11 @@ const SHIPPED = {
   // "tidies" — both sides read it from the registry, so it works, but it is
   // the odd one out and the test should say so out loud.
   craps: { ledger: "craps", gameName: "Craps", keyPrefix: "craps", wsType: "craps", table: "game_sessions", route: "craps" },
+  // The co-op pack. Pinned the day it shipped (2026-07-30). Note the ledger is
+  // snake_case (`casino_run`) while the route is not (`casinorun`) — that is
+  // the same split Mario Kart has, and the registry exists precisely so the
+  // two spellings can differ without anything drifting.
+  casinorun: { ledger: "casino_run", gameName: "Casino Run", keyPrefix: "casinorun", wsType: "casino_run", table: "game_sessions", route: "casinorun" },
 } as const;
 
 test("every pack's shipped identifiers are unchanged", () => {
@@ -82,7 +87,7 @@ test("the registry holds exactly the session packs, in order", () => {
   // ORDER IS SHIP ORDER, and it is asserted rather than incidental: this list
   // feeds the event TV's tiebreak, so a new pack inserted ABOVE a live one
   // would silently re-rank the live one. Append; never insert.
-  assert.deepEqual(SESSION_PACK_KEYS, ["smash", "mariokart", "marioparty", "pingpong", "blackjack", "roulette", "craps"]);
+  assert.deepEqual(SESSION_PACK_KEYS, ["smash", "mariokart", "marioparty", "pingpong", "blackjack", "roulette", "craps", "casinorun"]);
 });
 
 test("Ping Pong's ledger key is pingpong, not ping_pong", () => {

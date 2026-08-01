@@ -173,6 +173,17 @@ export const PACKS: PackSpec[] = [
     formats: [{ key: "cash", label: "🎲 Cash game", sub: "buy-ins, rebuys, cash-outs" }],
   },
   {
+    key: "casinorun",
+    name: S.casinorun.name,
+    emoji: S.casinorun.emoji,
+    cabClass: "gn-cab--crun",
+    group: "casino",
+    // The CO-OP one. Its format key is "coop" rather than "cash" because it is
+    // genuinely not a cash game: there are no buy-ins and no cash-outs, just
+    // one shared bank against a target.
+    formats: [{ key: "coop", label: "🎰 Co-op run", sub: "one bank, quotas, everybody wins or nobody" }],
+  },
+  {
     key: "tournament",
     name: "Tournament",
     emoji: "🏆",

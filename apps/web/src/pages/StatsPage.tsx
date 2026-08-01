@@ -470,6 +470,7 @@ function PingPongPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
 const BLACKJACK_GAME_NAME = "Blackjack";
 const ROULETTE_GAME_NAME = "Roulette";
 const CRAPS_GAME_NAME = "Craps";
+const CASINO_RUN_GAME_NAME = "Casino Run";
 
 /**
  * The casino group's lifetime panel: MONEY, which no other pack has.
@@ -857,6 +858,133 @@ function CrapsPanel(props: PackPanelProps) {
   );
 }
 
+/**
+ * The CASINO RUN panel, which is deliberately not the CasinoPanel above.
+ *
+ * That panel is built entirely on per-player net, and this pack has none: one
+ * shared bank, one shared result, everyone at the same placement. What a run
+ * produces instead is a clear rate, how deep the crew has ever got, and the
+ * comeback — which is the number this pack is actually about.
+ */
+interface CrunStats {
+  runs: number;
+  byPlayer: {
+    userId: string;
+    name: string;
+    runs: number;
+    cleared: number;
+    clearRate: number;
+    deepest: number;
+    busts: number;
+    bestComeback: number;
+    missed: number;
+    legs: number;
+    myLegs: number;
+  }[];
+  byModifier: { id: string; runs: number; cleared: number; clearRate: number }[];
+  best: { name: string; comeback: number } | null;
+}
+
+function CasinoRunPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
+  const { data, error } = useCachedApi<CrunStats>(
+    `group:${groupId}:casinorun`,
+    `/api/groups/${groupId}/casinorun-stats`,
+  );
+
+  if (!data && error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
+  if (!data) return <StatsSkeleton />;
+  if (data.runs === 0) {
+    return <p className="gn-hint">No runs recorded yet. Set a bank, pick a difficulty and see how far the crew gets.</p>;
+  }
+
+  const extras = new Map(
+    data.byPlayer.map((p) => [
+      p.userId,
+      <>
+        {" "}&middot; {p.cleared}/{p.runs} run{p.runs === 1 ? "" : "s"} cleared
+      </>,
+    ]),
+  );
+
+  return (
+    <div className="space-y-3">
+      <p className="gn-hint">
+        A co-op pack: the crew shares one bank, so a cleared run is a win for everybody on it and a
+        bust is a loss for everybody. Wins here are runs cleared.
+      </p>
+
+      {data.best && data.best.comeback > 0 && (
+        <div className="gn-champ" style={{ padding: "12px 16px" }}>
+          <div className="gn-lab">Biggest comeback — crew record</div>
+          <div className="flex items-baseline justify-between gap-2" style={{ marginTop: 2 }}>
+            <span className="font-bold truncate">🎰 {data.best.name}&rsquo;s run</span>
+            <span className="font-bold shrink-0" style={{ color: "var(--gn-gold)" }}>
+              {formatCents(data.best.comeback)}
+            </span>
+          </div>
+          <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
+            How far the bank climbed from its lowest point in a single run.
+          </p>
+        </div>
+      )}
+
+      <PlayerRows rows={rows} open={open} setOpen={setOpen} extras={extras} />
+
+      <section className="space-y-2">
+        <h2 className="gn-h2">The runs</h2>
+        {data.byPlayer.map((p) => (
+          <div key={p.userId} className="gn-card" style={{ padding: "12px 16px" }}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-bold truncate">{p.name}</span>
+              <span className="font-bold shrink-0">{Math.round(p.clearRate * 100)}%</span>
+            </div>
+            <p className="gn-hint" style={{ fontSize: "12px", marginTop: 4 }}>
+              {p.runs} run{p.runs === 1 ? "" : "s"} &middot; {p.cleared} cleared &middot; {p.busts} bust
+              {p.deepest > 0 && ` · deepest ${p.deepest} stage${p.deepest === 1 ? "" : "s"}`}
+              {p.bestComeback > 0 && ` · best comeback ${formatCents(p.bestComeback)}`}
+            </p>
+            {(p.myLegs > 0 || p.missed > 0) && (
+              <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
+                {p.myLegs > 0 && `${p.myLegs} leg${p.myLegs === 1 ? "" : "s"} played`}
+                {p.myLegs > 0 && p.missed > 0 && " · "}
+                {p.missed > 0 && `${p.missed} stage${p.missed === 1 ? "" : "s"} missed to the house`}
+              </p>
+            )}
+          </div>
+        ))}
+      </section>
+
+      {data.byModifier.length > 0 && (
+        <Disclosure label="More stats">
+          <section className="space-y-2">
+            <p className="gn-hint">
+              How runs went with each house rule live. Crew-wide, because a co-op result is the
+              table&rsquo;s and not one person&rsquo;s &mdash; and the app never applies a rule, so
+              this is what happened alongside it, not what it caused.
+            </p>
+            {data.byModifier.map((r) => {
+              const card = modifierById(r.id);
+              return (
+                <div key={r.id} className="gn-card" style={{ padding: "12px 16px" }}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-bold truncate">{card?.name ?? r.id}</span>
+                    <span className="gn-hint shrink-0" style={{ fontSize: "12px" }}>
+                      {r.cleared}/{r.runs} cleared &middot; {Math.round(r.clearRate * 100)}%
+                    </span>
+                  </div>
+                  {card && (
+                    <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>{card.rule}</p>
+                  )}
+                </div>
+              );
+            })}
+          </section>
+        </Disclosure>
+      )}
+    </div>
+  );
+}
+
 export default function StatsPage() {
   const { id } = useParams();
   const [open, setOpen] = useState<string | null>(null);
@@ -898,6 +1026,8 @@ export default function StatsPage() {
                 ? `${count} roulette ${count === 1 ? "night" : "nights"}`
                 : tab === CRAPS_GAME_NAME
                 ? `${count} craps ${count === 1 ? "night" : "nights"}`
+                : tab === CASINO_RUN_GAME_NAME
+                ? `${count} casino ${count === 1 ? "run" : "runs"}`
                 : `${count} ${count === 1 ? "result" : "results"}${active ? ` of ${active.name}` : " across all game modes"}`}
             </p>
           )}
@@ -942,6 +1072,8 @@ export default function StatsPage() {
           <RoulettePanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : tab === CRAPS_GAME_NAME && id ? (
           <CrapsPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
+        ) : tab === CASINO_RUN_GAME_NAME && id ? (
+          <CasinoRunPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : (
           <PlayerRows rows={shown ?? []} open={open} setOpen={setOpen} showByGame={tab === null} />
         )}

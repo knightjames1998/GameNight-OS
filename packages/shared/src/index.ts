@@ -147,4 +147,6 @@ export * from "./cashgame.js";
 export * from "./blackjack.js";
 export * from "./roulette.js";
 export * from "./craps.js";
+// The co-op one. Its own state module, deliberately not settleCash.
+export * from "./casinorun.js";
 export * from "./modifiers.js";

@@ -282,6 +282,8 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-cab--rl .gn-cab__name{color:var(--gn-p2)}
 .gn-cab--cr{border-color:#1f3a63;background:linear-gradient(180deg,#0f2445,#241a30)}
 .gn-cab--cr .gn-cab__name{color:#ff8a3d}
+.gn-cab--crun{border-color:#3c2a63;background:linear-gradient(180deg,#241541,#2f1a3d)}
+.gn-cab--crun .gn-cab__name{color:#ffc93f}
 
 /* Shared on/off pill toggle (the "let members record results" control in
    every pack). The label is the current state; green = on, red = off. */

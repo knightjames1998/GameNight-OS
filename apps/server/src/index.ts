@@ -22,6 +22,7 @@ import { pingPongRouter, pingPongTvRouter } from "./pingpong.js";
 import { blackjackRouter, blackjackTvRouter } from "./blackjack.js";
 import { rouletteRouter, rouletteTvRouter } from "./roulette.js";
 import { crapsRouter, crapsTvRouter } from "./craps.js";
+import { casinoRunRouter, casinoRunTvRouter } from "./casinorun.js";
 import { statsRouter } from "./stats.js";
 import { guestLinkRouter } from "./guest-link.js";
 import { setupWebSockets } from "./ws.js";
@@ -75,6 +76,7 @@ app.use("/api/tv", pingPongTvRouter); // public: big-screen read for Ping Pong
 app.use("/api/tv", blackjackTvRouter); // public: big-screen money board for Blackjack
 app.use("/api/tv", rouletteTvRouter); // public: big-screen money board for Roulette
 app.use("/api/tv", crapsTvRouter); // public: big-screen money board + shooter for Craps
+app.use("/api/tv", casinoRunTvRouter); // public: big-screen bank + quota for Casino Run
 app.use("/api", beerioRouter); // public: sessions/hof for the Beerio pack
 app.use("/api", beerioGnRouter); // authed per-route: GameNight binding for the pack
 app.use("/api", quickPlayRouter);
@@ -86,6 +88,7 @@ app.use("/api", pingPongRouter); // authed per-route: Ping Pong play
 app.use("/api", blackjackRouter); // authed per-route: Blackjack cash game + stats
 app.use("/api", rouletteRouter); // authed per-route: Roulette cash game + stats
 app.use("/api", crapsRouter); // authed per-route: Craps cash game + stats
+app.use("/api", casinoRunRouter); // authed per-route: Casino Run co-op legs + stats
 app.use("/api", statsRouter);
 app.use("/api", eventsRouter);
 app.use("/api", bracketsRouter);

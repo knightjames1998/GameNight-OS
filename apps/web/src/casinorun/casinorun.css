@@ -1,0 +1,162 @@
+/* ============================================================
+   Casino Run theme: the vault. Deep purple with a jackpot-gold
+   accent, so the co-op pack reads as its own thing next to
+   blackjack's card room, roulette's green wheel and craps' blue
+   pit — which matters, because a host glancing at a phone should
+   know which pack they are in before reading a word.
+
+   Structure comes from ../casino/casino.css exactly as the cash
+   packs do: this file is the backdrop, the brand glow and the
+   --cg-* tokens. What it adds on top is the BANK, which is this
+   pack's one genuinely new piece of layout and has no equivalent
+   in a per-player money board.
+   ============================================================ */
+
+.crun-root,
+.crun-tv {
+  --cg-accent: #ffc93f;
+  --cg-accent-ink: #2a1c02;
+  --cg-accent-sh: #a87c14;
+  --cg-line: #3c2a63;
+  --cg-surface: #1a1030;
+  --cg-raise: #251743;
+  --cg-card: linear-gradient(180deg, #221541, #1a1030);
+  --cg-glow: rgba(255, 201, 63, 0.45);
+}
+
+.crun-root {
+  background:
+    radial-gradient(120% 80% at 50% -10%, #46237a 0%, transparent 55%),
+    linear-gradient(180deg, #150c28, #08040f);
+}
+
+.crun-tv {
+  background:
+    radial-gradient(120% 80% at 50% -10%, #46237a 0%, transparent 55%),
+    linear-gradient(180deg, #150c28, #05030a);
+}
+
+/* ---- the bank, on the phone ----
+   One number, and it is the whole screen's subject. Green when the run is
+   above where it started, red below: this is the only number in the pack that
+   everyone watches, so it carries the direction colour the whole casino group
+   already uses for money. */
+.crun-bank {
+  text-align: center;
+  padding: 14px 12px 16px;
+  border: 2px solid var(--cg-line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--cg-surface) 70%, transparent);
+}
+.crun-bank__l {
+  color: var(--gn-dim); font-size: 12px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.crun-bank__n {
+  font-family: "Luckiest Guy", system-ui, cursive;
+  font-size: 44px; line-height: 1.05; margin-top: 2px;
+}
+.crun-bank__n--up { color: var(--cg-up); }
+.crun-bank__n--down { color: var(--cg-down); }
+.crun-bank__n--even { color: var(--gn-ink); }
+.crun-bank__sub { color: var(--gn-dim); font-size: 13px; font-weight: 700; margin-top: 4px; }
+
+/* The climb to the current quota. A bar rather than a number alone, because
+   "how close are we" is the question the table asks every leg and a proportion
+   answers it faster than arithmetic does. */
+.crun-bar {
+  height: 12px; border-radius: 999px; margin-top: 10px; overflow: hidden;
+  background: var(--cg-raise, #251743);
+  border: 1px solid var(--cg-line);
+}
+.crun-bar__fill {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--cg-accent), #fff2b8);
+  transition: width 240ms ease-out;
+}
+.crun-bar__fill--bust { background: var(--cg-down); }
+
+/* ---- the stage ladder ----
+   Every stage of the run at once, so the table can see what it has cleared and
+   what is still coming. Cleared ones go gold; the live one is outlined. */
+.crun-stages { display: flex; gap: 6px; margin-top: 12px; }
+.crun-stage {
+  flex: 1; min-width: 0; text-align: center;
+  border: 2px solid var(--cg-line); border-radius: 8px;
+  padding: 6px 4px; background: var(--cg-surface);
+}
+.crun-stage--done { border-color: var(--cg-accent); background: color-mix(in srgb, var(--cg-accent) 14%, transparent); }
+.crun-stage--live { border-color: var(--gn-ink); }
+.crun-stage__n { font-family: Fredoka, system-ui, sans-serif; font-weight: 800; font-size: 13px; }
+.crun-stage__q { color: var(--gn-dim); font-size: 11px; margin-top: 1px; }
+
+/* One recorded leg in the log. */
+.crun-leg { display: flex; align-items: baseline; gap: 8px; padding: 7px 0; }
+.crun-leg + .crun-leg { border-top: 1px solid var(--cg-line); }
+.crun-leg__g { font-weight: 800; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crun-leg__who { color: var(--gn-dim); font-size: 12px; flex-shrink: 0; }
+.crun-leg__d { font-family: Fredoka, system-ui, sans-serif; font-weight: 800; flex-shrink: 0; }
+.crun-leg__d--up { color: var(--cg-up); }
+.crun-leg__d--down { color: var(--cg-down); }
+
+/* The run's verdict, once it is over. */
+.crun-verdict {
+  margin-top: 12px; border-radius: 12px; padding: 14px;
+  text-align: center; border: 3px solid;
+  font-family: Fredoka, system-ui, sans-serif; font-weight: 800;
+}
+.crun-verdict--cleared { border-color: var(--cg-up); background: color-mix(in srgb, var(--cg-up) 14%, transparent); }
+.crun-verdict--bust { border-color: var(--cg-down); background: color-mix(in srgb, var(--cg-down) 14%, transparent); }
+.crun-verdict__h { font-family: "Luckiest Guy", system-ui, cursive; font-size: 26px; line-height: 1.1; }
+
+/* ---- the TV ----
+   THE BANK IS THE VIEW. Everything else on this screen is context for it, so
+   it gets a size nothing else competes with and sits above the fold on its
+   own. Sized in vmin like every other TV screen in the app. */
+.crun-tv__bank { text-align: center; margin-top: 2vmin; }
+.crun-tv__bank__l {
+  color: var(--gn-dim); font-size: 2.4vmin; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.4vmin;
+}
+.crun-tv__bank__n {
+  font-family: "Luckiest Guy", system-ui, cursive;
+  font-size: 19vmin; line-height: 1;
+}
+.crun-tv__bank__n--up { color: var(--cg-up); }
+.crun-tv__bank__n--down { color: var(--cg-down); }
+.crun-tv__bank__n--even { color: #fff; }
+.crun-tv__quota { color: var(--gn-dim); font-size: 3.2vmin; font-weight: 800; margin-top: 0.5vmin; }
+.crun-tv__quota b { color: var(--cg-accent); }
+
+.crun-tv__bar {
+  height: 2.4vmin; border-radius: 999px; margin: 2vmin auto 0; max-width: 70vmin;
+  background: color-mix(in srgb, var(--cg-surface) 80%, transparent);
+  border: 0.3vmin solid var(--cg-line); overflow: hidden;
+}
+.crun-tv__bar__fill { height: 100%; background: linear-gradient(90deg, var(--cg-accent), #fff2b8); }
+.crun-tv__bar__fill--bust { background: var(--cg-down); }
+
+.crun-tv__stages { display: flex; gap: 1.2vmin; margin-top: 2.4vmin; justify-content: center; }
+.crun-tv__stage {
+  border: 0.3vmin solid var(--cg-line); border-radius: 1.2vmin;
+  padding: 1vmin 2vmin; text-align: center; min-width: 14vmin;
+  background: color-mix(in srgb, var(--cg-surface) 60%, transparent);
+}
+.crun-tv__stage--done { border-color: var(--cg-accent); background: color-mix(in srgb, var(--cg-accent) 14%, transparent); }
+.crun-tv__stage--live { border-color: #fff; }
+.crun-tv__stage__n { font-family: Fredoka, sans-serif; font-weight: 800; font-size: 2.6vmin; }
+.crun-tv__stage__q { color: var(--gn-dim); font-size: 2vmin; }
+
+/* Whose leg is in progress, at which game. */
+.crun-tv__now {
+  margin-top: 2.4vmin; text-align: center;
+  font-size: 3vmin; font-weight: 800; color: var(--gn-dim);
+}
+.crun-tv__now b { color: #fff; }
+
+.crun-tv__verdict {
+  margin-top: 2.4vmin; text-align: center;
+  font-family: "Luckiest Guy", cursive; font-size: 6vmin;
+}
+.crun-tv__verdict--cleared { color: var(--cg-up); }
+.crun-tv__verdict--bust { color: var(--cg-down); }

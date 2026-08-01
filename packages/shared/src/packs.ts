@@ -164,6 +164,22 @@ export const SESSION_PACKS = {
     emoji: "\u{1F3B2}", // 🎲
     quickTitle: "Craps night",
   },
+  // The CO-OP one. In the casino group and sharing its screens' tokens, but
+  // NOT its engine: one shared bank against a target instead of per-player
+  // nets, so it runs on packages/shared/src/casinorun.ts. Its own ledger key
+  // is the accepted cost — a co-op leg played at blackjack lands here, not
+  // under Blackjack, because those rows do not obey a per-player net stat.
+  casinorun: {
+    ledger: "casino_run",
+    gameName: "Casino Run",
+    keyPrefix: "casinorun",
+    route: "casinorun",
+    wsType: "casino_run",
+    table: "game_sessions",
+    name: "Casino Run",
+    emoji: "\u{1F3B0}", // 🎰
+    quickTitle: "Casino Run",
+  },
 } as const satisfies Record<string, SessionPackDef>;
 
 /**

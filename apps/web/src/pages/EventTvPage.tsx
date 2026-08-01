@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { PACK_WS_TYPES } from "@gamenight/shared";
+import { PACK_WS_TYPES, type SessionPackKey } from "@gamenight/shared";
 import { api, type EventTv } from "../api";
 import BackButton from "../BackButton";
 import { useLiveRefetch } from "../useLiveUpdates";
@@ -33,6 +33,7 @@ const PingPongTvPage = lazy(() => import("../pingpong/PingPongTvPage"));
 const BlackjackTvPage = lazy(() => import("../blackjack/BlackjackTvPage"));
 const RouletteTvPage = lazy(() => import("../roulette/RouletteTvPage"));
 const CrapsTvPage = lazy(() => import("../craps/CrapsTvPage"));
+const CasinoRunTvPage = lazy(() => import("../casinorun/CasinoRunTvPage"));
 const TvPage = lazy(() => import("./TvPage"));
 const BeerioTvPage = lazy(() => import("../beerio/BeerioTvPage"));
 
@@ -43,6 +44,29 @@ const BeerioTvPage = lazy(() => import("../beerio/BeerioTvPage"));
  * forgot, which looks exactly like a TV that ignores one game.
  */
 const TYPES = [...PACK_WS_TYPES, "event_session_changed"];
+
+/**
+ * Which TV view each pack renders, as a TABLE RATHER THAN A CHAIN.
+ *
+ * It used to be an if/else chain ending in a bare `: <PingPongTvPage />`, so a
+ * pack nobody added a branch for did not fail — it silently drew PING PONG's
+ * scoreboard. That is the worst possible failure on a device nobody is holding:
+ * the screen is confidently wrong rather than blank. Typed `Record<
+ * SessionPackKey, ...>`, adding a pack to the registry without adding it here
+ * is a COMPILE ERROR, which is the same trick prefetch.ts uses and for the same
+ * reason. Caught 2026-07-30 when Casino Run shipped and the event TV quietly
+ * rendered a ping pong board for it.
+ */
+const PACK_TV: Record<SessionPackKey, (eventId: string) => JSX.Element> = {
+  smash: (id) => <SmashTvPage eventId={id} />,
+  mariokart: (id) => <MarioKartTvPage eventId={id} />,
+  marioparty: (id) => <MarioPartyTvPage eventId={id} />,
+  pingpong: (id) => <PingPongTvPage eventId={id} />,
+  blackjack: (id) => <BlackjackTvPage eventId={id} />,
+  roulette: (id) => <RouletteTvPage eventId={id} />,
+  craps: (id) => <CrapsTvPage eventId={id} />,
+  casinorun: (id) => <CasinoRunTvPage eventId={id} />,
+};
 
 export default function EventTvPage() {
   const { id } = useParams();
@@ -97,20 +121,12 @@ export default function EventTvPage() {
         <TvPage bracketId={now.bracketId} />
       ) : now.kind === "beerio" ? (
         <BeerioTvPage code={now.code} />
-      ) : now.pack === "smash" ? (
-        <SmashTvPage eventId={tv.event.id} />
-      ) : now.pack === "mariokart" ? (
-        <MarioKartTvPage eventId={tv.event.id} />
-      ) : now.pack === "marioparty" ? (
-        <MarioPartyTvPage eventId={tv.event.id} />
-      ) : now.pack === "blackjack" ? (
-        <BlackjackTvPage eventId={tv.event.id} />
-      ) : now.pack === "roulette" ? (
-        <RouletteTvPage eventId={tv.event.id} />
-      ) : now.pack === "craps" ? (
-        <CrapsTvPage eventId={tv.event.id} />
       ) : (
-        <PingPongTvPage eventId={tv.event.id} />
+        // A pack the table does not know is a NIGHT SCREEN, not another pack's
+        // scoreboard. Unreachable while the Record above is exhaustive, which
+        // is the point, but a server sending an unknown string must not paint
+        // somebody else's numbers.
+        PACK_TV[now.pack]?.(tv.event.id) ?? <Lobby tv={tv} />
       )}
     </Suspense>
   );
