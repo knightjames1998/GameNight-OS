@@ -12,32 +12,47 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-02 (start of the review-fixes session)
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-08-02 (start of the tabletop stage 2 session)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
     Counter is below 3: continue with the requested work and increment it by 1 in the
     same commit as any session that ships. Reconciled + redrawn on 2026-08-02 at the
-    START of the review-fixes session, because the Casino Run playtest session handed
-    the counter over already due. That session's feature work (the `side` primitive and
-    the review fixes) began only after the regenerated map was committed, which is what
-    the rule is for.
+    START of the tabletop theme stage 2 session, because stage 1 handed the counter over
+    at 3. Stage 2's own work (the Tabletop palette) began only after the regenerated map
+    was committed, which is what the rule is for, and it is the second consecutive time
+    the handover has worked as designed: stage 1 wrote down what this pass would find,
+    and this pass found exactly that and nothing else.
 
-    1 -> 2 on 2026-08-02 by the casino TV 1080p fit session.
-
-    2 -> 3 on 2026-08-02 by the tabletop theme stage 1 session (this one). It read the
-    counter at 2, which is below the threshold, so it did its own work and incremented,
-    exactly as the rule says. THE COUNTER NOW READS 3: THE NEXT SESSION THAT SHIPS OWES
-    THE RECONCILE + REDRAW BEFORE ITS OWN WORK, and then resets this to 0. What that
-    pass will find, so it does not have to rediscover it:
-      - Zone 5: the money board bug drawn as OPEN is now FIXED, and Casino Run's TV back
-        button is a new OPEN bug in its place.
-      - Zone 3: the tabletop theme is item 3 and is now PART DONE, not done. Stage 1 of
-        three shipped (below). It stays in NEXT UP with stages 2 and 3 still on it, and
-        the map should say so rather than moving it to SHIPPED, because a reader who
-        sees "tabletop theme" in a green zone will believe the app has two themes.
-      - Zone 2 gains nothing: stage 1 shipped no pack and no user-visible feature beyond
-        a one-option switcher. It belongs in zone 1 (FOUNDATION), which is what it is.
+    What this pass changed beyond the counter:
+      - Zone 1 gained the tabletop theme stage 1 item, marked (NEW). It goes in
+        FOUNDATION rather than GAME PACKS, as stage 1 predicted it should: it shipped no
+        pack and no user-visible feature beyond a one-option switcher.
+      - Zone 2 lost its two (NEW) highlights (declarative modifiers, Casino Run) and
+        gained nothing. Two consecutive foundation sessions is not a stall, it is what
+        the run-up to a theme looks like.
+      - Zone 3 keeps the tabletop theme at slot 3 and now says STAGES 2 AND 3 on it.
+        Deliberately NOT moved to a green zone: stage 1 of three shipped, and a reader
+        who sees "tabletop theme" in SHIPPED will believe the app has two themes today.
+        Slots 1 and 2 (poker, Smash Tournament) are unchanged and were not renumbered.
+      - Zone 5 was again where the work was. The money board bug drawn as OPEN is FIXED,
+        and so are the three review findings drawn as OPEN beside it; Casino Run's TV
+        back button is the one OPEN item now. The 07-30 event-TV FIXED entry aged out on
+        its second redraw, exactly as the 07-29 safe-area one did. A fifth Watch trap
+        joined: color-mix's opaque fallback on pre-2023 browsers, which stage 1
+        introduced across the shell and recorded in the DECISION LOG. It is a Watch and
+        not a bug because nothing is broken on any browser the app already supports.
+      - ROW 2 GREW, 660 -> 720, and row 1 did not. At 660 zone 5 would have had 18px left
+        once the fifth Watch trap landed, which is less than any item costs and would have
+        dropped the trap on whoever added the next line. Row 1 was left alone on purpose:
+        zone 2 keeps the 102px the last pass chose for it deliberately, and zone 1 has
+        186px even after taking the stage 1 item. Full canvas 1560x1960, and the closing
+        panorama grew with it (1600x1950 -> 1600x2010).
+    Zone heights checked against their contents by reading the generated file back, not
+    by hand: all six fit, smallest slack 78px (zone 5, BUG FIXES). THE CHECK EARNED ITS
+    KEEP THIS PASS: row 2 has THREE zones, and the first attempt raised FEATURES and BUG
+    FIXES and left IDEAS at 660, which reading the file back caught and no amount of
+    re-reading the diff would have.
 
     What this pass changed beyond the counter:
       - Zone 2 gained the two things that shipped since the last pass, both marked (NEW):
@@ -124,7 +139,7 @@ another reference section does not change the map; adding or renaming one of the
 above does, and must update this table in the same commit.
 
 **Layout (fixed, so redraws are stable):** 3 columns x 2 rows. Columns at x=40, 560, 1080,
-each 480 wide. Row 1 at y=95 (height 1120), row 2 at y=1240 (height 660). Zone header text
+each 480 wide. Row 1 at y=95 (height 1120), row 2 at y=1240 (height 720). Zone header text
 15px below zone top, fontSize 22. Items 440 wide, 40 tall, 46px step, first item 50px below
 zone top; give a taller box (52-70) to any item whose label wraps past one line. Row 1 grew
 from 540 to 730 on 2026-07-27 (SHIPPED FOUNDATION reached 14 items and overflowed its
@@ -139,10 +154,13 @@ waiting for the next entry to overflow it, since the fix is mechanical and the t
 have landed on whoever added the next line.
 ROW 2 GREW FOR THE FIRST TIME on 2026-08-02, 530 to 660: it had been a fixed height through
 six passes because only row 1 was filling up, and zone 5 overflowed it by 20px once the
-open bugs were all rendered. Both row-2 zones were raised together for the same reason row
-1's are.
-When a zone outgrows its height again, raise BOTH zones in its row together, and if it is
-row 1, push row 2 down by the same amount so the columns stay aligned.
+open bugs were all rendered. It grew again the same day, 660 to 720, on the stage 2 pass,
+when a fifth Watch trap left zone 5 with 18px. Both times every row-2 zone was raised
+together for the same reason row 1's are.
+When a zone outgrows its height again, raise EVERY zone in its row together (there are
+THREE per row, not two: the stage 2 pass raised FEATURES and BUG FIXES and left IDEAS
+behind at the old height, which the generated-file check below caught immediately), and if
+it is row 1, push row 2 down by the same amount so the columns stay aligned.
 
 **Colors:** zones 1-2 green (#d3f9d8 zone / #b2f2bb items / #15803d header). Zone 3 yellow
 (#fff3bf / #ffd8a8 / #b45309); the first three items get strokeWidth 2 and a leading number,
@@ -152,7 +170,7 @@ they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb).
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x1950 at the current zone heights). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
+on a panorama covering the full canvas (1600x2010 at the current zone heights). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 
 **Reconcile step (do this before drawing):** move finished items from NEXT UP into the right
 SHIPPED section with a one-line summary and date; renumber the top three of NEXT UP; move
@@ -284,7 +302,7 @@ Open first, then environment traps worth remembering, then fixed (fixed items ag
 - Watch: countLastPlace in stats.ts builds an inArray of EVERY match id a player has ever played, then compares placements against a grouped count of participants per match. The IN list grows without bound, so the query gets larger every night someone plays. It is fine at current volume and the derivation is correct; the fix when it matters is a join against a grouped subquery instead of a client-built id list, so Postgres never receives the ids at all. Logged 2026-07-27 by the pre-pack cleanup audit, deliberately not fixed in it (the index added the same day is the cheaper half of the same problem).
 - Watch: the WebSocket hub broadcasts every message to every connected client. There are no rooms and no topics, so every phone in the app receives every event from every crew and filters it client-side. The filtering is correct and this is fine at friend-group scale, but it is the first thing that breaks if the app ever grows. The fix when it matters is per-event or per-crew subscriptions in ws.ts. Logged 2026-07-27 by the pre-pack cleanup audit, deliberately not fixed in it.
 - Watch: `drizzle-kit push --force` silently no-ops in non-interactive CI (exits 0 without applying). Confirm the drizzle-kit success line in the build log on any schema-changing deploy; otherwise run idempotent SQL in the Neon console (ALTER TABLE ... ADD COLUMN IF NOT EXISTS).
-- FIXED 2026-07-30: the event TV rendered PING PONG's scoreboard for any pack it had no branch for. The pack switch in `EventTvPage.tsx` was an if/else chain ending in a bare `: <PingPongTvPage />`, so adding a pack to the registry without adding a branch here did not fail — it drew a confidently wrong screen on the device nobody is holding, which is worse than a blank one. Found the moment Casino Run shipped and its TV came up as a ping pong board. Fixed structurally rather than by adding a ninth branch: it is now a `Record<SessionPackKey, ...>`, so a registry pack with no TV view is a COMPILE error, the same trick `prefetch.ts` uses and for the same reason. The remaining runtime fallback is the night's own lobby screen, never another pack's numbers.
+- Watch: `color-mix()` IS NOW A HARD REQUIREMENT OF THE SHELL, and the fallback the build generates for it is wrong. Stage 1 of the theme work (2026-08-02) replaced 50 rgba() literals in `index.css` with `color-mix(in srgb, var(--gn-x) N%, transparent)`. Tailwind v4 runs Lightning CSS over that file and splits each one into an opaque `var()` fallback plus the real value inside `@supports (color:color-mix(in lab,red,red))`, so on a browser without color-mix 39 of the 50 paint the token at FULL OPACITY: chips become solid coral blocks, bevel shadows solid black slabs. That is worse than no fallback, which is what the pack stylesheets already get (they are not processed by Lightning, and `casino.css` has used color-mix unguarded since it shipped). NOT A BUG ON ANY BROWSER THE APP SUPPORTS: the affected set is Safari < 16.2, Chrome < 111 and Firefox < 113, all pre-2023, all of which already cannot render the casino packs. It is here rather than in the DECISION LOG alone because this is where someone looks for traps. The fix, if James wants it, is a `browserslist` for the build, which changes Lightning's output well beyond colour and therefore wants its own session and its own sweep.
 - FIXED 2026-08-02: A CO-OP RESULT REGISTERED AS A TIE BETWEEN EVERY PAIR OF PLAYERS IN IT. `buildRivalry` in apps/server/src/stats.ts classified a shared match as win/loss/tie by comparing the two players' placements, which is correct for every format that had existed until Casino Run. A co-op run writes an IDENTICAL row for everyone on it (same placement, same isWinner), so two players who cleared a run together came out as a draw, and two who busted together came out as a draw as well. THE CHEAP FIX WAS THE WRONG ONE: skipping `format = "casino_run"` the way `isSeriesSummary` is skipped would have worked that day and been wrong the moment doubles ping pong, beer pong, cornhole or foosball landed, because the same two people are teammates in one match and opponents in the next, so it cannot be a property of the pack. It is a property of the MATCH. Fixed with a nullable `side` column on match_participants, a fourth rivalry outcome (`together`), and Casino Run as its only writer. See the DECISION LOG.
 - FIXED 2026-08-02: Casino Run's undo could DOUBLE-DRAW a stage-clear card. `drawOnClear` fired when a leg took the bank past a quota, and undoing that leg to enter a corrected one fired it again for the same stage transition, so a run collected two house rules for one clear. A retried request did the same thing. Fixed by claiming the draw against the TRANSITION (this run's 3rd clear, its 2nd miss) rather than against the leg that caused it: `claimCrunDraw` records the index in state and returns false the second time, which makes both causes impossible rather than unlikely. A claim is deliberately NOT released by undo, because undo pops a leg and cannot un-deal a card already on the table, so a transition pays out once ever. No migration: the field is absent on runs started before this, which reads as nothing claimed, and jsonb state has no schema to change.
 - FIXED 2026-08-02: three cosmetic ones from the same review. (1) EM DASHES swept out of the whole repo, 291 of them across 65 files, against the standing rule in PROJECT-INSTRUCTIONS.md. Rewritten to a colon, comma, full stop or parentheses as each sentence wanted, never mechanically to a hyphen; the four places where a dash was genuine typography (an empty-value placeholder on the craps TV, the Casino Run board, the event TV and the KOTH queue) became en dashes, and one tooltip separator became a middot. The vendored Beerio app is deliberately untouched, as it has been since it landed. **THE SWEEP REPORTED CLEAN AND WAS NOT**, which is the part worth remembering: it was done with a grep for U+2014, and a screenshot of a live screen then showed an em dash mid-sentence, because FIVE were written as `&mdash;` in JSX and no search for the character can see those. A rendered em dash and a typed one are identical to a reader and completely different to a grep. So this is enforced too: apps/server/tests/copy-rules.test.ts walks every .ts/.tsx/.css/.html in the repo and checks FOUR spellings (the character, &mdash;, &#8212;, &#x2014;), with a second test asserting each pattern matches its own sample and does NOT flag the en dash, the middot or a hyphen, because a guard that has quietly stopped matching passes forever. En dashes and middots stay legal: the rule is about the em dash as punctuation in prose, not about non-ASCII typography. (2) RETIRED MODIFIER IDS rendered as raw ids: `RETIRED_MODIFIER_NAMES` in modifiers.ts now holds all NINE retired cards, not just the three the review spotted, and a test fails if a retired id has no name. (3) NO WAY BACK TO THE EVENT from a pack header, on NINE screens: the casino four, Smash, Ping Pong, Mario Party, Mario Kart and the generic bracket. All nine now carry a link to /e/:eventId beside the TV link. Beerio is exempt, as the standing rule already says: it is a vendored 1:1 replica with its own header. AND IT IS NOW ENFORCED, because a rule nine screens can break unnoticed needs something checking it: apps/server/tests/pack-screens.test.ts lists every scoring screen and asserts each has a BackButton, a link to its EVENT and not merely one to the event's TV (a `/e/:id/tv` link matches a naive "has the event id" check and is not a way back), and no raw <a href> for internal navigation. A new pack adds its page to that list, which is the checklist. Negative-controlled by deleting the link from SmashPage and confirming the test fails.

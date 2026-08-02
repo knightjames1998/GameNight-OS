@@ -13,28 +13,34 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-08-02 at the START of the review-fixes session, because the counter was
-// due (and, per MAP STATUS, undercounted: three Casino Run rounds shipped without
-// incrementing it). This pass:
-//   - Zone 2 gained declarative modifiers and CASINO RUN, both (NEW). Casino Run is five
-//     sessions rendered as ONE item on purpose: the rounds finished one idea, and the map
-//     renders ideas rather than commits. Roulette, craps and stakes lost their (NEW)
-//     highlights, and so did zone 1's pack picker groups.
-//   - Zone 3's committed three are now poker / Smash Tournament / tabletop theme.
-//   - Zone 5 got the pass it was owed. The casino TV money board bug has been OPEN in
-//     BACKLOG.md since 07-30 and was never drawn, which is the exact drift the reconcile
-//     step exists to catch. Drawn now, alongside the three open findings this session is
-//     about. The 07-29 safe-area item aged out; the 07-30 event-TV one replaced it.
-//   - BOTH ROWS GREW, row 2 for the first time in six passes: row 1 990 -> 1120, row 2
-//     y 1110 -> 1240 and h 530 -> 660. Zone 2 needed 146px and had 118; zone 5 needed
-//     600 and had 530. Raised past the minimum, as every previous pass has done.
+// Redrawn 2026-08-02 at the START of the tabletop theme stage 2 session, because stage 1
+// handed the counter over at 3. This pass:
+//   - Zone 1 gained the tabletop theme stage 1 item, (NEW). FOUNDATION, not GAME PACKS:
+//     it shipped no pack and no user-visible feature beyond a one-option switcher.
+//   - Zone 2 lost its two (NEW) highlights and gained nothing.
+//   - Zone 3 keeps the tabletop theme at slot 3, now labelled STAGES 2 AND 3. NOT moved
+//     to a green zone: one stage of three has shipped, and a reader who sees "tabletop
+//     theme" in SHIPPED will believe the app has two themes today. It does not, yet.
+//   - Zone 5 was where the work was, again. FOUR items drawn OPEN last pass are FIXED
+//     (money board, the co-op TIE, Casino Run's undo, the three cosmetic ones), Casino
+//     Run's TV back button is the only OPEN one now, the 07-30 event-TV FIXED entry aged
+//     out on its second redraw, and a fifth Watch trap landed (color-mix's opaque
+//     fallback on pre-2023 browsers, which stage 1 introduced across the shell).
+//   - ROW 2 GREW, 660 -> 720, and ROW 1 DID NOT. At 660 zone 5 would have had 18px left
+//     once the fifth Watch trap landed, and 18px is less than any item costs. Row 1 was
+//     left alone deliberately: zone 2 keeps the 102px the last pass chose for it, and
+//     zone 1 still has 186px after taking the stage 1 item. Canvas 1560x1960. NOTE that
+//     row 2 is THREE zones, not two: the first attempt at this raised FEATURES and BUG
+//     FIXES and left IDEAS at 660, caught by reading the generated file back.
 //
-// Earlier passes, kept short: 2026-07-30 (zone 2 took roulette, craps and stakes; zone 3
-// took Casino Run in place of co-op-as-a-format; row 1 920 -> 990) and 2026-07-29 (zone 2
-// took Smashdown, the series rows and blackjack; row 1 860 -> 920).
+// Earlier passes, kept short: 2026-08-02 (zone 2 took declarative modifiers and Casino
+// Run; zone 5 finally got the money board bug it had never drawn; row 1 990 -> 1120 and
+// row 2 530 -> 660, its first growth in six passes), 2026-07-30 (zone 2 took roulette,
+// craps and stakes; row 1 920 -> 990) and 2026-07-29 (zone 2 took Smashdown, the series
+// rows and blackjack; row 1 860 -> 920).
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
-// each 480 wide, row 1 y=95 h=1120, row 2 y=1240 h=660. Items 440x40, 46px
+// each 480 wide, row 1 y=95 h=1120, row 2 y=1240 h=720. Items 440x40, 46px
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
@@ -57,6 +63,7 @@ const ZONES = [
       { t: "One TV button per night: /e/:id/tv auto-follows" },
       { t: "One pack registry: SESSION_PACKS, one entry per pack" },
       { t: "Pack picker groups: Nintendo / Casino / Bar / Other" },
+      { t: "Tabletop theme STAGE 1/3: Arcade made swappable, 0 new colours, 52 tokens, literals banned by test (NEW)", bg: "#c3fae8", h: 70 },
     ],
   },
   {
@@ -78,8 +85,8 @@ const ZONES = [
       { t: "Roulette + the shared CASINO SCREENS: one setup, table, money board; per-player buy-ins", h: 70 },
       { t: "Craps + the shooter's hand: longest roll as a crew record", h: 52 },
       { t: "Stakes: real vs play money. Wins unify, only money splits", h: 52 },
-      { t: "Declarative modifiers: house rules DISPLAYED and RECORDED, never computed (NEW)", bg: "#c3fae8", h: 70 },
-      { t: "CASINO RUN: co-op pack, one shared bank, staged quotas, simulated ladders, tokens (NEW)", bg: "#c3fae8", h: 70 },
+      { t: "Declarative modifiers: house rules DISPLAYED and RECORDED, never computed", h: 70 },
+      { t: "CASINO RUN: co-op pack, one shared bank, staged quotas, simulated ladders, tokens", h: 70 },
     ],
   },
   {
@@ -88,12 +95,12 @@ const ZONES = [
     items: [
       { t: "1. Poker (cash engine PLUS a tournament format)", sw: 2, h: 52 },
       { t: "2. Smash Tournament format (bracket + fighters)", sw: 2, h: 52 },
-      { t: "3. Tabletop theme + theme switcher", sw: 2, h: 52 },
+      { t: "3. Tabletop theme, STAGES 2 AND 3 (stage 1 shipped)", sw: 2, h: 52 },
       { t: "More packs: board games, darts" },
     ],
   },
   {
-    x: 40, y: 1240, h: 660,
+    x: 40, y: 1240, h: 720,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
       { t: "Unified event TV + single active pack" },
@@ -106,22 +113,23 @@ const ZONES = [
     ],
   },
   {
-    x: 560, y: 1240, h: 660,
+    x: 560, y: 1240, h: 720,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
-      { t: "OPEN: a co-op result reads as a TIE between every pair in it (needs `side`)", h: 52 },
-      { t: "OPEN: Casino Run undo can double-draw a stage-clear card", h: 52 },
-      { t: "OPEN: casino TV money board does not fit 1080p past FIVE players", h: 52 },
-      { t: "OPEN: em dashes in copy; retired ids render raw; no way back to the event", h: 70 },
+      { t: "OPEN: Casino Run's TV has the same back-button blind spot the money board had", h: 52 },
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
       { t: "Watch: countLastPlace IN list grows without bound", bg: "#fff3bf", h: 52 },
       { t: "Watch: ws hub broadcasts everything to everyone (no rooms)", bg: "#fff3bf", h: 52 },
       { t: "Watch: drizzle push can no-op in CI, check build log", bg: "#fff3bf", h: 52 },
-      { t: "FIXED: event TV drew ping pong's board for any pack with no branch", bg: "#b2f2bb", h: 52 },
+      { t: "Watch: color-mix's opaque fallback on pre-2023 browsers (shell-wide since stage 1)", bg: "#fff3bf", h: 52 },
+      { t: "FIXED: casino TV money board now fits 1080p at every seat count", bg: "#b2f2bb", h: 52 },
+      { t: "FIXED: co-op results are no longer a TIE between every pair (`side`)", bg: "#b2f2bb", h: 52 },
+      { t: "FIXED: Casino Run undo no longer double-draws a stage-clear card", bg: "#b2f2bb", h: 52 },
+      { t: "FIXED: em dashes swept; retired ids render; a way back to the event", bg: "#b2f2bb", h: 70 },
     ],
   },
   {
-    x: 1080, y: 1240, h: 660,
+    x: 1080, y: 1240, h: 720,
     title: "IDEAS — NOT SOLIDIFIED", zoneBg: "#e5dbff", header: "#6d28d9", itemBg: "#d0bfff",
     items: [
       { t: "Draft night mode (snake drafts, TV board)" },
