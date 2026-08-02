@@ -3,6 +3,7 @@ import { money, type CashPlayerRow, type CashSummary } from "@gamenight/shared";
 import BackButton from "../BackButton";
 import { StakesBadge } from "./money";
 import { ModifierWall } from "./modifiers";
+import { moneyBoardBand } from "./band";
 import "./casino.css";
 
 // THE LIVE MONEY BOARD, shared by every casino pack's TV view.
@@ -20,6 +21,14 @@ import "./casino.css";
 // tail, which are the three props below. Colours come from --cg-* tokens
 // each pack re-points on its TV root, so a pack customises without forking
 // any of this.
+//
+// IT HAS TO FIT A TELEVISION, which is the one constraint this component
+// carries that a phone screen never would: a TV cannot be scrolled, so
+// anything past 1080px is gone rather than below. Every metric on the board
+// was a fixed vmin, so its height grew with the roster while the screen did
+// not, and from six players up the footer and the back button were off the
+// bottom. The band computed below and spent in casino.css is the fix; band.ts
+// explains what feeds it and why the seat count alone is not enough.
 
 export function MoneyBoard<D>({
   summary,
@@ -54,8 +63,19 @@ export function MoneyBoard<D>({
   const playing = summary.players.filter((p) => p.net === null);
   const m = money(summary.stakes);
 
+  // HOW MUCH THIS SCREEN IS CARRYING, which is what the metrics scale on. It
+  // rides on the ROOT rather than on the board, because the board is not the
+  // only thing spending the 1080px: the hero, the warning and the wall are on
+  // the same budget and all four have to give together at a full table. See
+  // band.ts for the measured costs.
+  const band = moneyBoardBand(summary.players.length, {
+    hero: !!hero,
+    warning: !!summary.warning,
+    rules: summary.modifiers.length > 0,
+  });
+
   return (
-    <div className={`cg-tv ${className}`}>
+    <div className={`cg-tv ${className}`} data-band={band}>
       <div className="cg-tv__head">
         <div className="cg-tv__brand">{brand}</div>
         <div className="cg-tv__muted" style={{ fontSize: "2.4vmin" }}>
@@ -83,7 +103,7 @@ export function MoneyBoard<D>({
 
       {hero}
 
-      <div className="cg-tv__board">
+      <div className="cg-tv__board" data-band={band}>
         {summary.players.length === 0 && (
           <div className="cg-tv__muted" style={{ fontSize: "3vmin" }}>{emptyHint}</div>
         )}
@@ -157,7 +177,12 @@ export function MoneyBoard<D>({
         </div>
       </div>
 
-      <div style={{ marginTop: "3vmin" }}>
+      {/* A CLASS RATHER THAN AN INLINE STYLE, so its margin is on the ladder
+          with everything else. This is the LAST element on the screen and the
+          one the fit is measured against: standing rule 4 wants a way back on
+          every screen, and a back button pushed past 1080 on a television is
+          the same as not having one. */}
+      <div className="cg-tv__back">
         <BackButton className="cg-textbtn" />
       </div>
     </div>

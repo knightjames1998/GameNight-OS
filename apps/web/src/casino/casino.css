@@ -244,8 +244,15 @@ button.cg-pill { cursor: pointer; }
 .cg-tv__brand em { color: var(--cg-accent); font-style: normal; }
 .cg-tv__muted { color: var(--gn-dim); }
 
-/* Big numbers. The board is the feature, so it gets the room. */
-.cg-tv__board { margin-top: 3vmin; display: flex; flex-direction: column; gap: 1.2vmin; }
+/* Big numbers. The board is the feature, so it gets the room.
+
+   The margin is 2.4vmin rather than the 3vmin it shipped with, and that is the
+   ONLY thing the roomiest band changed about the four-player screen. Measured,
+   the shipped layout put the back button at 1079.2px on a 1080p screen: it fit
+   by eight tenths of a pixel, so any future word added to the header would have
+   broken the common case all over again. This and the back button's own margin
+   buy that case 14px of headroom without touching a font size. */
+.cg-tv__board { margin-top: 2.4vmin; display: flex; flex-direction: column; gap: 1.2vmin; }
 .cg-tv__line {
   display: grid; grid-template-columns: 6vmin 1fr auto; align-items: center; gap: 2vmin;
   border: 2px solid var(--cg-line); border-radius: 1.6vmin;
@@ -341,3 +348,188 @@ button.cg-pill { cursor: pointer; }
   margin-top: 2.5vmin; border: 3px solid var(--cg-down); background: rgba(255, 90, 95, 0.14);
   border-radius: 1.6vmin; padding: 2vmin 2.6vmin; font-size: 2.6vmin; font-weight: 800;
 }
+
+/* The back button's own row. A class rather than the inline style it used to
+   carry, so the ladder below can trim it: it is the LAST element on the screen
+   and the one the 1080p fit is measured against. */
+.cg-tv__back { margin-top: 2.4vmin; }
+
+/* ============================================================
+   THE DENSITY LADDER: how this screen fits 1080p at twelve seats.
+
+   A television cannot be scrolled, so anything past the fold is
+   gone rather than merely below. Every metric above is a fixed
+   vmin, so the board's height was LINEAR in the seat count while
+   the screen was not: measured on the real bundle at 1920x1080,
+   the back button sat at 1079px with four players and 2372px
+   with twelve. Everything from six players up shipped with its
+   footer, its back button and its bottom lines off the screen,
+   and always had.
+
+   THE SHAPE IS THE ONE ModifierWall ALREADY USES for the same
+   class of problem: a band computed in TS, written on the
+   element as a data attribute, and spent here as overrides.
+   `MoneyBoard` computes it in band.ts; see that file for what
+   feeds it and why the seat count alone is not enough.
+
+   WHICH LEVERS MOVE FIRST, and why, which is James's call and
+   drives the whole curve. Not a uniform scale: spend the cheap
+   things first and protect the expensive one.
+
+     1. Vertical padding, gaps and radii. Pure whitespace.
+     2. The `.cg-tv__meta` subline. Smaller at `close` and
+        `tight`, gone at `packed`. It is the least valuable line
+        on the board: the net is the story, and the buy-in
+        detail is one glance away on any phone at the table.
+     3. `.cg-tv__rank` and the still-playing `--out` rows, both
+        already de-emphasised, so they give before anything a
+        reader is actually looking at.
+     4. `.cg-tv__net`, which can lose size before the name does:
+        it is a short token in a coloured pill and stays legible
+        smaller than a name does.
+     5. `.cg-tv__nm` LAST, and never below the shipped 4.4vmin
+        until the screen is genuinely full. The name is what the
+        room reads from the sofa.
+
+   The blocks around the board are on the same ladder for a
+   measured reason: the craps hero costs 271.6px and the balance
+   warning 118.3px, so a full craps table overflows on those two
+   alone whatever the board does. `roomy` is the metrics the
+   board shipped with and touches nothing, so a four-player
+   blackjack night is pixel-for-pixel what it was.
+
+   THE NUMBERS ARE MEASURED, NOT CHOSEN. Each band was tuned
+   against the worst case it can carry: 12 seats + the hero + the
+   warning + a two-card wall, driven over CDP against `vite
+   preview` serving the real built bundle, with the fit asserted
+   at the BOTTOM OF THE BACK BUTTON rather than the footer.
+   ============================================================ */
+
+/* ---- close: load 5 and 6. WHITESPACE ONLY on the name's side of the ledger:
+        4.4vmin is untouched and the subline is still there, just smaller and
+        no longer paying for its own top margin. The line loses two thirds of
+        its vertical padding and one pixel of border, which is the whole
+        saving, and the blocks around it give up their margins. ---- */
+.cg-tv[data-band="close"] .cg-tv__board { margin-top: 1.6vmin; gap: 0.5vmin; }
+.cg-tv[data-band="close"] .cg-tv__line {
+  padding: 0.35vmin 2vmin; border-radius: 1vmin; border-width: 1px; gap: 1.6vmin;
+  grid-template-columns: 5.4vmin 1fr auto;
+}
+.cg-tv[data-band="close"] .cg-tv__meta { font-size: 1.7vmin; margin-top: 0; }
+.cg-tv[data-band="close"] .cg-tv__rank { font-size: 2.8vmin; }
+.cg-tv[data-band="close"] .cg-tv__net { font-size: 4.2vmin; padding: 0.5vmin 1.6vmin; border-radius: 1vmin; }
+.cg-tv[data-band="close"] .cg-tv__net--in { font-size: 2.8vmin; }
+.cg-tv[data-band="close"] .cg-tv__brand { font-size: 5.4vmin; }
+.cg-tv[data-band="close"] .cg-tv__mods { margin-top: 0.7vmin; gap: 0.7vmin; }
+.cg-tv[data-band="close"] .cg-tv__hero { margin-top: 1.6vmin; gap: 1.6vmin; }
+.cg-tv[data-band="close"] .cg-tv__hero > div { padding: 1.2vmin 2.2vmin; }
+.cg-tv[data-band="close"] .cg-tv__hero__l { font-size: 2vmin; letter-spacing: 0.3vmin; }
+.cg-tv[data-band="close"] .cg-tv__hero__n { font-size: 7vmin; }
+.cg-tv[data-band="close"] .cg-tv__hero__who { font-size: 3.8vmin; }
+.cg-tv[data-band="close"] .cg-tv__hero__sub { font-size: 2vmin; }
+.cg-tv[data-band="close"] .cg-tv__warn {
+  margin-top: 1.4vmin; padding: 1.2vmin 2vmin; font-size: 2.2vmin; border-width: 2px; border-radius: 1.4vmin;
+}
+.cg-tv[data-band="close"] .cg-tv__foot { margin-top: 1.6vmin; gap: 1.6vmin; }
+.cg-tv[data-band="close"] .cg-tv__stat { padding: 0.9vmin 1.8vmin; }
+.cg-tv[data-band="close"] .cg-tv__stat b { font-size: 3vmin; }
+.cg-tv[data-band="close"] .cg-tv__stat span { font-size: 1.8vmin; letter-spacing: 0.25vmin; }
+.cg-tv[data-band="close"] .cg-tv__back { margin-top: 1.2vmin; }
+
+/* ---- tight: load 7 to 10. THE SUBLINE GOES, which is lever 2 spent in full,
+        and only then does the name give its first ground. Note what is NOT
+        here: a rule hiding the subline on the still-playing rows only. It was
+        written, measured and removed, because the worst case for board height
+        is a table where EVERYBODY has cashed out, and on that board there are
+        no still-playing rows to save anything on. It bought a ragged board and
+        zero pixels where the pixels were needed. ---- */
+.cg-tv[data-band="tight"] .cg-tv__board { margin-top: 1vmin; gap: 0.4vmin; }
+.cg-tv[data-band="tight"] .cg-tv__line {
+  padding: 0.5vmin 1.6vmin; border-radius: 0.8vmin; border-width: 1px; gap: 1.2vmin;
+  grid-template-columns: 4.2vmin 1fr auto;
+}
+.cg-tv[data-band="tight"] .cg-tv__nm { font-size: 3.4vmin; }
+.cg-tv[data-band="tight"] .cg-tv__meta { display: none; }
+.cg-tv[data-band="tight"] .cg-tv__rank { font-size: 2.2vmin; }
+.cg-tv[data-band="tight"] .cg-tv__net { font-size: 3.2vmin; padding: 0.35vmin 1.3vmin; border-radius: 0.8vmin; }
+.cg-tv[data-band="tight"] .cg-tv__net--in { font-size: 2.2vmin; border-width: 1px; }
+.cg-tv[data-band="tight"] .cg-tv__brand { font-size: 4.8vmin; }
+.cg-tv[data-band="tight"] .cg-tv__mods { margin-top: 0.6vmin; gap: 0.6vmin; }
+.cg-tv[data-band="tight"] .cg-tv__hero { margin-top: 1.4vmin; gap: 1.4vmin; }
+.cg-tv[data-band="tight"] .cg-tv__hero > div { padding: 1vmin 2vmin; border-width: 2px; border-radius: 1.4vmin; }
+.cg-tv[data-band="tight"] .cg-tv__hero__l { font-size: 1.8vmin; letter-spacing: 0.25vmin; }
+.cg-tv[data-band="tight"] .cg-tv__hero__n { font-size: 5.6vmin; }
+.cg-tv[data-band="tight"] .cg-tv__hero__who { font-size: 3.2vmin; }
+.cg-tv[data-band="tight"] .cg-tv__hero__sub { font-size: 1.8vmin; }
+.cg-tv[data-band="tight"] .cg-tv__warn {
+  margin-top: 1.2vmin; padding: 1vmin 1.8vmin; font-size: 2vmin; border-width: 2px; border-radius: 1.2vmin;
+}
+.cg-tv[data-band="tight"] .cg-tv__foot { margin-top: 1.4vmin; gap: 1.2vmin; }
+.cg-tv[data-band="tight"] .cg-tv__stat { padding: 0.7vmin 1.6vmin; border-width: 1px; border-radius: 1vmin; }
+.cg-tv[data-band="tight"] .cg-tv__stat b { font-size: 2.6vmin; }
+.cg-tv[data-band="tight"] .cg-tv__stat span { font-size: 1.6vmin; letter-spacing: 0.2vmin; }
+.cg-tv[data-band="tight"] .cg-tv__back { margin-top: 1vmin; }
+
+/* ---- packed: 12 and up, which is the full table. The subline goes entirely:
+        the net is the story and "in $40 - 2 rebuys" is recoverable on any
+        phone. Everything else is at its floor. ---- */
+.cg-tv[data-band="packed"] .cg-tv__board { margin-top: 1vmin; gap: 0.35vmin; }
+.cg-tv[data-band="packed"] .cg-tv__line {
+  padding: 0.3vmin 1.4vmin; border-radius: 0.7vmin; border-width: 1px; gap: 1vmin;
+  grid-template-columns: 3.6vmin 1fr auto;
+}
+.cg-tv[data-band="packed"] .cg-tv__nm { font-size: 2.6vmin; }
+.cg-tv[data-band="packed"] .cg-tv__meta { display: none; }
+.cg-tv[data-band="packed"] .cg-tv__rank { font-size: 2vmin; }
+.cg-tv[data-band="packed"] .cg-tv__net { font-size: 2.8vmin; padding: 0.25vmin 1.1vmin; border-radius: 0.7vmin; }
+.cg-tv[data-band="packed"] .cg-tv__net--in { font-size: 2vmin; border-width: 1px; }
+.cg-tv[data-band="packed"] .cg-tv__brand { font-size: 4.2vmin; }
+.cg-tv[data-band="packed"] .cg-tv__mods { margin-top: 0.5vmin; gap: 0.5vmin; }
+.cg-tv[data-band="packed"] .cg-tv__hero { margin-top: 1vmin; gap: 1.2vmin; }
+.cg-tv[data-band="packed"] .cg-tv__hero > div { padding: 0.7vmin 1.6vmin; border-width: 2px; border-radius: 1.2vmin; }
+.cg-tv[data-band="packed"] .cg-tv__hero__l { font-size: 1.6vmin; letter-spacing: 0.2vmin; }
+.cg-tv[data-band="packed"] .cg-tv__hero__n { font-size: 4.4vmin; }
+.cg-tv[data-band="packed"] .cg-tv__hero__who { font-size: 2.8vmin; }
+.cg-tv[data-band="packed"] .cg-tv__hero__sub { font-size: 1.6vmin; }
+.cg-tv[data-band="packed"] .cg-tv__warn {
+  margin-top: 1vmin; padding: 0.7vmin 1.6vmin; font-size: 1.8vmin; border-width: 2px; border-radius: 1vmin;
+}
+.cg-tv[data-band="packed"] .cg-tv__foot { margin-top: 1vmin; gap: 1vmin; }
+.cg-tv[data-band="packed"] .cg-tv__stat { padding: 0.5vmin 1.4vmin; border-width: 1px; border-radius: 0.8vmin; }
+.cg-tv[data-band="packed"] .cg-tv__stat b { font-size: 2.2vmin; }
+.cg-tv[data-band="packed"] .cg-tv__stat span { font-size: 1.4vmin; letter-spacing: 0.15vmin; }
+.cg-tv[data-band="packed"] .cg-tv__back { margin-top: 0.8vmin; }
+
+/* ---- full: 14 and up, which in practice is a full table with a hero panel, a
+        balance warning or both on top of it. This is the FLOOR of the ladder
+        and it is where the name finally gives ground, last as promised. At
+        2.2vmin it measures 23.8px on a 1080p screen, which is still a third
+        larger than the footer labels and is what twelve craps players plus a
+        shooter panel plus a warning actually costs. Below this there is
+        nothing left to spend that is not the name itself. ---- */
+.cg-tv[data-band="full"] .cg-tv__board { margin-top: 0.6vmin; gap: 0.25vmin; }
+.cg-tv[data-band="full"] .cg-tv__line {
+  padding: 0.2vmin 1.2vmin; border-radius: 0.6vmin; border-width: 1px; gap: 0.9vmin;
+  grid-template-columns: 3.2vmin 1fr auto;
+}
+.cg-tv[data-band="full"] .cg-tv__nm { font-size: 2.2vmin; }
+.cg-tv[data-band="full"] .cg-tv__meta { display: none; }
+.cg-tv[data-band="full"] .cg-tv__rank { font-size: 1.8vmin; }
+.cg-tv[data-band="full"] .cg-tv__net { font-size: 2.4vmin; padding: 0.2vmin 1vmin; border-radius: 0.6vmin; }
+.cg-tv[data-band="full"] .cg-tv__net--in { font-size: 1.8vmin; border-width: 1px; }
+.cg-tv[data-band="full"] .cg-tv__brand { font-size: 3.6vmin; }
+.cg-tv[data-band="full"] .cg-tv__mods { margin-top: 0.4vmin; gap: 0.4vmin; }
+.cg-tv[data-band="full"] .cg-tv__hero { margin-top: 0.6vmin; gap: 1vmin; }
+.cg-tv[data-band="full"] .cg-tv__hero > div { padding: 0.5vmin 1.4vmin; border-width: 2px; border-radius: 1vmin; }
+.cg-tv[data-band="full"] .cg-tv__hero__l { font-size: 1.5vmin; letter-spacing: 0.15vmin; }
+.cg-tv[data-band="full"] .cg-tv__hero__n { font-size: 3.6vmin; }
+.cg-tv[data-band="full"] .cg-tv__hero__who { font-size: 2.4vmin; }
+.cg-tv[data-band="full"] .cg-tv__hero__sub { font-size: 1.5vmin; }
+.cg-tv[data-band="full"] .cg-tv__warn {
+  margin-top: 0.6vmin; padding: 0.5vmin 1.4vmin; font-size: 1.7vmin; border-width: 2px; border-radius: 0.8vmin;
+}
+.cg-tv[data-band="full"] .cg-tv__foot { margin-top: 0.6vmin; gap: 0.8vmin; }
+.cg-tv[data-band="full"] .cg-tv__stat { padding: 0.4vmin 1.2vmin; border-width: 1px; border-radius: 0.7vmin; }
+.cg-tv[data-band="full"] .cg-tv__stat b { font-size: 2vmin; }
+.cg-tv[data-band="full"] .cg-tv__stat span { font-size: 1.3vmin; letter-spacing: 0.12vmin; }
+.cg-tv[data-band="full"] .cg-tv__back { margin-top: 0.5vmin; }
