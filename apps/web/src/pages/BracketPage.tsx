@@ -128,12 +128,25 @@ export default function BracketPage() {
         <BackButton />
         <div className="flex items-center justify-between mt-2 gap-2">
           <h1 className="gn-title text-2xl">{bracket.gameName}</h1>
-          {/* Points at the NIGHT, not at this bracket: the TV then keeps
-              working when the crew moves on to another pack. /tv/:bracketId
-              still works for anything already bookmarked. */}
-          <Link to={`/e/${bracket.eventId}/tv`} className="gn-btn gn-btn--ghost shrink-0" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }} {...onIntent(routes.eventTv)}>
-            📺 TV mode
-          </Link>
+          {/* Grouped so the title keeps the left and the two ways OUT of this
+              screen sit together on the right. This row carries a heading, so
+              it is not the pure nav row the pack headers use. */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* A way back to the NIGHT this bracket belongs to, which the
+                history-based Back button above cannot promise: somebody who
+                opened a shared link in a fresh tab has no history to pop, so
+                Back sends them home rather than to the event. Standing rule:
+                every tracker screen has both. */}
+            <Link to={`/e/${bracket.eventId}`} className="gn-btn gn-btn--ghost" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+              🎪 Event
+            </Link>
+            {/* Points at the NIGHT, not at this bracket: the TV then keeps
+                working when the crew moves on to another pack. /tv/:bracketId
+                still works for anything already bookmarked. */}
+            <Link to={`/e/${bracket.eventId}/tv`} className="gn-btn gn-btn--ghost" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }} {...onIntent(routes.eventTv)}>
+              📺 TV mode
+            </Link>
+          </div>
         </div>
         <p className="gn-hint" style={{ fontSize: "13px" }}>
           {bracket.entrantCount} players &middot; {isDouble ? "double elimination" : "single elimination"} &middot; open the TV link on the big screen

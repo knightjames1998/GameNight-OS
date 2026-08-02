@@ -687,7 +687,7 @@ function ModifierStats({ rows }: { rows: CashModifierAgg[] }) {
     <section className="space-y-2">
       <p className="gn-hint">
         How the nights with each house rule on actually went. The app never applies a rule, so
-        this is what happened alongside it, not what it caused &mdash; and a couple of nights is
+        this is what happened alongside it, not what it caused, and a couple of nights is
         a couple of nights.
       </p>
       {rows.map((r) => {
@@ -974,7 +974,7 @@ function CasinoRunPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
           <section className="space-y-2">
             <p className="gn-hint">
               How runs went with each house rule live. Crew-wide, because a co-op result is the
-              table&rsquo;s and not one person&rsquo;s &mdash; and the app never applies a rule, so
+              table&rsquo;s and not one person&rsquo;s, and the app never applies a rule, so
               this is what happened alongside it, not what it caused.
             </p>
             {data.byModifier.map((r) => {

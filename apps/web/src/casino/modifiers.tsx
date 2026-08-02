@@ -147,8 +147,8 @@ export function ModifierPicker({
       <div className="cg-h">House rules</div>
       <p className="cg-hint">
         Optional. Turn on the rules you&rsquo;re playing tonight and everyone can read them off
-        the TV. The app shows them and records which were live &mdash; you apply them at the
-        table, it never does the maths for you.
+        the TV. The app shows them and records which were live. You apply them at the
+        table; it never does the maths for you.
       </p>
 
       <div className="cg-seg" style={{ marginTop: 10 }}>

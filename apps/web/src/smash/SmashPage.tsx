@@ -125,6 +125,12 @@ export default function SmashPage() {
       <div className="sm-wrap">
         <div className="sm-top">
           <BackButton className="sm-textbtn" />
+          {/* A way back to the NIGHT this pack belongs to, which the
+              history-based Back button cannot promise: somebody who opened a
+              shared link in a fresh tab has no history to pop, so Back sends
+              them home rather than to the event they were sent to. Standing
+              rule: every pack screen has both. */}
+          <Link to={`/e/${eventId}`} className="sm-textbtn">🎪 Event</Link>
           {/* The NIGHT's TV address, not this pack's: one url in circulation,
               and the screen keeps working when the crew switches games. Quick
               play has an eventId too (it creates a hidden personal crew and a

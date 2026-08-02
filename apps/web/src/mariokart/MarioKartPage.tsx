@@ -98,6 +98,12 @@ export default function MarioKartPage() {
       <div className="mk-wrap">
         <div className="mk-top">
           <BackButton className="mk-textbtn" />
+          {/* A way back to the NIGHT this pack belongs to, which the
+              history-based Back button cannot promise: somebody who opened a
+              shared link in a fresh tab has no history to pop, so Back sends
+              them home rather than to the event they were sent to. Standing
+              rule: every pack screen has both. */}
+          <Link to={`/e/${eventId}`} className="mk-textbtn">🎪 Event</Link>
           {/* The NIGHT's TV address, not this pack's (see SmashPage). */}
           <Link to={`/e/${eventId}/tv`} className="mk-textbtn">📺 TV</Link>
         </div>

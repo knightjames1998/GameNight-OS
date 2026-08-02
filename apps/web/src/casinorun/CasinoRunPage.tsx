@@ -251,7 +251,7 @@ function RunSetup({
         <p className="cg-hint" style={{ marginTop: 6 }}>
           {ladder.stages} stages, +{Math.round(ladder.escalation * 100)}% each. Each stage gives you{" "}
           {ladder.attemptsPerStage} attempt{ladder.attemptsPerStage === 1 ? "" : "s"} of{" "}
-          {ladder.legsPerStage} legs &mdash; <b>run out of attempts and the run is over</b>, even
+          {ladder.legsPerStage} legs. <b>Run out of attempts and the run is over</b>, even
           with money still on the table.
         </p>
         {bank > 0 && (
@@ -631,7 +631,7 @@ function LiveRules({ ids, game }: { ids: string[]; game: string }) {
     <p className="cg-hint" style={{ marginTop: 8 }}>
       At <b>{game}</b>: {live.length} of {cards.length} house rule
       {cards.length === 1 ? "" : "s"} apply
-      {live.length > 0 && <> &mdash; {live.map((m) => m.name).join(", ")}</>}
+      {live.length > 0 && <>: {live.map((m) => m.name).join(", ")}</>}
       {dormant.length > 0 && (
         <>
           . Sitting out until you play their table: {dormant.map((m) => m.name).join(", ")}.
