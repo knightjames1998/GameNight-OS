@@ -12,45 +12,33 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
-const SUBTITLE = "July 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-07-30 at the START of the modifiers session, because the counter handed
-// over by the stakes session was exactly 3. This pass:
-//   - Zone 2 gained the three casino sessions since the last pass, all (NEW): Roulette +
-//     the shared casino screens, Craps + the shooter, and the stakes flag. Blackjack,
-//     Smashdown and the series rows lost their (NEW) highlights.
-//   - Zone 1 gained the pack picker groups. The safe-area fix is a BUG and stayed in
-//     zone 5; per-player buy-ins folded into the roulette item, since they shipped in
-//     the same session and are one idea.
-//   - Zone 3's committed three are now declarative modifiers / Casino Run / Poker.
-//     CASINO RUN REPLACED CO-OP MODE: it is its own pack rather than a format inside the
-//     existing ones, decided 2026-07-30 (see DECISION LOG).
-//   - Row 1 raised 920 -> 990 and row 2 pushed 1040 -> 1110. Zone 2 needed the room for
-//     three multi-line items; zone 1 was raised with it to keep the columns aligned,
-//     which MAP PROTOCOL requires.
+const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
+// Redrawn 2026-08-02 at the START of the review-fixes session, because the counter was
+// due (and, per MAP STATUS, undercounted: three Casino Run rounds shipped without
+// incrementing it). This pass:
+//   - Zone 2 gained declarative modifiers and CASINO RUN, both (NEW). Casino Run is five
+//     sessions rendered as ONE item on purpose: the rounds finished one idea, and the map
+//     renders ideas rather than commits. Roulette, craps and stakes lost their (NEW)
+//     highlights, and so did zone 1's pack picker groups.
+//   - Zone 3's committed three are now poker / Smash Tournament / tabletop theme.
+//   - Zone 5 got the pass it was owed. The casino TV money board bug has been OPEN in
+//     BACKLOG.md since 07-30 and was never drawn, which is the exact drift the reconcile
+//     step exists to catch. Drawn now, alongside the three open findings this session is
+//     about. The 07-29 safe-area item aged out; the 07-30 event-TV one replaced it.
+//   - BOTH ROWS GREW, row 2 for the first time in six passes: row 1 990 -> 1120, row 2
+//     y 1110 -> 1240 and h 530 -> 660. Zone 2 needed 146px and had 118; zone 5 needed
+//     600 and had 530. Raised past the minimum, as every previous pass has done.
 //
-// The 2026-07-29 pass, kept for the record:
-//   - Zone 2 gained the THREE packs the map had never rendered, all (NEW): Smashdown,
-//     Smashdown series rows, and Blackjack + the shared cash-game engine. The first two
-//     shipped on 07-28 AFTER the last redraw (which ran at the start of the Smashdown
-//     session, so it drew Smashdown as a NEXT UP item rather than a shipped one).
-//   - Zone 1's two (NEW) highlights aged out; it gained nothing this session, since the
-//     safe-area fix is a bug and belongs in zone 5.
-//   - Zone 3 is now the casino group in build order (roulette / craps / poker) in the
-//     numbered committed three, pushing Smash Tournament and the Tabletop theme down.
-//   - Zone 4 gained cross-pack night net. Zone 5 gained its first FIXED item since the
-//     07-28 pass aged the previous two out. Zone 6 lost poker from the cornhole/darts
-//     line (it is committed now) and the Wager ledger's "bragging rights only" wording
-//     (superseded 07-29).
-//   - Row 1 raised 860 -> 920 and row 2 pushed 980 -> 1040. Zone 1 had 42px of slack and
-//     an item costs 46, so the NEXT foundation entry would have overflowed it by 4px.
-//     Raised pre-emptively per MAP PROTOCOL, the same call the last two passes made.
+// Earlier passes, kept short: 2026-07-30 (zone 2 took roulette, craps and stakes; zone 3
+// took Casino Run in place of co-op-as-a-format; row 1 920 -> 990) and 2026-07-29 (zone 2
+// took Smashdown, the series rows and blackjack; row 1 860 -> 920).
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
-// each 480 wide, row 1 y=95 h=990, row 2 y=1110 h=530. Items 440x40, 46px
+// each 480 wide, row 1 y=95 h=1120, row 2 y=1240 h=660. Items 440x40, 46px
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
-    x: 40, y: 95, h: 990,
+    x: 40, y: 95, h: 1120,
     title: "SHIPPED — FOUNDATION", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Auth: 6-digit codes + links + passwords" },
@@ -68,11 +56,11 @@ const ZONES = [
       { t: "Pre-pack cleanup COMPLETE: hygiene, tests, request cost, indexes, code splitting, caching, one pack runtime, perceived speed, one client implementation per idea", h: 70 },
       { t: "One TV button per night: /e/:id/tv auto-follows" },
       { t: "One pack registry: SESSION_PACKS, one entry per pack" },
-      { t: "Pack picker groups: Nintendo / Casino / Bar / Other (NEW)", bg: "#c3fae8" },
+      { t: "Pack picker groups: Nintendo / Casino / Bar / Other" },
     ],
   },
   {
-    x: 560, y: 95, h: 990,
+    x: 560, y: 95, h: 1120,
     title: "SHIPPED — GAME PACKS", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Beerio Kart: full replica, predictions, TV" },
@@ -87,25 +75,25 @@ const ZONES = [
       { t: "Smashdown: a 4th Smash FORMAT, burn board, mercy rule", h: 52 },
       { t: "Smashdown series rows: winning a series is its own stat", h: 52 },
       { t: "Blackjack + the shared CASH-GAME ENGINE: cents, derived banker, balance check", h: 70 },
-      { t: "Roulette + the shared CASINO SCREENS: one setup, table, money board; per-player buy-ins (NEW)", bg: "#c3fae8", h: 70 },
-      { t: "Craps + the shooter's hand: longest roll as a crew record (NEW)", bg: "#c3fae8", h: 52 },
-      { t: "Stakes: real vs play money. Wins unify, only money splits (NEW)", bg: "#c3fae8", h: 52 },
+      { t: "Roulette + the shared CASINO SCREENS: one setup, table, money board; per-player buy-ins", h: 70 },
+      { t: "Craps + the shooter's hand: longest roll as a crew record", h: 52 },
+      { t: "Stakes: real vs play money. Wins unify, only money splits", h: 52 },
+      { t: "Declarative modifiers: house rules DISPLAYED and RECORDED, never computed (NEW)", bg: "#c3fae8", h: 70 },
+      { t: "CASINO RUN: co-op pack, one shared bank, staged quotas, simulated ladders, tokens (NEW)", bg: "#c3fae8", h: 70 },
     ],
   },
   {
-    x: 1080, y: 95, h: 990,
+    x: 1080, y: 95, h: 1120,
     title: "NEXT UP (queued)", zoneBg: "#fff3bf", header: "#b45309", itemBg: "#ffd8a8",
     items: [
-      { t: "1. Declarative modifiers (shown + recorded, never computed)", sw: 2, h: 52 },
-      { t: "2. CASINO RUN: own pack, one shared bank, quotas, floors", sw: 2, h: 52 },
-      { t: "3. Poker (cash engine PLUS a tournament format)", sw: 2, h: 52 },
-      { t: "4. Smash Tournament format (bracket + fighters)" },
-      { t: "5. Tabletop theme + theme switcher" },
+      { t: "1. Poker (cash engine PLUS a tournament format)", sw: 2, h: 52 },
+      { t: "2. Smash Tournament format (bracket + fighters)", sw: 2, h: 52 },
+      { t: "3. Tabletop theme + theme switcher", sw: 2, h: 52 },
       { t: "More packs: board games, darts" },
     ],
   },
   {
-    x: 40, y: 1110, h: 530,
+    x: 40, y: 1240, h: 660,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
       { t: "Unified event TV + single active pack" },
@@ -118,18 +106,22 @@ const ZONES = [
     ],
   },
   {
-    x: 560, y: 1110, h: 530,
+    x: 560, y: 1240, h: 660,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
+      { t: "OPEN: a co-op result reads as a TIE between every pair in it (needs `side`)", h: 52 },
+      { t: "OPEN: Casino Run undo can double-draw a stage-clear card", h: 52 },
+      { t: "OPEN: casino TV money board does not fit 1080p past FIVE players", h: 52 },
+      { t: "OPEN: em dashes in copy; retired ids render raw; no way back to the event", h: 70 },
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
       { t: "Watch: countLastPlace IN list grows without bound", bg: "#fff3bf", h: 52 },
       { t: "Watch: ws hub broadcasts everything to everyone (no rooms)", bg: "#fff3bf", h: 52 },
       { t: "Watch: drizzle push can no-op in CI, check build log", bg: "#fff3bf", h: 52 },
-      { t: "FIXED: safe-area inset was a hand-written list; blackjack sat under the iOS clock", bg: "#b2f2bb", h: 70 },
+      { t: "FIXED: event TV drew ping pong's board for any pack with no branch", bg: "#b2f2bb", h: 52 },
     ],
   },
   {
-    x: 1080, y: 1110, h: 530,
+    x: 1080, y: 1240, h: 660,
     title: "IDEAS — NOT SOLIDIFIED", zoneBg: "#e5dbff", header: "#6d28d9", itemBg: "#d0bfff",
     items: [
       { t: "Draft night mode (snake drafts, TV board)" },

@@ -12,56 +12,60 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-07-30 (start of the modifiers session)
-    Shipped sessions since that redraw: 3
-    Redraw due at:                      3   <-- DUE NOW, see below
+    Last map redraw:                    2026-08-02 (start of the review-fixes session)
+    Shipped sessions since that redraw: 0
+    Redraw due at:                      3
 
     Counter is below 3: continue with the requested work and increment it by 1 in the
-    same commit as any session that ships. Reconciled + redrawn on 2026-07-30 at the
-    START of this session, because the stakes session handed over a counter of exactly 3.
-    The feature work (declarative modifiers) began only after the regenerated map was
-    committed, which is what the rule is for.
+    same commit as any session that ships. Reconciled + redrawn on 2026-08-02 at the
+    START of this session, because the Casino Run playtest session handed the counter
+    over already due. The feature work (the `side` primitive and the review fixes) began
+    only after the regenerated map was committed, which is what the rule is for.
 
     What this pass changed beyond the counter:
-      - Zone 2 gained the three casino sessions since the last pass, all marked (NEW):
-        Roulette + the shared casino screens (per-player buy-ins folded in, since they
-        shipped together and are one idea), Craps + the shooter's hand, and the stakes
-        flag. Blackjack, Smashdown and the Smashdown series rows lost their (NEW)
-        highlights, which is the second time zone 2 has turned over three items in a
-        pass — the casino group is moving fast enough that every redraw finds three.
-      - Zone 1 gained the pack picker groups. The safe-area fix stayed in zone 5, where
-        a bug belongs.
-      - Zone 3's committed three are now declarative modifiers, CASINO RUN and poker.
-        Casino Run REPLACED co-op mode: it is its own pack rather than a format inside
-        the existing ones (decided 2026-07-30, see DECISION LOG), which also means the
-        old NEXT UP wording about co-op-as-a-format is gone rather than left to
-        contradict the new entry.
-      - Row 1 zones raised 920 -> 990 and row 2 pushed down 1040 -> 1110. Zone 2 needed
-        the room for three multi-line items and would have overflowed by ~50px; zone 1
-        was raised with it because MAP PROTOCOL requires the columns stay aligned. The
-        closing panorama camera grew with it (1600x1620 -> 1600x1690).
+      - Zone 2 gained the two things that shipped since the last pass, both marked (NEW):
+        declarative modifiers, and CASINO RUN. Casino Run is FIVE sessions of work
+        rendered as ONE item, deliberately: the rounds were all the same idea being
+        finished (a real fail state, the ante, tokens, the clarity fixes, the playtest),
+        and the map renders ideas rather than commits. Same call the roulette item made
+        when it absorbed per-player buy-ins. Roulette, craps and the stakes flag lost
+        their (NEW) highlights; zone 1 gained nothing this pass and the pack picker
+        groups lost theirs.
+      - Zone 3's committed three are now poker, the Smash Tournament format and the
+        tabletop theme, since modifiers and Casino Run have both shipped out of it.
+      - Zone 5 is where this pass actually owed work. The casino TV money board's OPEN
+        entry has been in this file since 2026-07-30 and was NEVER RENDERED: the last
+        pass added it here and did not add it to the map, which is exactly the drift the
+        reconcile step exists to catch, and it is the one thing on the map that a person
+        would have acted on. It is drawn now. Alongside it: the 07-29 safe-area FIXED
+        item aged out (its second redraw, as this section's rule says), the 07-30
+        event-TV one took its place, and the review findings this session is about went
+        in as OPEN, because they are open at the moment this commit lands.
+      - BOTH ROWS GREW. Row 1 zones 990 -> 1120, row 2 pushed down 1110 -> 1240, and row
+        2's own zones 530 -> 660. Zone 2 had 118px of slack and needed 146 for its two new
+        items; zone 5 overflowed a 530px zone by 60px once the open bugs were all
+        rendered. Both rows were raised past their minimum on purpose, the same
+        pre-emptive call every previous pass has made: at 1090 zone 2 would have had 66px
+        left and at 620 zone 5 would have had 30px, and 30px is less than any item costs,
+        so the trap would just have landed on whoever added the next line. The closing
+        panorama grew with it (1600x1690 -> 1600x1950).
     Zone heights checked against their contents by reading the generated file back, not
-    by hand: all six fit, smallest slack 72px (zone 6), full canvas 1560x1640.
+    by hand: all six fit, smallest slack 76px (zone 5, BUG FIXES), full canvas 1560x1900.
 
-    Counter moved 2 -> 3 by the Casino Run round-two session (2026-08-01). **THE NEXT
-    SESSION MUST RECONCILE THIS FILE AND REDRAW THE MAP BEFORE ANY FEATURE WORK**, then
-    reset the counter to 0 and set the redraw date. NEXT UP's committed three are poker,
-    the Smash Tournament format and the tabletop theme.
+    THE COUNTER WAS UNDERCOUNTING, and that is worth writing down rather than quietly
+    resetting. It moved 2 -> 3 by the Casino Run round-two session (2026-08-01), and then
+    rounds three, four and five each shipped a feature set WITHOUT incrementing it and
+    without redrawing. Two rule breaks in the same three sessions: the redraw was due at
+    round three, and each of those sessions also owed a +1. The honest tally handed to
+    this session was 6, not 3. It changes nothing about what this pass does, since a
+    redraw that is due is due, but the counter only survives a lost chat if a session
+    that skips it says so here instead of leaving the number wrong.
 
-    Counter moved 1 -> 2 by the Casino Run session (2026-07-30).
-
-    Counter moved 0 -> 1 by the modifiers session itself (2026-07-30, same commit as the
-    feature). That session also PAID OFF the promise this block made above: the redraw
-    put CASINO RUN in zone 3, but NEXT UP still described co-op as a format, so the two
-    disagreed for exactly one commit. NEXT UP now carries the Casino Run design and the
-    co-op-as-a-format wording is gone, which is what the note claimed. Worth the line:
-    the map is a rendering of this file, so a redraw that renders something this file
-    does not say is the one failure mode the whole protocol exists to prevent.
-
-    Previous pass, kept for the record: reconciled + redrawn on 2026-07-29 at the START
-    of the roulette session, because the blackjack session handed over a counter of
-    exactly 3. That pass rendered Smashdown, the series rows and Blackjack into zone 2
-    and raised row 1 from 860 to 920.
+    Previous passes, kept for the record: redrawn 2026-07-30 at the start of the
+    modifiers session (zone 2 took roulette, craps and the stakes flag; zone 3 took
+    Casino Run in place of co-op-as-a-format; row 1 went 920 -> 990), and 2026-07-29 at
+    the start of the roulette session (zone 2 took Smashdown, the series rows and
+    blackjack; row 1 went 860 -> 920).
 
 **Every session that ships anything (feature, pack, or fix set) increments the counter by 1
 as part of its delivery, in the same commit as its other changes.** Doc-only sessions do not
@@ -99,7 +103,7 @@ another reference section does not change the map; adding or renaming one of the
 above does, and must update this table in the same commit.
 
 **Layout (fixed, so redraws are stable):** 3 columns x 2 rows. Columns at x=40, 560, 1080,
-each 480 wide. Row 1 at y=95 (height 990), row 2 at y=1110 (height 530). Zone header text
+each 480 wide. Row 1 at y=95 (height 1120), row 2 at y=1240 (height 660). Zone header text
 15px below zone top, fontSize 22. Items 440 wide, 40 tall, 46px step, first item 50px below
 zone top; give a taller box (52-70) to any item whose label wraps past one line. Row 1 grew
 from 540 to 730 on 2026-07-27 (SHIPPED FOUNDATION reached 14 items and overflowed its
@@ -107,12 +111,17 @@ zone), from 730 to 800 on 2026-07-28, when the completed pre-pack cleanup item g
 to a three-line box and left only 10px of slack, from 800 to 860 on the third 07-28
 pass, when the two newly rendered shipped sessions needed exactly the 92px of slack zone 1
 had left, from 860 to 920 on 2026-07-29, when zone 1's remaining 42px was 4px short of
-the 46px one more item costs, and from 920 to 990 on 2026-07-30, when zone 2 took three
-multi-line casino items in one pass. Each time it was raised pre-emptively rather than waiting for the next entry to
-overflow it, since the fix is mechanical and the trap would have landed on whoever added
-the next line.
-When a zone outgrows its height again, raise BOTH row-1 zones together and push row 2 down by
-the same amount, so the columns stay aligned.
+the 46px one more item costs, from 920 to 990 on 2026-07-30, when zone 2 took three
+multi-line casino items in one pass, and from 990 to 1120 on 2026-08-02, when zone 2 took
+declarative modifiers and Casino Run. Each time it was raised pre-emptively rather than
+waiting for the next entry to overflow it, since the fix is mechanical and the trap would
+have landed on whoever added the next line.
+ROW 2 GREW FOR THE FIRST TIME on 2026-08-02, 530 to 660: it had been a fixed height through
+six passes because only row 1 was filling up, and zone 5 overflowed it by 20px once the
+open bugs were all rendered. Both row-2 zones were raised together for the same reason row
+1's are.
+When a zone outgrows its height again, raise BOTH zones in its row together, and if it is
+row 1, push row 2 down by the same amount so the columns stay aligned.
 
 **Colors:** zones 1-2 green (#d3f9d8 zone / #b2f2bb items / #15803d header). Zone 3 yellow
 (#fff3bf / #ffd8a8 / #b45309); the first three items get strokeWidth 2 and a leading number,
@@ -122,7 +131,7 @@ they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb).
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x1690 at the current zone heights). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
+on a panorama covering the full canvas (1600x1950 at the current zone heights). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 
 **Reconcile step (do this before drawing):** move finished items from NEXT UP into the right
 SHIPPED section with a one-line summary and date; renumber the top three of NEXT UP; move
@@ -233,14 +242,16 @@ Wanted, not yet scheduled into a session.
 
 ## BUGS
 Open first, then environment traps worth remembering, then fixed (fixed items age out after a couple of map redraws).
-- Watch: delivery to brand-new recipients can be cold at first while mail.gamenightos.app builds sending reputation, and early emails may land in spam. The code and link are still logged to the server console in every environment as the fallback path when delivery is slow or misrouted.
+- OPEN: a CO-OP RESULT REGISTERS AS A TIE BETWEEN EVERY PAIR OF PLAYERS IN IT. `buildRivalry` in apps/server/src/stats.ts classifies a shared match as win/loss/tie by comparing the two players' placements, which is correct for every format that has existed until now. Casino Run writes an IDENTICAL row for everyone on the run (same placement, same isWinner), so two players who cleared a run together come out as a draw and two who busted together come out as a draw as well. Found 2026-08-02 reviewing the Casino Run commit against a clean checkout. THE CHEAP FIX IS THE WRONG ONE: skipping `format = "casino_run"` the way `isSeriesSummary` is skipped would work today and be wrong the moment doubles ping pong, beer pong, cornhole or foosball land, because the same two people are teammates in one match and opponents in the next, so it cannot be a property of the pack. It has to be a property of the MATCH. Fix is the `side` column, see the DECISION LOG entry.
+- OPEN: Casino Run's undo can DOUBLE-DRAW a stage-clear card. `drawOnClear` fires when a leg takes the bank past a quota; undoing that leg and entering a corrected one fires it again for the same stage transition, so the run collects two house rules for one clear. Same shape as a retried request landing twice. Found 2026-08-02 by the same review. Cheapest correct fix is to record which stage index each draw was made for and no-op a repeat, which also makes the draw idempotent.
 - OPEN: the casino TV money board does not fit a 1080p screen past FIVE players, and never has. Measured 2026-07-30 on the real built bundle at 1920x1080 with no modifiers on: 4 players ends 116px clear of the bottom, 6 players hangs 207px past it, 8 players 530px, 12 players (the table maximum) 1177px. A TV cannot be scrolled, so everything past the fold is simply gone — at 8 players that is the whole footer and the bottom two or three lines of the board. PRE-EXISTING, not introduced by modifiers: the numbers above are with the wall absent entirely. The cause is that every board line is a fixed 4.4vmin name plus 1.6vmin padding, so the board's height is linear in player count while the screen is not. The fix is for the line metrics to scale with the roster (fewer vmin per line as seats grow), which is a change to a screen all four casino packs share and wants its own pass. Worth doing before poker, which seats more people than blackjack usually does. Found while measuring whether the modifier wall fits, which it now does at every count up to a full deck — see that entry.
-- FIXED 2026-07-30: the event TV rendered PING PONG's scoreboard for any pack it had no branch for. The pack switch in `EventTvPage.tsx` was an if/else chain ending in a bare `: <PingPongTvPage />`, so adding a pack to the registry without adding a branch here did not fail — it drew a confidently wrong screen on the device nobody is holding, which is worse than a blank one. Found the moment Casino Run shipped and its TV came up as a ping pong board. Fixed structurally rather than by adding a ninth branch: it is now a `Record<SessionPackKey, ...>`, so a registry pack with no TV view is a COMPILE error, the same trick `prefetch.ts` uses and for the same reason. The remaining runtime fallback is the night's own lobby screen, never another pack's numbers.
+- OPEN: three small ones from the same 2026-08-02 review, all cosmetic but all user-visible. (1) EM DASHES have drifted into the app's own copy across five packs, against the standing rule in PROJECT-INSTRUCTIONS.md. (2) The three RETIRED modifier ids (`dealers_choice`, `no_walking`, `push_pays`) render as their raw ids on any night that recorded them, because `modifierName` falls back to the id and there is nowhere to put a retired card's display name. (3) NO WAY BACK TO THE EVENT from any of the four casino pack headers: they pair `BackButton` (history-based, home fallback) with a link to the TV, so somebody arriving from a shared link lands on home rather than the night they were sent to. That is a STANDING RULE violation, not just a nicety.
+- Watch: delivery to brand-new recipients can be cold at first while mail.gamenightos.app builds sending reputation, and early emails may land in spam. The code and link are still logged to the server console in every environment as the fallback path when delivery is slow or misrouted.
 - Watch: countLastPlace in stats.ts builds an inArray of EVERY match id a player has ever played, then compares placements against a grouped count of participants per match. The IN list grows without bound, so the query gets larger every night someone plays. It is fine at current volume and the derivation is correct; the fix when it matters is a join against a grouped subquery instead of a client-built id list, so Postgres never receives the ids at all. Logged 2026-07-27 by the pre-pack cleanup audit, deliberately not fixed in it (the index added the same day is the cheaper half of the same problem).
 - Watch: the WebSocket hub broadcasts every message to every connected client. There are no rooms and no topics, so every phone in the app receives every event from every crew and filters it client-side. The filtering is correct and this is fine at friend-group scale, but it is the first thing that breaks if the app ever grows. The fix when it matters is per-event or per-crew subscriptions in ws.ts. Logged 2026-07-27 by the pre-pack cleanup audit, deliberately not fixed in it.
 - Watch: `drizzle-kit push --force` silently no-ops in non-interactive CI (exits 0 without applying). Confirm the drizzle-kit success line in the build log on any schema-changing deploy; otherwise run idempotent SQL in the Neon console (ALTER TABLE ... ADD COLUMN IF NOT EXISTS).
-- FIXED 2026-07-29: the blackjack pack painted under the iPhone status bar, so its back button sat behind the clock on an installed iOS app. Cause was a HAND-WRITTEN LIST of shell class names in index.css carrying the `env(safe-area-inset-*)` padding — `.gn-app, .gn-tv, .beerio-root, .mk-root, .mp-root, .sm-root, .pp-root` — and blackjack shipped without `.bj-root` added to it. Nothing errored; the page looked right in a browser, on the TV and in every screenshot, because a desktop viewport reports zero insets. Fixed structurally rather than by adding one more name: the selector is now `:where(#root) > *`, and since every route renders exactly one shell element as `#root`'s child (Routes/Suspense/BrowserRouter emit no DOM), a new pack inherits the inset by existing. `:where()` keeps it at ZERO specificity so the TV screens that set their own padding still beat it with a plain class rule, exactly as before. Two screens fixed alongside: `.bj-tv` and `.pp-tv` now fold the insets into their own `calc()` like `.mk-tv` / `.sm-tv` / `.mp-tv` always did — ping pong's was a pre-existing gap found by the same sweep. Verified in a browser by asking the CSSOM which safe-area rule MATCHES each screen's shell (13 screens, all covered), because a headless browser reports 0px insets and comparing computed padding would have proved nothing.
-(No other fixed bugs listed: both prior entries aged out on the 2026-07-28 redraw, as this section's rule says they should. Their root causes live in the decision log, which is the permanent record.)
+- FIXED 2026-07-30: the event TV rendered PING PONG's scoreboard for any pack it had no branch for. The pack switch in `EventTvPage.tsx` was an if/else chain ending in a bare `: <PingPongTvPage />`, so adding a pack to the registry without adding a branch here did not fail — it drew a confidently wrong screen on the device nobody is holding, which is worse than a blank one. Found the moment Casino Run shipped and its TV came up as a ping pong board. Fixed structurally rather than by adding a ninth branch: it is now a `Record<SessionPackKey, ...>`, so a registry pack with no TV view is a COMPILE error, the same trick `prefetch.ts` uses and for the same reason. The remaining runtime fallback is the night's own lobby screen, never another pack's numbers.
+(Fixed items age out after a couple of redraws, as the rule above says: the 2026-07-29 safe-area fix aged out on the 2026-08-02 pass, having been rendered on 07-30. Its root cause lives in the DECISION LOG, which is the permanent record.)
 
 ## IDEAS (not solidified)
 Not committed, no design decided.
