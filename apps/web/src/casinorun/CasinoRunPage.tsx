@@ -13,6 +13,8 @@ import {
   crunTokenCost,
   crunTokenName,
   defaultAnte,
+  liveAtGame,
+  modifierById,
   modifierName,
   money,
   type CrunDifficulty,
@@ -313,6 +315,8 @@ function RunSetup({
         onChange={setModifiers}
         unit={ante ?? defaultAnte(bank || 1)}
         stakes="play"
+        unitLabel="ante"
+        showGames
       />
       <p className="cg-hint" style={{ marginTop: 8 }}>
         Leave these empty and the house deals one card to open the run, then another every time you
@@ -375,6 +379,10 @@ function LiveRun({
   const canScore = canHost || openScoring;
   const m = money(summary.stakes);
   const over = summary.status !== "running";
+  // The game the leg form is pointed at, lifted so the house-rules strip can
+  // dim the cards that are not live on it. A run hops between tables, so "which
+  // of these actually applies right now" is a real question every leg.
+  const [game, setGame] = useState(GAMES[0]!);
 
   function endRun() {
     if (summary.status === "running") {
@@ -448,9 +456,18 @@ function LiveRun({
 
       {/* The unit is the LIVE ante, not the base: a card that pays "100% of the
           minimum" gets dearer as the ante climbs, and the text should say so. */}
-      <ModifierStrip ids={summary.modifiers} unit={summary.ante.amount} stakes={summary.stakes} />
+      <ModifierStrip
+        ids={summary.modifiers}
+        unit={summary.ante.amount}
+        stakes={summary.stakes}
+        unitLabel="ante"
+        showGames
+        game={over ? undefined : game}
+      />
 
-      {canScore && !over && <LegForm summary={summary} busy={busy} call={call} at={at} />}
+      {canScore && !over && (
+        <LegForm summary={summary} busy={busy} call={call} at={at} game={game} setGame={setGame} />
+      )}
 
       {canScore && !over && <TokenShop summary={summary} busy={busy} call={call} at={at} />}
 
@@ -584,6 +601,34 @@ function AnteStrip({ summary }: { summary: CrunSummary }) {
 }
 
 /**
+ * WHICH HOUSE RULES BITE ON THE GAME YOU JUST PICKED.
+ *
+ * This is the answer to "when do the game-specific cards actually show up".
+ * A run hops between tables — roulette, then blackjack, then roulette — so a
+ * blackjack card sits on the board all run and only applies on blackjack legs.
+ * Saying so at the moment the game is chosen is the only place it is useful;
+ * on the card strip alone it would be a tag nobody connects to anything.
+ */
+function LiveRules({ ids, game }: { ids: string[]; game: string }) {
+  if (ids.length === 0 || !game) return null;
+  const cards = ids.map((id) => modifierById(id)).filter((m) => !!m);
+  const live = cards.filter((m) => liveAtGame(m, game));
+  const dormant = cards.filter((m) => !liveAtGame(m, game));
+  return (
+    <p className="cg-hint" style={{ marginTop: 8 }}>
+      At <b>{game}</b>: {live.length} of {cards.length} house rule
+      {cards.length === 1 ? "" : "s"} apply
+      {live.length > 0 && <> &mdash; {live.map((m) => m.name).join(", ")}</>}
+      {dormant.length > 0 && (
+        <>
+          . Sitting out until you play their table: {dormant.map((m) => m.name).join(", ")}.
+        </>
+      )}
+    </p>
+  );
+}
+
+/**
  * TOKENS: one-time-use cards bought out of the bank.
  *
  * The only decision in the pack that costs money to make: spending bank moves
@@ -669,14 +714,18 @@ function LegForm({
   busy,
   call,
   at,
+  game,
+  setGame,
 }: {
   summary: CrunSummary;
   busy: boolean;
   call: (path: string, body?: unknown) => Promise<void>;
   at: (p: string) => string;
+  /** Lifted, so the house-rules strip above can dim what this game does not use. */
+  game: string;
+  setGame: (g: string) => void;
 }) {
   const [amount, setAmount] = useState<number | null>(null);
-  const [game, setGame] = useState(GAMES[0]!);
   const [other, setOther] = useState("");
   const [playerId, setPlayerId] = useState<string>("");
   const m = money(summary.stakes);
@@ -716,6 +765,7 @@ function LegForm({
           onChange={(e) => setOther(e.target.value.slice(0, 32))}
         />
       )}
+      <LiveRules ids={summary.modifiers} game={gameName} />
 
       <div className="cg-lab" style={{ marginTop: 12 }}>Who played it</div>
       <div className="cg-seg">

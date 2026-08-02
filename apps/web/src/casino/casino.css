@@ -191,6 +191,18 @@ button.cg-pill { cursor: pointer; }
 .cg-mod__top { display: flex; align-items: baseline; gap: 8px; }
 .cg-mod__n { font-family: Fredoka, system-ui, sans-serif; font-weight: 800; font-size: 14px; flex: 1; min-width: 0; }
 .cg-mod__sev { color: var(--cg-accent); font-size: 11px; letter-spacing: 1px; flex-shrink: 0; }
+/* WHICH GAMES a card bites on. Only drawn where a table plays more than one,
+   which is Casino Run alone: at a blackjack table every card is a blackjack
+   card and tagging them all would be noise. */
+.cg-mod__game {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;
+  padding: 2px 7px; border-radius: 999px; flex-shrink: 0;
+  background: rgba(195, 182, 214, 0.16); color: var(--gn-dim);
+}
+/* A card that is on the board but not live on the game being played right now.
+   Present, because it comes back the moment the run switches tables. */
+.cg-mod--dormant { opacity: 0.5; }
+.cg-tv__mod--dormant { opacity: 0.45; }
 /* The pip key. Small and quiet: it answers a question people ask once. */
 .cg-piplegend { font-size: 11px; margin-top: 8px; opacity: 0.8; }
 .cg-piplegend b { color: var(--cg-accent); letter-spacing: 1px; }

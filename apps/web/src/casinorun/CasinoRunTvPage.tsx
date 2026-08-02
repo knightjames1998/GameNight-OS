@@ -132,7 +132,15 @@ export default function CasinoRunTvPage({ eventId: propEventId }: { eventId?: st
         ))}
       </div>
 
-      <ModifierWall ids={s.modifiers} unit={s.ante.amount} stakes={s.stakes} />
+      {/* The TV dims the cards that are not live on the game of the last leg,
+          so the room can see which rules are actually in play right now. */}
+      <ModifierWall
+        ids={s.modifiers}
+        unit={s.ante.amount}
+        stakes={s.stakes}
+        unitLabel="ante"
+        game={s.status === "running" ? last?.game : undefined}
+      />
 
       {s.status === "running" && (
         <div className="crun-tv__now">

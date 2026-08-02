@@ -64,8 +64,23 @@ export interface Modifier {
   rule: string;
   kind: ModKind;
   severity: ModSeverity;
-  /** "any", or the ledger keys of the packs this card makes sense at. */
-  appliesTo: "any" | string[];
+  /**
+   * Where the card is live. THREE cases, and the distinction matters:
+   *
+   *   "any"        every table, INCLUDING a co-op run with one shared bank.
+   *   "cash"       the cash tables only. These need per-player money — a
+   *                rebuy, a cash-out, an individual position on the night —
+   *                none of which exists in Casino Run, where there is one
+   *                bank and no buy-ins at all.
+   *   ["craps"]    that TABLE. A Casino Run holds these too, because a run
+   *                plays craps legs; the card is live on those legs and
+   *                dormant on the rest, which the UI labels.
+   *
+   * The middle case exists because "a run plays blackjack" and "a run has
+   * per-player money" are different claims, and the first was briefly making
+   * the second look true.
+   */
+  appliesTo: "any" | "cash" | string[];
   /**
    * A multiple of the TABLE STAKE, for cards whose rule quotes an amount.
    *
@@ -76,11 +91,15 @@ export interface Modifier {
    * table's own stake, so the card on screen reads "pays P$2.00" rather than
    * "pays a bonus" or even "pays 100%".
    *
-   * The unit is the table stake because that is the number both sides of the
-   * group already have: Casino Run passes its live minimum ante (which rises,
-   * so these cards get more expensive with it), and the cash packs pass their
-   * default buy-in. With no unit at all it falls back to the percentage, which
-   * is still a rule somebody can follow.
+   * WHAT IT IS A PERCENTAGE OF is named on screen, never left implied, and the
+   * word "stake" is deliberately not used for it — `stakes` already means real
+   * money vs play money everywhere in this group, and one word doing two jobs
+   * is the same trap "floor" fell into. The unit is:
+   *   Casino Run  -> the MINIMUM ANTE, which rises, so these cards get dearer
+   *                  as the table does.
+   *   cash packs  -> the BUY-IN.
+   * Callers pass both the amount and its name; with no unit at all the card
+   * still reads as "10% of the buy-in" rather than as a gap.
    */
   bonusPct?: number;
 }
@@ -101,29 +120,39 @@ export interface Modifier {
  * alongside the five blackjack ones.
  */
 export const MODIFIERS: Modifier[] = [
-  // ---- any pack ----
-  // These are about THE MONEY AND THE TOTALS ON THE BOARD, deliberately. An
-  // earlier batch policed the room instead — no talking, no phones, the last
-  // player to sit out antes — and those were cut on 2026-08-02: they are
-  // party rules wearing a casino costume, they have nothing to do with the
-  // numbers the app is tracking, and half of them ("pays the table a forfeit")
-  // did not even say what they cost.
+  // ---- any table, INCLUDING a co-op run with one shared bank ----
+  //
+  // THE BAR FOR AN "ANY" CARD: it has to make sense at a table where there is
+  // no per-player money at all. Casino Run has ONE bank, no buy-ins and no
+  // cash-outs, so a card about "your rebuy" or "whoever is up on the night" is
+  // meaningless there — it reads as a rule nobody can follow. Three cards
+  // failed that bar on 2026-08-02 (Mercy chip's rebuy, Leader tax and Underdog
+  // bonus, both of which need individual positions) and were moved to the cash
+  // tables, where those things exist.
   { id: "escalating_min", name: "Escalating minimum", rule: "The minimum ante rises every five legs.", kind: "bane", severity: 2, appliesTo: "any" },
-  { id: "everyone_antes", name: "Everyone antes", rule: "Every player antes into the pot each round, not just the blinds.", kind: "bane", severity: 1, appliesTo: "any" },
-  { id: "leader_tax", name: "Leader tax", rule: "Anyone up on the night plays double the minimum.", kind: "bane", severity: 2, appliesTo: "any" },
+  { id: "everyone_antes", name: "Everyone antes", rule: "Every player antes each round, not just the blinds.", kind: "bane", severity: 1, appliesTo: "any" },
   { id: "house_rake", name: "House rake", rule: "The house rakes {bonus} out of every pot.", kind: "bane", severity: 2, appliesTo: "any", bonusPct: 0.1 },
   { id: "ante_surge", name: "Ante surge", rule: "The minimum ante is doubled for the rest of the run.", kind: "bane", severity: 3, appliesTo: "any" },
   { id: "losses_double", name: "Losses double", rule: "Every losing hand costs twice what it should.", kind: "bane", severity: 3, appliesTo: "any" },
-  { id: "min_bet_up", name: "Table minimum up", rule: "No bet may be under {bonus}.", kind: "bane", severity: 2, appliesTo: "any", bonusPct: 3 },
+  { id: "min_bet_up", name: "Minimum bet up", rule: "No bet may be under {bonus}.", kind: "bane", severity: 2, appliesTo: "any", bonusPct: 3 },
   { id: "pot_tithe", name: "Tithe", rule: "Every fifth hand, each player puts {bonus} in the pot.", kind: "bane", severity: 1, appliesTo: "any", bonusPct: 0.5 },
+  { id: "rake_on_wins", name: "Vig on wins", rule: "Every winning hand pays {bonus} back to the house.", kind: "bane", severity: 2, appliesTo: "any", bonusPct: 0.25 },
   { id: "dealers_choice", name: "Dealer's choice", rule: "Whoever deals picks the variant for that round.", kind: "boon", severity: 1, appliesTo: "any" },
-  { id: "mercy_chip", name: "Mercy chip", rule: "The biggest loser gets one free rebuy.", kind: "boon", severity: 2, appliesTo: "any" },
-  { id: "call_your_shot", name: "Call your shot", rule: "Call win or lose before the hand; a correct call pays {bonus}.", kind: "boon", severity: 2, appliesTo: "any", bonusPct: 0.5 },
-  { id: "hot_streak", name: "Hot streak", rule: "Two wins running pays {bonus} from the table.", kind: "boon", severity: 2, appliesTo: "any", bonusPct: 1 },
+  { id: "call_your_shot", name: "Call your shot", rule: "Call win or lose before the hand; a correct call pays an EXTRA {bonus}.", kind: "boon", severity: 2, appliesTo: "any", bonusPct: 0.5 },
+  { id: "hot_streak", name: "Hot streak", rule: "Two wins running pays an EXTRA {bonus} from the house.", kind: "boon", severity: 2, appliesTo: "any", bonusPct: 1 },
   { id: "free_round", name: "Free round", rule: "One round a session is played with no ante.", kind: "boon", severity: 1, appliesTo: "any" },
-  { id: "underdog_bonus", name: "Underdog bonus", rule: "Whoever is furthest down plays their next hand double.", kind: "boon", severity: 2, appliesTo: "any" },
   { id: "insurance", name: "Insurance", rule: "Once each, take back half of one losing bet.", kind: "boon", severity: 3, appliesTo: "any" },
-  { id: "bank_match", name: "House match", rule: "The house adds {bonus} to the biggest win of each round.", kind: "boon", severity: 3, appliesTo: "any", bonusPct: 0.5 },
+  { id: "bank_match", name: "House match", rule: "The biggest win of each round is topped up by an EXTRA {bonus}.", kind: "boon", severity: 3, appliesTo: "any", bonusPct: 0.5 },
+  { id: "house_gift", name: "Seed money", rule: "Every stage starts with an EXTRA {bonus} in the pot.", kind: "boon", severity: 2, appliesTo: "any", bonusPct: 1 },
+  { id: "push_pays", name: "Pushes pay", rule: "A tied hand pays the ante instead of just returning the bet.", kind: "boon", severity: 1, appliesTo: "any" },
+
+  // ---- the cash tables, where players have their OWN money ----
+  // These need a per-player position or a per-player buy-in, so they are live
+  // at blackjack, roulette and craps and never in a co-op run.
+  { id: "leader_tax", name: "Leader tax", rule: "Anyone up on the night plays double the minimum.", kind: "bane", severity: 2, appliesTo: "cash" },
+  { id: "no_walking", name: "No walking", rule: "Nobody may cash out until the last hand of the night.", kind: "bane", severity: 2, appliesTo: "cash" },
+  { id: "mercy_chip", name: "Mercy chip", rule: "The biggest loser gets one rebuy free, paid by the table.", kind: "boon", severity: 2, appliesTo: "cash" },
+  { id: "underdog_bonus", name: "Underdog bonus", rule: "Whoever is furthest down plays their next hand at double.", kind: "boon", severity: 2, appliesTo: "cash" },
 
   // ---- roulette ----
   { id: "hot_colour", name: "Hot colour", rule: "A chosen colour pays double all session.", kind: "boon", severity: 2, appliesTo: ["roulette"] },
@@ -135,7 +164,7 @@ export const MODIFIERS: Modifier[] = [
   // ---- craps ----
   { id: "no_come_bets", name: "No come bets", rule: "Come and don't come bets are off.", kind: "bane", severity: 2, appliesTo: ["craps"] },
   { id: "pass_line_required", name: "Pass line required", rule: "The shooter must back the pass line.", kind: "bane", severity: 1, appliesTo: ["craps"] },
-  { id: "long_hand_bonus", name: "Long hand bonus", rule: "A shooter reaching five rolls pays the table {bonus}.", kind: "boon", severity: 2, appliesTo: ["craps"], bonusPct: 1 },
+  { id: "long_hand_bonus", name: "Long hand bonus", rule: "A shooter reaching five rolls pays the table an EXTRA {bonus}.", kind: "boon", severity: 2, appliesTo: ["craps"], bonusPct: 1 },
   { id: "hard_ways_only", name: "Hard ways only", rule: "Prop bets are restricted to the hard ways.", kind: "bane", severity: 2, appliesTo: ["craps"] },
   { id: "come_out_bonus", name: "Come out bonus", rule: "A come-out seven or eleven pays the shooter double.", kind: "boon", severity: 1, appliesTo: ["craps"] },
   { id: "no_odds", name: "No odds", rule: "Taking odds behind the line is off.", kind: "bane", severity: 2, appliesTo: ["craps"] },
@@ -177,22 +206,68 @@ export const modifierName = (id: string): string => BY_ID.get(id)?.name ?? id;
  */
 export function modifierRule(
   mod: Modifier,
-  opts?: { unit?: number | null; fmt?: (cents: number) => string },
+  opts?: { unit?: number | null; unitLabel?: string; fmt?: (cents: number) => string },
 ): string {
   if (!mod.rule.includes("{bonus}")) return mod.rule;
   const pct = mod.bonusPct ?? 0;
   const unit = opts?.unit ?? null;
   const fmt = opts?.fmt;
+  const label = opts?.unitLabel ?? "buy-in";
   const filled =
     unit != null && unit > 0 && fmt
-      ? fmt(Math.max(1, Math.round(unit * pct)))
-      : `${Math.round(pct * 100)}% of the minimum`;
+      ? // The percentage stays visible beside the money. The figure is what a
+        // table acts on; the percentage is what tells them it will move when
+        // the ante does.
+        `${fmt(Math.max(1, Math.round(unit * pct)))} (${Math.round(pct * 100)}% of the ${label})`
+      : `${Math.round(pct * 100)}% of the ${label}`;
   return mod.rule.replace("{bonus}", filled);
 }
 
+/**
+ * The ledger keys a CASINO RUN leg can be played at.
+ *
+ * A run hops between games — roulette, then blackjack, then roulette again —
+ * so its pool is the UNION of every table's cards, not just the pack-agnostic
+ * ones. It shipped drawing only "any" cards, which meant the game-specific
+ * half of the deck could never appear in the one mode that actually plays all
+ * three games. A blackjack card in a run is live on blackjack legs and dormant
+ * on the others, which is exactly what `modifierGames` labels it as.
+ */
+export const CRUN_TABLES = ["blackjack", "roulette", "craps"] as const;
+
 /** Does this card make sense at this pack's table? */
 export function appliesToPack(mod: Modifier, packLedger: string): boolean {
-  return mod.appliesTo === "any" || mod.appliesTo.includes(packLedger);
+  if (mod.appliesTo === "any") return true;
+  // Cards that need per-player money: every cash table, never a co-op run.
+  if (mod.appliesTo === "cash") return packLedger !== "casino_run";
+  // Casino Run plays every table, so it holds every TABLE's cards.
+  if (packLedger === "casino_run") {
+    return mod.appliesTo.some((p) => (CRUN_TABLES as readonly string[]).includes(p));
+  }
+  return mod.appliesTo.includes(packLedger);
+}
+
+/** Human label for WHICH GAMES a card is live on. "" when it is live on all. */
+export function modifierGames(mod: Modifier, names?: Record<string, string>): string {
+  if (mod.appliesTo === "any") return "";
+  if (mod.appliesTo === "cash") return "cash tables";
+  const label = (k: string) => names?.[k] ?? k.charAt(0).toUpperCase() + k.slice(1);
+  return mod.appliesTo.map(label).join(" / ");
+}
+
+/**
+ * Is this card live while a leg at `game` is being played?
+ *
+ * THE ANSWER TO "when do the game-specific cards show up". A run hops between
+ * tables, so a blackjack card sits on the board the whole run but only bites
+ * on blackjack legs. The leg form asks this as the game is picked, so the
+ * table can see which of its rules are about to apply before it plays.
+ */
+export function liveAtGame(mod: Modifier, game: string): boolean {
+  if (mod.appliesTo === "any") return true;
+  if (mod.appliesTo === "cash") return true;
+  const g = game.trim().toLowerCase();
+  return mod.appliesTo.some((p) => p.toLowerCase() === g);
 }
 
 /**

@@ -25,8 +25,10 @@ import {
   drawWeight,
   modifierById,
   modifierName,
+  modifierGames,
   modifierRule,
   modifiersFor,
+  liveAtGame,
   sanitizeModifierIds,
   severityPips,
   SEVERITY_LABEL,
@@ -42,45 +44,17 @@ import {
  * in the file header and above.
  */
 const SHIPPED_IDS = [
-  // The "any" pool, rewritten on 2026-08-02 to be about THE MONEY AND THE
-  // TOTALS. Six cards were retired in that pass — loser_buys, bust_penalty,
-  // silence, phones_down, last_to_sit and high_roller — because they policed
-  // the room rather than the board, and one of them ("pays the table a
-  // forfeit") never said what it cost. RETIRED IDS ARE NOT REUSED: a run
-  // recorded under one still has rows, and modifierName renders an unknown id
-  // as itself so that history stays readable.
-  "escalating_min",
-  "everyone_antes",
-  "leader_tax",
-  "house_rake",
-  "ante_surge",
-  "losses_double",
-  "min_bet_up",
-  "pot_tithe",
-  "dealers_choice",
-  "mercy_chip",
-  "call_your_shot",
-  "hot_streak",
-  "free_round",
-  "underdog_bonus",
-  "insurance",
-  "bank_match",
-  "hot_colour",
-  "hot_number",
-  "neighbours_only",
-  "zero_pays_table",
-  "no_outside_bets",
-  "no_come_bets",
-  "pass_line_required",
-  "long_hand_bonus",
-  "hard_ways_only",
-  "come_out_bonus",
-  "no_odds",
-  "extra_card_up",
-  "no_splitting",
-  "blackjack_pays_double",
-  "stands_all_17",
-  "no_doubling",
+  // "any" — live at every table INCLUDING a co-op run with one shared bank.
+  "escalating_min", "everyone_antes", "house_rake", "ante_surge", "losses_double",
+  "min_bet_up", "pot_tithe", "rake_on_wins", "dealers_choice", "call_your_shot",
+  "hot_streak", "free_round", "insurance", "bank_match", "house_gift", "push_pays",
+  // "cash" — need per-player money, so never in a run.
+  "leader_tax", "no_walking", "mercy_chip", "underdog_bonus",
+  // per table. A run holds these and they bite on that table's legs.
+  "hot_colour", "hot_number", "neighbours_only", "zero_pays_table", "no_outside_bets",
+  "no_come_bets", "pass_line_required", "long_hand_bonus", "hard_ways_only",
+  "come_out_bonus", "no_odds",
+  "extra_card_up", "no_splitting", "blackjack_pays_double", "stands_all_17", "no_doubling",
 ];
 
 /** Cards deliberately taken OUT. Reusing one of these ids would collide with real history. */
@@ -92,6 +66,50 @@ test("every shipped modifier id is unchanged", () => {
   for (const id of SHIPPED_IDS) {
     assert.ok(modifierById(id), `modifier "${id}" is missing or was renamed`);
   }
+});
+
+test("THE CO-OP POOL IS COHERENT: no card in a run needs per-player money", () => {
+  // Casino Run has ONE bank, no buy-ins and no cash-outs. A card about "your
+  // rebuy" or "whoever is up on the night" is a rule nobody there can follow.
+  // Three shipped that way before this was asserted.
+  for (const m of modifiersFor("casino_run")) {
+    assert.notEqual(m.appliesTo, "cash", `${m.id} needs per-player money`);
+  }
+  // And the cash tables DO get them.
+  for (const pack of ["blackjack", "roulette", "craps"]) {
+    assert.ok(
+      modifiersFor(pack).some((m) => m.appliesTo === "cash"),
+      `${pack} lost the per-player cards`,
+    );
+  }
+});
+
+test("A RUN DRAWS EVERY TABLE'S CARDS, because it plays every table", () => {
+  // The hole this closed: a run hops roulette -> blackjack -> roulette, and
+  // the pack-specific half of the deck could never appear in the one mode that
+  // actually plays all three.
+  const pool = modifiersFor("casino_run").map((m) => m.id);
+  for (const id of ["no_splitting", "hot_colour", "no_come_bets"]) {
+    assert.ok(pool.includes(id), `a run cannot draw ${id}`);
+  }
+  // And it is still exactly half boons, which is the balance that matters most
+  // here — a run's whole texture comes from its draws.
+  const boons = modifiersFor("casino_run").filter((m) => m.kind === "boon").length;
+  assert.equal(boons * 2, modifiersFor("casino_run").length, "the run pool is not 50/50");
+});
+
+test("a table card is live on its own legs and dormant on the others", () => {
+  const bj = modifierById("no_splitting")!;
+  assert.equal(liveAtGame(bj, "Blackjack"), true, "case-insensitive on the typed game");
+  assert.equal(liveAtGame(bj, "blackjack"), true);
+  assert.equal(liveAtGame(bj, "Roulette"), false);
+  assert.equal(liveAtGame(bj, "Cribbage"), false, "an off-app leg is nobody's table");
+  // An "any" card is live on everything, including a game the app never heard of.
+  assert.equal(liveAtGame(modifierById("hot_streak")!, "Cribbage"), true);
+  // The label says which.
+  assert.equal(modifierGames(bj), "Blackjack");
+  assert.equal(modifierGames(modifierById("hot_streak")!), "");
+  assert.equal(modifierGames(modifierById("mercy_chip")!), "cash tables");
 });
 
 test("the deck holds exactly the shipped cards, and ids are unique", () => {
@@ -121,9 +139,9 @@ test("THE DECK IS EXACTLY HALF BOONS, overall and in the any pool", () => {
   // 8, so a co-op run got hurt by its own random draws twice as often as it
   // got helped. Nothing else in the app would have noticed. Both halves are
   // asserted, because fixing only the total would leave the pool skewed.
-  assert.equal(MODIFIERS.length, 32);
-  assert.equal(MODIFIERS.filter((m) => m.kind === "boon").length, 16, "overall boons");
-  assert.equal(MODIFIERS.filter((m) => m.kind === "bane").length, 16, "overall banes");
+  assert.equal(MODIFIERS.length, 36);
+  assert.equal(MODIFIERS.filter((m) => m.kind === "boon").length, 18, "overall boons");
+  assert.equal(MODIFIERS.filter((m) => m.kind === "bane").length, 18, "overall banes");
 
   const any = MODIFIERS.filter((m) => m.appliesTo === "any");
   assert.equal(any.length, 16, "half the deck should apply to any pack");
@@ -139,7 +157,9 @@ test("every pack's own pool has both kinds in it", () => {
   // A pack whose four cards were all banes would make its draws feel like a
   // punishment even with the overall split correct.
   for (const pack of ["blackjack", "roulette", "craps"]) {
-    const own = MODIFIERS.filter((m) => m.appliesTo !== "any" && m.appliesTo.includes(pack));
+    const own = MODIFIERS.filter(
+      (m) => Array.isArray(m.appliesTo) && m.appliesTo.includes(pack),
+    );
     assert.ok(own.some((m) => m.kind === "boon"), `${pack} has no boon of its own`);
     assert.ok(own.some((m) => m.kind === "bane"), `${pack} has no bane of its own`);
   }
@@ -167,24 +187,34 @@ test("every card that mentions money names a real fraction", () => {
 test("the bonus is filled in with a real amount when the table has a stake", () => {
   const card = modifierById("hot_streak")!; // 100% of the stake
   const fmt = (c: number) => `P$${(c / 100).toFixed(2)}`;
-  assert.equal(modifierRule(card, { unit: 200, fmt }), "Two wins running pays P$2.00 from the table.");
+  assert.equal(
+    modifierRule(card, { unit: 200, unitLabel: "ante", fmt }),
+    "Two wins running pays an EXTRA P$2.00 (100% of the ante) from the house.",
+  );
   // A rising ante makes the card more expensive on its own, which is the whole
   // reason the unit is the ante rather than a fixed number.
-  assert.equal(modifierRule(card, { unit: 500, fmt }), "Two wins running pays P$5.00 from the table.");
-  // Multiples above 1 work too.
-  assert.equal(modifierRule(modifierById("min_bet_up")!, { unit: 200, fmt }), "No bet may be under P$6.00.");
+  assert.equal(
+    modifierRule(card, { unit: 500, unitLabel: "ante", fmt }),
+    "Two wins running pays an EXTRA P$5.00 (100% of the ante) from the house.",
+  );
+  // Multiples above 1 work too, and the unit is NAMED so nobody has to guess
+  // what the percentage is of.
+  assert.equal(
+    modifierRule(modifierById("min_bet_up")!, { unit: 200, unitLabel: "ante", fmt }),
+    "No bet may be under P$6.00 (300% of the ante).",
+  );
 });
 
 test("with no table stake the bonus falls back to a percentage, not a blank", () => {
   // The cash packs' setup screen has no stake typed yet, and a card that read
   // "pays {bonus}" or "pays " would be worse than useless.
   assert.equal(
-    modifierRule(modifierById("hot_streak")!),
-    "Two wins running pays 100% of the minimum from the table.",
+    modifierRule(modifierById("hot_streak")!, { unitLabel: "ante" }),
+    "Two wins running pays an EXTRA 100% of the ante from the house.",
   );
   assert.equal(
     modifierRule(modifierById("call_your_shot")!, { unit: 0 }),
-    "Call win or lose before the hand; a correct call pays 50% of the minimum.",
+    "Call win or lose before the hand; a correct call pays an EXTRA 50% of the buy-in.",
   );
 });
 
@@ -228,30 +258,32 @@ test("a pack-specific card matches only its pack", () => {
 
 test("each pack's pool is its own cards plus every any card", () => {
   for (const [pack, own, size] of [
-    ["blackjack", ["extra_card_up", "no_splitting", "blackjack_pays_double", "stands_all_17", "no_doubling"], 21],
-    ["roulette", ["hot_colour", "hot_number", "neighbours_only", "zero_pays_table", "no_outside_bets"], 21],
-    ["craps", ["no_come_bets", "pass_line_required", "long_hand_bonus", "hard_ways_only", "come_out_bonus", "no_odds"], 22],
+    ["blackjack", ["extra_card_up", "no_splitting", "blackjack_pays_double", "stands_all_17", "no_doubling"], 25],
+    ["roulette", ["hot_colour", "hot_number", "neighbours_only", "zero_pays_table", "no_outside_bets"], 25],
+    ["craps", ["no_come_bets", "pass_line_required", "long_hand_bonus", "hard_ways_only", "come_out_bonus", "no_odds"], 26],
   ] as const) {
     const pool = modifiersFor(pack);
-    assert.equal(pool.length, size, `${pack}: 16 any + its own`);
+    assert.equal(pool.length, size, `${pack}: 16 any + 4 cash + its own`);
     for (const id of own) assert.ok(pool.some((m) => m.id === id), `${pack} missing ${id}`);
     // And nothing from another pack leaked in.
     for (const m of pool) assert.equal(appliesToPack(m, pack), true, `${pack} got ${m.id}`);
   }
 });
 
-test("a pack with no cards of its own still has the twelve any cards", () => {
-  // Which is what Casino Run and poker get on day one.
-  const pool = modifiersFor("casino_run");
-  assert.equal(pool.length, 16);
-  for (const m of pool) assert.equal(m.appliesTo, "any");
+test("a brand new pack with no cards of its own still gets the any pool", () => {
+  // Which is what poker gets on day one.
+  const pool = modifiersFor("poker");
+  assert.equal(pool.length, 20, "16 any + the 4 cash-table cards");
+  for (const m of pool) assert.ok(m.appliesTo === "any" || m.appliesTo === "cash");
 });
 
 test("sanitize keeps known ids in deck order and drops the rest", () => {
   assert.deepEqual(
-    sanitizeModifierIds(["hot_streak", "retired", "leader_tax", 7, null]),
-    ["leader_tax", "hot_streak"], // deck order, not the order given
+    sanitizeModifierIds(["leader_tax", "retired", "hot_streak", 7, null]),
+    ["hot_streak", "leader_tax"], // deck order, not the order given
   );
+  // ...and leader_tax is a CASH card, so a run drops it.
+  assert.deepEqual(sanitizeModifierIds(["leader_tax", "hot_streak"], "casino_run"), ["hot_streak"]);
   assert.deepEqual(sanitizeModifierIds(["hot_streak", "hot_streak"]), ["hot_streak"]);
   assert.deepEqual(sanitizeModifierIds("nonsense"), []);
   assert.deepEqual(sanitizeModifierIds(undefined), []);
@@ -295,7 +327,7 @@ test("a draw never returns a card filtered out", () => {
 });
 
 test("excluded cards never come back", () => {
-  const exclude = modifiersFor("craps").slice(0, 16).map((m) => m.id);
+  const exclude = modifiersFor("craps").slice(0, 20).map((m) => m.id);
   for (let i = 0; i < 200; i++) {
     for (const m of drawForPack("craps", 4, { exclude })) {
       assert.ok(!exclude.includes(m.id), `${m.id} was excluded`);

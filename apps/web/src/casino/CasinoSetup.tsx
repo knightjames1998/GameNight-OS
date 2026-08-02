@@ -298,6 +298,7 @@ export default function CasinoSetup({
         onChange={setModifiers}
         unit={defaultBuyIn}
         stakes={stakes}
+        unitLabel="buy-in"
       />
 
       {extra}

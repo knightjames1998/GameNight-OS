@@ -2,7 +2,9 @@ import { useState } from "react";
 import {
   SEVERITY_LABEL,
   drawForPack,
+  liveAtGame,
   modifierById,
+  modifierGames,
   modifierRule,
   modifiersFor,
   severityPips,
@@ -59,11 +61,25 @@ function PipLegend() {
  * so these cards get dearer as it rises; the cash packs pass the default
  * buy-in. Without one the card still reads as a percentage rather than a gap.
  */
-function ruleOf(m: Modifier, unit?: number | null, stakes?: "real" | "play") {
+function ruleOf(m: Modifier, unit?: number | null, stakes?: "real" | "play", unitLabel?: string) {
   return modifierRule(m, {
     unit,
+    unitLabel,
     fmt: (c) => `${stakes === "play" ? "P$" : "$"}${(c / 100).toFixed(2)}`,
   });
+}
+
+/**
+ * WHICH GAMES a card is live on, when that is not "all of them".
+ *
+ * Only worth drawing where a table plays more than one game — which is Casino
+ * Run, and only Casino Run. At a blackjack table every card in the pool is a
+ * blackjack card by construction, so tagging them all would be noise.
+ */
+function GameTag({ mod }: { mod: Modifier }) {
+  const games = modifierGames(mod);
+  if (!games) return null;
+  return <span className="cg-mod__game">{games}</span>;
 }
 
 // ---------- setup: pick them ----------
@@ -74,14 +90,20 @@ export function ModifierPicker({
   onChange,
   unit,
   stakes,
+  unitLabel,
+  showGames,
 }: {
   /** The pack's LEDGER key ("blackjack"), which is what filters the deck. */
   ledger: string;
   value: string[];
   onChange: (ids: string[]) => void;
-  /** The table stake in cents, so a card's bonus reads as a real figure. */
+  /** The table's own unit in cents, so a card's bonus reads as a real figure. */
   unit?: number | null;
   stakes?: "real" | "play";
+  /** What the percentages are OF: "ante" in a run, "buy-in" at a cash table. */
+  unitLabel?: string;
+  /** Tag each card with the games it is live on. Only a run needs this. */
+  showGames?: boolean;
 }) {
   const [browsing, setBrowsing] = useState(false);
   const pool = modifiersFor(ledger);
@@ -135,12 +157,13 @@ export function ModifierPicker({
             <div className={`cg-mod cg-mod--${m.kind}`} key={m.id}>
               <div className="cg-mod__top">
                 <span className="cg-mod__n">{m.name}</span>
+                {showGames && <GameTag mod={m} />}
                 <Pips severity={m.severity} />
                 <button className="cg-textbtn" style={{ padding: 0 }} onClick={() => toggle(m.id)}>
                   remove
                 </button>
               </div>
-              <div className="cg-mod__r">{ruleOf(m, unit, stakes)}</div>
+              <div className="cg-mod__r">{ruleOf(m, unit, stakes, unitLabel)}</div>
             </div>
           ))}
         </div>
@@ -156,7 +179,7 @@ export function ModifierPicker({
               key={m.id}
               className={value.includes(m.id) ? "on" : ""}
               aria-pressed={value.includes(m.id)}
-              title={`${ruleOf(m, unit, stakes)} — ${SEVERITY_LABEL[m.severity]}`}
+              title={`${ruleOf(m, unit, stakes, unitLabel)} — ${SEVERITY_LABEL[m.severity]}`}
               onClick={() => toggle(m.id)}
             >
               {m.name}
@@ -174,11 +197,20 @@ export function ModifierStrip({
   ids,
   unit,
   stakes,
+  unitLabel,
+  showGames,
+  game,
 }: {
   ids: string[];
-  /** The table stake in cents, so a card's bonus reads as a real figure. */
+  /** The table's own unit in cents, so a card's bonus reads as a real figure. */
   unit?: number | null;
   stakes?: "real" | "play";
+  /** What the percentages are OF: "ante" in a run, "buy-in" at a cash table. */
+  unitLabel?: string;
+  /** Tag each card with the games it is live on. Only a run needs this. */
+  showGames?: boolean;
+  /** The game being played right now; cards that do not apply are dimmed. */
+  game?: string;
 }) {
   if (ids.length === 0) return null;
   return (
@@ -192,13 +224,16 @@ export function ModifierStrip({
           // A card retired from the deck still has a live session pointing at
           // it. Render the id rather than a blank row.
           if (!m) return <div className="cg-mod" key={id}><div className="cg-mod__n">{id}</div></div>;
+          // Dimmed when a game is being played that this card is not live on.
+          const dormant = !!game && !liveAtGame(m, game);
           return (
-            <div className={`cg-mod cg-mod--${m.kind}`} key={id}>
+            <div className={`cg-mod cg-mod--${m.kind} ${dormant ? "cg-mod--dormant" : ""}`} key={id}>
               <div className="cg-mod__top">
                 <span className="cg-mod__n">{m.name}</span>
+                {showGames && <GameTag mod={m} />}
                 <Pips severity={m.severity} />
               </div>
-              <div className="cg-mod__r">{ruleOf(m, unit, stakes)}</div>
+              <div className="cg-mod__r">{ruleOf(m, unit, stakes, unitLabel)}</div>
             </div>
           );
         })}
@@ -245,10 +280,15 @@ export function ModifierWall({
   ids,
   unit,
   stakes,
+  unitLabel,
+  game,
 }: {
   ids: string[];
   unit?: number | null;
   stakes?: "real" | "play";
+  unitLabel?: string;
+  /** The game on the current leg; cards not live on it are dimmed. */
+  game?: string;
 }) {
   if (ids.length === 0) return null;
   const density = ids.length <= 2 ? "roomy" : "names";
@@ -256,11 +296,15 @@ export function ModifierWall({
     <div className="cg-tv__mods" data-density={density}>
       {ids.map((id) => {
         const m = modifierById(id);
+        const dormant = !!m && !!game && !liveAtGame(m, game);
         return (
-          <div className={`cg-tv__mod ${m ? `cg-tv__mod--${m.kind}` : ""}`} key={id}>
+          <div
+            className={`cg-tv__mod ${m ? `cg-tv__mod--${m.kind}` : ""} ${dormant ? "cg-tv__mod--dormant" : ""}`}
+            key={id}
+          >
             <span className="cg-tv__mod__n">{m?.name ?? id}</span>
             {m && density !== "names" && (
-              <span className="cg-tv__mod__r">{ruleOf(m, unit, stakes)}</span>
+              <span className="cg-tv__mod__r">{ruleOf(m, unit, stakes, unitLabel)}</span>
             )}
           </div>
         );

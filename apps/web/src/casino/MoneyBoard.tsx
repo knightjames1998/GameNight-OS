@@ -74,7 +74,12 @@ export function MoneyBoard<D>({
           hand is worthless, so the one screen everybody is already looking at is
           where it belongs — and it costs nothing on a night with no cards on,
           where this renders nothing at all. */}
-      <ModifierWall ids={summary.modifiers} unit={summary.defaultBuyIn} stakes={summary.stakes} />
+      <ModifierWall
+        ids={summary.modifiers}
+        unit={summary.defaultBuyIn}
+        stakes={summary.stakes}
+        unitLabel="buy-in"
+      />
 
       {hero}
 

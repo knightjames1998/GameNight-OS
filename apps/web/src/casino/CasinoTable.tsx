@@ -145,7 +145,12 @@ export function CasinoTable<D, R>({
           and the rules are a reference you drop to when somebody asks. Shown to
           everyone, not just whoever can score — a rule that only the host can
           see is not a house rule. */}
-      <ModifierStrip ids={summary.modifiers} unit={summary.defaultBuyIn} stakes={summary.stakes} />
+      <ModifierStrip
+        ids={summary.modifiers}
+        unit={summary.defaultBuyIn}
+        stakes={summary.stakes}
+        unitLabel="buy-in"
+      />
 
       {tracker && canScore && trackerPanel}
 
