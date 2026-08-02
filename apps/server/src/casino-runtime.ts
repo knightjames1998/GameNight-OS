@@ -9,7 +9,7 @@
 // DOES THIS CONTRADICT pack-runtime.ts, WHICH SAYS ROUTES STAY PER-PACK? No,
 // and the distinction is worth stating because the earlier decision was
 // deliberate. That call was about Smash vs Mario Kart vs Ping Pong, whose
-// bodies genuinely differ — a fighter pick, a race result, a game winner —
+// bodies genuinely differ (a fighter pick, a race result, a game winner),
 // and where a shared validator really would drift into a lowest common
 // denominator. The casino packs are a sub-family with ONE data model: the
 // body of a rebuy is { playerId } in all four, and it is not going to stop
@@ -180,7 +180,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
    *
    * Placement comes from settleCash, which ranks by net descending with
    * co-placements at competition ranking. `final: true` is what turns a player
-   * who never cashed out into a bust — live, that is deliberately "unknown".
+   * who never cashed out into a bust. Live, that is deliberately "unknown".
    */
   async function materialize(
     groupId: string,
@@ -681,7 +681,7 @@ export interface CashMeta {
   stakes?: string;
   /**
    * The cards that were live for that session. Absent on a night with none and
-   * on every row written before modifiers existed — both of which mean "no
+   * on every row written before modifiers existed, both of which mean "no
    * modifiers", which is why the writer omits the key rather than storing [].
    */
   modifiers?: string[];

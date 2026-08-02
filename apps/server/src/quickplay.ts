@@ -138,7 +138,7 @@ async function quickSessionEvent(req: AuthedRequest, fallbackTitle: string): Pro
 
 // One route per session pack, registered from the registry rather than typed
 // out four times. The route segment and the fallback title both come from the
-// pack's entry, so a new pack gets its quick-play route by existing — and
+// pack's entry, so a new pack gets its quick-play route by existing, and
 // cannot get one whose spelling disagrees with the page that calls it, since
 // the client builds the same url from the same entry.
 for (const key of SESSION_PACK_KEYS) {

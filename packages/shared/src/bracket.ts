@@ -6,7 +6,7 @@
 // match. Results are a sparse map of { matchId: "A" | "B" }. Everything
 // else (byes auto-advancing, TBD propagation, losers dropping down, the
 // grand-final reset, the champion) is DERIVED by compute() on every read.
-// Nothing stored can drift out of sync, and undo is deleting a key — the
+// Nothing stored can drift out of sync, and undo is deleting a key: the
 // cascade (downstreamOf) clears every match whose participants depended on
 // the undone result, across both brackets.
 //
@@ -32,7 +32,7 @@ export interface MatchDef {
   b: SlotSource;
   /**
    * GF2 only: the id of the first grand final. The reset match is only
-   * active (and only playable) when that match went to slot B — the
+   * active (and only playable) when that match went to slot B, so the
    * losers-bracket champion handing the winners-bracket champion their
    * first loss forces the rematch.
    */
@@ -186,7 +186,7 @@ export function buildSingleElim(n: number): BracketStructure {
  *   Last L round = 2*(winnersRounds-1); its winner meets the winners-
  *                  bracket champion in the grand final.
  * With 2 entrants there is no losers bracket: the W final's loser goes
- * straight to the grand final (loser gets one more shot — true double elim).
+ * straight to the grand final (loser gets one more shot: true double elim).
  */
 export function buildDoubleElim(n: number): BracketStructure {
   const size = nextPow2(n);

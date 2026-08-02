@@ -17,7 +17,7 @@ import "./casino.css";
 // because extracting on ONE example is guessing at what generalises. Building
 // roulette answered it: the board is identical line for line, and the only
 // differences are the brand, one header sentence and a per-player subline
-// tail — which are the three props below. Colours come from --cg-* tokens
+// tail, which are the three props below. Colours come from --cg-* tokens
 // each pack re-points on its TV root, so a pack customises without forking
 // any of this.
 
@@ -72,7 +72,7 @@ export function MoneyBoard<D>({
 
       {/* ABOVE the hero and the board, and big. A rule you learn about after the
           hand is worthless, so the one screen everybody is already looking at is
-          where it belongs — and it costs nothing on a night with no cards on,
+          where it belongs, and it costs nothing on a night with no cards on,
           where this renders nothing at all. */}
       <ModifierWall
         ids={summary.modifiers}

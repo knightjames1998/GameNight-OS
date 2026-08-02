@@ -223,7 +223,7 @@ export interface ResultRow {
    * matches.label. Carried for ONE reason: a Smashdown series row summarizes
    * battles that are already in this same result set, so it must not be
    * counted as a game (see isSeriesSummary in the shared module). Every other
-   * label is descriptive only — a board name, a cup, bo{N} — and is ignored
+   * label is descriptive only (a board name, a cup, bo{N}) and is ignored
    * here, because those rows genuinely ARE the unit their games produced.
    */
   label: string | null;
@@ -662,7 +662,7 @@ async function aggFor(db: Db, groupIds: string[], userId: string) {
 
 // ---------- Attendance / flake tracking ----------
 // An RSVP is intent; event_attendance is what actually happened. A flake is
-// "said yes and never confirmed showing up" — real flakes don't open the
+// "said yes and never confirmed showing up". Real flakes don't open the
 // app to tap no, so silence after a yes counts once the night is clearly
 // over (24h past its date). An honest "didn't show" answer counts right
 // away. Streaks count consecutive confirmed shows, ordered by event date.
@@ -702,7 +702,7 @@ async function attendanceFor(db: Db, groupIds: string[], userId: string) {
 
   // One entry per event that can count: every answered check-in, plus every
   // past dated event they said yes to and then went silent on. A "yes" on a
-  // dateless event never counts — you can't flake on a TBD.
+  // dateless event never counts: you can't flake on a TBD.
   const byEvent = new Map<string, { when: Date; showed: boolean | null; saidYes: boolean }>();
   for (const a of answers) {
     byEvent.set(a.eventId, { when: a.scheduledFor ?? a.createdAt, showed: a.showed, saidYes: false });
@@ -765,11 +765,85 @@ async function sharedGroupIds(db: Db, aId: string, bId: string): Promise<string[
   return theirs.map((t) => t.groupId);
 }
 
+// ---------- the rivalry rules, pure ----------
+//
+// Extracted for the same reason resolveNow is: a wrong answer here is not an
+// error anywhere, it is a head-to-head record that is quietly wrong forever.
+// Pure once the two rows are in hand, so it is tested with no database near it.
+
+/** One player's row in a shared match, reduced to what the outcome depends on. */
+export interface MeetingSide {
+  /** Finishing position. Null means the pack does not rank, and loses to any number. */
+  p: number | null;
+  /** isWinner, which breaks a null-placement pair. */
+  w: boolean;
+  /** match_participants.side. Null means the match had no team structure. */
+  side: string | null;
+}
+
+export type MeetingOutcome = "win" | "loss" | "tie" | "together";
+
+/**
+ * How one shared match reads BETWEEN these two people, from `mine`'s side.
+ *
+ * TEAMMATES ARE CHECKED FIRST, ahead of every placement comparison, and that
+ * order is the whole fix. A co-op pack writes IDENTICAL rows for everyone on
+ * the run: same placement, same isWinner. Reaching the comparison at all
+ * scores that a tie, which is how every Casino Run in the ledger read before
+ * `side` existed. Two people who cleared a run together did not draw with each
+ * other; they were not playing each other at all.
+ *
+ * Two matching NON-NULL sides is the only signal. A null side (every row
+ * written before the column existed, and every free-for-all result forever)
+ * falls straight through to the three-way classification that has always run,
+ * so nothing about a normal match changes.
+ */
+export function meetingOutcome(mine: MeetingSide, theirs: MeetingSide): MeetingOutcome {
+  if (mine.side !== null && mine.side === theirs.side) return "together";
+  const mp = mine.p ?? Infinity;
+  const tp = theirs.p ?? Infinity;
+  if (mp < tp || (mp === tp && mine.w && !theirs.w)) return "win";
+  if (tp < mp || (mp === tp && theirs.w && !mine.w)) return "loss";
+  return "tie";
+}
+
+/**
+ * One walk over the meetings, oldest to newest. `run` carries a sign so the
+ * client knows whose streak it is: positive is mine, negative is theirs. A tie
+ * breaks both. When the walk ends, `run` IS the current streak.
+ *
+ * A TEAMMATE GAME IS SKIPPED, not counted and not a break. Letting it through
+ * the win branch would read a co-op night as an unbeaten run, which is the
+ * loudest version of the bug `side` exists to fix. But breaking the streak is
+ * wrong too, for the same reason it is not a tie: nothing happened between
+ * these two that night, so neither "you extended your run" nor "your run
+ * ended" is a true sentence. Three wins, a run played together, then a fourth
+ * win is a streak of four.
+ */
+export function meetingStreaks(outcomes: MeetingOutcome[]): {
+  run: number;
+  myLongest: number;
+  theirLongest: number;
+} {
+  let run = 0;
+  let myLongest = 0;
+  let theirLongest = 0;
+  for (const o of outcomes) {
+    if (o === "together") continue;
+    if (o === "win") run = run > 0 ? run + 1 : 1;
+    else if (o === "loss") run = run < 0 ? run - 1 : -1;
+    else run = 0;
+    if (run > myLongest) myLongest = run;
+    if (-run > theirLongest) theirLongest = -run;
+  }
+  return { run, myLongest, theirLongest };
+}
+
 /** Me vs them across a set of crews: both sides' stats + the h2h ledger. */
 async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: string) {
   const mineAgg = newAgg();
   const theirsAgg = newAgg();
-  type Side = { p: number | null; w: boolean; character: string | null };
+  type Side = MeetingSide & { character: string | null };
   const byMatch = new Map<
     string,
     { mine?: Side; theirs?: Side; game: string; playedAt: Date | null }
@@ -779,7 +853,15 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
     // Every completed participant row for either of us, in one query;
     // pair them up by matchId in memory.
     const rows = await db
-      .select({ ...resultCols, userId: matchParticipants.userId })
+      .select({
+        ...resultCols,
+        userId: matchParticipants.userId,
+        // Only the rivalry reads this. feedAgg is deliberately untouched: a
+        // teammate game is still a game you played, so it belongs in both
+        // players' lifetime totals exactly as it does today. What changes is
+        // only how the two of them are recorded AGAINST EACH OTHER.
+        side: matchParticipants.side,
+      })
       .from(matchParticipants)
       .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
       .leftJoin(games, eq(matches.gameId, games.id))
@@ -795,12 +877,12 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
       feedAgg(side, r);
       // feedAgg skips the series summary itself, but the meeting map below is
       // built here and would otherwise count a series as an extra head-to-head
-      // encounter on top of every battle inside it — inflating the record,
+      // encounter on top of every battle inside it, inflating the record,
       // breaking the meeting streak, and putting a null character through the
       // "what each of us reaches for" tally.
       if (isSeriesSummary(r.label)) continue;
       const m = byMatch.get(r.matchId) ?? { game: r.gameName ?? "Unknown", playedAt: r.playedAt };
-      const entry: Side = { p: r.placement, w: r.isWinner, character: r.character };
+      const entry: Side = { p: r.placement, w: r.isWinner, character: r.character, side: r.side };
       if (r.userId === meId) m.mine = entry;
       else m.theirs = entry;
       byMatch.set(r.matchId, m);
@@ -810,13 +892,23 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
   let wins = 0;
   let losses = 0;
   let ties = 0;
-  const h2hByGame = new Map<string, { meetings: number; myWins: number; theirWins: number }>();
+  let together = 0;
+  const h2hByGame = new Map<
+    string,
+    { meetings: number; myWins: number; theirWins: number; together: number }
+  >();
   // Every meeting with its outcome from MY side, for the ordered items
   // below. Built in the same pass so the two can never disagree.
+  //
+  // `together` is a FOURTH outcome, not a flavour of tie. Two people on the
+  // same team did not draw with each other, they were not playing each other
+  // at all, and folding that into ties would quietly claim they were. It is
+  // counted and reported separately everywhere: the totals, the per-game
+  // breakdown, the streak and the last-5 form line.
   type Meeting = {
     playedAt: Date | null;
     game: string;
-    outcome: "win" | "loss" | "tie";
+    outcome: MeetingOutcome;
   };
   const meetings: Meeting[] = [];
   const myChars = new Map<string, number>();
@@ -824,23 +916,20 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
 
   for (const m of byMatch.values()) {
     if (!m.mine || !m.theirs) continue;
-    const g = h2hByGame.get(m.game) ?? { meetings: 0, myWins: 0, theirWins: 0 };
+    const g = h2hByGame.get(m.game) ?? { meetings: 0, myWins: 0, theirWins: 0, together: 0 };
     g.meetings++;
-    // Placement decides; isWinner breaks a null-placement pair (rare).
-    const mp = m.mine.p ?? Infinity;
-    const tp = m.theirs.p ?? Infinity;
-    let outcome: Meeting["outcome"];
-    if (mp < tp || (mp === tp && m.mine.w && !m.theirs.w)) {
+    const outcome = meetingOutcome(m.mine, m.theirs);
+    if (outcome === "together") {
+      together++;
+      g.together++;
+    } else if (outcome === "win") {
       wins++;
       g.myWins++;
-      outcome = "win";
-    } else if (tp < mp || (mp === tp && m.theirs.w && !m.mine.w)) {
+    } else if (outcome === "loss") {
       losses++;
       g.theirWins++;
-      outcome = "loss";
     } else {
       ties++;
-      outcome = "tie";
     }
     h2hByGame.set(m.game, g);
     meetings.push({ playedAt: m.playedAt, game: m.game, outcome });
@@ -871,19 +960,7 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
     .filter((m): m is Meeting & { playedAt: Date } => m.playedAt != null)
     .sort((x, y) => x.playedAt.getTime() - y.playedAt.getTime());
 
-  // One walk, oldest to newest. `run` carries a sign so the client knows
-  // whose streak it is: positive is mine, negative is theirs. A tie breaks
-  // both. When the walk ends, `run` IS the current streak.
-  let run = 0;
-  let myLongest = 0;
-  let theirLongest = 0;
-  for (const m of dated) {
-    if (m.outcome === "win") run = run > 0 ? run + 1 : 1;
-    else if (m.outcome === "loss") run = run < 0 ? run - 1 : -1;
-    else run = 0;
-    if (run > myLongest) myLongest = run;
-    if (-run > theirLongest) theirLongest = -run;
-  }
+  const { run, myLongest, theirLongest } = meetingStreaks(dated.map((m) => m.outcome));
 
   const last = dated[dated.length - 1];
 
@@ -891,10 +968,16 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
     meStats: await finishAggDeep(db, mineAgg),
     themStats: await finishAggDeep(db, theirsAgg),
     h2h: {
-      meetings: wins + losses + ties,
+      meetings: wins + losses + ties + together,
       wins,
       losses,
       ties,
+      /**
+       * Meetings where the two were on the SAME side, so neither beat the
+       * other. Counted in `meetings` because they did share a table, and in
+       * none of wins/losses/ties because none of those happened.
+       */
+      together,
       /** Signed: positive is my streak, negative is theirs, 0 is neither. */
       currentStreak: run,
       myLongestStreak: myLongest,

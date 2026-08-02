@@ -55,7 +55,7 @@ const casino = registerCasinoRoutes<CrSessionState>({
   ledgerMeta: (state, playerId) => {
     // includeOpen: the night is over, so the hand that was in progress is a
     // hand that happened. Live reads exclude it so the TV's "to beat" number
-    // stays a real target — see crDetail.
+    // stays a real target. See crDetail.
     const d = crDetail(state, playerId, { includeOpen: true });
     return {
       longestRoll: d.longestRoll,

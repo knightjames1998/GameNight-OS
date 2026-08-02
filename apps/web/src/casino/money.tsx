@@ -4,7 +4,7 @@ import { money, parseCents, type CashStakes } from "@gamenight/shared";
 // The money primitives every casino pack uses.
 //
 // THE INVARIANT THESE EXIST TO HOLD: dollars appear at exactly two edges of
-// this app and nowhere else. MoneyInput is the way in — typed text becomes
+// this app and nowhere else. MoneyInput is the way in: typed text becomes
 // integer cents through the shared parseCents the moment it changes, and the
 // component hands the caller cents or null, never a decimal. NetToken and the
 // format* helpers are the way out. Everything between them, in every casino
@@ -78,7 +78,7 @@ export function CountInput({
 
 /**
  * One player's position, as a token. Green up, red down, hollow while they are
- * still holding chips — because "in for $40" is an honest answer and a net of
+ * still holding chips, because "in for $40" is an honest answer and a net of
  * minus forty is not, until they cash out.
  */
 export function NetToken({

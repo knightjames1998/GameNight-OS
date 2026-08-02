@@ -1,8 +1,8 @@
 // Blackjack pack server routes.
 //
-// Every route about MONEY — open the table, buy in, rebuy, seat a late
+// Every route about MONEY (open the table, buy in, rebuy, seat a late
 // arrival, cash out, reopen, the toggles, end the night, and the lifetime
-// stats — lives in casino-runtime.ts and is shared with roulette (and craps
+// stats) lives in casino-runtime.ts and is shared with roulette (and craps
 // and poker when they land). What is left here is what is actually blackjack:
 // its state shape, its two tracker routes, its three detail stats, and the
 // per-player meta its ledger row carries.

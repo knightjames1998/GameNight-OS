@@ -1,8 +1,8 @@
 // Tests for the pack registry (packages/shared/src/packs.ts).
 //
-// The registry exists because every pack had TWO spellings — the server's
+// The registry exists because every pack had TWO spellings: the server's
 // games.pack (smash / mario_kart / mario_party / pingpong) and the client's
-// route segment (smash / mariokart / marioparty / pingpong) — with nothing
+// route segment (smash / mariokart / marioparty / pingpong), with nothing
 // mapping between them. They agree for two packs and disagree for two, which
 // is the worst arrangement: every consumer touched only one side, so nothing
 // ever failed loudly enough to reveal that two lists existed.
@@ -53,11 +53,11 @@ const SHIPPED = {
   roulette: { ledger: "roulette", gameName: "Roulette", keyPrefix: "roulette", wsType: "roulette_updated", table: "game_sessions", route: "roulette" },
   // Craps' wsType is BARE, with no _updated suffix, unlike every other pack.
   // Pinned here so it is a deliberate value rather than something a later pass
-  // "tidies" — both sides read it from the registry, so it works, but it is
+  // "tidies": both sides read it from the registry, so it works, but it is
   // the odd one out and the test should say so out loud.
   craps: { ledger: "craps", gameName: "Craps", keyPrefix: "craps", wsType: "craps", table: "game_sessions", route: "craps" },
   // The co-op pack. Pinned the day it shipped (2026-07-30). Note the ledger is
-  // snake_case (`casino_run`) while the route is not (`casinorun`) — that is
+  // snake_case (`casino_run`) while the route is not (`casinorun`), and that is
   // the same split Mario Kart has, and the registry exists precisely so the
   // two spellings can differ without anything drifting.
   casinorun: { ledger: "casino_run", gameName: "Casino Run", keyPrefix: "casinorun", wsType: "casino_run", table: "game_sessions", route: "casinorun" },
@@ -95,7 +95,7 @@ test("Ping Pong's ledger key is pingpong, not ping_pong", () => {
   // and the event detail payload each hand-wrote a ledger->client table
   // keyed "ping_pong", a spelling that exists nowhere. Both lookups missed, so
   // a live Ping Pong session was invisible to the TV and never showed "live
-  // now" on its tile — silently, because a missing key is just undefined.
+  // now" on its tile, silently, because a missing key is just undefined.
   assert.equal(SESSION_PACKS.pingpong.ledger, "pingpong");
   assert.equal(PACK_BY_LEDGER["pingpong"], "pingpong");
   assert.equal(PACK_BY_LEDGER["ping_pong"], undefined);

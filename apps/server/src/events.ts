@@ -216,7 +216,7 @@ eventsRouter.get("/groups/:groupId/events", async (req: AuthedRequest, res) => {
 /**
  * The full event-detail payload the client renders. Shared by the GET and
  * every mutation on this router, so a mutation's response IS the updated
- * state — the client applies it directly instead of refetching.
+ * state: the client applies it directly instead of refetching.
  */
 async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEventForMember>>>, userId: string) {
   const db = getDb();
@@ -278,7 +278,7 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
 
     // The four session packs. The payload carried `bracket` and `beerioCode`
     // and nothing else, so those were the only two tiles in the game picker
-    // that could say "live now" — a night already running Mario Kart looked
+    // that could say "live now": a night already running Mario Kart looked
     // idle. Two more parallel reads on a Promise.all already running six.
     db
       .select({ pack: gameSessions.pack, status: gameSessions.status })
@@ -361,7 +361,7 @@ export interface RecapRow {
  * Roll the ledger rows up into the night recap.
  *
  * PURE: no database, no clock. Separated from the query because two very
- * different callers need the same answer — the authed recap card, and the
+ * different callers need the same answer: the authed recap card, and the
  * PUBLIC event TV lobby, which shows the night so far between games. Two
  * rollups would drift, and the failure mode is the worst kind: the TV and the
  * recap card quoting different numbers for the same night, in the same room,
@@ -600,7 +600,7 @@ eventsRouter.post("/events/:id/rsvp", async (req: AuthedRequest, res) => {
 
 /**
  * Record whether I actually showed up. Separate from RSVP intent so flake
- * tracking can compare the two. Locked until the event's date arrives —
+ * tracking can compare the two. Locked until the event's date arrives,
  * you can't confirm arrival at something that hasn't started.
  */
 eventsRouter.post("/events/:id/attendance", async (req: AuthedRequest, res) => {

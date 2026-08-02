@@ -13,7 +13,7 @@ import "./casino.css";
 // The live money table every casino pack runs a night on: the board, the
 // buy-in / rebuy / cash-out controls, the late arrival, and the host's end-the
 // -night button. Identical across the group, because the MONEY is identical
-// across the group — the only per-pack part is which extra numbers the
+// across the group: the only per-pack part is which extra numbers the
 // cash-out form asks for, which is the `detail` slot below.
 
 export type Call = (path: string, body?: unknown) => Promise<void>;
@@ -143,7 +143,7 @@ export function CasinoTable<D, R>({
 
       {/* Under the board, not over it: the money is what the table is watching,
           and the rules are a reference you drop to when somebody asks. Shown to
-          everyone, not just whoever can score — a rule that only the host can
+          everyone, not just whoever can score: a rule that only the host can
           see is not a house rule. */}
       <ModifierStrip
         ids={summary.modifiers}
@@ -199,7 +199,7 @@ export function CasinoTable<D, R>({
             </button>
           </div>
           <p className="cg-hint" style={{ marginTop: 6 }}>
-            Turning the tracker off keeps every {copy.events.replace(/s$/, "")} already logged — the
+            Turning the tracker off keeps every {copy.events.replace(/s$/, "")} already logged. The
             details it worked out stay on the cash-out form.
           </p>
           <button className="cg-btn cg-btn--go" style={{ marginTop: 10 }} disabled={busy} onClick={endSession}>
@@ -389,8 +389,8 @@ function CashOutForm<D, R>({
       </p>
       {p.isBanker && (
         <p className="cg-hint" style={{ marginTop: 6 }}>
-          This is the bank&rsquo;s own count of the rack. It is never what gets recorded — the
-          bank&rsquo;s net is worked out from everyone else&rsquo;s — so it is the cross-check: if
+          This is the bank&rsquo;s own count of the rack. It is never what gets recorded (the
+          bank&rsquo;s net is worked out from everyone else&rsquo;s), so it is the cross-check: if
           it disagrees, {copy.noun} is off and this screen says by how much.
         </p>
       )}

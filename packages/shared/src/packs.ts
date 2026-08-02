@@ -9,8 +9,8 @@
 // worked, and nothing anywhere pointed out that the two lists existed.
 //
 // The next pack was a coin flip. Call it airhockey on both sides and nothing
-// happens. Call it air_hockey on the server and airhockey on the client —
-// following Mario Kart's own example — and everything compiles, the picker
+// happens. Call it air_hockey on the server and airhockey on the client
+// (following Mario Kart's own example) and everything compiles, the picker
 // works, the session runs, and the recap card silently draws a blank emoji
 // while the stats tab shows nothing, because two string literals in different
 // files disagree and no type connects them.
@@ -100,7 +100,7 @@ export const SESSION_PACKS = {
     name: "Mario Party",
     // ⭐ rather than 🎲: craps has the stronger claim on the die, and stars ARE
     // Mario Party's scoring unit. Safe to change because emoji is DERIVED from
-    // this registry and never written to the database — only ledger, gameName
+    // this registry and never written to the database. Only ledger, gameName
     // and keyPrefix are permanent.
     emoji: "\u{2B50}", // ⭐
     quickTitle: "Mario Party",
@@ -155,7 +155,7 @@ export const SESSION_PACKS = {
     route: "craps",
     // Bare, not "craps_updated". The other packs carry the suffix; this one is
     // as the session brief specified it. It works because both sides read the
-    // string from THIS entry, which is the whole point of the registry — but
+    // string from THIS entry, which is the whole point of the registry, but
     // it is the odd one out, and changing it is a one-line edit (wsType is not
     // written to the database).
     wsType: "craps",
@@ -167,7 +167,7 @@ export const SESSION_PACKS = {
   // The CO-OP one. In the casino group and sharing its screens' tokens, but
   // NOT its engine: one shared bank against a target instead of per-player
   // nets, so it runs on packages/shared/src/casinorun.ts. Its own ledger key
-  // is the accepted cost — a co-op leg played at blackjack lands here, not
+  // is the accepted cost: a co-op leg played at blackjack lands here, not
   // under Blackjack, because those rows do not obey a per-player net stat.
   casinorun: {
     ledger: "casino_run",
@@ -194,8 +194,8 @@ export const SESSION_PACK_KEYS = Object.keys(SESSION_PACKS) as SessionPackKey[];
 
 /**
  * The live-sync types a session pack may broadcast, derived rather than
- * restated. A typo'd wsType kills live sync SILENTLY — the client never
- * matches the message and screens stop updating until someone refreshes —
+ * restated. A typo'd wsType kills live sync SILENTLY: the client never
+ * matches the message and screens stop updating until someone refreshes,
  * so there must be exactly one place these strings exist.
  */
 export type PackWsType = (typeof SESSION_PACKS)[SessionPackKey]["wsType"];

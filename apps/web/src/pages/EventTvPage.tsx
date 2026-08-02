@@ -39,7 +39,7 @@ const BeerioTvPage = lazy(() => import("../beerio/BeerioTvPage"));
 
 /**
  * The resolver only needs to know when to RE-RESOLVE. The pack types come from
- * the registry, so a new pack is subscribed to by existing — the alternative,
+ * the registry, so a new pack is subscribed to by existing. The alternative,
  * a hand-typed list, fails by simply never re-resolving for the pack somebody
  * forgot, which looks exactly like a TV that ignores one game.
  */
@@ -49,7 +49,7 @@ const TYPES = [...PACK_WS_TYPES, "event_session_changed"];
  * Which TV view each pack renders, as a TABLE RATHER THAN A CHAIN.
  *
  * It used to be an if/else chain ending in a bare `: <PingPongTvPage />`, so a
- * pack nobody added a branch for did not fail — it silently drew PING PONG's
+ * pack nobody added a branch for did not fail: it silently drew PING PONG's
  * scoreboard. That is the worst possible failure on a device nobody is holding:
  * the screen is confidently wrong rather than blank. Typed `Record<
  * SessionPackKey, ...>`, adding a pack to the registry without adding it here
@@ -141,8 +141,8 @@ export default function EventTvPage() {
  * the games do, and again BETWEEN every game after that.
  *
  * So it has two faces, split on whether anything has been played yet. Before:
- * the night, who is in, and how to join. After: the night so far — standings
- * with whoever is leading, and what was just won — because between games is
+ * the night, who is in, and how to join. After: the night so far, standings
+ * with whoever is leading, and what was just won, because between games is
  * exactly when a room looks up at the screen to see where they stand, and an
  * empty "waiting for the host" is a wasted TV. Both flip to the game on their
  * own the moment a host starts one.
@@ -265,7 +265,7 @@ function NightSoFar({ recap }: { recap: NonNullable<EventTv["lobby"]["recap"]> }
                 {g.label && <span className="gn-tvs__sub"> · {g.label}</span>}
               </span>
               <span className="gn-tvr__won">
-                {g.winnerName ? `🏆 ${g.winnerName}` : "—"}
+                {g.winnerName ? `🏆 ${g.winnerName}` : "–"}
               </span>
             </div>
           ))}

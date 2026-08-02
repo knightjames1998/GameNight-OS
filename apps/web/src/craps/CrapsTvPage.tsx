@@ -8,8 +8,8 @@ import "./craps.css";
 
 // The craps TV: the shared money board, plus THE SHOOTER as a hero panel above
 // it whenever the tracker is on. That panel is the single most watchable thing
-// in this pack — a roll count climbing in real time, with the night's longest
-// hand beside it as the number to beat — and it is why `MoneyBoard` grew a
+// in this pack (a roll count climbing in real time, with the night's longest
+// hand beside it as the number to beat), and it is why `MoneyBoard` grew a
 // `hero` slot rather than craps forking the board.
 //
 // Route param on /craps/tv/:eventId, or a prop when the event TV route renders
@@ -74,7 +74,7 @@ export default function CrapsTvPage({ eventId: propEventId }: { eventId?: string
             </div>
             <div style={{ textAlign: "center" }}>
               <div className="cg-tv__hero__l">To beat</div>
-              <div className="cg-tv__hero__n">{s.longest ? s.longest.rolls : "—"}</div>
+              <div className="cg-tv__hero__n">{s.longest ? s.longest.rolls : "–"}</div>
               <div className="cg-tv__hero__sub">{s.longest ? s.longest.name : "no hand finished"}</div>
             </div>
           </div>

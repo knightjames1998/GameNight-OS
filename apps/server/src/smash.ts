@@ -162,9 +162,9 @@ const SERIES_KEY_UNIT = "series";
 /**
  * Make the ledger's Smashdown SERIES row match reality, whatever just changed.
  *
- * RECONCILE, NEVER PATCH. `over` can flip in three different places — the
+ * RECONCILE, NEVER PATCH. `over` can flip in three different places: the
  * battle that completes the count, an undo that takes it back, and the mercy
- * toggle, which can end a series without anything being played — and a "write
+ * toggle, which can end a series without anything being played. A "write
  * it when the last battle lands" rule silently misses two of them. So every
  * one of those routes calls this, and it asks one question: does the ledger
  * agree with smashdownStatus right now? Both halves are idempotent
@@ -179,8 +179,8 @@ const SERIES_KEY_UNIT = "series";
  * Co-winners are real here, so every tied leader gets placement 1.
  *
  * An ABANDONED series writes nothing. The host ending a format early leaves
- * `over` false, and unlike a Best Of set — where abandoning would lose the
- * games inside it, which is why that one finalizes — every Smashdown battle is
+ * `over` false, and unlike a Best Of set (where abandoning would lose the
+ * games inside it, which is why that one finalizes), every Smashdown battle is
  * already recorded, so there is nothing to rescue and no honest winner to name.
  */
 async function syncSeriesRow(
@@ -526,7 +526,7 @@ smashRouter.post("/smash/:eventId/character", requireAuth, async (req: AuthedReq
   // Smashdown: a fighter is gone once it has been used, and two players cannot
   // share one inside a battle. Checked here as well as on the client because
   // every assignment mode funnels through this route and the burn board is the
-  // whole format — a burned pick slipping through would silently un-strike it.
+  // whole format: a burned pick slipping through would silently un-strike it.
   if (loaded.state.format === "smashdown" && character) {
     const left = availableFighters(
       titlePool,

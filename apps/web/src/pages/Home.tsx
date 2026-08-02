@@ -262,7 +262,7 @@ function Groups({
   );
 }
 
-// Everyone you've ever shared a crew with, in one place — no digging into a
+// Everyone you've ever shared a crew with, in one place, with no digging into a
 // crew to look someone up. Crewing together is the connection; there's no
 // separate add-friend step. Collapsed behind one button so a long friends
 // list doesn't clutter the home page. Hidden until you've crewed with someone.

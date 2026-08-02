@@ -12,7 +12,7 @@
 // `settleCash` is built on one assumption: each player has a net, and on a
 // player-banked table those nets sum to zero against the banker. That is what
 // makes the balance check meaningful and placement-by-net honest. A co-op run
-// inverts it — there is ONE pot measured against a target, nobody has a
+// inverts it: there is ONE pot measured against a target, nobody has a
 // personal net, and per-player buy-in and cash-out do not exist here at all.
 // Serving both from one engine would put a branch through every function four
 // packs depend on, in service of the one caller that disagrees with its
@@ -29,7 +29,7 @@
 // the whole run. Both words appear in the UI and they never trade places.
 //
 // EVERYTHING IS DERIVED FROM THE LEG LOG. bank, stage, attempt, status, the
-// clear count, the peak and the comeback — none of them are stored. This is
+// clear count, the peak and the comeback. None of them are stored. This is
 // the same call craps made for its hands and Smashdown made for its burn
 // board, for the same reason: the alternative is a pile of counters that undo
 // has to unwind by hand, and "undo the leg that busted the run" has to restore
@@ -60,7 +60,7 @@ export interface CrunLadder {
    *
    * THIS IS THE LOSS CONDITION, and the pack shipped without it. Originally a
    * missed stage cost the attempt and nothing else, so the only way to lose
-   * was dropping through the floor — which a bank that hovers can dodge
+   * was dropping through the floor, which a bank that hovers can dodge
    * indefinitely. The result was a mode you could not actually fail, just
    * grind, which is not a game. Now you get a fixed number of shots at each
    * stage and running out ends the run exactly as the floor does.
@@ -82,14 +82,14 @@ export interface CrunLadder {
  * plays 20,000 runs of each ladder against a house edge and asserts the clear
  * rate lands in the band the ladder claims. The bands are the design; the
  * numbers serve them. If a ladder drifts out of its band the test fails, and
- * the fix is the ladder — never the band.
+ * the fix is the ladder, never the band.
  *
  * TWO DRAFTS HAVE BEEN WRONG, both caught by the simulation rather than by a
  * ruined night:
  *   1. +15/+25/+40/+60% cleared 37/28/10/4%, so "casual" lost the bank two
  *      nights in three.
  *   2. With unlimited attempts, `legsPerStage` could not move the clear rate
- *      AT ALL and the only loss condition was the floor — a run you could not
+ *      AT ALL and the only loss condition was the floor: a run you could not
  *      fail, only grind. `attemptsPerStage` fixed that, and in doing so made
  *      the leg budget a real lever for the first time: legs x attempts is the
  *      total number of shots a stage gets.
@@ -163,21 +163,21 @@ export function crunQuotas(ladder: CrunLadder, startingBank: number): number[] {
  * A ONE-TIME-USE CARD, bought out of the bank and spent on the next leg.
  *
  * The pressure valve. Modifiers are dealt TO you and last the run; a token is
- * something you choose and burn, and it costs bank — which is the interesting
+ * something you choose and burn, and it costs bank, which is the interesting
  * part, because spending bank moves you away from the quota you are chasing.
  * "Do we buy a hedge and fall further behind, or run the next leg naked" is a
  * real decision, and it is the only one in the pack that costs money to make.
  *
  * THEY ARE PRICED TO HURT. Every cost is a double-digit slice of the starting
- * bank, and Mulligan — a free re-do of a losing hand, the strongest thing in
- * the shop — is the dearest of the declarative ones at 30%. A token you buy
+ * bank, and Mulligan (a free re-do of a losing hand, the strongest thing in
+ * the shop) is the dearest of the declarative ones at 30%. A token you buy
  * without thinking is not a decision, and the whole point of spending BANK is
  * that it moves you away from the quota you are chasing.
  *
  * MOST TOKENS ARE DECLARATIVE, exactly like modifiers: "the next leg is played
  * at double stakes" is a thing the humans do at the table, and the app only
  * records that it was bought. The two exceptions touch bookkeeping the app
- * ALREADY owns — the leg budget and the minimum ante — and `effect` says which
+ * ALREADY owns (the leg budget and the minimum ante), and `effect` says which
  * is which rather than leaving a reader to guess.
  */
 export type CrunTokenEffect =
@@ -203,7 +203,7 @@ export interface CrunToken {
 
 export const CRUN_TOKENS: CrunToken[] = [
   // The one people will actually buy. Play the leg out normally, take the
-  // payout, THEN flip for it — which is a different and better decision from
+  // payout, THEN flip for it, which is a different and better decision from
   // doubling the stake up front, because you already know what you won.
   { id: "let_it_ride", name: "Let it ride", rule: "Play the leg. Then flip a coin: the winnings double, or they are gone.", cost: 0.18, effect: "declare" },
   { id: "double_next", name: "Double down", rule: "The next leg is played at double stakes, win or lose.", cost: 0.15, effect: "declare" },
@@ -258,7 +258,7 @@ export interface CrunLeg {
    *
    * OPTIONAL, AND ABSENT MEANS "leg". Runs recorded before tokens existed have
    * no `kind`, and upgrading them on read costs one `??` rather than a data
-   * migration — the same trick parseEntrants uses for legacy bracket rosters.
+   * migration: the same trick parseEntrants uses for legacy bracket rosters.
    */
   kind?: "leg" | "buy";
   /** The token bought. Only on a "buy". */
@@ -294,7 +294,7 @@ export interface CrunState {
   /** cents. The bank must stay ABOVE this. Defaults to zero. */
   floor: number;
   /**
-   * cents. The table's opening minimum ante — what it costs to sit in a round.
+   * cents. The table's opening minimum ante: what it costs to sit in a round.
    *
    * The BASE only; what the minimum actually is right now is DERIVED, because
    * cards raise it and a bought token can cancel a rise. See crunAnte.
@@ -302,6 +302,47 @@ export interface CrunState {
   ante: number;
   /** Every leg AND purchase in order. Everything else is derived from it. */
   legs: CrunLeg[];
+  /**
+   * Which stage transitions have already paid out a house rule, so one
+   * transition can never pay out twice. See claimCrunDraw.
+   *
+   * Absent on every run started before this shipped, which reads as "nothing
+   * claimed yet": an in-flight run keeps the old behaviour for the transitions
+   * it has already made and gets the guard from here on, and no migration is
+   * needed because the state is jsonb.
+   */
+  drawnFor?: { clears?: number[]; misses?: number[] };
+}
+
+/**
+ * Claim the ONE modifier draw a stage transition is worth. True means the draw
+ * is yours to make; false means it has already been made and the caller must
+ * not draw again.
+ *
+ * WHY THIS EXISTS. A leg that takes the bank past a quota earns a house rule,
+ * and a leg that burns the last attempt on a stage forces a bane. Both were
+ * decided by comparing the derived progress before and after the leg, which is
+ * right up until the leg is UNDONE: popping it and entering a corrected one
+ * makes the same transition a second time, and the run collects two cards for
+ * one clear. A retried request that lands twice does the same thing.
+ *
+ * The fix is to make a draw idempotent against the transition it belongs to
+ * rather than against the leg that triggered it. `index` is the running count
+ * AFTER the transition (the run's 1st clear, its 2nd miss), which is derived
+ * and therefore identical across an undo and a redo, which is the whole point.
+ *
+ * A CLAIM IS NOT RELEASED BY UNDO, deliberately. Undo pops a leg; it does not
+ * un-deal a card that is already on the table and already being played under.
+ * So the rule is simply that a transition pays out once, ever, and a corrected
+ * leg that makes the same transition again adds nothing.
+ */
+export function claimCrunDraw(state: CrunState, kind: "clear" | "miss", index: number): boolean {
+  const book = (state.drawnFor ??= {});
+  const key = kind === "clear" ? "clears" : "misses";
+  const seen = (book[key] ??= []);
+  if (seen.includes(index)) return false;
+  seen.push(index);
+  return true;
 }
 
 /** The default opening ante: 2% of the bank, which is a plausible table minimum. */
@@ -405,7 +446,7 @@ const ANTE_EVERY = 5;
  * ORDER WITHIN A LEG IS LOAD-BEARING: apply the delta, then check the floor,
  * then check the quota, then check the budget. Bust wins ties because a run
  * that dropped through the floor is over even if the same leg would have
- * cleared the stage — which cannot happen while quota > floor, but stating the
+ * cleared the stage, which cannot happen while quota > floor, but stating the
  * order means nobody has to work it out again.
  *
  * THERE ARE TWO WAYS TO LOSE, and there used to be one. Dropping through the
@@ -415,7 +456,7 @@ const ANTE_EVERY = 5;
  * indefinitely and the only real fail state was a bank that hit zero. Now a
  * stage gives `attemptsPerStage` shots and running out ends the run.
  *
- * A BUY IS NOT A LEG. Purchases move the bank (and so can bust a run — buying
+ * A BUY IS NOT A LEG. Purchases move the bank (and so can bust a run: buying
  * a token you cannot afford is a real way to die) but they do not consume the
  * leg budget, because a token is not a stretch of play.
  */
@@ -480,7 +521,7 @@ export function crunProgress(state: CrunState): CrunProgress {
     // A WHILE, NOT AN IF. Quotas are cumulative bank totals, so one big leg can
     // satisfy several at once and must clear all of them. Advancing only one
     // would leave the bank sitting ABOVE the current stage's quota while still
-    // on that stage — an incoherent state, and worse than incoherent: the next
+    // on that stage, an incoherent state, and worse than incoherent: the next
     // leg would then clear it no matter what that leg actually did.
     let advanced = false;
     while (stage < ladder.stages && bank >= cutQuota(crunQuota(ladder, start, stage), quotaCuts)) {
@@ -526,7 +567,7 @@ export function crunProgress(state: CrunState): CrunProgress {
   // THE ANTE, from the base plus what the cards did to it. Escalating minimum
   // raises it on a clock; every missed attempt raises it too, which is what
   // makes grinding cost something instead of being free. Ante relief cancels a
-  // rise, and the whole thing is floored at the base — a token can never make
+  // rise, and the whole thing is floored at the base, so a token can never make
   // the table cheaper than it started.
   const escalating = state.modifiers.includes("escalating_min");
   const rawRaises = (escalating ? Math.floor(legCount / ANTE_EVERY) : 0) + missed;
@@ -643,7 +684,7 @@ export function crunBuy(
  * There is deliberately no restoring to do. The bank, the stage, the attempt
  * and whether the run is over are all re-derived from the shortened log, so
  * undoing the leg that busted a run puts the table back exactly where it was
- * one leg earlier — including its modifiers, which are recorded separately and
+ * one leg earlier, including its modifiers, which are recorded separately and
  * never rolled back, because the cards WERE drawn and the table played under
  * them.
  */
@@ -663,7 +704,7 @@ export function crunUndo(state: CrunState): boolean {
  * inverse: severity^k where k runs from -1 at the first stage to +1 at the
  * last. At k = -1 this IS `drawWeight` (1/severity), so an early run draws the
  * same gentle mix as a blackjack table does. At k = +1 a severity-3 card is
- * three times as likely as a severity-1 one. No new draw code — this is the
+ * three times as likely as a severity-1 one. No new draw code: this is the
  * `weight` argument `drawModifiers` already takes, which is why it takes one.
  */
 export function crunEscalationWeight(stage: number, stages: number): (m: Modifier) => number {
@@ -806,7 +847,7 @@ export function summarizeCrun(state: CrunState): CrunSummary {
     if (!row) continue;
     if (!isLeg(l)) {
       // A purchase is attributed but is not a leg played, and it must not drag
-      // somebody's best/worst leg around — buying a token is not a bad hand.
+      // somebody's best/worst leg around. Buying a token is not a bad hand.
       row.spent += -Math.trunc(l.delta);
       continue;
     }
@@ -830,11 +871,11 @@ export function summarizeCrun(state: CrunState): CrunSummary {
     legs,
     headline:
       progress.ending === "cleared"
-        ? `Run cleared — all ${ladder.stages} stages`
+        ? `Run cleared: all ${ladder.stages} stages`
         : progress.ending === "floor"
-        ? `Bust on stage ${Math.min(progress.stage + 1, ladder.stages)} — through the floor`
+        ? `Bust on stage ${Math.min(progress.stage + 1, ladder.stages)}, through the floor`
         : progress.ending === "attempts"
-        ? `Bust on stage ${Math.min(progress.stage + 1, ladder.stages)} — out of attempts`
+        ? `Bust on stage ${Math.min(progress.stage + 1, ladder.stages)}, out of attempts`
         : `Stage ${progress.stage + 1} of ${ladder.stages}`,
   };
 }
@@ -843,7 +884,7 @@ export function summarizeCrun(state: CrunState): CrunSummary {
 //
 // Deliberately NOT aggregateCashNights or aggregateByModifier, close as they
 // look. Those define a win as a night finishing with a positive net, and here
-// a win is a CLEARED RUN — which is not the same thing: a run recorded while
+// a win is a CLEARED RUN, which is not the same thing: a run recorded while
 // still going has the bank above its starting stake and is still a loss for
 // everyone. Reusing the cash aggregate would have produced a number that was
 // right most of the time, which is the worst kind.
@@ -934,7 +975,7 @@ export interface CrunModifierAgg {
  * CREW-WIDE here, unlike the cash packs' per-modifier read, and for a reason
  * that is the mirror image of theirs: money had to be per player because a
  * player-banked table is zero-sum, so a crew total is always zero. A co-op
- * clear is the opposite — it is a property of the TABLE, identical for
+ * clear is the opposite: it is a property of the TABLE, identical for
  * everyone on it, so a per-player split would just be the same number copied
  * once per seat.
  *
@@ -965,7 +1006,24 @@ export interface CrunLedgerLine {
   placement: number;
   isWinner: boolean;
   meta: Record<string, unknown>;
+  /** Always CRUN_SIDE: everyone on a run is on one team. See below. */
+  side: string;
 }
+
+/**
+ * The side every player on a run is recorded as being on.
+ *
+ * A co-op run is ONE team, so every participant row carries the same value and
+ * anything reading the ledger can tell that two people who both "placed 1st"
+ * here did it together rather than against each other. Without this a shared
+ * run reads as a TIE between every pair of players in it, because their rows
+ * are identical by design and a tie is what identical rows have always meant.
+ *
+ * The string itself is opaque and only ever compared for equality, so its value
+ * is not load-bearing; it is spelled out rather than left as a bare "a" so a
+ * row read straight out of the database says what it is.
+ */
+export const CRUN_SIDE = "crew";
 
 /**
  * One row per player, and EVERY PLAYER GETS THE SAME RESULT.
@@ -974,8 +1032,12 @@ export interface CrunLedgerLine {
  * from how the rest of the app ranks: there is no per-player net here to sort
  * by, because there is no per-player money. A cleared run is co-placement 1
  * and a win for everyone at the table; a busted run is an equal LAST for
- * everyone. Ties are competition ranking exactly as elsewhere — it is just
+ * everyone. Ties are competition ranking exactly as elsewhere. It is just
  * that in this pack every player is always in the same tie.
+ *
+ * EVERY LINE CARRIES THE SAME `side`, which is what stops two people who
+ * cleared a run together being recorded as having drawn with each other. See
+ * CRUN_SIDE below, and match_participants.side for the primitive.
  *
  * The bust placement is the roster size, so a busted run reads as last rather
  * than as first, with a floor of 2 for the solo case: a single player who
@@ -1023,6 +1085,6 @@ export function crunLedgerLines(
     }
     const extra = opts?.extraMeta?.(p.id);
     if (extra) for (const [k, v] of Object.entries(extra)) if (v !== null && v !== undefined) meta[k] = v;
-    return { playerId: p.id, placement, isWinner: cleared, meta };
+    return { playerId: p.id, placement, isWinner: cleared, meta, side: CRUN_SIDE };
   });
 }

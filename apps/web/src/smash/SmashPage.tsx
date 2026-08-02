@@ -627,7 +627,7 @@ function LivePlay({
                 Mercy rule
                 <div className="sm-hint">
                   {sd.clinched && !session.mercy
-                    ? "The lead is already unbeatable — turning this on ends the series now."
+                    ? "The lead is already unbeatable. Turning this on ends the series now."
                     : "End the series once the lead is unbeatable."}
                 </div>
               </span>
@@ -703,7 +703,7 @@ function SeriesResult({ sd, heading }: { sd: SdStatus; heading: string }) {
       )}
       <p className="sm-hint" style={{ marginBottom: 8 }}>
         {co
-          ? `Tied on ${winners[0]!.wins} win${winners[0]!.wins === 1 ? "" : "s"} — co-winners.`
+          ? `Tied on ${winners[0]!.wins} win${winners[0]!.wins === 1 ? "" : "s"}, so they are co-winners.`
           : `${sd.battlesPlayed} of ${sd.battleCount} battle${sd.battleCount === 1 ? "" : "s"} played.`}
       </p>
       {sd.standings.map((p) => (
@@ -863,7 +863,7 @@ function KothPlay({
       </div>
       <p className="sm-hint" style={{ marginTop: 10 }}>Tap the winner. Loser goes to the back of the line.</p>
       {koth?.queue.length ? (
-        <p className="sm-hint">Up next: {koth.queue.slice(1).map((id) => nameOf.get(id)).join(", ") || "—"}</p>
+        <p className="sm-hint">Up next: {koth.queue.slice(1).map((id) => nameOf.get(id)).join(", ") || "–"}</p>
       ) : null}
     </div>
   );

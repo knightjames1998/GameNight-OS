@@ -2,7 +2,7 @@
 // additions: structure shape, bye propagation into the losers bracket,
 // the grand-final reset, undo cascading ACROSS brackets, and placements.
 // Run with: pnpm test:bracket (from the repo root; rides the server
-// package's tsx so no new dependency — and no lockfile change — is needed)
+// package's tsx so no new dependency, and no lockfile change, is needed)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {

@@ -244,7 +244,7 @@ beerioGnRouter.post("/beerio-complete", requireAuth, async (req: AuthedRequest, 
   // Beerio's completion marker, the equivalent of the other four packs
   // reaching status "completed": it is what lets a finished room age out of
   // the event TV resolver instead of staying "open" forever. A crew starting
-  // a second tournament on the same code needs nothing here — the engine
+  // a second tournament on the same code needs nothing here: the engine
   // writes state, beerio_sessions.updatedAt moves past this stamp, and the
   // resolver counts the room live again on its own.
   await db.update(events).set({ beerioCompletedAt: new Date() }).where(eq(events.id, eventId));

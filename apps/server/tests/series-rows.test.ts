@@ -6,7 +6,7 @@
 // different, and if anything that counts games forgets to skip it the damage is
 // entirely silent: every player quietly gains a game per series, the winner
 // gains a win, win rates shift, and nothing anywhere errors. Nobody would find
-// that by reading a screen — the numbers would just be slightly wrong forever.
+// that by reading a screen: the numbers would just be slightly wrong forever.
 //
 // So what is pinned here is the exclusion, from both directions:
 //   - a series row must not reach played / wins / byGame / characters / form,

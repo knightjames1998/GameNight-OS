@@ -513,7 +513,7 @@ marioPartyRouter.get("/groups/:id/marioparty-stats", requireAuth, async (req: Au
 
     if (r.map) {
       const m = maps.get(r.map) ?? { map: r.map, games: 0, winners: new Map<string, number>() };
-      // count games per map once (via winner row) — but rows are per player,
+      // count games per map once (via winner row), but rows are per player,
       // so track distinct matches per map separately below.
       if (r.isWinner) m.winners.set(r.displayName, (m.winners.get(r.displayName) ?? 0) + 1);
       maps.set(r.map, m);

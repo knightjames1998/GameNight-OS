@@ -26,7 +26,7 @@ import "./casinorun.css";
 // The Casino Run pack page.
 //
 // The co-op one, and the only casino pack whose screen is NOT the shared money
-// board — because there is no per-player money to put on one. What it shows
+// board, because there is no per-player money to put on one. What it shows
 // instead is ONE bank, the quota it is chasing, and the log of legs that got
 // it there. It still reuses everything about money that is genuinely shared:
 // integer cents through MoneyInput, the stakes-aware formatter, the modifier
@@ -47,7 +47,7 @@ const PACK = SESSION_PACKS.casinorun;
 
 /** The games a leg is usually played at, plus the escape hatch. */
 // Poker is deliberately NOT here. A poker leg is a tournament or a long cash
-// session, not a stretch you step away from with a number — it does not fit
+// session, not a stretch you step away from with a number, so it does not fit
 // the leg shape. A crew that plays some anyway types it under Other.
 const GAMES = ["Blackjack", "Roulette", "Craps", "Other"];
 
@@ -88,6 +88,14 @@ export default function CasinoRunPage() {
       <div className="cg-wrap">
         <div className="cg-top">
           <BackButton className="cg-textbtn" />
+          {/* A way back to the NIGHT this table belongs to, which the
+              history-based Back button cannot promise: somebody who opened a
+              shared link in a fresh tab has no history to pop, so Back sends
+              them to home rather than to the event they were sent to. Standing
+              rule: every pack screen has both. */}
+          <Link to={`/e/${eventId}`} className="cg-textbtn">
+            🎪 Event
+          </Link>
           <Link to={`/e/${eventId}/tv`} className="cg-textbtn">
             📺 TV
           </Link>
@@ -219,8 +227,8 @@ function RunSetup({
           ariaLabel="Opening ante"
         />
         <p className="cg-hint" style={{ marginTop: 8 }}>
-          What it costs to sit in a round. Defaults to 2% of the bank. It RISES on its own — every
-          missed stage puts it up, and Escalating minimum puts it up every five legs — so grinding
+          What it costs to sit in a round. Defaults to 2% of the bank. It RISES on its own: every
+          missed stage puts it up, and Escalating minimum puts it up every five legs, so grinding
           gets more expensive the longer you do it.
         </p>
       </div>
@@ -325,7 +333,7 @@ function RunSetup({
       />
       <p className="cg-hint" style={{ marginTop: 8 }}>
         Leave these empty and the house deals one card to open the run, then another every time you
-        clear a stage — reaching for nastier ones as the quotas climb.
+        clear a stage, reaching for nastier ones as the quotas climb.
       </p>
 
       <button
@@ -393,7 +401,7 @@ function LiveRun({
     if (summary.status === "running") {
       if (
         !window.confirm(
-          `The run is still going — stage ${summary.stage + 1} of ${summary.ladder.stages}. Recording it now counts as a BUST for everyone. Carry on?`,
+          `The run is still going: stage ${summary.stage + 1} of ${summary.ladder.stages}. Recording it now counts as a BUST for everyone. Carry on?`,
         )
       ) {
         return;
@@ -523,7 +531,7 @@ function LiveRun({
                 {p.legs} leg{p.legs === 1 ? "" : "s"}
               </span>
               <span className={`crun-leg__d ${p.delta > 0 ? "crun-leg__d--up" : p.delta < 0 ? "crun-leg__d--down" : ""}`}>
-                {p.legs > 0 ? m.signed(p.delta) : "—"}
+                {p.legs > 0 ? m.signed(p.delta) : "–"}
               </span>
             </div>
           ))}
@@ -548,7 +556,7 @@ function LiveRun({
             End the run &amp; record it
           </button>
           <p className="cg-hint" style={{ marginTop: 8 }}>
-            One row per player goes into the ledger, all at the same result — a cleared run is a win
+            One row per player goes into the ledger, all at the same result: a cleared run is a win
             for everybody, a bust is a loss for everybody. Nothing is recorded until you tap this.
           </p>
         </div>
@@ -577,7 +585,7 @@ function Bank({ summary }: { summary: CrunSummary }) {
 /**
  * The minimum ante, and why it is where it is.
  *
- * A TRACKER, NOT A REFEREE. The app is not deciding what anybody bets — it is
+ * A TRACKER, NOT A REFEREE. The app is not deciding what anybody bets. It is
  * keeping the number the table already agreed on, and applying the rises that
  * the cards and the missed stages call for. That is bookkeeping, the same kind
  * as counting legs, and it is a different thing from computing a gambling
@@ -609,7 +617,7 @@ function AnteStrip({ summary }: { summary: CrunSummary }) {
  * WHICH HOUSE RULES BITE ON THE GAME YOU JUST PICKED.
  *
  * This is the answer to "when do the game-specific cards actually show up".
- * A run hops between tables — roulette, then blackjack, then roulette — so a
+ * A run hops between tables (roulette, then blackjack, then roulette), so a
  * blackjack card sits on the board all run and only applies on blackjack legs.
  * Saying so at the moment the game is chosen is the only place it is useful;
  * on the card strip alone it would be a tag nobody connects to anything.
@@ -639,7 +647,7 @@ function LiveRules({ ids, game }: { ids: string[]; game: string }) {
  * The only decision in the pack that costs money to make: spending bank moves
  * you away from the quota you are chasing, so "buy a hedge and fall further
  * behind, or run the next leg naked" is a real choice rather than free value.
- * Most of them are declarative — the table applies them — and the two that are
+ * Most of them are declarative (the table applies them), and the two that are
  * not touch bookkeeping the app already owns.
  */
 function TokenShop({
@@ -749,7 +757,7 @@ function LegForm({
       <div className="cg-h">Record a leg</div>
       <p className="cg-hint">
         Play a stretch at one game, then type what the bank is up or down. The app never works that
-        out — you do, at the table.
+        out. You do, at the table.
       </p>
 
       <div className="cg-lab" style={{ marginTop: 12 }}>Game</div>
@@ -806,7 +814,7 @@ function LegForm({
 /**
  * DRAFT MODE: deal a hand, the table picks one.
  *
- * Deliberately two calls with nothing stored in between — the hand lives in
+ * Deliberately two calls with nothing stored in between: the hand lives in
  * this component's state until somebody picks. Storing an undecided hand would
  * add a fourth run state that undo, completion and the TV would all need to
  * know about, to save one round trip.

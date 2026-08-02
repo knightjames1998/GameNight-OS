@@ -1,5 +1,5 @@
 // Roulette pack: shared types and pure session logic. The SECOND pack on the
-// cash-game engine (cashgame.ts), and deliberately thin — the engine owns
+// cash-game engine (cashgame.ts), and deliberately thin: the engine owns
 // every number that involves money, so this file owns only what is roulette.
 //
 // Compare it with blackjack.ts: same shape, same length, and neither one

@@ -177,7 +177,7 @@ button.cg-pill { cursor: pointer; }
    A card is a NAME and a SENTENCE, always together, because the sentence is the
    entire return on turning one on: nobody has to remember it or ask. Boon and
    bane get the up/down hues so which way a rule cuts is readable before the
-   words are — those two colours already mean good-for-you and bad-for-you
+   words are: those two colours already mean good-for-you and bad-for-you
    everywhere else in the group, so this is the existing vocabulary, not a new
    one. Severity is three pips rather than a number, so it reads as a texture
    and never competes with the money for attention. */
@@ -297,12 +297,12 @@ button.cg-pill { cursor: pointer; }
    worthless.
 
    THE WALL HAS A BUDGET. The money board is the feature, so the rules are
-   never allowed to grow without limit and push it down — they get DENSER as
+   never allowed to grow without limit and push it down. They get DENSER as
    cards are added, via the data-density ladder ModifierWall sets from the
    count. Name and rule sit on ONE line rather than stacked, which is most of
    the saving: the first version cost 173px for a single card on a 1080p
    screen, against a layout that only had 116px of slack. Measured, not
-   guessed — see the overflow numbers in BACKLOG's bug entry. */
+   guessed. See the overflow numbers in BACKLOG's bug entry. */
 .cg-tv__mods { display: flex; flex-wrap: wrap; gap: 0.8vmin; margin-top: 1vmin; }
 .cg-tv__mod {
   /* SHRINKABLE, so two cards always share one row however long their rules
@@ -323,7 +323,7 @@ button.cg-pill { cursor: pointer; }
   color: var(--gn-dim); font-size: 2.3vmin; font-weight: 700; line-height: 1.3;
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* Three or more: names only — ModifierWall stops rendering rule text at that
+/* Three or more: names only. ModifierWall stops rendering rule text at that
    count, so they pack as chips instead of a stack of sentences. Even all
    sixteen of a pack's cards fit in two short rows this way. */
 .cg-tv__mods[data-density="names"] .cg-tv__mod { padding: 0.4vmin 1.2vmin; border-left-width: 0.7vmin; }

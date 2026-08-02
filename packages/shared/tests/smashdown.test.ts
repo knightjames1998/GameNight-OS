@@ -364,7 +364,7 @@ test("a clean winner takes the series once every battle is played", () => {
 
 test("a tie at the top is CO-WINNERS, ranked by competition ranking", () => {
   // a and b both win two; c wins none. Both are placement 1, and the next
-  // player is 3 — never 2, which is the whole point of competition ranking.
+  // player is 3, never 2, which is the whole point of competition ranking.
   const state = series({
     players: ["a", "b", "c"],
     battleCount: 4,

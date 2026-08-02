@@ -1,6 +1,6 @@
 // Mario Kart pack: the racer roster. The live-session logic itself is the
 // same pure engine the Smash pack uses (roster, per-game placements, night
-// summary) — Mario Kart's "general tracking" is FFA races: pick a racer,
+// summary). Mario Kart's "general tracking" is FFA races: pick a racer,
 // log the finishing order (or just the winner). Only the character list and
 // the wording differ, so this file carries just the roster; everything else
 // is reused from ./smash.ts via the shared session helpers.

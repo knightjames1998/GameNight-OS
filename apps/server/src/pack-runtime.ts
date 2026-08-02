@@ -166,6 +166,13 @@ export interface LedgerLine {
   character?: string | null;
   score?: number | null;
   meta?: unknown;
+  /**
+   * Which side of this match the player was on; see match_participants.side.
+   * Undefined and null both mean "no team structure", which is every pack
+   * except Casino Run today, and is the behaviour that shipped before the
+   * column existed.
+   */
+  side?: string | null;
 }
 
 // ---------- the pure half of materialize ----------
@@ -218,6 +225,7 @@ export function participantRows(args: {
     if (line.character !== undefined) row.character = line.character ?? null;
     if (line.score !== undefined) row.score = line.score;
     if (line.meta !== undefined) row.meta = line.meta as ParticipantRow["meta"];
+    if (line.side !== undefined) row.side = line.side ?? null;
     byUser.set(userId, row);
   }
 

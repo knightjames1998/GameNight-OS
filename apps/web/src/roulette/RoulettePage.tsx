@@ -44,7 +44,7 @@ const cashOutDetail: CashOutDetail<Detail, RlDetail> = {
   initial: (p) => ({ favouriteBet: p.detail.favouriteBet }),
   label: (p) =>
     p.events > 0
-      ? `From the tracker (${p.events} spin${p.events === 1 ? "" : "s"}) — edit if it's off`
+      ? `From the tracker (${p.events} spin${p.events === 1 ? "" : "s"}). Edit if it's off.`
       : "Optional, if anyone remembers",
   render: (d, set, p) => (
     <>
@@ -110,6 +110,14 @@ export default function RoulettePage() {
       <div className="cg-wrap">
         <div className="cg-top">
           <BackButton className="cg-textbtn" />
+          {/* A way back to the NIGHT this table belongs to, which the
+              history-based Back button cannot promise: somebody who opened a
+              shared link in a fresh tab has no history to pop, so Back sends
+              them to home rather than to the event they were sent to. Standing
+              rule: every pack screen has both. */}
+          <Link to={`/e/${eventId}`} className="cg-textbtn">
+            🎪 Event
+          </Link>
           <Link to={`/e/${eventId}/tv`} className="cg-textbtn">
             📺 TV
           </Link>
@@ -142,7 +150,7 @@ export default function RoulettePage() {
             copy={{
               noun: "the wheel",
               trackerHint:
-                "Off by default. On, you log each spin's bet and whether it came in, which is the ONLY way to know anyone's winning streak — nobody remembers that honestly at 1am. Off, you can still type each player's favourite bet on the cash-out form.",
+                "Off by default. On, you log each spin's bet and whether it came in, which is the ONLY way to know anyone's winning streak, because nobody remembers that honestly at 1am. Off, you can still type each player's favourite bet on the cash-out form.",
               waitingHint:
                 "The crew owner or an admin opens the wheel. This screen updates live the moment they do.",
             }}
@@ -199,8 +207,8 @@ function SpinTracker({
         <span className="cg-hint">{session.summary.events} spins</span>
       </div>
       <p className="cg-hint" style={{ marginTop: 4 }}>
-        Pick who, pick the bet, type the stake, tap whether it came in. Feeds the winning streak —
-        which nothing else can — and the favourite bet. It never touches the money, which comes
+        Pick who, pick the bet, type the stake, tap whether it came in. Feeds the winning streak
+        (which nothing else can) and the favourite bet. It never touches the money, which comes
         from buy-ins and cash-outs alone.
       </p>
 

@@ -2,7 +2,7 @@
 //
 // Express 4 does not catch a rejected promise returned from a handler: the
 // rejection escapes as an unhandledRejection and (Node 15+) takes the whole
-// process down — and with it the in-process WebSocket hub, dropping every
+// process down, and with it the in-process WebSocket hub, dropping every
 // connected screen until Render cold-starts (~30-60s). This is the failure
 // the Smash schema-miss surfaced: one missing-column query crash-looped the
 // server instead of returning a 500.
@@ -61,7 +61,7 @@ for (const method of ["use", "all", "get", "post", "put", "patch", "delete", "op
 
 // Last-resort net for anything a request handler can't catch (app-level
 // middleware, WebSocket callbacks, timers): log loudly but keep the process
-// — and the WebSocket hub — alive rather than letting Node exit. The route
+// (and the WebSocket hub) alive rather than letting Node exit. The route
 // wrapper above is the primary fix; these should rarely fire.
 process.on("unhandledRejection", (reason) => {
   console.error("[unhandledRejection]", reason);

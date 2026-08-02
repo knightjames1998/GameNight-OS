@@ -121,7 +121,7 @@
    pack shipped on 2026-07-29 with .bj-root missing from it, so the whole
    pack painted under the status bar and its back button sat behind the
    clock on an installed iOS app. Nothing errored, the page looked fine in
-   a browser and on the TV, and there was no compiler to notice — the same
+   a browser and on the TV, and there was no compiler to notice: the same
    silent-registration shape as the "ping_pong" ledger typo.
 
    So it is structural now. Every route renders exactly ONE shell element
@@ -130,8 +130,8 @@
    pack inherits the inset by existing rather than by being remembered.
 
    :where() drops the #id to ZERO specificity on purpose. Any shell that
-   sets its own padding — the pack TV screens with their calc() insets,
-   .gn-tv's inline padding, beerio's — beats this with a plain class rule
+   sets its own padding (the pack TV screens with their calc() insets,
+   .gn-tv's inline padding, beerio's) beats this with a plain class rule
    and keeps full control, exactly as before. Without :where(), the #root
    in the selector would outrank all of them and silently replace their
    padding. */

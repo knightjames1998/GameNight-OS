@@ -1,6 +1,6 @@
 // THE PLAYABILITY TEST for Casino Run's difficulty ladders.
 //
-// The app never computes a gambling outcome — humans type each leg's net
+// The app never computes a gambling outcome: humans type each leg's net
 // change, and that line does not move. But CRUN_LADDERS makes a DESIGN CLAIM:
 // that Casual is clearable most nights and Degenerate is not. That claim is
 // checkable without the app ever simulating anything at runtime, and it is
@@ -11,7 +11,7 @@
 // asserts the clear rate lands inside the band the ladder was designed for.
 //
 // THE BANDS ARE THE DESIGN. THE NUMBERS SERVE THEM. If a ladder falls outside
-// its band the fix is the ladder's escalation, stage count or leg budget —
+// its band the fix is the ladder's escalation, stage count or leg budget,
 // never a wider band. A band widened to make a failing ladder pass is a test
 // that has been talked out of its own conclusion.
 //
@@ -21,7 +21,7 @@
 // A leg is one wager at slightly negative expected value: 48% to win even
 // money, which is roughly where a real casino sits on the good bets.
 //
-// THE REFERENCE PLAYER BETS TOWARD THE QUOTA — it wagers exactly what it needs
+// THE REFERENCE PLAYER BETS TOWARD THE QUOTA: it wagers exactly what it needs
 // to clear the current stage, capped at the bank and floored at a table
 // minimum. That is not a detail, it is the model's whole character, and the
 // first draft got it wrong: betting a blind fraction of the bank ignores the
@@ -35,7 +35,7 @@
 // The table minimum exists to make the bank MORTAL: pure proportional betting
 // can never reach zero, so without a floor every run is immortal and the whole
 // exercise measures nothing. It is set at 2% of the starting bank, and it is
-// not load-bearing — sweeping it from 1% to 10% moved the clear rate by about
+// not load-bearing: sweeping it from 1% to 10% moved the clear rate by about
 // one point, which was checked before picking a number.
 //
 // What this is NOT is a claim about how a specific crew plays. A table that
@@ -44,7 +44,7 @@
 // the rough magnitude: that these four ladders are genuinely different nights,
 // and that the hardest one really is a joke rather than merely a bit harder.
 //
-// A GRINDING player is modelled too, but not for tuning — for proving the run
+// A GRINDING player is modelled too, but not for tuning: for proving the run
 // can be lost at all. See the attempt-cap tests at the bottom.
 //
 // TOKENS ARE NOT MODELLED. They cost bank and are bought at the table's
@@ -196,7 +196,7 @@ test("THE RUN CAN ACTUALLY BE LOST: a grinding table runs out of shots", () => {
   // The failure this pack shipped with, and the reason attemptsPerStage exists.
   //
   // Under the original rules a missed stage handed out a fresh set of legs
-  // forever, so the only way to lose was the bank hitting zero — which a table
+  // forever, so the only way to lose was the bank hitting zero, which a table
   // betting the table minimum can dodge more or less indefinitely. Measured:
   // an uncapped grinder took ~1100 legs to resolve and 0.5% of runs never
   // resolved at all inside a 4000-leg ceiling. That is not a hard game, it is
@@ -237,7 +237,7 @@ test("the attempt cap punishes GRINDING without punishing bold play", () => {
 test("the leg budget and the attempt count are BOTH levers now", () => {
   // They were not before: with unlimited attempts a missed stage cost nothing,
   // so legsPerStage could be anything and the clear rate never moved. Pinned
-  // in the direction it should go — fewer shots is harder — so a future tune
+  // in the direction it should go (fewer shots is harder), so a future tune
   // is working with a knob that does something.
   const base = CRUN_LADDERS[1]!;
   const oneAttempt = clearRate({ ...base, attemptsPerStage: 1 }, 8000, 0xd1ce);

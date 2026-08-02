@@ -1,8 +1,8 @@
 // Tests for the roulette pack's own rules (packages/shared/src/roulette.ts).
 //
-// The MONEY is not retested here — buy-ins, rebuys, net, placement, the
+// The MONEY is not retested here (buy-ins, rebuys, net, placement, the
 // derived banker and the balance check all live in the shared engine and are
-// covered exhaustively in cashgame.test.ts. That split IS the point of the
+// covered exhaustively in cashgame.test.ts). That split IS the point of the
 // casino group: a second pack does not get a second copy of the money rules,
 // so it does not need a second copy of the money tests either. What is left
 // is roulette's two detail stats, and the two of them are deliberately

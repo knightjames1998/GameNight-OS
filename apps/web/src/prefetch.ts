@@ -80,7 +80,7 @@ export const routes = {
  * The IMPORTERS have to stay hand-written: Vite needs a static literal inside
  * import() to split a chunk, so this cannot be built by looping over the pack
  * registry. What it CAN do is make the table complete by type, which is the
- * half that was actually failing before — a `Record<string, Importer>` accepts
+ * half that was actually failing before: a `Record<string, Importer>` accepts
  * a missing pack (silently prefetching nothing, so the tap just feels slower)
  * and, worse, accepts a MISSPELLED one. Keyed by PackKey it is a compile error
  * to add a pack and forget this file. "beerio" is a format under the Mario Kart

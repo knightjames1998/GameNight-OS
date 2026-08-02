@@ -28,7 +28,7 @@ import type { PickerFormat, PickerGame } from "./GamePicker";
 /**
  * Every pack the picker knows about: the session packs from the shared
  * registry, plus Tournament, which is not a pack in the registry's sense (it
- * has no session, no route segment of its own and no ws type — it is a bracket
+ * has no session, no route segment of its own and no ws type: it is a bracket
  * started from this screen).
  *
  * A union rather than `string` so a caller switching on the key gets narrowing
@@ -53,7 +53,7 @@ export interface PackFormatSpec {
  *
  * DISPLAY ONLY. Unlike `ledger`, `gameName` and `keyPrefix` in the shared
  * registry, a group key is never written to the database, never a join key and
- * never in a URL — it exists to draw a divider and a caption. Rename them,
+ * never in a URL. It exists to draw a divider and a caption. Rename them,
  * reorder them, split them or merge them at any time; the only consequence is
  * where a tile appears on one screen.
  *
@@ -80,7 +80,7 @@ export interface PackSpec {
   cabClass: string;
   /**
    * Which picker section this tile sits under. DISPLAY ONLY and safe to change
-   * whenever — see PACK_GROUPS above. A group with no members renders nothing,
+   * whenever. See PACK_GROUPS above. A group with no members renders nothing,
    * so a new pack only has to set this and it appears in the right place.
    */
   group: PackGroup;

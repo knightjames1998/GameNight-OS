@@ -347,7 +347,7 @@ export function validateFfa(
  * other match-as-unit row in the ledger (a Best Of set, a Ping Pong match) IS
  * the only row its games produce: the games inside it are never materialized,
  * so counting the row counts each game once. A Smashdown series is the
- * opposite — every battle is already a row — so its series row is a SUMMARY of
+ * opposite (every battle is already a row), so its series row is a SUMMARY of
  * results the ledger has already counted. Counting it as a game would inflate
  * every player's games-played by one per series and hand the series winner a
  * phantom win.
@@ -409,8 +409,8 @@ export function burnedFrom(games: readonly SmashGame[]): string[] {
 /**
  * The fighters a player may still be given: the title's roster minus the burn
  * board, minus anyone already picked for the CURRENT battle. Both exclusions
- * matter and they are different things — burned is permanent for the series,
- * taken-now lasts until the battle is recorded — but every assignment mode
+ * matter and they are different things (burned is permanent for the series,
+ * taken-now lasts until the battle is recorded), but every assignment mode
  * (self-select, random, host-assign) has to honour both, so they are applied
  * in one place.
  */

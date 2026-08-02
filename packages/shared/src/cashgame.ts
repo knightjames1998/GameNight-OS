@@ -18,7 +18,7 @@
 //
 // The rule in practice: every amount in this module, in the pack state, in the
 // session jsonb and in match_participants.meta is an integer number of cents.
-// Dollars exist only at the two EDGES — parseCents() turns typed text into
+// Dollars exist only at the two EDGES: parseCents() turns typed text into
 // cents on the way in, formatCents() turns cents into text on the way out.
 // Nothing in between ever holds a decimal.
 // ---------------------------------------------------------------------------
@@ -28,7 +28,7 @@
 // all: rank the players by net, descending, and that IS the placement every
 // other pack already writes. Money never becomes a ledger column; it rides in
 // match_participants.meta. That is the whole reason this shape was chosen, so
-// resist adding a money column later — the leaderboard, the rivalry pages, the
+// resist adding a money column later. The leaderboard, the rivalry pages, the
 // recap card and the profile aggregates all work today because a cash night
 // looks exactly like any other night to the reader.
 
@@ -154,7 +154,7 @@ export function money(stakes?: CashStakes) {
  * "player": a crew member banks. Their net is the exact inverse of everyone
  * else's, the table must sum to zero, and the balance check below applies.
  * "casino": a real casino banks. Every net is independent, nobody is derived,
- * and there is nothing to check — the money that left the table went to a
+ * and there is nothing to check: the money that left the table went to a
  * building, not to another line on the screen.
  */
 export type CashBank = "player" | "casino";
@@ -191,7 +191,7 @@ export interface CashSessionCore {
   bankerId: string | null;
   /**
    * Real money or play money. Optional HERE because the settlement does not
-   * care — a net is a net whatever the chips are worth — and because a session
+   * care (a net is a net whatever the chips are worth) and because a session
    * row written before play money existed has no value. Absent means real.
    */
   stakes?: CashStakes;
@@ -339,14 +339,14 @@ export function rankByNet<T extends { net: number | null }>(
  *
  * THE DERIVED BANKER, and why it is never typed. On a player-banked table the
  * banker IS the other side of every hand, so their net is arithmetically the
- * inverse of everyone else's — typing it in could only ever introduce a
+ * inverse of everyone else's, so typing it in could only ever introduce a
  * disagreement. So it is computed: -(sum of every other player's net). Live,
  * that sum covers only the players who have already cashed out, which is
  * exactly the banker's realised position so far.
  *
  * THE BALANCE CHECK, and what it is actually checking. Because the banker's
  * net is derived, the table sums to zero by construction and there would be
- * nothing to verify — unless the banker ALSO counts their own rack, which is
+ * nothing to verify, unless the banker ALSO counts their own rack, which is
  * what a real banker does at the end of the night. So the banker's buy-in
  * (the float they put up) and cash-out (what came back) are recorded like
  * anyone else's, and the check asks whether the banker's own count agrees
@@ -440,7 +440,7 @@ export function settleCash(core: CashSessionCore, opts?: { final?: boolean }): C
 /**
  * The ledger lines one settled cash session produces: placement from net
  * rank, winner at placement 1. Deliberately the LAST step and deliberately
- * tiny — everything interesting already happened in settleCash, and this is
+ * tiny: everything interesting already happened in settleCash, and this is
  * only the shape the existing ledger wants.
  */
 export interface CashLedgerLine {
@@ -472,7 +472,7 @@ export function cashLedgerLines(
      *
      * Redundant across a session's rows, and that is the right grain anyway:
      * the stat is win rate PER PLAYER per modifier, so it has to sit on the
-     * participant. The alternative — a list on `matches` — has nowhere to go,
+     * participant. The alternative (a list on `matches`) has nowhere to go,
      * since that table has `label` (a single display string Mario Party already
      * uses for the board) and no generic meta column. This needs no schema
      * change and answers the question directly.
@@ -509,7 +509,7 @@ export function cashLedgerLines(
 /**
  * The host-facing sentence for a table that does not balance. Returned rather
  * than thrown, because the host is allowed to record it anyway once they have
- * been told — the app records what a home game did, it does not referee it.
+ * been told: the app records what a home game did, it does not referee it.
  */
 export function balanceWarning(balance: CashBalance, stakes?: CashStakes): string | null {
   if (!balance.checked || balance.balanced) return null;
@@ -523,8 +523,8 @@ export function balanceWarning(balance: CashBalance, stakes?: CashStakes): strin
 
 // ---------- the night, as every casino screen reads it ----------
 //
-// Every pack in the group renders the same money board — on a phone and on a
-// TV — and every one needs the same object to do it. The ONLY thing that
+// Every pack in the group renders the same money board (on a phone and on a
+// TV) and every one needs the same object to do it. The ONLY thing that
 // differs is the pack's own per-player detail, so that is the generic:
 // blackjack's D is { biggestBet, biggestWin, blackjacks }, roulette's is
 // { favouriteBet, bestStreak }. Everything else is shared, which is what stops
@@ -567,7 +567,7 @@ export interface CashSummary<D> {
   modifiers: string[];
   /**
    * cents. The table's standard stake, carried for the same reason as the two
-   * above — a modifier card whose rule quotes a fraction ("the house rakes
+   * above: a modifier card whose rule quotes a fraction ("the house rakes
    * 10%") is rendered as a real figure, and the renderer needs the unit.
    */
   defaultBuyIn: number;
@@ -739,8 +739,8 @@ export function newCashState(opts: {
 // ---------- the lifetime read, and the stakes split ----------
 //
 // THE RULE, and it is the whole of this section: WINS AND PLACEMENTS UNIFY
-// ACROSS STAKES, ONLY MONEY SPLITS. A win is a win — you either finished the
-// night up or you did not, and play money does not make that less true — so
+// ACROSS STAKES, ONLY MONEY SPLITS. A win is a win: you either finished the
+// night up or you did not, and play money does not make that less true, so
 // sessions, nights finished up, win rate, streaks, rebuys and hours are counted
 // once over every night. What mixing genuinely corrupts is the TOTALS: adding a
 // $60 real night to an 80-play-dollar one produces a number that means nothing,
@@ -767,7 +767,7 @@ export interface CashNight {
   stakes?: CashStakes;
   /**
    * The modifier ids that were live. Absent on a plain night and on every night
-   * recorded before modifiers existed — both of which mean the same thing, so
+   * recorded before modifiers existed, both of which mean the same thing, so
    * there is nothing to disambiguate.
    */
   modifiers?: string[];
@@ -906,8 +906,8 @@ export function aggregateCashNights(nights: CashNight[]): CashLifetimeAgg {
 // the ids are already on every participant row beside that player's net.
 //
 // THE UNIT IS THE PLAYER, not the crew. A crew-wide net per modifier would read
-// as zero on every player-banked night — the table is zero-sum by construction,
-// that is the whole point of the balance check — so the only honest grain for
+// as zero on every player-banked night (the table is zero-sum by construction,
+// which is the whole point of the balance check), so the only honest grain for
 // money is one person's own nights.
 //
 // AND IT IS CORRELATION, NOT CAUSE. The app never applies a modifier's effect
@@ -938,7 +938,7 @@ export interface CashModifierAgg {
  *
  * Reuses aggregateCashNights on the FILTERED subset rather than re-deriving
  * anything, so a per-modifier row is the same shape, the same stakes split and
- * the same arithmetic as a lifetime row — there is no second definition of
+ * the same arithmetic as a lifetime row: there is no second definition of
  * "win rate" to drift.
  *
  * A card nobody has played with is simply absent: the deck is display data and

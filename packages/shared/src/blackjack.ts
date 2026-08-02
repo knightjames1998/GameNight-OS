@@ -1,5 +1,5 @@
 // Blackjack pack: shared types and pure session logic. The first pack on the
-// shared cash-game engine (cashgame.ts), which owns everything about money —
+// shared cash-game engine (cashgame.ts), which owns everything about money:
 // buy-ins, rebuys, cash-outs, net, placement by net rank, and the zero-sum
 // balance check. This file owns only what is blackjack.
 //
@@ -7,8 +7,8 @@
 //
 //   1. The CASH-OUT SCREEN (default, and what most nights use). Two
 //      interactions per player per night: a buy-in at the start, a short
-//      cash-out form at the end. Everything in the "free stats" list — net,
-//      win rate, ROI, biggest night, rebuy rate, streaks — falls out of those
+//      cash-out form at the end. Everything in the "free stats" list (net,
+//      win rate, ROI, biggest night, rebuy rate, streaks) falls out of those
 //      two numbers with no further input.
 //   2. The LIVE TRACKER (opt-in, OFF by default, flipped on mid-session by
 //      the host). Per hand: the bet and how it went. That is what turns

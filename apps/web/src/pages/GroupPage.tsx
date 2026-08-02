@@ -486,7 +486,7 @@ export default function GroupPage({
           clipboard is blocked (older webviews) so long-press copy still works. */}
       <section className="gn-card space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="gn-hint">Invite link — anyone with it can join.</span>
+          <span className="gn-hint">Invite link. Anyone with it can join.</span>
           <button onClick={copyInvite} className="gn-btn gn-btn--go" style={{ minHeight: "40px" }}>
             {copied ? "Copied" : "Copy"}
           </button>

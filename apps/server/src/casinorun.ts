@@ -11,7 +11,7 @@
 // change.
 //
 // EVERY AMOUNT HERE IS INTEGER CENTS, through the same cents() boundary the
-// cash packs use — a float is rejected rather than rounded, so a client that
+// cash packs use: a float is rejected rather than rounded, so a client that
 // started doing dollar arithmetic fails loudly instead of quietly.
 
 import { Router } from "express";
@@ -22,6 +22,7 @@ import {
   CRUN_LADDERS,
   crunBuy,
   crunEscalationWeight,
+  claimCrunDraw,
   crunLadder,
   crunLedgerLines,
   crunProgress,
@@ -60,7 +61,7 @@ const SEG = DEF.route;
 const MAX_PLAYERS = 12;
 /**
  * A run needs a real stake. Every quota is a multiple of the starting bank, so
- * a bank of zero makes them all zero and the first leg clears the whole run —
+ * a bank of zero makes them all zero and the first leg clears the whole run,
  * this is the boundary that owns what a valid run looks like, so it is stopped
  * here rather than special-cased in the engine.
  */
@@ -145,7 +146,8 @@ function addDrawn(state: CrunState, drawn: { id: string }[]): string[] {
  * severities as the run climbs, so the last stage's reward is meaner than the
  * first's. A weight override, not a second function.
  */
-function drawOnClear(state: CrunState): string[] {
+function drawOnClear(state: CrunState, clearIndex: number): string[] {
+  if (!claimCrunDraw(state, "clear", clearIndex)) return [];
   const ladder = crunLadder(state.difficulty);
   const p = crunProgress(state);
   return addDrawn(
@@ -159,7 +161,8 @@ function drawOnClear(state: CrunState): string[] {
 }
 
 /** The forced BANE a missed stage costs. A filter, not a second function. */
-function drawOnMiss(state: CrunState): string[] {
+function drawOnMiss(state: CrunState, missIndex: number): string[] {
+  if (!claimCrunDraw(state, "miss", missIndex)) return [];
   return addDrawn(
     state,
     drawModifiers({ deck: available(state), count: 1, filter: (m) => m.kind === "bane" }),
@@ -228,7 +231,7 @@ casinoRunRouter.post(`/events/:eventId/${SEG}`, requireAuth, async (req: AuthedR
 
   const difficulty: CrunDifficulty =
     (CRUN_LADDERS.find((l) => l.key === req.body?.difficulty)?.key as CrunDifficulty) ?? "standard";
-  // NO STAKES PARAMETER. Casino Run is play money, always — see the field
+  // NO STAKES PARAMETER. Casino Run is play money, always. See the field
   // comment on CrunState. A body that sends one is ignored rather than
   // honoured, so a stale client cannot open a real-money run.
   const ante = cents(req.body?.ante);
@@ -273,7 +276,7 @@ casinoRunRouter.post(`/events/:eventId/${SEG}`, requireAuth, async (req: AuthedR
  *
  * The response carries `drew` so the client can say what the table just picked
  * up. Draws happen HERE rather than on the client because they are part of the
- * recorded state — a card drawn on one phone has to appear on every other one
+ * recorded state: a card drawn on one phone has to appear on every other one
  * and on the TV, which is what makes them the server's business.
  */
 casinoRunRouter.post(`/${SEG}/:eventId/leg`, requireAuth, async (req: AuthedRequest, res) => {
@@ -308,9 +311,16 @@ casinoRunRouter.post(`/${SEG}/:eventId/leg`, requireAuth, async (req: AuthedRequ
   const after = crunProgress(state);
 
   // Two of the five draw paths, decided from the walk rather than re-deduced.
+  // Each is CLAIMED against the transition it belongs to (this run's 3rd clear,
+  // its 2nd miss) rather than against the leg that caused it, so undoing the
+  // leg and entering a corrected one cannot deal a second card for the same
+  // clear, and a retried request cannot either. See claimCrunDraw.
   let drew: string[] = [];
-  if (after.cleared > before.cleared && after.status === "running") drew = drawOnClear(state);
-  else if (after.missed > before.missed) drew = drawOnMiss(state);
+  if (after.cleared > before.cleared && after.status === "running") {
+    drew = drawOnClear(state, after.cleared);
+  } else if (after.missed > before.missed) {
+    drew = drawOnMiss(state, after.missed);
+  }
 
   res.json({ ...(await rt.saveState(g.loaded, "live", g.origin)), drew });
 });
@@ -320,7 +330,7 @@ casinoRunRouter.post(`/${SEG}/:eventId/leg`, requireAuth, async (req: AuthedRequ
  *
  * Not a leg: it moves the bank but spends no leg budget, and it is recorded in
  * the same log so undo gives the money back with nothing else to unwind. The
- * cost is deliberately NOT checked against the bank — spending your last chips
+ * cost is deliberately NOT checked against the bank, because spending your last chips
  * on a hedge is a legitimate way to end a run, and the floor check catches it
  * like anything else.
  */
@@ -385,7 +395,7 @@ casinoRunRouter.post(`/${SEG}/:eventId/modifiers`, requireAuth, async (req: Auth
 /**
  * DRAFT MODE: deal a hand and let the table pick one.
  *
- * Two calls, deliberately stateless in between — this deals a hand and returns
+ * Two calls, deliberately stateless in between: this deals a hand and returns
  * it WITHOUT storing anything, and the table's pick comes back through the
  * override route above. Storing an undecided hand would mean a fourth run
  * state ("waiting on a draft") that undo, completion and the TV would all have
@@ -430,6 +440,9 @@ async function materialize(
     placement: l.placement,
     isWinner: l.isWinner,
     meta: l.meta,
+    // Everybody on a run is on one team, so every row carries the same side.
+    // This is the ONLY writer of the column today; see match_participants.side.
+    side: l.side,
   }));
 
   return rt.materializeUnit({
@@ -439,7 +452,7 @@ async function materialize(
     idx: 0,
     sessionKey: state.sessionKey,
     // The label is the RUN's own headline, which is what matches.label is for:
-    // one display string. The modifier ids are not in here — they are on every
+    // one display string. The modifier ids are not in here; they are on every
     // participant row, where the per-player stat can actually read them.
     label: summarizeCrun(state).headline,
     format: "casino_run",
@@ -453,8 +466,8 @@ async function materialize(
  * Record the run. Unlike the cash packs there is no balance to check: a co-op
  * bank cannot disagree with itself, because there is only one of it.
  *
- * A run that is still RUNNING can be recorded — a night ends when people go
- * home, not when the maths resolves — but the host is warned first, because
+ * A run that is still RUNNING can be recorded (a night ends when people go
+ * home, not when the maths resolves), but the host is warned first, because
  * an unfinished run materializes as a loss. 409-then-force, the same shape the
  * cash packs use for a table that does not balance.
  */
@@ -468,7 +481,7 @@ casinoRunRouter.post(`/${SEG}/:eventId/complete`, requireAuth, async (req: Authe
 
   if (!req.body?.force && summary.status === "running") {
     res.status(409).json({
-      error: `That run is still going — stage ${summary.stage + 1} of ${summary.ladder.stages}. Recording it now counts as a bust for everyone.`,
+      error: `That run is still going: stage ${summary.stage + 1} of ${summary.ladder.stages}. Recording it now counts as a bust for everyone.`,
       summary,
     });
     return;
@@ -560,7 +573,7 @@ casinoRunRouter.get(`/groups/:id/${SEG}-stats`, requireAuth, async (req: AuthedR
     .sort((a, b) => b.cleared - a.cleared || b.deepest - a.deepest || b.runs - a.runs);
 
   // The crew's best comeback, named. It is the number this pack is actually
-  // about — "we were down to eleven dollars" — so it gets a headline.
+  // about ("we were down to eleven dollars"), so it gets a headline.
   let best: { name: string; comeback: number } | null = null;
   for (const p of byUser.values()) {
     for (const r of p.runs) {

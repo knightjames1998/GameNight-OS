@@ -300,6 +300,25 @@ export const matchParticipants = pgTable(
     // Party pack stores the bonus stars a player won here, e.g.
     // { bonusStars: ["Minigame Star", "Coin Star"] }. Null otherwise.
     meta: jsonb("meta").$type<Record<string, unknown>>(),
+    // WHICH SIDE OF THIS MATCH THE PLAYER WAS ON. This is the team primitive,
+    // and it is deliberately a property of the MATCH rather than of the pack:
+    // the same two people are teammates in one game and opponents in the next,
+    // so a pack-level flag would be wrong the first time a crew plays doubles
+    // and then singles.
+    //
+    //   null            no team structure. Every row written before this
+    //                   column existed, and every free-for-all result forever.
+    //                   Two nulls are RIVALS, which is exactly the behaviour
+    //                   that shipped before this column: placements decide.
+    //   a string        names the side. Two players sharing a non-null value
+    //                   were TEAMMATES in that match; different non-null
+    //                   values are opponents.
+    //
+    // The value is opaque and never parsed: it only has to be equal or not.
+    // Casino Run writes one constant for everybody, because a co-op run is one
+    // team. Doubles ping pong, beer pong, cornhole and foosball will write two
+    // values per match, and need no further mechanism than this.
+    side: text("side"),
   },
   (t) => [
     uniqueIndex("match_participants_match_user_uq").on(t.matchId, t.userId),

@@ -140,7 +140,7 @@ export interface EventRecap {
 
 // What /e/:id/tv resolves to: the night's one TV address, answering "what is
 // being played right now" so the big screen can follow the night on its own.
-// `now` is null before anyone starts anything, which is not an error — it is
+// `now` is null before anyone starts anything, which is not an error. It is
 // the normal state of the evening's first twenty minutes, and it renders the
 // lobby.
 export type EventTvNow =

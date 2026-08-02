@@ -5,7 +5,7 @@
 // /mariokart/tv/:eventId, /tv/:bracketId, /beerio/tv/:code). Putting a game on
 // the big screen therefore meant knowing which pack was being played, opening
 // that pack on a phone, finding its TV button and getting THAT url onto the
-// TV — again, by hand, every time the crew switched games.
+// TV, again by hand, every time the crew switched games.
 //
 // This endpoint answers one question instead: what is being played on this
 // event RIGHT NOW? The client renders that pack's own TV view inside the
@@ -98,7 +98,7 @@ export interface TvCandidates {
  * broken screen. Lower index wins a tie.
  *
  * The pack half comes from the registry, in registry order, so a new pack
- * cannot be missing from it — an absent key would silently rank LAST and lose
+ * cannot be missing from it: an absent key would silently rank LAST and lose
  * every tie, which is the sort of thing nobody would ever think to test.
  */
 const TIEBREAK: readonly string[] = ["bracket", "beerio", ...SESSION_PACK_KEYS];
@@ -117,7 +117,7 @@ const at = (d: Date | null) => (d ? d.getTime() : 0);
  *
  * Three rules, in order:
  *   1. Anything completed is out. Not "recently completed", not "completed but
- *      it is the newest thing" — out. That is what makes the TV fall back to
+ *      it is the newest thing". It is out. That is what makes the TV fall back to
  *      the lobby (or to whatever else is still going) when the host ends a
  *      session, with no recency window to tune.
  *   2. Of what remains, the most recently TOUCHED wins. Touched, not started:
@@ -129,7 +129,7 @@ const at = (d: Date | null) => (d ? d.getTime() : 0);
  * caller: it counts as live when a room code is set on the event AND that
  * room's state has been written since the last completion stamp (or there is
  * no stamp yet). A room with no beerio_sessions row is not a room, so it never
- * wins — otherwise the TV would happily show a spinner for a room that does
+ * wins, because otherwise the TV would happily show a spinner for a room that does
  * not exist.
  */
 export function resolveNow(c: TvCandidates): TvNow {
@@ -171,8 +171,8 @@ export function resolveNow(c: TvCandidates): TvNow {
 // keyed the other way round, in the recap card.
 //
 // The hand-written one was WRONG, and this is the bug the registry exists to
-// prevent: it mapped "ping_pong", a spelling that exists nowhere in the app —
-// Ping Pong's ledger key is "pingpong" — so the lookup missed, the `if (pack)`
+// prevent: it mapped "ping_pong", a spelling that exists nowhere in the app
+// (Ping Pong's ledger key is "pingpong"), so the lookup missed, the `if (pack)`
 // below dropped the row, and a live Ping Pong session was invisible to the
 // event TV. The screen sat on the lobby while a game was being played, and
 // nothing errored, because a missing key is just undefined.
@@ -256,7 +256,7 @@ eventTvRouter.get("/event/:eventId", async (req, res) => {
   });
 
   // The lobby is the most common state of the evening's first twenty minutes,
-  // because the TV goes on before the games do — and it is on screen again
+  // because the TV goes on before the games do, and it is on screen again
   // between every game after that, which is the other half of its job: once
   // anything has been played it shows the night so far rather than an empty
   // waiting screen. Both reads are skipped entirely while a game is live,

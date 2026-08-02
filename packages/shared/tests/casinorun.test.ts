@@ -4,8 +4,8 @@
 // casinorun-sim.test.ts. What is here is the machinery: bank arithmetic, quota
 // maths, stage progression, and the two things most likely to be subtly wrong.
 //
-// THE UNDO TESTS ARE THE POINT OF THIS FILE. Everything about a run — the
-// bank, the stage, the attempt, whether it is over — is DERIVED from the leg
+// THE UNDO TESTS ARE THE POINT OF THIS FILE. Everything about a run (the
+// bank, the stage, the attempt, whether it is over) is DERIVED from the leg
 // log, so undo is a pop and a re-derive. That is the design, and these tests
 // exist to prove it holds at the case that would break a stored-counter
 // implementation: undoing the leg that busted the run. A pack that maintained
@@ -23,6 +23,7 @@ import {
   crunQuota,
   crunQuotas,
   crunBuy,
+  claimCrunDraw,
   crunRecord,
   crunUndo,
   drawModifiers,
@@ -205,7 +206,7 @@ test("running out of legs costs the attempt, not the run", () => {
   assert.equal(p.bank, 10050);
 });
 
-test("RUNNING OUT OF ATTEMPTS ENDS THE RUN — the second way to lose", () => {
+test("RUNNING OUT OF ATTEMPTS ENDS THE RUN, the second way to lose", () => {
   // The thing this pack shipped without. Standard gives 3 attempts of 5 legs
   // at each stage; a table that nibbles its way through all fifteen without
   // reaching the quota is done, with money still on the table.
@@ -532,7 +533,7 @@ test("Shave the target takes a tenth off THIS stage only", () => {
   assert.equal(crunProgress(s).quota, 10350, "a tenth off");
 
   // 10350 is now reachable with less. Clear it, and the NEXT stage is at full
-  // price again — one purchase must not discount the whole rest of the run.
+  // price again: one purchase must not discount the whole rest of the run.
   leg(s, 2850); // bank 10000 - 2500 cost + 2850 = 10350
   const p = crunProgress(s);
   assert.equal(p.cleared, 1);
@@ -713,7 +714,7 @@ test("a run with no modifiers writes no modifiers key", () => {
 
 test("a forced bane draw only ever returns banes", () => {
   // What a missed stage costs. It is a FILTER on the existing draw, not a
-  // second function — the whole reason drawModifiers takes one.
+  // second function, which is the whole reason drawModifiers takes one.
   for (let i = 0; i < 200; i++) {
     const got = drawModifiers({
       deck: modifiersFor("casino_run"),
@@ -757,4 +758,90 @@ test("an escalated draw really does reach for the nastier cards", () => {
 test("a single-stage ladder does not divide by zero on the weighting", () => {
   const w = crunEscalationWeight(0, 1);
   assert.equal(Number.isFinite(w({ severity: 2 } as never)), true);
+});
+
+// ---------- one transition, one card ----------
+//
+// A leg that clears a stage earns a house rule and a leg that burns the last
+// attempt forces a bane, both decided by comparing the derived progress before
+// and after the leg. That is right until the leg is UNDONE: popping it and
+// entering a corrected one makes the SAME transition a second time, so the run
+// collected two cards for one clear. A retried request did the same thing.
+// The claim is keyed on the transition rather than on the leg, so both are
+// idempotent by construction.
+
+test("a stage clear can only ever be claimed once", () => {
+  const s = run();
+  assert.equal(claimCrunDraw(s, "clear", 1), true);
+  assert.equal(claimCrunDraw(s, "clear", 1), false, "the same clear paid out twice");
+  assert.equal(claimCrunDraw(s, "clear", 1), false);
+  // A DIFFERENT stage is a different transition and still pays.
+  assert.equal(claimCrunDraw(s, "clear", 2), true);
+  assert.equal(claimCrunDraw(s, "clear", 2), false);
+});
+
+test("clears and misses are claimed separately", () => {
+  // They draw from different pools (a clear escalates, a miss forces a bane),
+  // so sharing one book would make a miss silently cancel a clear's card.
+  const s = run();
+  assert.equal(claimCrunDraw(s, "clear", 1), true);
+  assert.equal(claimCrunDraw(s, "miss", 1), true);
+  assert.equal(claimCrunDraw(s, "clear", 1), false);
+  assert.equal(claimCrunDraw(s, "miss", 1), false);
+});
+
+test("UNDO AND REDO OF THE CLEARING LEG DEALS ONE CARD, NOT TWO", () => {
+  // The reported bug, end to end against the real progress derivation.
+  const s = run({ startingBank: 10000, difficulty: "standard" });
+  const quota = crunQuota(crunLadder(s.difficulty), s.startingBank, 0);
+  const draws: number[] = [];
+
+  /** What the leg route does: play, then claim if a clear happened. */
+  const play = (delta: number) => {
+    const before = crunProgress(s);
+    crunRecord(s, { delta, game: "blackjack", playerId: "a", at: new Date().toISOString() });
+    const after = crunProgress(s);
+    if (after.cleared > before.cleared && after.status === "running") {
+      if (claimCrunDraw(s, "clear", after.cleared)) draws.push(after.cleared);
+    }
+  };
+
+  play(quota - s.startingBank);
+  assert.equal(crunProgress(s).cleared, 1);
+  assert.deepEqual(draws, [1], "the clearing leg deals exactly one card");
+
+  // Wrong number typed. Undo it and enter the corrected one, which still clears.
+  crunUndo(s);
+  assert.equal(crunProgress(s).cleared, 0);
+  play(quota - s.startingBank + 500);
+  assert.equal(crunProgress(s).cleared, 1);
+  assert.deepEqual(draws, [1], "the corrected leg dealt a SECOND card for the same clear");
+});
+
+test("a retried leg request cannot deal a second card either", () => {
+  // Same guard, different cause: the response is lost and the client resends.
+  const s = run();
+  assert.equal(claimCrunDraw(s, "clear", 1), true);
+  assert.equal(claimCrunDraw(s, "clear", 1), false);
+});
+
+test("an in-flight run with no claim book reads as nothing claimed", () => {
+  // No migration: the field is absent on every run started before this shipped,
+  // and jsonb state has no schema to change. An old run gets the guard from
+  // here on, which is the honest half-measure and is worth stating.
+  const s = run();
+  delete s.drawnFor;
+  assert.equal(claimCrunDraw(s, "clear", 1), true);
+  assert.equal(claimCrunDraw(s, "clear", 1), false);
+});
+
+test("undo does NOT release a claim, deliberately", () => {
+  // Undo pops a leg; it does not un-deal a card that is already on the table
+  // and already being played under. So a transition pays out once, ever.
+  const s = run();
+  const quota = crunQuota(crunLadder(s.difficulty), s.startingBank, 0);
+  crunRecord(s, { delta: quota - s.startingBank, game: "craps", playerId: "a", at: "x" });
+  assert.equal(claimCrunDraw(s, "clear", 1), true);
+  crunUndo(s);
+  assert.equal(claimCrunDraw(s, "clear", 1), false, "undo released the claim");
 });

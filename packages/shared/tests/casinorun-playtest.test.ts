@@ -10,14 +10,14 @@
 // table; that line has not moved and this file does not move it. What this
 // does is model, at DESIGN time, what a table would plausibly do with each
 // card, and measure the result. The alternative is a deck rated by feel, and
-// the first pass at that was wrong for 21 of 36 cards — including a severity-1
+// the first pass at that was wrong for 21 of 36 cards, including a severity-1
 // card that took the clear rate from 53% to zero, and two severity-3 cards
 // that moved it by less than a point.
 //
 // WHAT AN EFFECT MEANS. Each card is expressed as what a human applying it
 // would do to a leg's economics: a multiplier on wins or losses, a shift in
 // the odds, a floor or a cap on the bet, a refund. These are approximations
-// and they are allowed to be — the numbers that matter are RELATIVE, and the
+// and they are allowed to be: the numbers that matter are RELATIVE, and the
 // buckets are wide enough that a card would have to be badly mis-modelled to
 // land in the wrong one.
 // ---------------------------------------------------------------------------
@@ -217,7 +217,7 @@ function impact(id: string): number {
 
 test("every card in the deck is modelled, so none can be added unmeasured", () => {
   for (const m of MODIFIERS) {
-    assert.ok(EFFECTS[m.id], `${m.id} has no playtest model — add one and re-measure its severity`);
+    assert.ok(EFFECTS[m.id], `${m.id} has no playtest model. Add one and re-measure its severity`);
   }
   for (const id of Object.keys(EFFECTS)) {
     assert.ok(MODIFIERS.some((m) => m.id === id), `${id} is modelled but not in the deck`);
@@ -225,7 +225,7 @@ test("every card in the deck is modelled, so none can be added unmeasured", () =
 });
 
 test("NO CARD IS DECORATION: every one moves a run's outcome", () => {
-  // The bar is deliberately low — a severity-1 card is allowed to be small —
+  // The bar is deliberately low (a severity-1 card is allowed to be small),
   // but a card that changes nothing at all is a sentence on a screen. Two
   // failed this before the 2026-08-02 pass and were replaced.
   const dead: string[] = [];
@@ -235,7 +235,7 @@ test("NO CARD IS DECORATION: every one moves a run's outcome", () => {
 
 test("SEVERITY TELLS THE TRUTH: the rating matches the measured swing", () => {
   // 12 points or more is a 3, four to twelve a 2, under four a 1. Before this
-  // was asserted the ratings were guesses and 21 of 36 were wrong — including
+  // was asserted the ratings were guesses and 21 of 36 were wrong, including
   // a severity 1 that took the clear rate to zero.
   const bucket = (pts: number) => (pts >= 12 ? 3 : pts >= 4 ? 2 : 1);
   const wrong: string[] = [];
@@ -254,14 +254,14 @@ test("SEVERITY TELLS THE TRUTH: the rating matches the measured swing", () => {
 test("a BANE hurts and a BOON helps, in the direction the card claims", () => {
   // The finding that made this necessary: three cards that raise the minimum
   // bet were classed as banes, and raising the minimum HELPS a table that has
-  // to grow its bank. A card whose sign is wrong is worse than a weak one —
+  // to grow its bank. A card whose sign is wrong is worse than a weak one:
   // it is a lie on the screen.
   const wrongWay: string[] = [];
   for (const m of MODIFIERS) {
     const eff = EFFECTS[m.id]!;
     // BOTH styles, taking whichever moves more. Checking bold alone let three
     // "banes" through that did nothing to a committed table and actively
-    // HELPED a grinding one — the sign was wrong and the test could not see it.
+    // HELPED a grinding one: the sign was wrong and the test could not see it.
     const bold = rate(eff, "bold") - BASE.bold;
     const small = rate(eff, "small") - BASE.small;
     const delta = Math.abs(bold) >= Math.abs(small) ? bold : small;
@@ -279,7 +279,7 @@ test("a BANE hurts and a BOON helps, in the direction the card claims", () => {
 });
 
 test("the game is SCALE-FREE: the size of the bank changes nothing", () => {
-  // Everything — quotas, the ante, token prices — is a fraction of the
+  // Everything (quotas, the ante, token prices) is a fraction of the
   // starting bank, so a P$20 run and a P$2000 run should play identically.
   // This is what lets the default move from P$100 to P$200 without retuning a
   // single number, and it would break silently if anything picked up a
@@ -315,7 +315,7 @@ test("a table that plays SMALL is punished, which is the whole point", () => {
   }
 });
 
-/** Not an assertion — the table, printed, so a tuning pass has the numbers. */
+/** Not an assertion: the table, printed, so a tuning pass has the numbers. */
 test("REPORT: every card's measured impact", () => {
   const rows = MODIFIERS.map((m: Modifier) => {
     const eff = EFFECTS[m.id]!;

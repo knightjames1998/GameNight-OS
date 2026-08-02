@@ -3,8 +3,8 @@
 // cashgame.ts and everything about the money SCREENS already lives in
 // apps/web/src/casino/.
 //
-// THE ONE IDEA THIS FILE OWNS IS THE SHOOTER'S HAND. Longest roll — how many
-// rolls a shooter survives before sevening out — is the iconic craps bragging
+// THE ONE IDEA THIS FILE OWNS IS THE SHOOTER'S HAND. Longest roll (how many
+// rolls a shooter survives before sevening out) is the iconic craps bragging
 // right, and it is the reason this pack's tracker earns its keep: a hand
 // length is an ordering fact that cannot be reconstructed from a cash-out, and
 // a craps table already has everyone watching the shooter, so tapping Roll is
@@ -17,7 +17,7 @@
 // is exactly the kind of two-step that is right until it isn't. Here undo pops
 // one event and re-derives, so it cannot leave the board disagreeing with the
 // log. The only thing carried alongside the log is `shooterId`, because after
-// a seven-out the dice have passed to somebody who has no events yet — and
+// a seven-out the dice have passed to somebody who has no events yet, and
 // even that is restored from the popped event rather than guessed.
 
 import {
@@ -65,7 +65,7 @@ export interface CrHand {
 export interface CrDetail {
   /**
    * Longest CLOSED hand, in rolls. Typed on the cash-out form when the tracker
-   * was off — unlike roulette's win streak, a hand length is genuinely
+   * was off: unlike roulette's win streak, a hand length is genuinely
    * something a table remembers and argues about, so a typed box is a fair
    * record rather than an invitation to guess.
    */
@@ -173,7 +173,7 @@ export function nextShooter(state: CrSessionState, afterId: string | null): stri
     const cand = state.roster[(from + k) % state.roster.length];
     if (cand && stillIn.has(cand.id)) return cand.id;
   }
-  // Only the current shooter is left, so the dice come back to them — which is
+  // Only the current shooter is left, so the dice come back to them, which is
   // what happens at a real table with one person still playing.
   return eligible[0]!.id;
 }
@@ -200,7 +200,7 @@ export function crapsRecord(state: CrSessionState, kind: CrEventKind, at: string
  *
  * THE CASE THAT MATTERS: undoing a seven-out must REOPEN that hand and give
  * the dice back to whoever sevened out, not merely decrement something. It is
- * correct here by construction rather than by care — the hands are derived
+ * correct here by construction rather than by care: the hands are derived
  * from the log, so dropping the event reopens the hand on its own, and the
  * shooter is read straight off the event that was popped. Same for a pass.
  * Undoing a roll or a point leaves the dice exactly where they are.
@@ -258,7 +258,7 @@ export function detailFromEvents(
  * A player's details as they should be READ: whatever the host typed wins, per
  * FIELD, and the tracker fills the gaps. Biggest bet and biggest win are
  * typed-only, because this pack's tracker follows the dice rather than the
- * betting — they are kept for consistency with blackjack and roulette.
+ * betting. They are kept for consistency with blackjack and roulette.
  */
 export function crDetail(
   state: CrSessionState,

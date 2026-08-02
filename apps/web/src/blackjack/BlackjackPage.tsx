@@ -38,7 +38,7 @@ const cashOutDetail: CashOutDetail<Detail, BjDetail> = {
   initial: (p) => ({ ...p.detail }),
   label: (p) =>
     p.events > 0
-      ? `From the tracker (${p.events} hand${p.events === 1 ? "" : "s"}) — edit if it's off`
+      ? `From the tracker (${p.events} hand${p.events === 1 ? "" : "s"}). Edit if it's off.`
       : "Optional, if anyone remembers",
   render: (d, set) => (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 6 }}>
@@ -95,6 +95,14 @@ export default function BlackjackPage() {
       <div className="cg-wrap">
         <div className="cg-top">
           <BackButton className="cg-textbtn" />
+          {/* A way back to the NIGHT this table belongs to, which the
+              history-based Back button cannot promise: somebody who opened a
+              shared link in a fresh tab has no history to pop, so Back sends
+              them to home rather than to the event they were sent to. Standing
+              rule: every pack screen has both. */}
+          <Link to={`/e/${eventId}`} className="cg-textbtn">
+            🎪 Event
+          </Link>
           {/* The NIGHT's TV address, not this pack's: the big screen follows
               whatever is being played (see SmashPage). */}
           <Link to={`/e/${eventId}/tv`} className="cg-textbtn">
@@ -129,7 +137,7 @@ export default function BlackjackPage() {
             copy={{
               noun: "the table",
               trackerHint:
-                "Off by default. On, you log each hand's bet and result, and biggest bet, biggest win and blackjacks fill themselves in. Off, you type those three on the cash-out form instead — nothing is lost either way.",
+                "Off by default. On, you log each hand's bet and result, and biggest bet, biggest win and blackjacks fill themselves in. Off, you type those three on the cash-out form instead, and nothing is lost either way.",
               waitingHint:
                 "The crew owner or an admin opens the table. This screen updates live the moment they do.",
             }}

@@ -6,8 +6,8 @@ import BackButton from "../BackButton";
 import { useBracketLive } from "../useLiveUpdates";
 
 // The Broadcast view. Design target: a 75" TV at couch distance. A full
-// bracket tree is unreadable from across a room, so — like the Beerio pack's
-// TV mode — this surfaces what actually matters live: the matchups on deck
+// bracket tree is unreadable from across a room, so (like the Beerio pack's
+// TV mode) this surfaces what actually matters live: the matchups on deck
 // and the latest results, in type sized to read from the couch. Styled in
 // the Arcade language; branded packs bring their own TV mode.
 

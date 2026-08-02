@@ -13,7 +13,7 @@ import "./casinorun.css";
 //
 // THE BANK IS THE VIEW. Every other casino pack's TV is a per-player board;
 // this one has no per-player anything, so the one number the whole room is
-// watching gets the whole screen — 19vmin, which is more than three times the
+// watching gets the whole screen at 19vmin, which is more than three times the
 // money board's biggest figure and readable from a sofa without trying.
 // Underneath it: the quota it is chasing and how far off it is, the stage
 // ladder, the cards that are live, and whose leg is in progress at what.
@@ -88,7 +88,7 @@ export default function CasinoRunTvPage({ eventId: propEventId }: { eventId?: st
               {m.fmt(s.toGo)} to go
             </div>
             {/* Attempts and the ante share ONE line. They had a row each and
-                that pushed the footer 23px off a 1080p screen — the money
+                that pushed the footer 23px off a 1080p screen. The money
                 board's lesson, relearned: adding to a TV means re-measuring
                 it, because rendering and fitting are different questions. */}
             <div className="crun-tv__quota" style={{ fontSize: "2.6vmin" }}>

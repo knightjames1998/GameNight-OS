@@ -10,9 +10,9 @@
 //    exactly that.
 // 2. THE DRAW, which is the part with behaviour. It is written to be reused by
 //    Casino Run (escalating draws on clearing a quota, a forced bane on missing
-//    one, a hand of three for draft mode), so the awkward cases — asking for
+//    one, a hand of three for draft mode), so the awkward cases (asking for
 //    more than exists, a filter that empties the pool, a weighting that zeroes
-//    it — are the ones worth pinning now rather than when that session hits
+//    it) are the ones worth pinning now rather than when that session hits
 //    them.
 
 import { test } from "node:test";
@@ -32,6 +32,7 @@ import {
   sanitizeModifierIds,
   severityPips,
   SEVERITY_LABEL,
+  RETIRED_MODIFIER_NAMES,
   type Modifier,
 } from "../src/index.js";
 
@@ -44,11 +45,11 @@ import {
  * in the file header and above.
  */
 const SHIPPED_IDS = [
-  // "any" — live at every table INCLUDING a co-op run with one shared bank.
+  // "any": live at every table INCLUDING a co-op run with one shared bank.
   "escalating_min", "house_rake", "ante_surge", "losses_double", "min_bet_up",
   "pot_tithe", "rake_on_wins", "table_max", "on_the_house", "call_your_shot",
   "hot_streak", "free_round", "insurance", "bank_match", "house_gift", "no_pushes",
-  // "cash" — need per-player money, so never in a run.
+  // "cash": need per-player money, so never in a run.
   "leader_tax", "everyone_antes", "mercy_chip", "underdog_bonus",
   // per table. A run holds these and they bite on that table's legs.
   "hot_colour", "hot_number", "neighbours_only", "zero_pays_table", "no_outside_bets",
@@ -97,7 +98,7 @@ test("A RUN DRAWS EVERY TABLE'S CARDS, because it plays every table", () => {
     assert.ok(pool.includes(id), `a run cannot draw ${id}`);
   }
   // And it is still exactly half boons, which is the balance that matters most
-  // here — a run's whole texture comes from its draws.
+  // here: a run's whole texture comes from its draws.
   const boons = modifiersFor("casino_run").filter((m) => m.kind === "boon").length;
   assert.equal(boons * 2, modifiersFor("casino_run").length, "the run pool is not 50/50");
 });
@@ -139,7 +140,7 @@ test("every card is renderable: a name, a one-line rule, a valid kind and severi
 
 test("THE DECK IS EXACTLY HALF BOONS, overall and in the any pool", () => {
   // Not decoration, and not aspiration. The first cut shipped 11 boons to 13
-  // banes, and the "any" pool — the only pool Casino Run draws from — was 4 to
+  // banes, and the "any" pool (the only pool Casino Run draws from) was 4 to
   // 8, so a co-op run got hurt by its own random draws twice as often as it
   // got helped. Nothing else in the app would have noticed. Both halves are
   // asserted, because fixing only the total would leave the pool skewed.
@@ -172,8 +173,31 @@ test("every pack's own pool has both kinds in it", () => {
 test("a retired id is gone from the deck and never reused", () => {
   for (const id of RETIRED_IDS) {
     assert.equal(modifierById(id), undefined, `${id} is still in the deck`);
-    // And it still renders, because runs played under it are in the ledger.
-    assert.equal(modifierName(id), id);
+  }
+});
+
+test("EVERY retired card still has a display name", () => {
+  // The id is permanent, so a night played under a retired card has rows in the
+  // ledger forever. Before RETIRED_MODIFIER_NAMES existed those rows rendered
+  // the raw id, so a stats panel printed "phones_down" at a player: the app
+  // leaking a database value onto a screen. Retiring a card means naming it
+  // here in the same commit, and this is what enforces that.
+  for (const id of RETIRED_IDS) {
+    const name = modifierName(id);
+    assert.notEqual(name, id, `retired card "${id}" renders as its raw id`);
+    assert.ok(name.length > 0);
+    // A name, not a rule: the card cannot be turned on, so a screen only ever
+    // needs what to call it.
+    assert.equal(RETIRED_MODIFIER_NAMES[id], name);
+  }
+});
+
+test("a retired name never collides with a live card's id", () => {
+  // The lookup order is live deck, then retired, then the raw id. A retired
+  // entry for an id that came back would silently shadow nothing (the deck
+  // wins), but the entry itself would be a lie about what that id means.
+  for (const id of Object.keys(RETIRED_MODIFIER_NAMES)) {
+    assert.equal(modifierById(id), undefined, `${id} is both retired and live`);
   }
 });
 
@@ -205,7 +229,7 @@ test("an ANTE-based bonus is filled in with a real amount", () => {
 
 test("a WIN-based bonus stays a percentage, because the app never sees a hand", () => {
   // A rake takes a slice of what was actually won. The app has no idea what
-  // that was and must not pretend to — so these render as a percentage and the
+  // that was and must not pretend to, so these render as a percentage and the
   // humans do the arithmetic, exactly like every other modifier.
   const fmt = (c: number) => `P$${(c / 100).toFixed(2)}`;
   assert.equal(
@@ -245,11 +269,13 @@ test("the severity pips have a stated meaning", () => {
   }
 });
 
-test("an unknown id renders as itself rather than as a blank", () => {
-  // A card retired from the deck still has rows in the ledger, and the stats
-  // panel has to draw them as SOMETHING.
-  assert.equal(modifierName("retired_card"), "retired_card");
-  assert.equal(modifierById("retired_card"), undefined);
+test("an id this build has never heard of renders as itself, not as a blank", () => {
+  // The last-resort fallback. This is NOT how a deliberately retired card is
+  // handled (that is RETIRED_MODIFIER_NAMES above); it is the honest answer for
+  // a row written by a newer deploy and read by an older one, where the only
+  // thing this build knows about the card is its id.
+  assert.equal(modifierName("card_from_the_future"), "card_from_the_future");
+  assert.equal(modifierById("card_from_the_future"), undefined);
   assert.equal(modifierName("hot_streak"), "Hot streak");
 });
 

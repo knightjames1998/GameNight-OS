@@ -105,7 +105,7 @@ export default function EventPage({ me }: { me: Me | null }) {
     setBusy(true);
     const seq = ++reqSeq.current;
     try {
-      // An emptied input means "clear the date" — the event goes back to TBD.
+      // An emptied input means "clear the date": the event goes back to TBD.
       const fresh = await api<EventDetail>(`/api/events/${id}`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -452,7 +452,7 @@ function tvLabel(event: EventDetail): string {
 }
 
 // The event's game > format menu. Session packs (Beerio, Smash, Mario Kart
-// general) are plain links — those pages gate hosting themselves and show a
+// general) are plain links: those pages gate hosting themselves and show a
 // "waiting for the host" screen to members. Only Tournament needs gating
 // here, because starting a bracket happens on this screen.
 function eventGames(

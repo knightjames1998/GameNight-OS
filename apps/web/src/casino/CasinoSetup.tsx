@@ -12,8 +12,8 @@ import "./casino.css";
 
 // The setup screen every casino pack opens a table with.
 //
-// Blackjack, roulette, craps and poker ask the SAME questions — who is
-// banking, what is the buy-in, who is at the table, is the tracker on — so
+// Blackjack, roulette, craps and poker ask the SAME questions (who is
+// banking, what is the buy-in, who is at the table, is the tracker on), so
 // this is one screen with per-pack copy rather than four screens that drift.
 // Anything genuinely pack-specific goes in `extra`.
 
@@ -163,7 +163,7 @@ export default function CasinoSetup({
         </div>
         <p className="cg-hint" style={{ marginTop: 8 }}>
           {bank === "player"
-            ? `A crew member is the house. Their net is worked out from everyone else's, never typed in, and ${copy.noun} has to add up to zero — if it doesn't, this screen says by how much.`
+            ? `A crew member is the house. Their net is worked out from everyone else's, never typed in, and ${copy.noun} has to add up to zero. If it doesn't, this screen says by how much.`
             : "The house is a real casino, so nobody here is the banker and every net stands on its own. Nothing to balance."}
         </p>
       </div>

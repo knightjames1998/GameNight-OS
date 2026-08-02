@@ -1,7 +1,7 @@
 // Tests for the shared cash-game engine (packages/shared/src/cashgame.ts) and
 // the blackjack rules that sit on it.
 //
-// Pure logic only, no Drizzle stub, no database — which is the point of the
+// Pure logic only, no Drizzle stub, no database, which is the point of the
 // engine being pure in the first place. Everything money-shaped in the four
 // casino packs funnels through the functions asserted here, so this is the
 // file that stops a wrong number reaching a leaderboard.
@@ -497,7 +497,7 @@ test("the active house rules land on EVERY participant, not once on the session"
   });
   // Per participant is the grain the stat needs: win rate per modifier is per
   // PLAYER, so the ids have to sit beside that player's own net. There is also
-  // nowhere else for them to go without a schema change — matches has `label`
+  // nowhere else for them to go without a schema change: matches has `label`
   // (one display string, already Mario Party's) and no generic meta column.
   assert.equal(lines.length, 2);
   for (const l of lines) {
@@ -589,7 +589,7 @@ test("win rate and net are counted per player per house rule", () => {
   assert.equal(silence.players[1]!.money.real.net, -500);
 
   // The second card on that one night is its own row, with only that night in
-  // it — a card is not credited with nights it was not on.
+  // it: a card is not credited with nights it was not on.
   const loser = rows.find((r) => r.id === "loser_buys")!;
   assert.equal(loser.nights, 1);
   assert.equal(loser.players[0]!.money.real.net, -1000);

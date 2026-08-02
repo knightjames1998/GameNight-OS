@@ -1,8 +1,8 @@
 // Tests for the STAKES flag: real money vs play money.
 //
 // THE RULE THIS FILE EXISTS TO PIN: wins and placements UNIFY across stakes,
-// only money SPLITS. A win is a win — you either finished the night up or you
-// did not, and play money does not make that less true — while adding a $60
+// only money SPLITS. A win is a win: you either finished the night up or you
+// did not, and play money does not make that less true, while adding a $60
 // real net to an 80-play-chip one produces a number that means nothing.
 //
 // Getting it the other way round would be silent in both directions. Splitting

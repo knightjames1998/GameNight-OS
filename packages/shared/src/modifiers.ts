@@ -5,8 +5,8 @@
 // never computes their effect. The humans apply them at the table.
 //
 // This is the whole design rather than a limitation to be fixed later. The
-// moment the app enforces a modifier's payout maths — "blackjack pays double"
-// — it has to know what every hand paid, which means logging every hand, which
+// moment the app enforces a modifier's payout maths ("blackjack pays double")
+// it has to know what every hand paid, which means logging every hand, which
 // means the minimal-input promise the entire casino group is built on is gone.
 // A card that says "a natural pays twice the usual" costs one tap at setup and
 // zero taps for the rest of the night; a card the app enforces costs a tap per
@@ -20,7 +20,7 @@
 //
 // `id` JOINS THE NEVER-CHANGE LIST alongside `ledger`, `gameName` and
 // `keyPrefix` in packs.ts, for exactly the same reason: it is written into
-// match_participants.meta, so renaming one does not error — it silently orphans
+// match_participants.meta, so renaming one does not error. It silently orphans
 // every stat built on it and the card's history simply disappears. Names, rule
 // text, kind, severity and appliesTo are all display or selection concerns and
 // are safe to change whenever. Only the id is permanent, and the shipped ids
@@ -39,7 +39,7 @@ export type ModKind = "boon" | "bane";
  * from tests/casinorun-playtest.test.ts, which models what a table would do
  * with it and reports the change in a run's clear rate: 12 points or more is a
  * 3, four to twelve is a 2, under four is a 1. Before that pass the ratings
- * were vibes and they were wrong in both directions — "Everyone antes" was a
+ * were vibes and they were wrong in both directions. "Everyone antes" was a
  * severity 1 that took the clear rate to zero, while two severity 3s did
  * almost nothing. The playtest asserts the buckets, so a new card cannot be
  * rated by feel either.
@@ -48,13 +48,13 @@ export type ModSeverity = 1 | 2 | 3;
 
 /**
  * The severity, spelled out. Every screen that draws the pips draws this as
- * its label too — a row of dots with no legend is decoration, and this deck
+ * its label too: a row of dots with no legend is decoration, and this deck
  * shipped with exactly that until somebody had to ask what they meant.
  */
 export const SEVERITY_LABEL: Record<ModSeverity, string> = {
-  1: "Light — a bit of flavour",
-  2: "Medium — changes how you bet",
-  3: "Heavy — reshapes the night",
+  1: "Light: a bit of flavour",
+  2: "Medium: changes how you bet",
+  3: "Heavy: reshapes the night",
 };
 
 /** "●●○" for a severity, for a screen that wants the pips as a string. */
@@ -77,8 +77,8 @@ export interface Modifier {
    * Where the card is live. THREE cases, and the distinction matters:
    *
    *   "any"        every table, INCLUDING a co-op run with one shared bank.
-   *   "cash"       the cash tables only. These need per-player money — a
-   *                rebuy, a cash-out, an individual position on the night —
+   *   "cash"       the cash tables only. These need per-player money: a
+   *                rebuy, a cash-out, an individual position on the night,
    *                none of which exists in Casino Run, where there is one
    *                bank and no buy-ins at all.
    *   ["craps"]    that TABLE. A Casino Run holds these too, because a run
@@ -93,7 +93,7 @@ export interface Modifier {
   /**
    * A multiple of the TABLE STAKE, for cards whose rule quotes an amount.
    *
-   * "Pays a bonus" is not a rule, it is an argument waiting to happen — the
+   * "Pays a bonus" is not a rule, it is an argument waiting to happen. The
    * first cut of this deck was full of them and nobody could have applied one
    * without stopping to negotiate. So a card that involves money now names a
    * FRACTION, and `modifierRule` turns it into an actual figure using the
@@ -101,7 +101,7 @@ export interface Modifier {
    * "pays a bonus" or even "pays 100%".
    *
    * WHAT IT IS A PERCENTAGE OF is named on screen, never left implied, and the
-   * word "stake" is deliberately not used for it — `stakes` already means real
+   * word "stake" is deliberately not used for it: `stakes` already means real
    * money vs play money everywhere in this group, and one word doing two jobs
    * is the same trap "floor" fell into. The unit is:
    *   Casino Run  -> the MINIMUM ANTE, which rises, so these cards get dearer
@@ -117,7 +117,7 @@ export interface Modifier {
    *
    *   "ante"  a multiple of the table minimum. Rendered as a real figure.
    *   "win"   a share of what the hand actually paid. The app has no idea what
-   *           that was — it never sees a hand — so this renders as a plain
+   *           that was (it never sees a hand), so this renders as a plain
    *           percentage and the humans apply it.
    *   "pot"   a share of the pot, same reasoning.
    *
@@ -133,8 +133,8 @@ export interface Modifier {
  * severities, half of them pack-agnostic.
  *
  * THE 50/50 SPLIT IS ASSERTED, NOT ASPIRED TO. The first cut shipped 11 boons
- * to 13 banes, and worse, the "any" pool — the only pool Casino Run draws from
- * — was 4 boons to 8. So a co-op run got punished twice as often as it got
+ * to 13 banes, and worse, the "any" pool (the only pool Casino Run draws from)
+ * was 4 boons to 8. So a co-op run got punished twice as often as it got
  * helped by its own random draws, which is a miserable way to lose. The split
  * is now enforced overall AND within the "any" pool by tests, so a future card
  * cannot quietly tip it again.
@@ -149,7 +149,7 @@ export const MODIFIERS: Modifier[] = [
   // THE BAR FOR AN "ANY" CARD: it has to make sense at a table where there is
   // no per-player money at all. Casino Run has ONE bank, no buy-ins and no
   // cash-outs, so a card about "your rebuy" or "whoever is up on the night" is
-  // meaningless there — it reads as a rule nobody can follow. Three cards
+  // meaningless there: it reads as a rule nobody can follow. Three cards
   // failed that bar on 2026-08-02 (Mercy chip's rebuy, Leader tax and Underdog
   // bonus, both of which need individual positions) and were moved to the cash
   // tables, where those things exist.
@@ -207,19 +207,50 @@ const BY_ID = new Map(MODIFIERS.map((m) => [m.id, m]));
 export const modifierById = (id: string): Modifier | undefined => BY_ID.get(id);
 
 /**
- * The name for a recorded id, falling back to the id itself.
+ * WHERE A RETIRED CARD'S DISPLAY NAME GOES.
  *
- * The fallback is the point: a card retired from the deck still has history in
- * the ledger, and a stats panel must render that row as something rather than
- * as a blank. It is also the reason ids never change — a rename makes every
- * past row fall through to this branch.
+ * An id is permanent (it is written into match_participants.meta), so a card
+ * taken out of the deck still has rows in the ledger forever. Without an entry
+ * here modifierName falls through to the raw id and a stats panel prints
+ * "phones_down" at a player, which is the app leaking a database value onto a
+ * screen. The card is gone; its history is not, and history has to stay
+ * readable.
+ *
+ * RETIRING A CARD MEANS ADDING ITS NAME HERE in the same commit as the
+ * deletion. Nothing else: no rule text, no severity, no kind. A retired card
+ * cannot be turned on, so all a screen ever needs from it is what to call it.
  */
-export const modifierName = (id: string): string => BY_ID.get(id)?.name ?? id;
+export const RETIRED_MODIFIER_NAMES: Record<string, string> = {
+  // Retired 2026-08-02, round three: these policed the ROOM rather than the
+  // board, which is not what this app tracks.
+  loser_buys: "Loser buys",
+  bust_penalty: "Bust penalty",
+  silence: "Silence",
+  phones_down: "Phones down",
+  last_to_sit: "Last to sit",
+  high_roller: "High roller",
+  // Retired 2026-08-02 by the playtest: all three measured at zero effect.
+  dealers_choice: "Dealer's choice",
+  no_walking: "No walking",
+  push_pays: "Pushes pay",
+};
+
+/**
+ * The name for a recorded id: the live deck, then the retired names above,
+ * then the id itself.
+ *
+ * The last fallback stays because it is the only honest answer for an id this
+ * build has never heard of (a row written by a newer deploy, read by an older
+ * one). It is a backstop, not the plan: a card retired on purpose belongs in
+ * RETIRED_MODIFIER_NAMES, and a name that never changes is why ids never do.
+ */
+export const modifierName = (id: string): string =>
+  BY_ID.get(id)?.name ?? RETIRED_MODIFIER_NAMES[id] ?? id;
 
 /**
  * The rule text with `{bonus}` filled in.
  *
- * `unit` is the table's own stake in integer cents — Casino Run passes its
+ * `unit` is the table's own stake in integer cents. Casino Run passes its
  * live minimum ante, the cash packs pass their default buy-in. Given one, a
  * card reads "pays P$2.00"; given none, it falls back to "pays 100% of the
  * minimum", which is still followable. A card with no `bonusPct` comes back
@@ -239,7 +270,7 @@ export function modifierRule(
   const basis = mod.bonusOf ?? "ante";
   // A share of the win or the pot cannot be a figure: the app never sees a
   // hand, so it does not know what was won. It prints the percentage and the
-  // humans do the rest — the same line the whole deck holds.
+  // humans do the rest, the same line the whole deck holds.
   if (basis !== "ante") {
     return mod.rule.replace("{bonus}", `${Math.round(pct * 100)}% of the ${basis}`);
   }
@@ -257,7 +288,7 @@ export function modifierRule(
 /**
  * The ledger keys a CASINO RUN leg can be played at.
  *
- * A run hops between games — roulette, then blackjack, then roulette again —
+ * A run hops between games (roulette, then blackjack, then roulette again),
  * so its pool is the UNION of every table's cards, not just the pack-agnostic
  * ones. It shipped drawing only "any" cards, which meant the game-specific
  * half of the deck could never appear in the one mode that actually plays all
@@ -350,13 +381,13 @@ export interface DrawOptions {
  * TAKES A DECK, A COUNT, A FILTER AND A WEIGHTING rather than knowing anything
  * about "setup", because this session is not its only caller. Casino Run draws
  * on clearing a quota (escalating), draws a forced bane on missing one, and
- * deals a hand of three for draft mode — all of which are this function with
+ * deals a hand of three for draft mode, all of which are this function with
  * different arguments. Hard-coding the setup case would have meant writing it
  * again three times.
  *
  * ASKING FOR MORE THAN EXISTS RETURNS THE WHOLE POOL rather than looping
  * forever or returning duplicates. That is the case a caller hits by accident
- * — "draw 5" on a pack with four eligible cards left — and silently spinning
+ * ("draw 5" on a pack with four eligible cards left), and silently spinning
  * would be the worst possible answer.
  */
 export function drawModifiers(opts: DrawOptions): Modifier[] {

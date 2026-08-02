@@ -14,7 +14,7 @@ import "./craps.css";
 
 // The craps pack page. Third on the shared casino screens, so everything about
 // money is ../casino and what is written here is the copy, four cash-out
-// fields, and THE SHOOTER — the one idea this pack owns.
+// fields, and THE SHOOTER: the one idea this pack owns.
 
 type Session = CrSessionState & {
   status: "setup" | "live" | "completed";
@@ -43,7 +43,7 @@ const cashOutDetail: CashOutDetail<Detail, CrDetail> = {
   initial: (p) => ({ ...p.detail }),
   label: (p) =>
     p.events > 0
-      ? `From the tracker (${p.events} tap${p.events === 1 ? "" : "s"}) — edit if it's off`
+      ? `From the tracker (${p.events} tap${p.events === 1 ? "" : "s"}). Edit if it's off.`
       : "Optional, if anyone remembers",
   render: (d, set) => (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 6 }}>
@@ -104,6 +104,14 @@ export default function CrapsPage() {
       <div className="cg-wrap">
         <div className="cg-top">
           <BackButton className="cg-textbtn" />
+          {/* A way back to the NIGHT this table belongs to, which the
+              history-based Back button cannot promise: somebody who opened a
+              shared link in a fresh tab has no history to pop, so Back sends
+              them to home rather than to the event they were sent to. Standing
+              rule: every pack screen has both. */}
+          <Link to={`/e/${eventId}`} className="cg-textbtn">
+            🎪 Event
+          </Link>
           <Link to={`/e/${eventId}/tv`} className="cg-textbtn">
             📺 TV
           </Link>
@@ -136,7 +144,7 @@ export default function CrapsPage() {
             copy={{
               noun: "the table",
               trackerHint:
-                "Off by default. On, one tap per roll follows the shooter, and longest roll — the number everyone actually argues about — is worked out for you. Off, you type longest roll and points made on the cash-out form instead.",
+                "Off by default. On, one tap per roll follows the shooter, and longest roll (the number everyone actually argues about) is worked out for you. Off, you type longest roll and points made on the cash-out form instead.",
               waitingHint:
                 "The crew owner or an admin opens the table. This screen updates live the moment they do.",
             }}
@@ -162,8 +170,8 @@ export default function CrapsPage() {
 
 // ---------- the opt-in shooter tracker ----------
 //
-// Three taps at the table plus handing the dice on. Everything else — the hand
-// lengths, the record, who shoots next — is derived from the log, so this panel
+// Three taps at the table plus handing the dice on. Everything else (the hand
+// lengths, the record, who shoots next) is derived from the log, so this panel
 // only has to send taps.
 
 function ShooterTracker({
@@ -211,7 +219,7 @@ function ShooterTracker({
             </button>
           </div>
           <button className="cg-btn cg-btn--ghost" style={{ marginTop: 8 }} disabled={busy} onClick={() => tap("sevenOut")}>
-            Seven out — pass the dice
+            Seven out, pass the dice
           </button>
           <p className="cg-hint" style={{ marginTop: 6 }}>
             A point made keeps the hand going. Seven out closes it at {shooter.rolls}{" "}
@@ -246,7 +254,7 @@ function ShooterTracker({
         </button>
       )}
       <p className="cg-hint" style={{ marginTop: 4 }}>
-        Undo takes back one tap, whatever it was — a seven-out reopens the hand and gives the dice
+        Undo takes back one tap, whatever it was: a seven-out reopens the hand and gives the dice
         back.
       </p>
     </div>

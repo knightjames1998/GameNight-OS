@@ -476,7 +476,7 @@ const CASINO_RUN_GAME_NAME = "Casino Run";
  * The casino group's lifetime panel: MONEY, which no other pack has.
  *
  * ONE panel for all four packs, because every figure below falls out of the
- * BUY-IN AND THE CASH-OUT ALONE — the design promise of the whole group. A
+ * BUY-IN AND THE CASH-OUT ALONE, the design promise of the whole group. A
  * night played the minimal-input way produces all of it, so there is nothing
  * per-pack to compute. Each pack's own detail stats are the only extras and
  * arrive through `extras`, read from the raw meta bags the endpoint returns.
@@ -578,7 +578,7 @@ function CasinoPanel({
   const rows2 = data.byPlayer;
   const tone = (n: number) => (n > 0 ? "var(--gn-yes)" : n < 0 ? "var(--gn-p1)" : undefined);
 
-  /** "up $60 lifetime, down P$80 lifetime" — both on ONE line, per stakes. */
+  /** "up $60 lifetime, down P$80 lifetime": both on ONE line, per stakes. */
   const lifetime = (p: CashRow) =>
     (["real", "play"] as const)
       .map((k) => p.money[k])
@@ -669,8 +669,8 @@ function CasinoPanel({
  * Win rate and net PER HOUSE RULE.
  *
  * The one stat the modifier deck creates, and the only one it can honestly
- * support. The app never applies a modifier's effect — the humans do that at
- * the table — so this cannot say a card caused anything; it says how the nights
+ * support. The app never applies a modifier's effect (the humans do that at
+ * the table), so this cannot say a card caused anything; it says how the nights
  * that carried it actually went, which is the question people ask out loud
  * ("we're cursed with Silence on") and previously could only argue about.
  *
@@ -814,7 +814,7 @@ function CrapsPanel(props: PackPanelProps) {
       pack="craps"
       empty="No craps recorded yet. Run a table and the money shows up here."
       /**
-       * LONGEST ROLL IS A CREW RECORD, not a personal stat — James's call, and
+       * LONGEST ROLL IS A CREW RECORD, not a personal stat. James's call, and
        * it is the right one: at a real table the number everybody knows is who
        * has held the dice longest, full stop. So it gets its own line above the
        * money, naming the holder.
@@ -828,7 +828,7 @@ function CrapsPanel(props: PackPanelProps) {
         if (!best) return null;
         return (
           <div className="gn-champ" style={{ padding: "12px 16px" }}>
-            <div className="gn-lab">Longest hand — crew record</div>
+            <div className="gn-lab">Longest hand (crew record)</div>
             <div className="flex items-baseline justify-between gap-2" style={{ marginTop: 2 }}>
               <span className="font-bold truncate">🎲 {best.name}</span>
               <span className="font-bold shrink-0" style={{ color: "var(--gn-gold)" }}>
@@ -864,7 +864,7 @@ function CrapsPanel(props: PackPanelProps) {
  * That panel is built entirely on per-player net, and this pack has none: one
  * shared bank, one shared result, everyone at the same placement. What a run
  * produces instead is a clear rate, how deep the crew has ever got, and the
- * comeback — which is the number this pack is actually about.
+ * comeback, which is the number this pack is actually about.
  */
 interface CrunStats {
   runs: number;
@@ -918,7 +918,7 @@ function CasinoRunPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
 
       {data.best && data.best.comeback > 0 && (
         <div className="gn-champ" style={{ padding: "12px 16px" }}>
-          <div className="gn-lab">Biggest comeback — crew record</div>
+          <div className="gn-lab">Biggest comeback (crew record)</div>
           <div className="flex items-baseline justify-between gap-2" style={{ marginTop: 2 }}>
             <span className="font-bold truncate">🎰 {data.best.name}&rsquo;s run</span>
             <span className="font-bold shrink-0" style={{ color: "var(--gn-gold)" }}>

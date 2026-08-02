@@ -48,7 +48,9 @@ interface Rivalry {
     wins: number;
     losses: number;
     ties: number;
-    byGame: { name: string; meetings: number; myWins: number; theirWins: number }[];
+    /** Meetings on the SAME side. Not a win, not a loss, not a draw. */
+    together: number;
+    byGame: { name: string; meetings: number; myWins: number; theirWins: number; together: number }[];
     /** Signed: positive is my run, negative is theirs, 0 is neither. */
     currentStreak: number;
     myLongestStreak: number;
@@ -64,7 +66,7 @@ interface Rivalry {
   };
 }
 
-type Outcome = "win" | "loss" | "tie";
+type Outcome = "win" | "loss" | "tie" | "together";
 
 const pct = (r: number) => `${Math.round(r * 100)}%`;
 
@@ -76,7 +78,7 @@ const shortDay = (iso: string | null) => {
     : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 };
 
-/** Crew route: /g/:id/member/:userId — everything scoped to that crew. */
+/** Crew route: /g/:id/member/:userId, everything scoped to that crew. */
 export default function MemberPage({ me }: { me: Me | null }) {
   const { id: groupId, userId } = useParams();
   // Shares GroupPage's cache entry, so arriving here from the crew page
@@ -97,7 +99,7 @@ export default function MemberPage({ me }: { me: Me | null }) {
   );
 }
 
-/** Friend route: /friend/:userId — aggregated across every crew you share. */
+/** Friend route: /friend/:userId, aggregated across every crew you share. */
 export function FriendPage({ me }: { me: Me | null }) {
   const { userId } = useParams();
   if (!userId) return null;
@@ -274,12 +276,19 @@ function Profile({ stats, title, subtitle }: { stats: SideStats; title: string; 
 
 // ---------- Rivalry pieces ----------
 
-// You are always teal, the opponent is always red/coral — here and on the card.
+// You are always teal, the opponent is always red/coral, here and on the card.
 const P1 = "var(--gn-teal, #2dd4bf)"; // me
 const P2 = "var(--gn-coral, #ff5a5f)"; // them
 
 function RecordBanner({ r }: { r: Rivalry }) {
-  const { wins, losses, ties, meetings } = r.h2h;
+  const { wins, losses, ties, together, meetings } = r.h2h;
+  // Read as one sentence under the big number: "9 meetings, 1 tied, 4 as
+  // teammates". Each clause disappears when it is zero, so a crew that has
+  // never played a co-op night sees exactly what it saw before.
+  const notes = [
+    ties ? `${ties} tied` : "",
+    together ? `${together} as teammates` : "",
+  ].filter(Boolean);
   return (
     <div
       className="text-center space-y-1"
@@ -306,7 +315,7 @@ function RecordBanner({ r }: { r: Rivalry }) {
           </div>
           <div className="gn-hint" style={{ fontSize: "12px" }}>
             {meetings} meeting{meetings === 1 ? "" : "s"}
-            {ties ? ` · ${ties} tied` : ""}
+            {notes.length ? ` · ${notes.join(" · ")}` : ""}
           </div>
         </>
       )}
@@ -333,7 +342,9 @@ function H2hExtras({ r }: { r: Rivalry }) {
           Last meeting{shortDay(lastMeeting.date) ? ` ${shortDay(lastMeeting.date)}` : ""} in{" "}
           <b style={{ color: "var(--gn-ink)" }}>{lastMeeting.game}</b>
           {" · "}
-          {lastMeeting.outcome === "tie" ? (
+          {lastMeeting.outcome === "together" ? (
+            "same team"
+          ) : lastMeeting.outcome === "tie" ? (
             "tied"
           ) : (
             <b style={{ color: lastMeeting.outcome === "win" ? P1 : P2 }}>
@@ -354,11 +365,18 @@ function H2hExtras({ r }: { r: Rivalry }) {
           <span className="gn-hint" style={{ fontSize: 12 }}>last {last5.length}</span>
           <span style={{ display: "flex", gap: 4 }}>
             {last5.map((m, i) => {
-              const color = m.outcome === "win" ? P1 : m.outcome === "loss" ? P2 : "var(--gn-dim)";
+              const color =
+                m.outcome === "win"
+                  ? P1
+                  : m.outcome === "loss"
+                    ? P2
+                    : m.outcome === "together"
+                      ? "var(--gn-gold, #ffc857)"
+                      : "var(--gn-dim)";
               return (
                 <span
                   key={i}
-                  title={`${m.game}${shortDay(m.date) ? ` · ${shortDay(m.date)}` : ""}`}
+                  title={`${m.outcome === "together" ? "Same team · " : ""}${m.game}${shortDay(m.date) ? ` · ${shortDay(m.date)}` : ""}`}
                   style={{
                     width: 20,
                     height: 20,
@@ -373,7 +391,13 @@ function H2hExtras({ r }: { r: Rivalry }) {
                     flexShrink: 0,
                   }}
                 >
-                  {m.outcome === "win" ? "W" : m.outcome === "loss" ? "L" : "T"}
+                  {m.outcome === "win"
+                    ? "W"
+                    : m.outcome === "loss"
+                      ? "L"
+                      : m.outcome === "together"
+                        ? "\u2295"
+                        : "T"}
                 </span>
               );
             })}
@@ -492,9 +516,22 @@ function H2hByGame({ r }: { r: Rivalry }) {
         <div key={g.name} className="flex justify-between items-baseline">
           <span style={{ fontWeight: 700 }}>{g.name}</span>
           <span style={{ fontWeight: 800 }}>
-            <span style={{ color: P1 }}>{g.myWins}</span>
-            <span className="gn-hint"> - </span>
-            <span style={{ color: P2 }}>{g.theirWins}</span>
+            {/* A game only ever played as teammates has no record to show, so
+                it says so instead of printing a meaningless 0 - 0. */}
+            {g.myWins + g.theirWins === 0 && g.together > 0 ? (
+              <span className="gn-hint" style={{ fontWeight: 700 }}>
+                {g.together} as teammates
+              </span>
+            ) : (
+              <>
+                <span style={{ color: P1 }}>{g.myWins}</span>
+                <span className="gn-hint"> - </span>
+                <span style={{ color: P2 }}>{g.theirWins}</span>
+                {g.together > 0 && (
+                  <span className="gn-hint" style={{ fontWeight: 700 }}> +{g.together} together</span>
+                )}
+              </>
+            )}
           </span>
         </div>
       ))}
@@ -598,7 +635,9 @@ function drawRivalryCard(r: Rivalry, groupName: string): HTMLCanvasElement {
     ctx.fillStyle = C.dim;
     ctx.font = `700 17px ${FONT_BODY}`;
     ctx.fillText(
-      `${r.h2h.meetings} meeting${r.h2h.meetings === 1 ? "" : "s"}${r.h2h.ties ? ` · ${r.h2h.ties} tied` : ""}`,
+      `${r.h2h.meetings} meeting${r.h2h.meetings === 1 ? "" : "s"}${r.h2h.ties ? ` · ${r.h2h.ties} tied` : ""}${
+        r.h2h.together ? ` · ${r.h2h.together} as teammates` : ""
+      }`,
       W / 2,
       y + 130,
     );

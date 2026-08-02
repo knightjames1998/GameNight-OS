@@ -22,7 +22,7 @@ export interface PickerGame {
   emoji: string;
   cabClass?: string;
   /**
-   * Which section this tile sits under. DISPLAY ONLY — see PACK_GROUPS in
+   * Which section this tile sits under. DISPLAY ONLY. See PACK_GROUPS in
    * packs.ts. Optional so a caller that builds a one-off list (a test, or a
    * future screen showing a single pack) does not have to care.
    */

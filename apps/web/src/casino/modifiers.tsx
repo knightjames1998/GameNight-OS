@@ -17,7 +17,7 @@ import {
 // THE LINE THESE SCREENS HOLD: the app displays and records modifiers, it never
 // computes their effect (packages/shared/src/modifiers.ts spells out why). So
 // every component here is a renderer. Nothing below touches a bet, a payout or
-// a net, and the strip is deliberately READ-ONLY once a table is open — the
+// a net, and the strip is deliberately READ-ONLY once a table is open: the
 // cards were agreed before the first hand, and a rule that could change halfway
 // through would make the recorded ids a lie about what the night was played
 // under.
@@ -57,7 +57,7 @@ function PipLegend() {
 /**
  * A card's rule with any {bonus} resolved to a real figure.
  *
- * `unit` is the table's own stake — Casino Run passes its live minimum ante,
+ * `unit` is the table's own stake. Casino Run passes its live minimum ante,
  * so these cards get dearer as it rises; the cash packs pass the default
  * buy-in. Without one the card still reads as a percentage rather than a gap.
  */
@@ -72,7 +72,7 @@ function ruleOf(m: Modifier, unit?: number | null, stakes?: "real" | "play", uni
 /**
  * WHICH GAMES a card is live on, when that is not "all of them".
  *
- * Only worth drawing where a table plays more than one game — which is Casino
+ * Only worth drawing where a table plays more than one game, which is Casino
  * Run, and only Casino Run. At a blackjack table every card in the pool is a
  * blackjack card by construction, so tagging them all would be noise.
  */
@@ -199,7 +199,7 @@ export function ModifierPicker({
       {browsing && (
         /* GROUPED BY WHERE THEY BITE, not one flat list. A run's pool is 32
            cards spanning every table, and a wall of names gives no way to tell
-           "on at every game" from "only when we play craps" — which is the
+           "on at every game" from "only when we play craps", which is the
            difference between a card that shapes the night and one that might
            never come up. */
         <>
@@ -212,7 +212,7 @@ export function ModifierPicker({
                     key={m.id}
                     className={value.includes(m.id) ? "on" : ""}
                     aria-pressed={value.includes(m.id)}
-                    title={`${ruleOf(m, unit, stakes, unitLabel)} — ${SEVERITY_LABEL[m.severity]}`}
+                    title={`${ruleOf(m, unit, stakes, unitLabel)} · ${SEVERITY_LABEL[m.severity]}`}
                     onClick={() => toggle(m.id)}
                   >
                     {m.name}
@@ -289,7 +289,7 @@ export function ModifierStrip({
  * IT HAS A BUDGET, AND THAT IS THE WHOLE DESIGN OF THIS COMPONENT.
  *
  * The money board is the feature; the rules are a reference. So the wall is
- * never allowed to grow without limit and push the board down — it gets denser
+ * never allowed to grow without limit and push the board down. It gets denser
  * as cards are added instead. Measured on a 1080p screen, the first version of
  * this (three-across boxes, name over rule) cost 173px for ONE card against a
  * four-player layout that had 116px of slack, so it pushed the footer off the
@@ -301,13 +301,13 @@ export function ModifierStrip({
  *
  * THE CUT AT THREE IS FORCED, not a taste call, and it is worth writing down
  * because it looks needlessly strict. Three rules do not fit on one 1920px row
- * — the longest cards in the deck run ~60 characters — and a second row costs
+ * (the longest cards in the deck run ~60 characters), and a second row costs
  * ~135px against 116px of slack. That leaves three options: wrap and cover the
  * money board, ellipsis the rules mid-sentence, or drop them. Wrapping loses
  * the feature. A half-shown rule is worse than no rule, because it reads as
  * complete. So: the names stay on the TV as the reminder that something is on,
  * and the full text is one glance away on the strip on every phone at the
- * table. If the rules should survive to a higher count, the fix is not here —
+ * table. If the rules should survive to a higher count, the fix is not here:
  * it is the money board scaling with player count, which would buy the room
  * (see the TV overflow bug in BACKLOG; it already overflows at six players
  * with no modifiers at all).
