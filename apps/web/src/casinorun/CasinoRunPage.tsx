@@ -46,7 +46,10 @@ type Session = {
 const PACK = SESSION_PACKS.casinorun;
 
 /** The games a leg is usually played at, plus the escape hatch. */
-const GAMES = ["Blackjack", "Roulette", "Craps", "Poker", "Other"];
+// Poker is deliberately NOT here. A poker leg is a tournament or a long cash
+// session, not a stretch you step away from with a number — it does not fit
+// the leg shape. A crew that plays some anyway types it under Other.
+const GAMES = ["Blackjack", "Roulette", "Craps", "Other"];
 
 export default function CasinoRunPage() {
   const eventId = new URLSearchParams(window.location.search).get("event") ?? "";
@@ -146,7 +149,9 @@ function RunSetup({
   finished: CrunSummary | null;
   onStart: (payload: Record<string, unknown>) => void;
 }) {
-  const [startingBank, setStartingBank] = useState<number | null>(10000);
+  // P$200 rather than P$100. It is play money, so the only thing the size of
+  // the bank costs is nothing, and bigger numbers read better on a TV.
+  const [startingBank, setStartingBank] = useState<number | null>(20000);
   const [difficulty, setDifficulty] = useState<CrunDifficulty>("standard");
   const [floor, setFloor] = useState<number | null>(0);
   // Null means "follow the bank", which is the 2% default the engine applies.

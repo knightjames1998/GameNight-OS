@@ -34,6 +34,15 @@ export type ModKind = "boon" | "bane";
  * how people play. Used to WEIGHT random draws so the nastiest cards stay rare,
  * and so Casino Run can escalate by reaching for higher severities as the
  * stages climb.
+ *
+ * SEVERITY IS MEASURED, NOT GUESSED (2026-08-02). Every card's rating comes
+ * from tests/casinorun-playtest.test.ts, which models what a table would do
+ * with it and reports the change in a run's clear rate: 12 points or more is a
+ * 3, four to twelve is a 2, under four is a 1. Before that pass the ratings
+ * were vibes and they were wrong in both directions — "Everyone antes" was a
+ * severity 1 that took the clear rate to zero, while two severity 3s did
+ * almost nothing. The playtest asserts the buckets, so a new card cannot be
+ * rated by feel either.
  */
 export type ModSeverity = 1 | 2 | 3;
 
@@ -102,6 +111,21 @@ export interface Modifier {
    * still reads as "10% of the buy-in" rather than as a gap.
    */
   bonusPct?: number;
+  /**
+   * WHAT the percentage is of. The default, "ante", is the only one the app can
+   * turn into money, because it is the only one the app knows.
+   *
+   *   "ante"  a multiple of the table minimum. Rendered as a real figure.
+   *   "win"   a share of what the hand actually paid. The app has no idea what
+   *           that was — it never sees a hand — so this renders as a plain
+   *           percentage and the humans apply it.
+   *   "pot"   a share of the pot, same reasoning.
+   *
+   * A rake that took a fixed multiple of the ante would be a poll tax; a rake
+   * takes a slice of what was won, which is what a rake IS. Getting that wrong
+   * made the money cards read as flat fees.
+   */
+  bonusOf?: "ante" | "win" | "pot";
 }
 
 /**
@@ -129,52 +153,52 @@ export const MODIFIERS: Modifier[] = [
   // failed that bar on 2026-08-02 (Mercy chip's rebuy, Leader tax and Underdog
   // bonus, both of which need individual positions) and were moved to the cash
   // tables, where those things exist.
-  { id: "escalating_min", name: "Escalating minimum", rule: "The minimum ante rises every five legs.", kind: "bane", severity: 2, appliesTo: "any" },
-  { id: "everyone_antes", name: "Everyone antes", rule: "Every player antes each round, not just the blinds.", kind: "bane", severity: 1, appliesTo: "any" },
-  { id: "house_rake", name: "House rake", rule: "The house rakes {bonus} out of every pot.", kind: "bane", severity: 2, appliesTo: "any", bonusPct: 0.1 },
-  { id: "ante_surge", name: "Ante surge", rule: "The minimum ante is doubled for the rest of the run.", kind: "bane", severity: 3, appliesTo: "any" },
+  { id: "escalating_min", name: "Escalating minimum", rule: "The minimum ante rises every five legs, and the bank posts it dead once a leg.", kind: "bane", severity: 3, appliesTo: "any" },
+  { id: "house_rake", name: "House rake", rule: "The house rakes {bonus} out of every pot that is won.", kind: "bane", severity: 3, appliesTo: "any", bonusPct: 0.1, bonusOf: "pot" },
+  { id: "ante_surge", name: "Ante surge", rule: "The minimum ante is doubled, and the bank posts it dead once a leg.", kind: "bane", severity: 3, appliesTo: "any" },
   { id: "losses_double", name: "Losses double", rule: "Every losing hand costs twice what it should.", kind: "bane", severity: 3, appliesTo: "any" },
-  { id: "min_bet_up", name: "Minimum bet up", rule: "No bet may be under {bonus}.", kind: "bane", severity: 2, appliesTo: "any", bonusPct: 3 },
-  { id: "pot_tithe", name: "Tithe", rule: "Every fifth hand, each player puts {bonus} in the pot.", kind: "bane", severity: 1, appliesTo: "any", bonusPct: 0.5 },
-  { id: "rake_on_wins", name: "Vig on wins", rule: "Every winning hand pays {bonus} back to the house.", kind: "bane", severity: 2, appliesTo: "any", bonusPct: 0.25 },
-  { id: "dealers_choice", name: "Dealer's choice", rule: "Whoever deals picks the variant for that round.", kind: "boon", severity: 1, appliesTo: "any" },
-  { id: "call_your_shot", name: "Call your shot", rule: "Call win or lose before the hand; a correct call pays an EXTRA {bonus}.", kind: "boon", severity: 2, appliesTo: "any", bonusPct: 0.5 },
-  { id: "hot_streak", name: "Hot streak", rule: "Two wins running pays an EXTRA {bonus} from the house.", kind: "boon", severity: 2, appliesTo: "any", bonusPct: 1 },
+  { id: "min_bet_up", name: "No small bets", rule: "No bet may be under {bonus}. Nobody gets to nurse the bank.", kind: "boon", severity: 3, appliesTo: "any", bonusPct: 3 },
+  { id: "pot_tithe", name: "Tithe", rule: "Every fifth pot is docked {bonus} for the house.", kind: "bane", severity: 2, appliesTo: "any", bonusPct: 0.25, bonusOf: "pot" },
+  { id: "table_max", name: "Table maximum", rule: "No bet may be more than four times the minimum.", kind: "bane", severity: 3, appliesTo: "any" },
+  { id: "rake_on_wins", name: "Vig on wins", rule: "Every winning hand pays {bonus} back to the house.", kind: "bane", severity: 3, appliesTo: "any", bonusPct: 0.2, bonusOf: "win" },
+  { id: "on_the_house", name: "On the house", rule: "The first losing hand of each stage is refunded.", kind: "boon", severity: 3, appliesTo: "any" },
+  { id: "call_your_shot", name: "Call your shot", rule: "Call win or lose before the hand; a correct call pays an EXTRA {bonus}.", kind: "boon", severity: 2, appliesTo: "any", bonusPct: 0.5, bonusOf: "win" },
+  { id: "hot_streak", name: "Hot streak", rule: "The second of two wins running pays an EXTRA {bonus}.", kind: "boon", severity: 3, appliesTo: "any", bonusPct: 1, bonusOf: "win" },
   { id: "free_round", name: "Free round", rule: "One round a session is played with no ante.", kind: "boon", severity: 1, appliesTo: "any" },
-  { id: "insurance", name: "Insurance", rule: "Once each, take back half of one losing bet.", kind: "boon", severity: 3, appliesTo: "any" },
-  { id: "bank_match", name: "House match", rule: "The biggest win of each round is topped up by an EXTRA {bonus}.", kind: "boon", severity: 3, appliesTo: "any", bonusPct: 0.5 },
-  { id: "house_gift", name: "Seed money", rule: "Every stage starts with an EXTRA {bonus} in the pot.", kind: "boon", severity: 2, appliesTo: "any", bonusPct: 1 },
-  { id: "push_pays", name: "Pushes pay", rule: "A tied hand pays the ante instead of just returning the bet.", kind: "boon", severity: 1, appliesTo: "any" },
+  { id: "insurance", name: "Insurance", rule: "Once each, take back half of one losing bet.", kind: "boon", severity: 2, appliesTo: "any" },
+  { id: "bank_match", name: "House match", rule: "The house matches {bonus} on the biggest win of each round.", kind: "boon", severity: 2, appliesTo: "any", bonusPct: 0.5, bonusOf: "win" },
+  { id: "house_gift", name: "Seed money", rule: "Every stage starts with an EXTRA {bonus} in the pot.", kind: "boon", severity: 1, appliesTo: "any", bonusPct: 1 },
+  { id: "no_pushes", name: "No pushes", rule: "A tied hand loses instead of pushing.", kind: "bane", severity: 1, appliesTo: "any" },
 
   // ---- the cash tables, where players have their OWN money ----
   // These need a per-player position or a per-player buy-in, so they are live
   // at blackjack, roulette and craps and never in a co-op run.
-  { id: "leader_tax", name: "Leader tax", rule: "Anyone up on the night plays double the minimum.", kind: "bane", severity: 2, appliesTo: "cash" },
-  { id: "no_walking", name: "No walking", rule: "Nobody may cash out until the last hand of the night.", kind: "bane", severity: 2, appliesTo: "cash" },
+  { id: "leader_tax", name: "Leader tax", rule: "Anyone up on the night plays double the minimum.", kind: "bane", severity: 3, appliesTo: "cash" },
+  { id: "everyone_antes", name: "Everyone antes", rule: "Every player antes each round, not just the blinds.", kind: "bane", severity: 3, appliesTo: "cash" },
   { id: "mercy_chip", name: "Mercy chip", rule: "The biggest loser gets one rebuy free, paid by the table.", kind: "boon", severity: 2, appliesTo: "cash" },
-  { id: "underdog_bonus", name: "Underdog bonus", rule: "Whoever is furthest down plays their next hand at double.", kind: "boon", severity: 2, appliesTo: "cash" },
+  { id: "underdog_bonus", name: "Underdog bonus", rule: "Whoever is furthest down plays their next hand at double.", kind: "boon", severity: 1, appliesTo: "cash" },
 
   // ---- roulette ----
   { id: "hot_colour", name: "Hot colour", rule: "A chosen colour pays double all session.", kind: "boon", severity: 2, appliesTo: ["roulette"] },
-  { id: "hot_number", name: "Hot number", rule: "A chosen number pays double all session.", kind: "boon", severity: 3, appliesTo: ["roulette"] },
+  { id: "hot_number", name: "Hot number", rule: "A chosen number pays double all session.", kind: "boon", severity: 2, appliesTo: ["roulette"] },
   { id: "neighbours_only", name: "Neighbours only", rule: "Your bet must touch your previous number on the wheel.", kind: "bane", severity: 2, appliesTo: ["roulette"] },
   { id: "zero_pays_table", name: "Zero pays the table", rule: "Green pays the players, not the house.", kind: "boon", severity: 2, appliesTo: ["roulette"] },
-  { id: "no_outside_bets", name: "No outside bets", rule: "Red, black, odd and even are all off.", kind: "bane", severity: 3, appliesTo: ["roulette"] },
+  { id: "no_outside_bets", name: "No outside bets", rule: "Red, black, odd and even are all off.", kind: "bane", severity: 2, appliesTo: ["roulette"] },
 
   // ---- craps ----
-  { id: "no_come_bets", name: "No come bets", rule: "Come and don't come bets are off.", kind: "bane", severity: 2, appliesTo: ["craps"] },
+  { id: "no_come_bets", name: "No come bets", rule: "Come and don't come bets are off.", kind: "bane", severity: 1, appliesTo: ["craps"] },
   { id: "pass_line_required", name: "Pass line required", rule: "The shooter must back the pass line.", kind: "bane", severity: 1, appliesTo: ["craps"] },
-  { id: "long_hand_bonus", name: "Long hand bonus", rule: "A shooter reaching five rolls pays the table an EXTRA {bonus}.", kind: "boon", severity: 2, appliesTo: ["craps"], bonusPct: 1 },
+  { id: "long_hand_bonus", name: "Long hand bonus", rule: "A shooter reaching five rolls pays the table an EXTRA {bonus}.", kind: "boon", severity: 1, appliesTo: ["craps"], bonusPct: 2 },
   { id: "hard_ways_only", name: "Hard ways only", rule: "Prop bets are restricted to the hard ways.", kind: "bane", severity: 2, appliesTo: ["craps"] },
   { id: "come_out_bonus", name: "Come out bonus", rule: "A come-out seven or eleven pays the shooter double.", kind: "boon", severity: 1, appliesTo: ["craps"] },
-  { id: "no_odds", name: "No odds", rule: "Taking odds behind the line is off.", kind: "bane", severity: 2, appliesTo: ["craps"] },
+  { id: "no_odds", name: "No odds", rule: "Taking odds behind the line is off.", kind: "bane", severity: 1, appliesTo: ["craps"] },
 
   // ---- blackjack ----
   { id: "extra_card_up", name: "Extra card up", rule: "The dealer exposes one extra card.", kind: "boon", severity: 2, appliesTo: ["blackjack"] },
-  { id: "no_splitting", name: "No splitting", rule: "Splitting pairs is off.", kind: "bane", severity: 2, appliesTo: ["blackjack"] },
-  { id: "blackjack_pays_double", name: "Blackjack pays double", rule: "A natural pays twice the usual.", kind: "boon", severity: 3, appliesTo: ["blackjack"] },
+  { id: "no_splitting", name: "No splitting", rule: "Splitting pairs is off.", kind: "bane", severity: 1, appliesTo: ["blackjack"] },
+  { id: "blackjack_pays_double", name: "Blackjack pays double", rule: "A natural pays twice the usual.", kind: "boon", severity: 2, appliesTo: ["blackjack"] },
   { id: "stands_all_17", name: "Stands on all 17s", rule: "The dealer stands on soft 17 as well as hard.", kind: "boon", severity: 1, appliesTo: ["blackjack"] },
-  { id: "no_doubling", name: "No doubling", rule: "Doubling down is off.", kind: "bane", severity: 2, appliesTo: ["blackjack"] },
+  { id: "no_doubling", name: "No doubling", rule: "Doubling down is off.", kind: "bane", severity: 1, appliesTo: ["blackjack"] },
 ];
 
 const BY_ID = new Map(MODIFIERS.map((m) => [m.id, m]));
@@ -212,6 +236,13 @@ export function modifierRule(
   const pct = mod.bonusPct ?? 0;
   const unit = opts?.unit ?? null;
   const fmt = opts?.fmt;
+  const basis = mod.bonusOf ?? "ante";
+  // A share of the win or the pot cannot be a figure: the app never sees a
+  // hand, so it does not know what was won. It prints the percentage and the
+  // humans do the rest — the same line the whole deck holds.
+  if (basis !== "ante") {
+    return mod.rule.replace("{bonus}", `${Math.round(pct * 100)}% of the ${basis}`);
+  }
   const label = opts?.unitLabel ?? "buy-in";
   const filled =
     unit != null && unit > 0 && fmt

@@ -446,8 +446,8 @@ test("buying a token costs bank and is held for the next leg", () => {
   const t = crunBuy(s, { token: "double_next", playerId: "a", at: "x" });
   assert.equal(t?.id, "double_next");
   const p = crunProgress(s);
-  // 10% of the starting bank.
-  assert.equal(p.bank, 9000);
+  // 15% of the starting bank. Tokens are priced to hurt.
+  assert.equal(p.bank, 8500);
   assert.deepEqual(p.held, ["double_next"], "held until a leg spends it");
   assert.equal(p.legsUsed, 0, "a purchase is not a stretch of play");
   assert.equal(p.legsLeft, 5);
@@ -467,11 +467,11 @@ test("the next leg spends everything held", () => {
 test("token costs scale with the run, so one is never trivial or unaffordable", () => {
   const small = run({ startingBank: 2000 });
   crunBuy(small, { token: "double_next", playerId: null, at: "x" });
-  assert.equal(crunProgress(small).bank, 1800); // 10% of 2000
+  assert.equal(crunProgress(small).bank, 1700); // 15% of 2000
 
   const big = run({ startingBank: 500000 });
   crunBuy(big, { token: "double_next", playerId: null, at: "x" });
-  assert.equal(crunProgress(big).bank, 450000);
+  assert.equal(crunProgress(big).bank, 425000);
 });
 
 test("BUYING A TOKEN YOU CANNOT AFFORD IS A REAL WAY TO DIE", () => {
@@ -479,7 +479,7 @@ test("BUYING A TOKEN YOU CANNOT AFFORD IS A REAL WAY TO DIE", () => {
   // stupid, thoroughly in-genre way to end a run, and the floor check catches
   // it like anything else that moves the bank.
   const s = run({ startingBank: 10000, floor: 0 });
-  leg(s, -9200); // 800 left; a double_next costs 1000
+  leg(s, -8700); // 1300 left; a double_next costs 1500
   assert.equal(crunProgress(s).status, "running");
   crunBuy(s, { token: "double_next", playerId: null, at: "x" });
   const p = crunProgress(s);
@@ -533,7 +533,7 @@ test("Shave the target takes a tenth off THIS stage only", () => {
 
   // 10350 is now reachable with less. Clear it, and the NEXT stage is at full
   // price again — one purchase must not discount the whole rest of the run.
-  leg(s, 2150); // bank 10000 - 1800 cost + 2150 = 10350
+  leg(s, 2850); // bank 10000 - 2500 cost + 2850 = 10350
   const p = crunProgress(s);
   assert.equal(p.cleared, 1);
   assert.equal(p.quota, 13225, "stage 2 is undiscounted");
@@ -544,7 +544,7 @@ test("undoing a purchase gives the money back and un-holds the card", () => {
   // unwind.
   const s = run({ startingBank: 10000 });
   crunBuy(s, { token: "double_next", playerId: "a", at: "x" });
-  assert.equal(crunProgress(s).bank, 9000);
+  assert.equal(crunProgress(s).bank, 8500);
   assert.equal(crunUndo(s), true);
   const p = crunProgress(s);
   assert.equal(p.bank, 10000);
@@ -561,7 +561,7 @@ test("a purchase is attributed but never counted as a leg played", () => {
   assert.equal(ada.delta, 500, "the purchase does not drag their leg total around");
   assert.equal(ada.best, 500);
   assert.equal(ada.worst, 500, "and it is not their worst leg either");
-  assert.equal(ada.spent, 500, "5% of 10000");
+  assert.equal(ada.spent, 800, "8% of 10000");
 });
 
 test("an unknown token is refused rather than recorded as a free card", () => {

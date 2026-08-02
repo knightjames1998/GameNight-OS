@@ -45,11 +45,11 @@ import {
  */
 const SHIPPED_IDS = [
   // "any" — live at every table INCLUDING a co-op run with one shared bank.
-  "escalating_min", "everyone_antes", "house_rake", "ante_surge", "losses_double",
-  "min_bet_up", "pot_tithe", "rake_on_wins", "dealers_choice", "call_your_shot",
-  "hot_streak", "free_round", "insurance", "bank_match", "house_gift", "push_pays",
+  "escalating_min", "house_rake", "ante_surge", "losses_double", "min_bet_up",
+  "pot_tithe", "rake_on_wins", "table_max", "on_the_house", "call_your_shot",
+  "hot_streak", "free_round", "insurance", "bank_match", "house_gift", "no_pushes",
   // "cash" — need per-player money, so never in a run.
-  "leader_tax", "no_walking", "mercy_chip", "underdog_bonus",
+  "leader_tax", "everyone_antes", "mercy_chip", "underdog_bonus",
   // per table. A run holds these and they bite on that table's legs.
   "hot_colour", "hot_number", "neighbours_only", "zero_pays_table", "no_outside_bets",
   "no_come_bets", "pass_line_required", "long_hand_bonus", "hard_ways_only",
@@ -58,7 +58,11 @@ const SHIPPED_IDS = [
 ];
 
 /** Cards deliberately taken OUT. Reusing one of these ids would collide with real history. */
-const RETIRED_IDS = ["loser_buys", "bust_penalty", "silence", "phones_down", "last_to_sit", "high_roller"];
+const RETIRED_IDS = [
+  "loser_buys", "bust_penalty", "silence", "phones_down", "last_to_sit", "high_roller",
+  // Retired 2026-08-02 by the PLAYTEST: measured at zero effect on a run.
+  "dealers_choice", "no_walking", "push_pays",
+];
 
 test("every shipped modifier id is unchanged", () => {
   // An id lands in match_participants.meta. A rename orphans the card's whole
@@ -184,37 +188,46 @@ test("every card that mentions money names a real fraction", () => {
   }
 });
 
-test("the bonus is filled in with a real amount when the table has a stake", () => {
-  const card = modifierById("hot_streak")!; // 100% of the stake
+test("an ANTE-based bonus is filled in with a real amount", () => {
   const fmt = (c: number) => `P$${(c / 100).toFixed(2)}`;
+  const card = modifierById("min_bet_up")!; // 300% of the ante
   assert.equal(
     modifierRule(card, { unit: 200, unitLabel: "ante", fmt }),
-    "Two wins running pays an EXTRA P$2.00 (100% of the ante) from the house.",
+    "No bet may be under P$6.00 (300% of the ante). Nobody gets to nurse the bank.",
   );
-  // A rising ante makes the card more expensive on its own, which is the whole
+  // A rising ante makes the card bite harder on its own, which is the whole
   // reason the unit is the ante rather than a fixed number.
   assert.equal(
     modifierRule(card, { unit: 500, unitLabel: "ante", fmt }),
-    "Two wins running pays an EXTRA P$5.00 (100% of the ante) from the house.",
-  );
-  // Multiples above 1 work too, and the unit is NAMED so nobody has to guess
-  // what the percentage is of.
-  assert.equal(
-    modifierRule(modifierById("min_bet_up")!, { unit: 200, unitLabel: "ante", fmt }),
-    "No bet may be under P$6.00 (300% of the ante).",
+    "No bet may be under P$15.00 (300% of the ante). Nobody gets to nurse the bank.",
   );
 });
 
-test("with no table stake the bonus falls back to a percentage, not a blank", () => {
-  // The cash packs' setup screen has no stake typed yet, and a card that read
-  // "pays {bonus}" or "pays " would be worse than useless.
+test("a WIN-based bonus stays a percentage, because the app never sees a hand", () => {
+  // A rake takes a slice of what was actually won. The app has no idea what
+  // that was and must not pretend to — so these render as a percentage and the
+  // humans do the arithmetic, exactly like every other modifier.
+  const fmt = (c: number) => `P$${(c / 100).toFixed(2)}`;
   assert.equal(
-    modifierRule(modifierById("hot_streak")!, { unitLabel: "ante" }),
-    "Two wins running pays an EXTRA 100% of the ante from the house.",
+    modifierRule(modifierById("rake_on_wins")!, { unit: 200, unitLabel: "ante", fmt }),
+    "Every winning hand pays 20% of the win back to the house.",
   );
   assert.equal(
-    modifierRule(modifierById("call_your_shot")!, { unit: 0 }),
-    "Call win or lose before the hand; a correct call pays an EXTRA 50% of the buy-in.",
+    modifierRule(modifierById("house_rake")!, { unit: 200, unitLabel: "ante", fmt }),
+    "The house rakes 10% of the pot out of every pot that is won.",
+  );
+  assert.equal(
+    modifierRule(modifierById("bank_match")!, { unit: 999, fmt }),
+    "The house matches 50% of the win on the biggest win of each round.",
+  );
+});
+
+test("with no table stake an ante bonus falls back to a percentage, not a blank", () => {
+  // The cash packs' setup screen has no buy-in typed yet, and a card that read
+  // "under {bonus}" or "under " would be worse than useless.
+  assert.equal(
+    modifierRule(modifierById("min_bet_up")!, { unit: 0 }),
+    "No bet may be under 300% of the buy-in. Nobody gets to nurse the bank.",
   );
 });
 

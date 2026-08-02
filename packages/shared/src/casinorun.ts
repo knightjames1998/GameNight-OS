@@ -168,6 +168,12 @@ export function crunQuotas(ladder: CrunLadder, startingBank: number): number[] {
  * "Do we buy a hedge and fall further behind, or run the next leg naked" is a
  * real decision, and it is the only one in the pack that costs money to make.
  *
+ * THEY ARE PRICED TO HURT. Every cost is a double-digit slice of the starting
+ * bank, and Mulligan — a free re-do of a losing hand, the strongest thing in
+ * the shop — is the dearest of the declarative ones at 30%. A token you buy
+ * without thinking is not a decision, and the whole point of spending BANK is
+ * that it moves you away from the quota you are chasing.
+ *
  * MOST TOKENS ARE DECLARATIVE, exactly like modifiers: "the next leg is played
  * at double stakes" is a thing the humans do at the table, and the app only
  * records that it was bought. The two exceptions touch bookkeeping the app
@@ -199,15 +205,15 @@ export const CRUN_TOKENS: CrunToken[] = [
   // The one people will actually buy. Play the leg out normally, take the
   // payout, THEN flip for it — which is a different and better decision from
   // doubling the stake up front, because you already know what you won.
-  { id: "let_it_ride", name: "Let it ride", rule: "Play the leg. Then flip a coin: the winnings double, or they are gone.", cost: 0.12, effect: "declare" },
-  { id: "double_next", name: "Double down", rule: "The next leg is played at double stakes, win or lose.", cost: 0.1, effect: "declare" },
-  { id: "bank_boost", name: "House bonus", rule: "The house adds a quarter on top of whatever the next leg wins.", cost: 0.1, effect: "declare" },
-  { id: "mulligan", name: "Mulligan", rule: "Replay one losing hand during the next leg.", cost: 0.15, effect: "declare" },
-  { id: "steady_hand", name: "Steady hand", rule: "The minimum ante is ignored for the next leg.", cost: 0.05, effect: "declare" },
-  { id: "one_more_shot", name: "One more shot", rule: "Adds one leg to this stage attempt.", cost: 0.12, effect: "extra_leg" },
-  { id: "second_chance", name: "Second chance", rule: "Adds one whole attempt at this stage.", cost: 0.2, effect: "extra_attempt" },
-  { id: "shave_the_target", name: "Shave the target", rule: "Takes a tenth off this stage's quota.", cost: 0.18, effect: "quota_cut" },
-  { id: "ante_relief", name: "Ante relief", rule: "Cancels one rise in the minimum ante.", cost: 0.08, effect: "ante_relief" },
+  { id: "let_it_ride", name: "Let it ride", rule: "Play the leg. Then flip a coin: the winnings double, or they are gone.", cost: 0.18, effect: "declare" },
+  { id: "double_next", name: "Double down", rule: "The next leg is played at double stakes, win or lose.", cost: 0.15, effect: "declare" },
+  { id: "bank_boost", name: "House bonus", rule: "The house adds a quarter on top of whatever the next leg wins.", cost: 0.16, effect: "declare" },
+  { id: "mulligan", name: "Mulligan", rule: "Replay one losing hand during the next leg.", cost: 0.3, effect: "declare" },
+  { id: "steady_hand", name: "Steady hand", rule: "The minimum ante is ignored for the next leg.", cost: 0.08, effect: "declare" },
+  { id: "one_more_shot", name: "One more shot", rule: "Adds one leg to this stage attempt.", cost: 0.18, effect: "extra_leg" },
+  { id: "second_chance", name: "Second chance", rule: "Adds one whole attempt at this stage.", cost: 0.3, effect: "extra_attempt" },
+  { id: "shave_the_target", name: "Shave the target", rule: "Takes a tenth off this stage's quota.", cost: 0.25, effect: "quota_cut" },
+  { id: "ante_relief", name: "Ante relief", rule: "Cancels one rise in the minimum ante.", cost: 0.12, effect: "ante_relief" },
 ];
 
 /** How much of a stage's quota one Shave the target removes. */

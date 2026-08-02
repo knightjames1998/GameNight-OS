@@ -82,6 +82,30 @@ function GameTag({ mod }: { mod: Modifier }) {
   return <span className="cg-mod__game">{games}</span>;
 }
 
+/**
+ * Split a pool into "every game" and one section per table.
+ *
+ * Order is deliberate: the cards that are always on come first, because they
+ * are the ones a host picking blind should read. The per-table sections say
+ * plainly that those cards sit out until that game is played.
+ */
+function groupPool(pool: Modifier[]): [string, Modifier[]][] {
+  const anywhere = pool.filter((m) => m.appliesTo === "any" || m.appliesTo === "cash");
+  const groups: [string, Modifier[]][] = [];
+  if (anywhere.length) groups.push(["On at every game", anywhere]);
+  const seen = new Set<string>();
+  for (const m of pool) {
+    if (!Array.isArray(m.appliesTo)) continue;
+    for (const table of m.appliesTo) {
+      if (seen.has(table)) continue;
+      seen.add(table);
+      const cards = pool.filter((c) => Array.isArray(c.appliesTo) && c.appliesTo.includes(table));
+      groups.push([`${table.charAt(0).toUpperCase()}${table.slice(1)} legs only`, cards]);
+    }
+  }
+  return groups;
+}
+
 // ---------- setup: pick them ----------
 
 export function ModifierPicker({
@@ -173,19 +197,31 @@ export function ModifierPicker({
         {browsing ? "▴ Hide the deck" : `▾ Pick from the deck (${pool.length} cards)`}
       </button>
       {browsing && (
-        <div className="cg-seg">
-          {pool.map((m) => (
-            <button
-              key={m.id}
-              className={value.includes(m.id) ? "on" : ""}
-              aria-pressed={value.includes(m.id)}
-              title={`${ruleOf(m, unit, stakes, unitLabel)} — ${SEVERITY_LABEL[m.severity]}`}
-              onClick={() => toggle(m.id)}
-            >
-              {m.name}
-            </button>
+        /* GROUPED BY WHERE THEY BITE, not one flat list. A run's pool is 32
+           cards spanning every table, and a wall of names gives no way to tell
+           "on at every game" from "only when we play craps" — which is the
+           difference between a card that shapes the night and one that might
+           never come up. */
+        <>
+          {groupPool(pool).map(([label, cards]) => (
+            <div key={label} style={{ marginTop: 10 }}>
+              <div className="cg-lab">{label}</div>
+              <div className="cg-seg">
+                {cards.map((m) => (
+                  <button
+                    key={m.id}
+                    className={value.includes(m.id) ? "on" : ""}
+                    aria-pressed={value.includes(m.id)}
+                    title={`${ruleOf(m, unit, stakes, unitLabel)} — ${SEVERITY_LABEL[m.severity]}`}
+                    onClick={() => toggle(m.id)}
+                  >
+                    {m.name}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
-        </div>
+        </>
       )}
     </div>
   );
