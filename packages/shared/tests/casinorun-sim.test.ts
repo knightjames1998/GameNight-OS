@@ -43,6 +43,15 @@
 // player and the rates are conditional on it. What it buys is the ORDERING and
 // the rough magnitude: that these four ladders are genuinely different nights,
 // and that the hardest one really is a joke rather than merely a bit harder.
+//
+// A GRINDING player is modelled too, but not for tuning — for proving the run
+// can be lost at all. See the attempt-cap tests at the bottom.
+//
+// TOKENS ARE NOT MODELLED. They cost bank and are bought at the table's
+// discretion, so including them would mean modelling a purchasing strategy on
+// top of a betting one, and the ladders would then be tuned against a guess
+// about how freely a crew spends. The rates below are for a table that buys
+// nothing, which is the floor: tokens can only help.
 // ---------------------------------------------------------------------------
 //
 // SEEDED, so it cannot flake. A Monte Carlo test on Math.random is a test that
@@ -78,33 +87,46 @@ const MAX_LEGS = 4000;
  * false if it busted, null if it never resolved (which must never happen and
  * is asserted separately rather than quietly counted as a loss).
  *
- * The progression mirrors crunProgress exactly, and deliberately: a missed
- * stage costs the attempt and nothing else, so the ONLY ways out are clearing
- * the final quota or dropping through the floor. That is the rule that makes
- * these numbers mean anything — with retries, a run's fate is whether the bank
- * can climb to the last quota before it dies.
+ * The progression mirrors crunProgress exactly, and deliberately. There are
+ * three ways out: clearing the final quota, dropping through the floor, and
+ * running out of attempts at a stage. `uncapped` removes the third, which is
+ * only used to demonstrate what the pack was like before it had one.
  */
-function playRun(ladder: CrunLadder, random: () => number): boolean | null {
+function playRun(
+  ladder: CrunLadder,
+  random: () => number,
+  opts?: { grind?: boolean; uncapped?: boolean },
+): boolean | null {
   let bank = START;
   let stage = 0;
+  let attempt = 1;
   let legsUsed = 0;
 
   for (let n = 0; n < MAX_LEGS; n++) {
     // Bet what it takes to clear: capped at the bank, floored at the table
-    // minimum. See the header for why this beats a blind fraction.
+    // minimum. See the header for why this beats a blind fraction. A GRINDER
+    // instead always bets the minimum, which is the behaviour the attempt cap
+    // exists to kill.
     const need = crunQuota(ladder, START, stage) - bank;
-    const wager = Math.min(Math.max(MIN_STAKE, need), bank);
+    const wager = opts?.grind ? Math.min(MIN_STAKE, bank) : Math.min(Math.max(MIN_STAKE, need), bank);
     bank += random() < WIN_PROB ? wager : -wager;
     legsUsed++;
 
     if (bank <= 0) return false;
     if (bank >= crunQuota(ladder, START, stage)) {
       stage++;
+      attempt = 1;
       legsUsed = 0;
       if (stage >= ladder.stages) return true;
       continue;
     }
-    if (legsUsed >= ladder.legsPerStage) legsUsed = 0;
+    if (legsUsed >= ladder.legsPerStage) {
+      // OUT OF SHOTS is the second loss condition. Without it a run can only
+      // end by losing the bank, which a table betting small can avoid forever.
+      if (!opts?.uncapped && attempt >= ladder.attemptsPerStage) return false;
+      attempt++;
+      legsUsed = 0;
+    }
   }
   return null;
 }
@@ -170,16 +192,61 @@ test("no run hits the safety cap, so the model has a real absorbing barrier", ()
   assert.equal(unresolved, 0, `${unresolved} runs never resolved`);
 });
 
-test("the leg budget cannot move the clear rate, and that is on purpose", () => {
-  // A missed stage costs the attempt and nothing else, so legsPerStage changes
-  // only how often the table eats a forced bane. Pinned because it is exactly
-  // the knob somebody will reach for when a ladder feels wrong, and it would
-  // do nothing — this test tells them so instead of letting them wonder.
-  const base = CRUN_LADDERS[1]!;
-  const rates = [2, 3, 5, 12].map((legsPerStage) =>
-    clearRate({ ...base, legsPerStage }, 3000, 0xd1ce),
+test("THE RUN CAN ACTUALLY BE LOST: a grinding table runs out of shots", () => {
+  // The failure this pack shipped with, and the reason attemptsPerStage exists.
+  //
+  // Under the original rules a missed stage handed out a fresh set of legs
+  // forever, so the only way to lose was the bank hitting zero — which a table
+  // betting the table minimum can dodge more or less indefinitely. Measured:
+  // an uncapped grinder took ~1100 legs to resolve and 0.5% of runs never
+  // resolved at all inside a 4000-leg ceiling. That is not a hard game, it is
+  // a game with no ending, which is what "no way to lose, it just keeps giving
+  // more attempts" means in numbers.
+  //
+  // This asserts BOTH halves: uncapped, the grinder drags on; capped, it dies.
+  const ladder = CRUN_LADDERS[1]!;
+
+  let uncappedLong = 0;
+  let capped = 0;
+  const N = 3000;
+  const a = rng(0xa11ce);
+  for (let i = 0; i < N; i++) if (playRun(ladder, a, { grind: true, uncapped: true }) === null) uncappedLong++;
+  const b = rng(0xa11ce);
+  for (let i = 0; i < N; i++) if (playRun(ladder, b, { grind: true }) === null) capped++;
+
+  assert.ok(uncappedLong > 0, "the uncapped grinder used to be unkillable; if this stops being true the model has drifted");
+  assert.equal(capped, 0, "a capped run must always resolve");
+});
+
+test("the attempt cap punishes GRINDING without punishing bold play", () => {
+  // The point of the cap is aimed: it should barely touch a table that commits
+  // to the quota, and end one that nibbles. If it ever starts moving the bold
+  // rate much, it has become a difficulty knob instead of a fail state, and
+  // the ladders would be measuring the wrong thing.
+  const ladder = CRUN_LADDERS[1]!;
+  const boldCapped = clearRate(ladder, 8000, 0xb01d);
+  const r = rng(0xb01d);
+  let boldUncapped = 0;
+  for (let i = 0; i < 8000; i++) if (playRun(ladder, r, { uncapped: true }) === true) boldUncapped++;
+  assert.ok(
+    Math.abs(boldCapped - boldUncapped / 8000) < 0.02,
+    `the cap moved bold play from ${(boldUncapped / 8000).toFixed(3)} to ${boldCapped.toFixed(3)}`,
   );
-  for (const r of rates) assert.equal(r, rates[0], `legs budget moved the rate: ${rates.join(", ")}`);
+});
+
+test("the leg budget and the attempt count are BOTH levers now", () => {
+  // They were not before: with unlimited attempts a missed stage cost nothing,
+  // so legsPerStage could be anything and the clear rate never moved. Pinned
+  // in the direction it should go — fewer shots is harder — so a future tune
+  // is working with a knob that does something.
+  const base = CRUN_LADDERS[1]!;
+  const oneAttempt = clearRate({ ...base, attemptsPerStage: 1 }, 8000, 0xd1ce);
+  const many = clearRate({ ...base, attemptsPerStage: 6 }, 8000, 0xd1ce);
+  assert.ok(oneAttempt < many, `one attempt (${oneAttempt}) should be harder than six (${many})`);
+
+  const tightLegs = clearRate({ ...base, legsPerStage: 2, attemptsPerStage: 1 }, 8000, 0xd1ce);
+  const looseLegs = clearRate({ ...base, legsPerStage: 8, attemptsPerStage: 1 }, 8000, 0xd1ce);
+  assert.ok(tightLegs < looseLegs, `2 legs (${tightLegs}) should be harder than 8 (${looseLegs})`);
 });
 
 test("the model itself is what it claims: a house edge, not a coin flip", () => {

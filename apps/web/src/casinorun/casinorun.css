@@ -76,6 +76,32 @@
 }
 .crun-bar__fill--bust { background: var(--cg-down); }
 
+/* ---- the minimum ante ----
+   Sits directly under the bank because it is the other number that changes on
+   its own, and the one a table needs to know before it plays the next round.
+   It goes gold once it has risen, so a table can see it has got more expensive
+   without reading the figure. */
+.crun-ante {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 10px; padding: 8px 12px;
+  border: 1px solid var(--cg-line); border-radius: 8px;
+  background: var(--cg-surface);
+}
+.crun-ante--up { border-color: var(--cg-accent); background: color-mix(in srgb, var(--cg-accent) 10%, transparent); }
+.crun-ante__l { color: var(--gn-dim); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; }
+.crun-ante__all { color: var(--cg-accent); font-size: 12px; font-weight: 800; margin-top: 2px; }
+.crun-ante__n { font-family: Fredoka, system-ui, sans-serif; font-weight: 800; font-size: 18px; }
+.crun-ante__why { color: var(--gn-dim); font-size: 11px; margin-top: 1px; }
+
+/* Cards bought and not yet spent. */
+.crun-held { margin-top: 8px; }
+.crun-held__l { color: var(--gn-dim); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; }
+.crun-held__c {
+  display: inline-block; margin: 4px 4px 0 0; padding: 4px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--cg-accent) 18%, transparent); color: var(--cg-accent);
+  font-size: 12px; font-weight: 800;
+}
+
 /* ---- the stage ladder ----
    Every stage of the run at once, so the table can see what it has cleared and
    what is still coming. Cleared ones go gold; the live one is outlined. */
@@ -98,6 +124,14 @@
 .crun-leg__d { font-family: Fredoka, system-ui, sans-serif; font-weight: 800; flex-shrink: 0; }
 .crun-leg__d--up { color: var(--cg-up); }
 .crun-leg__d--down { color: var(--cg-down); }
+/* A purchase in the log. Dimmed and tagged, because it moved the bank but was
+   not a stretch of play and should not read as a losing leg. */
+.crun-leg--buy { opacity: 0.75; }
+.crun-leg__tag {
+  display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 999px;
+  background: color-mix(in srgb, var(--cg-accent) 18%, transparent); color: var(--cg-accent);
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;
+}
 
 /* The run's verdict, once it is over. */
 .crun-verdict {
@@ -153,6 +187,11 @@
   font-size: 3vmin; font-weight: 800; color: var(--gn-dim);
 }
 .crun-tv__now b { color: #fff; }
+
+/* The ante on the TV rides the attempts line rather than owning a row: a TV
+   has no spare vertical, and the money board proved that the hard way. Gold
+   once it has risen, which is the only signal it needs at this size. */
+.crun-tv__ante--up { color: var(--cg-accent); }
 
 .crun-tv__verdict {
   margin-top: 2.4vmin; text-align: center;

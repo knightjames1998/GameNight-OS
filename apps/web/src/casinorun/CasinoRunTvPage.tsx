@@ -82,13 +82,31 @@ export default function CasinoRunTvPage({ eventId: propEventId }: { eventId?: st
         <div className="crun-tv__bank__l">The bank</div>
         <div className={`crun-tv__bank__n crun-tv__bank__n--${tone}`}>{m.fmt(s.bank)}</div>
         {s.status === "running" ? (
-          <div className="crun-tv__quota">
-            Stage {s.stage + 1} of {s.ladder.stages} &middot; needs <b>{m.fmt(s.quota)}</b> &middot;{" "}
-            {m.fmt(s.toGo)} to go
-          </div>
+          <>
+            <div className="crun-tv__quota">
+              Stage {s.stage + 1} of {s.ladder.stages} &middot; needs <b>{m.fmt(s.quota)}</b> &middot;{" "}
+              {m.fmt(s.toGo)} to go
+            </div>
+            {/* Attempts and the ante share ONE line. They had a row each and
+                that pushed the footer 23px off a 1080p screen — the money
+                board's lesson, relearned: adding to a TV means re-measuring
+                it, because rendering and fitting are different questions. */}
+            <div className="crun-tv__quota" style={{ fontSize: "2.6vmin" }}>
+              attempt {s.attempt} of {s.ladder.attemptsPerStage} &middot; {s.legsLeft} leg
+              {s.legsLeft === 1 ? "" : "s"} left &middot; min ante{" "}
+              <span className={s.ante.raises > 0 ? "crun-tv__ante--up" : undefined}>
+                {m.fmt(s.ante.amount)}
+              </span>
+              {s.ante.everyone && " (everyone)"}
+            </div>
+          </>
         ) : (
           <div className={`crun-tv__verdict crun-tv__verdict--${s.status === "cleared" ? "cleared" : "bust"}`}>
-            {s.status === "cleared" ? "RUN CLEARED" : "BUST"}
+            {s.status === "cleared"
+              ? "RUN CLEARED"
+              : s.ending === "attempts"
+              ? "OUT OF ATTEMPTS"
+              : "BUST"}
           </div>
         )}
       </div>
@@ -146,7 +164,7 @@ export default function CasinoRunTvPage({ eventId: propEventId }: { eventId?: st
           <span>best comeback</span>
         </div>
         <div className="cg-tv__stat">
-          <b>{s.legs.length}</b>
+          <b>{s.legs.filter((l) => l.kind !== "buy").length}</b>
           <span>legs played</span>
         </div>
       </div>

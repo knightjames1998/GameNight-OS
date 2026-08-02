@@ -7,11 +7,14 @@ import { MoneyInput, StakesBadge } from "../casino/money";
 import { ModifierPicker, ModifierStrip } from "../casino/modifiers";
 import {
   CRUN_LADDERS,
+  CRUN_TOKENS,
   SESSION_PACKS,
   crunQuotas,
+  crunTokenCost,
+  crunTokenName,
+  defaultAnte,
   modifierName,
   money,
-  type CashStakes,
   type CrunDifficulty,
   type CrunSummary,
 } from "@gamenight/shared";
@@ -141,10 +144,11 @@ function RunSetup({
   finished: CrunSummary | null;
   onStart: (payload: Record<string, unknown>) => void;
 }) {
-  const [stakes, setStakes] = useState<CashStakes>("real");
   const [startingBank, setStartingBank] = useState<number | null>(10000);
   const [difficulty, setDifficulty] = useState<CrunDifficulty>("standard");
   const [floor, setFloor] = useState<number | null>(0);
+  // Null means "follow the bank", which is the 2% default the engine applies.
+  const [ante, setAnte] = useState<number | null>(null);
   const [modifiers, setModifiers] = useState<string[]>([]);
   const [seats, setSeats] = useState<Seat[]>([]);
   const [guest, setGuest] = useState("");
@@ -168,7 +172,8 @@ function RunSetup({
     );
   }
 
-  const m = money(stakes);
+  // Play money, always: this mode has no stakes selector at all. See CrunState.
+  const m = money("play");
   const ladder = CRUN_LADDERS.find((l) => l.key === difficulty)!;
   const bank = startingBank ?? 0;
   const quotas = crunQuotas(ladder, bank);
@@ -180,25 +185,12 @@ function RunSetup({
       {finished && <FinishedRecap summary={finished} />}
 
       <div className="cg-card" style={{ marginTop: 16 }}>
-        <div className="cg-h">What are the chips worth?</div>
-        <select
-          className="cg-input"
-          aria-label="Stakes"
-          value={stakes}
-          onChange={(e) => setStakes(e.target.value === "play" ? "play" : "real")}
-        >
-          <option value="real">Real money</option>
-          <option value="play">Play money</option>
-        </select>
-        <p className="cg-hint" style={{ marginTop: 8 }}>
-          {stakes === "real"
-            ? "Amounts are recorded in dollars."
-            : "Amounts are recorded as play money and shown as P$ everywhere. Arguably the better fit for a run — the bank is meant to die."}
-        </p>
-      </div>
-
-      <div className="cg-card">
         <div className="cg-h">The bank</div>
+        <p className="cg-hint" style={{ marginBottom: 10 }}>
+          <StakesBadge stakes="play" /> Casino Run is <b>play money only</b>. The quotas climb to
+          multiples of the bank and the hardest ladder is meant to be unwinnable, so there is no
+          real-money option and nothing to choose here.
+        </p>
         <div className="cg-lab">Starting stake</div>
         <MoneyInput value={startingBank} onChange={setStartingBank} ariaLabel="Starting bank" />
         <p className="cg-hint" style={{ marginTop: 8 }}>
@@ -209,6 +201,20 @@ function RunSetup({
         <MoneyInput value={floor} onChange={setFloor} small ariaLabel="Floor" />
         <p className="cg-hint" style={{ marginTop: 8 }}>
           Drop to this and the run is over. Zero means play it to the last chip.
+        </p>
+
+        <div className="cg-lab" style={{ marginTop: 14 }}>Opening minimum ante</div>
+        <MoneyInput
+          key={`ante-${bank}`}
+          value={ante ?? defaultAnte(bank || 1)}
+          onChange={setAnte}
+          small
+          ariaLabel="Opening ante"
+        />
+        <p className="cg-hint" style={{ marginTop: 8 }}>
+          What it costs to sit in a round. Defaults to 2% of the bank. It RISES on its own — every
+          missed stage puts it up, and Escalating minimum puts it up every five legs — so grinding
+          gets more expensive the longer you do it.
         </p>
       </div>
 
@@ -228,8 +234,10 @@ function RunSetup({
         </div>
         <p className="cg-hint" style={{ marginTop: 8 }}>{ladder.blurb}</p>
         <p className="cg-hint" style={{ marginTop: 6 }}>
-          {ladder.stages} stages, +{Math.round(ladder.escalation * 100)}% each, {ladder.legsPerStage}{" "}
-          legs a stage before the house adds a rule.
+          {ladder.stages} stages, +{Math.round(ladder.escalation * 100)}% each. Each stage gives you{" "}
+          {ladder.attemptsPerStage} attempt{ladder.attemptsPerStage === 1 ? "" : "s"} of{" "}
+          {ladder.legsPerStage} legs &mdash; <b>run out of attempts and the run is over</b>, even
+          with money still on the table.
         </p>
         {bank > 0 && (
           <>
@@ -310,7 +318,7 @@ function RunSetup({
         style={{ marginTop: 12 }}
         disabled={busy || !ready}
         onClick={() =>
-          onStart({ stakes, startingBank, floor: floor ?? 0, difficulty, modifiers, roster: seats })
+          onStart({ startingBank, floor: floor ?? 0, ante, difficulty, modifiers, roster: seats })
         }
       >
         {seats.length < 1
@@ -395,10 +403,14 @@ function LiveRun({
         <p className="cg-hint" style={{ marginTop: 8, textAlign: "center" }}>
           {summary.status === "cleared"
             ? `All ${summary.ladder.stages} stages cleared.`
-            : summary.status === "bust"
+            : summary.ending === "floor"
             ? `The bank went through the floor of ${m.fmt(summary.floor)}.`
-            : `${m.fmt(summary.toGo)} to go · ${summary.legsLeft} leg${summary.legsLeft === 1 ? "" : "s"} left${summary.attempt > 1 ? ` · attempt ${summary.attempt}` : ""}`}
+            : summary.ending === "attempts"
+            ? `Out of attempts on stage ${Math.min(summary.stage + 1, summary.ladder.stages)}, with ${m.fmt(summary.bank)} still on the table.`
+            : `${m.fmt(summary.toGo)} to go · ${summary.legsLeft} leg${summary.legsLeft === 1 ? "" : "s"} left · attempt ${summary.attempt} of ${summary.ladder.attemptsPerStage}`}
         </p>
+
+        <AnteStrip summary={summary} />
 
         <div className="crun-stages">
           {summary.stages.map((st) => (
@@ -432,15 +444,22 @@ function LiveRun({
 
       {canScore && !over && <LegForm summary={summary} busy={busy} call={call} at={at} />}
 
+      {canScore && !over && <TokenShop summary={summary} busy={busy} call={call} at={at} />}
+
       {summary.legs.length > 0 && (
         <div className="cg-card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
             <div className="cg-h" style={{ margin: 0 }}>The run so far</div>
-            <span className="cg-hint">{summary.legs.length} legs</span>
+            <span className="cg-hint">
+              {summary.legs.filter((l) => l.kind !== "buy").length} legs
+            </span>
           </div>
           {[...summary.legs].reverse().map((l, i) => (
-            <div className="crun-leg" key={summary.legs.length - i}>
-              <span className="crun-leg__g">{l.game}</span>
+            <div className={`crun-leg ${l.kind === "buy" ? "crun-leg--buy" : ""}`} key={summary.legs.length - i}>
+              <span className="crun-leg__g">
+                {l.kind === "buy" && <span className="crun-leg__tag">card</span>}
+                {l.game}
+              </span>
               <span className="crun-leg__who">
                 {l.playerId
                   ? summary.players.find((p) => p.playerId === l.playerId)?.name ?? "?"
@@ -521,6 +540,117 @@ function Bank({ summary }: { summary: CrunSummary }) {
           ? `Stage ${summary.stage + 1} of ${summary.ladder.stages} · needs ${m.fmt(summary.quota)}`
           : summary.headline}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The minimum ante, and why it is where it is.
+ *
+ * A TRACKER, NOT A REFEREE. The app is not deciding what anybody bets — it is
+ * keeping the number the table already agreed on, and applying the rises that
+ * the cards and the missed stages call for. That is bookkeeping, the same kind
+ * as counting legs, and it is a different thing from computing a gambling
+ * outcome, which this pack still never does.
+ */
+function AnteStrip({ summary }: { summary: CrunSummary }) {
+  const m = money(summary.stakes);
+  const a = summary.ante;
+  const why: string[] = [];
+  if (a.raises > 0) why.push(`up ${a.raises}x from ${m.short(a.base)}`);
+  if (summary.missed > 0) why.push(`${summary.missed} missed stage${summary.missed === 1 ? "" : "s"}`);
+  if (summary.modifiers.includes("escalating_min")) why.push("Escalating minimum");
+
+  return (
+    <div className={`crun-ante ${a.raises > 0 ? "crun-ante--up" : ""}`}>
+      <div>
+        <div className="crun-ante__l">Minimum ante</div>
+        {a.everyone && <div className="crun-ante__all">everyone antes, every round</div>}
+      </div>
+      <div style={{ textAlign: "right" }}>
+        <div className="crun-ante__n">{m.fmt(a.amount)}</div>
+        {why.length > 0 && <div className="crun-ante__why">{why.join(" · ")}</div>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * ONE-SHOT CARDS, bought out of the bank.
+ *
+ * The only decision in the pack that costs money to make: spending bank moves
+ * you away from the quota you are chasing, so "buy a hedge and fall further
+ * behind, or run the next leg naked" is a real choice rather than free value.
+ * Most of them are declarative — the table applies them — and the two that are
+ * not touch bookkeeping the app already owns.
+ */
+function TokenShop({
+  summary,
+  busy,
+  call,
+  at,
+}: {
+  summary: CrunSummary;
+  busy: boolean;
+  call: (path: string, body?: unknown) => Promise<void>;
+  at: (p: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const m = money(summary.stakes);
+
+  return (
+    <div className="cg-card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <div className="cg-h" style={{ margin: 0 }}>One-shot cards</div>
+        <button className="cg-textbtn" onClick={() => setOpen(!open)}>
+          {open ? "▴ hide" : "▾ buy one"}
+        </button>
+      </div>
+
+      {summary.held.length > 0 && (
+        <div className="crun-held">
+          <div className="crun-held__l">Held for the next leg</div>
+          {summary.held.map((id, i) => (
+            <span className="crun-held__c" key={`${id}-${i}`}>{crunTokenName(id)}</span>
+          ))}
+        </div>
+      )}
+
+      {open && (
+        <>
+          <p className="cg-hint" style={{ marginTop: 8 }}>
+            Bought out of the bank and spent on the next leg. The cost moves you AWAY from the
+            quota, which is the point.
+          </p>
+          {CRUN_TOKENS.map((t) => {
+            const cost = crunTokenCost(t, summary.startingBank);
+            return (
+              <div className="cg-row" key={t.id}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span className="cg-name">{t.name}</span>
+                  <div className="cg-sub2">{t.rule}</div>
+                </span>
+                <button
+                  className="cg-btn cg-btn--ghost cg-btn--sm"
+                  disabled={busy}
+                  onClick={() => call(at("buy"), { token: t.id })}
+                >
+                  {m.short(cost)}
+                </button>
+              </div>
+            );
+          })}
+          <p className="cg-hint" style={{ marginTop: 8 }}>
+            Nothing stops you buying one you cannot afford. Spending the last of the bank on a
+            hedge is a real way to end a run.
+          </p>
+        </>
+      )}
+      {!open && summary.held.length === 0 && (
+        <p className="cg-hint" style={{ marginTop: 6 }}>
+          Five cards, priced off the starting bank. Buy one when a leg has to land.
+        </p>
+      )}
     </div>
   );
 }

@@ -50,11 +50,19 @@ export interface Modifier {
 }
 
 /**
- * The starting deck: two dozen cards, boons and banes across all three
- * severities, roughly half of them pack-agnostic. That last split is
- * deliberate — a crew that only ever plays blackjack still gets real variety,
- * because twelve "any" cards sit in their pool alongside the four blackjack
- * ones.
+ * The deck: 32 cards, EXACTLY HALF BOONS AND HALF BANES, across all three
+ * severities, half of them pack-agnostic.
+ *
+ * THE 50/50 SPLIT IS ASSERTED, NOT ASPIRED TO. The first cut shipped 11 boons
+ * to 13 banes, and worse, the "any" pool — the only pool Casino Run draws from
+ * — was 4 boons to 8. So a co-op run got punished twice as often as it got
+ * helped by its own random draws, which is a miserable way to lose. The split
+ * is now enforced overall AND within the "any" pool by tests, so a future card
+ * cannot quietly tip it again.
+ *
+ * The any/pack split is deliberate too: a crew that only ever plays blackjack
+ * still gets real variety, because sixteen "any" cards sit in their pool
+ * alongside the five blackjack ones.
  */
 export const MODIFIERS: Modifier[] = [
   // ---- any pack ----
@@ -70,24 +78,32 @@ export const MODIFIERS: Modifier[] = [
   { id: "phones_down", name: "Phones down", rule: "A phone on the table costs an ante.", kind: "bane", severity: 1, appliesTo: "any" },
   { id: "last_to_sit", name: "Last to sit", rule: "The last player to sit out a hand antes.", kind: "bane", severity: 1, appliesTo: "any" },
   { id: "high_roller", name: "High roller", rule: "One declared hand each pays double, win or lose.", kind: "boon", severity: 3, appliesTo: "any" },
+  { id: "hot_streak", name: "Hot streak", rule: "Two wins running pays a bonus from the table.", kind: "boon", severity: 2, appliesTo: "any" },
+  { id: "free_round", name: "Free round", rule: "One round a session is played with no ante.", kind: "boon", severity: 1, appliesTo: "any" },
+  { id: "underdog_bonus", name: "Underdog bonus", rule: "Whoever is furthest down plays their next hand double.", kind: "boon", severity: 2, appliesTo: "any" },
+  { id: "insurance", name: "Insurance", rule: "Once each, take back half of one losing bet.", kind: "boon", severity: 3, appliesTo: "any" },
 
   // ---- roulette ----
   { id: "hot_colour", name: "Hot colour", rule: "A chosen colour pays double all session.", kind: "boon", severity: 2, appliesTo: ["roulette"] },
   { id: "hot_number", name: "Hot number", rule: "A chosen number pays double all session.", kind: "boon", severity: 3, appliesTo: ["roulette"] },
   { id: "neighbours_only", name: "Neighbours only", rule: "Your bet must touch your previous number on the wheel.", kind: "bane", severity: 2, appliesTo: ["roulette"] },
   { id: "zero_pays_table", name: "Zero pays the table", rule: "Green pays the players, not the house.", kind: "boon", severity: 2, appliesTo: ["roulette"] },
+  { id: "no_outside_bets", name: "No outside bets", rule: "Red, black, odd and even are all off.", kind: "bane", severity: 3, appliesTo: ["roulette"] },
 
   // ---- craps ----
   { id: "no_come_bets", name: "No come bets", rule: "Come and don't come bets are off.", kind: "bane", severity: 2, appliesTo: ["craps"] },
   { id: "pass_line_required", name: "Pass line required", rule: "The shooter must back the pass line.", kind: "bane", severity: 1, appliesTo: ["craps"] },
   { id: "long_hand_bonus", name: "Long hand bonus", rule: "A shooter reaching five rolls pays the table a bonus.", kind: "boon", severity: 2, appliesTo: ["craps"] },
   { id: "hard_ways_only", name: "Hard ways only", rule: "Prop bets are restricted to the hard ways.", kind: "bane", severity: 2, appliesTo: ["craps"] },
+  { id: "come_out_bonus", name: "Come out bonus", rule: "A come-out seven or eleven pays the shooter double.", kind: "boon", severity: 1, appliesTo: ["craps"] },
+  { id: "no_odds", name: "No odds", rule: "Taking odds behind the line is off.", kind: "bane", severity: 2, appliesTo: ["craps"] },
 
   // ---- blackjack ----
   { id: "extra_card_up", name: "Extra card up", rule: "The dealer exposes one extra card.", kind: "boon", severity: 2, appliesTo: ["blackjack"] },
   { id: "no_splitting", name: "No splitting", rule: "Splitting pairs is off.", kind: "bane", severity: 2, appliesTo: ["blackjack"] },
   { id: "blackjack_pays_double", name: "Blackjack pays double", rule: "A natural pays twice the usual.", kind: "boon", severity: 3, appliesTo: ["blackjack"] },
   { id: "stands_all_17", name: "Stands on all 17s", rule: "The dealer stands on soft 17 as well as hard.", kind: "boon", severity: 1, appliesTo: ["blackjack"] },
+  { id: "no_doubling", name: "No doubling", rule: "Doubling down is off.", kind: "bane", severity: 2, appliesTo: ["blackjack"] },
 ];
 
 const BY_ID = new Map(MODIFIERS.map((m) => [m.id, m]));

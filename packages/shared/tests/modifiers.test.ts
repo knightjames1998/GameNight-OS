@@ -63,6 +63,18 @@ const SHIPPED_IDS = [
   "no_splitting",
   "blackjack_pays_double",
   "stands_all_17",
+  // Added 2026-07-30 to reach the 50/50 split. The four "any" boons are the
+  // point of the batch: that pool was 4 boons to 8 banes and it is the ONLY
+  // pool Casino Run draws from, so a co-op run was punished twice as often as
+  // it was helped by its own draws.
+  "hot_streak",
+  "free_round",
+  "underdog_bonus",
+  "insurance",
+  "no_outside_bets",
+  "come_out_bonus",
+  "no_odds",
+  "no_doubling",
 ];
 
 test("every shipped modifier id is unchanged", () => {
@@ -75,7 +87,9 @@ test("every shipped modifier id is unchanged", () => {
 
 test("the deck holds exactly the shipped cards, and ids are unique", () => {
   const ids = MODIFIERS.map((m) => m.id);
-  assert.deepEqual(ids, SHIPPED_IDS);
+  // Sorted, because the four batches are grouped by pack rather than by when
+  // they were added, so a new card lands in the middle of the list.
+  assert.deepEqual([...ids].sort(), [...SHIPPED_IDS].sort());
   assert.equal(new Set(ids).size, ids.length, "duplicate modifier id");
 });
 
@@ -92,17 +106,34 @@ test("every card is renderable: a name, a one-line rule, a valid kind and severi
   }
 });
 
-test("the deck is the mix it was designed to be", () => {
-  // Not decoration: a deck that drifted to all-banes or all-severity-1 would
-  // make both the draw and the night boring, and nothing else would notice.
-  assert.equal(MODIFIERS.length, 24);
+test("THE DECK IS EXACTLY HALF BOONS, overall and in the any pool", () => {
+  // Not decoration, and not aspiration. The first cut shipped 11 boons to 13
+  // banes, and the "any" pool — the only pool Casino Run draws from — was 4 to
+  // 8, so a co-op run got hurt by its own random draws twice as often as it
+  // got helped. Nothing else in the app would have noticed. Both halves are
+  // asserted, because fixing only the total would leave the pool skewed.
+  assert.equal(MODIFIERS.length, 32);
+  assert.equal(MODIFIERS.filter((m) => m.kind === "boon").length, 16, "overall boons");
+  assert.equal(MODIFIERS.filter((m) => m.kind === "bane").length, 16, "overall banes");
+
   const any = MODIFIERS.filter((m) => m.appliesTo === "any");
-  assert.equal(any.length, 12, "half the deck should apply to any pack");
+  assert.equal(any.length, 16, "half the deck should apply to any pack");
+  assert.equal(any.filter((m) => m.kind === "boon").length, 8, "any-pool boons");
+  assert.equal(any.filter((m) => m.kind === "bane").length, 8, "any-pool banes");
+
   for (const sev of [1, 2, 3]) {
     assert.ok(MODIFIERS.some((m) => m.severity === sev), `no severity ${sev} card`);
   }
-  assert.ok(MODIFIERS.some((m) => m.kind === "boon"));
-  assert.ok(MODIFIERS.some((m) => m.kind === "bane"));
+});
+
+test("every pack's own pool has both kinds in it", () => {
+  // A pack whose four cards were all banes would make its draws feel like a
+  // punishment even with the overall split correct.
+  for (const pack of ["blackjack", "roulette", "craps"]) {
+    const own = MODIFIERS.filter((m) => m.appliesTo !== "any" && m.appliesTo.includes(pack));
+    assert.ok(own.some((m) => m.kind === "boon"), `${pack} has no boon of its own`);
+    assert.ok(own.some((m) => m.kind === "bane"), `${pack} has no bane of its own`);
+  }
 });
 
 test("an unknown id renders as itself rather than as a blank", () => {
@@ -130,13 +161,13 @@ test("a pack-specific card matches only its pack", () => {
 });
 
 test("each pack's pool is its own cards plus every any card", () => {
-  for (const [pack, own] of [
-    ["blackjack", ["extra_card_up", "no_splitting", "blackjack_pays_double", "stands_all_17"]],
-    ["roulette", ["hot_colour", "hot_number", "neighbours_only", "zero_pays_table"]],
-    ["craps", ["no_come_bets", "pass_line_required", "long_hand_bonus", "hard_ways_only"]],
+  for (const [pack, own, size] of [
+    ["blackjack", ["extra_card_up", "no_splitting", "blackjack_pays_double", "stands_all_17", "no_doubling"], 21],
+    ["roulette", ["hot_colour", "hot_number", "neighbours_only", "zero_pays_table", "no_outside_bets"], 21],
+    ["craps", ["no_come_bets", "pass_line_required", "long_hand_bonus", "hard_ways_only", "come_out_bonus", "no_odds"], 22],
   ] as const) {
     const pool = modifiersFor(pack);
-    assert.equal(pool.length, 16, `${pack}: 12 any + 4 own`);
+    assert.equal(pool.length, size, `${pack}: 16 any + its own`);
     for (const id of own) assert.ok(pool.some((m) => m.id === id), `${pack} missing ${id}`);
     // And nothing from another pack leaked in.
     for (const m of pool) assert.equal(appliesToPack(m, pack), true, `${pack} got ${m.id}`);
@@ -146,7 +177,7 @@ test("each pack's pool is its own cards plus every any card", () => {
 test("a pack with no cards of its own still has the twelve any cards", () => {
   // Which is what Casino Run and poker get on day one.
   const pool = modifiersFor("casino_run");
-  assert.equal(pool.length, 12);
+  assert.equal(pool.length, 16);
   for (const m of pool) assert.equal(m.appliesTo, "any");
 });
 
@@ -195,7 +226,7 @@ test("a draw never returns a card filtered out", () => {
 });
 
 test("excluded cards never come back", () => {
-  const exclude = modifiersFor("craps").slice(0, 12).map((m) => m.id);
+  const exclude = modifiersFor("craps").slice(0, 16).map((m) => m.id);
   for (let i = 0; i < 200; i++) {
     for (const m of drawForPack("craps", 4, { exclude })) {
       assert.ok(!exclude.includes(m.id), `${m.id} was excluded`);

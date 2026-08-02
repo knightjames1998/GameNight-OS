@@ -22,6 +22,7 @@ import {
   crunProgress,
   crunQuota,
   crunQuotas,
+  crunBuy,
   crunRecord,
   crunUndo,
   drawModifiers,
@@ -204,13 +205,60 @@ test("running out of legs costs the attempt, not the run", () => {
   assert.equal(p.bank, 10050);
 });
 
-test("misses accumulate across attempts", () => {
-  const s = run({ difficulty: "standard" });
-  for (let i = 0; i < 15; i++) leg(s, 1);
-  const p = crunProgress(s);
+test("RUNNING OUT OF ATTEMPTS ENDS THE RUN — the second way to lose", () => {
+  // The thing this pack shipped without. Standard gives 3 attempts of 5 legs
+  // at each stage; a table that nibbles its way through all fifteen without
+  // reaching the quota is done, with money still on the table.
+  const s = run({ difficulty: "standard" }); // 5 legs, 3 attempts
+  for (let i = 0; i < 14; i++) leg(s, 1);
+  let p = crunProgress(s);
+  assert.equal(p.status, "running", "still alive on the last attempt");
+  assert.equal(p.attempt, 3);
+  assert.equal(p.attemptsLeft, 1);
+  assert.equal(p.missed, 2);
+
+  leg(s, 1); // the fifteenth: the last shot at stage 1 runs out
+  p = crunProgress(s);
+  assert.equal(p.status, "bust");
+  assert.equal(p.ending, "attempts", "out of shots, NOT through the floor");
   assert.equal(p.missed, 3);
-  assert.equal(p.attempt, 4);
-  assert.equal(p.stage, 0);
+  assert.ok(p.bank > 0, "and the bank still had money in it, which is the point");
+  // A further leg cannot revive it.
+  assert.equal(leg(s, 100000), false);
+});
+
+test("the two endings are told apart, because they are different nights", () => {
+  const floored = run({ startingBank: 10000, floor: 0 });
+  leg(floored, -10000);
+  assert.equal(crunProgress(floored).ending, "floor");
+  assert.equal(summarizeCrun(floored).headline.includes("through the floor"), true);
+
+  const out = run({ difficulty: "degenerate" }); // 4 legs, 2 attempts
+  for (let i = 0; i < 8; i++) leg(out, 1);
+  assert.equal(crunProgress(out).ending, "attempts");
+  assert.equal(summarizeCrun(out).headline.includes("out of attempts"), true);
+});
+
+test("attemptsLeft counts down and reads zero once the run is over", () => {
+  const s = run({ difficulty: "degenerate" }); // 4 legs, 2 attempts
+  assert.equal(crunProgress(s).attemptsLeft, 2);
+  for (let i = 0; i < 4; i++) leg(s, 1);
+  assert.equal(crunProgress(s).attemptsLeft, 1);
+  for (let i = 0; i < 4; i++) leg(s, 1);
+  assert.equal(crunProgress(s).attemptsLeft, 0);
+  assert.equal(crunProgress(s).status, "bust");
+});
+
+test("undo reopens a run that died on attempts, not just one that died on the floor", () => {
+  const s = run({ difficulty: "degenerate" }); // 4 legs, 2 attempts
+  for (let i = 0; i < 8; i++) leg(s, 1);
+  assert.equal(crunProgress(s).status, "bust");
+  assert.equal(crunUndo(s), true);
+  const p = crunProgress(s);
+  assert.equal(p.status, "running");
+  assert.equal(p.attempt, 2);
+  assert.equal(p.legsUsed, 3);
+  assert.equal(p.missed, 1);
 });
 
 test("bust beats clear when a leg would do both", () => {
@@ -311,6 +359,193 @@ test("a run that only ever goes up has no comeback", () => {
   // has nothing to brag about anyway, and the stat is only headlined on runs
   // that did.
   assert.equal(crunProgress(s).trough, 10000);
+});
+
+// ---------- the minimum ante ----------
+
+test("the ante starts at the base and only cards move it", () => {
+  const s = run({ startingBank: 10000 }); // default ante is 2% = 200
+  let p = crunProgress(s);
+  assert.equal(p.ante.base, 200);
+  assert.equal(p.ante.amount, 200);
+  assert.equal(p.ante.raises, 0);
+  assert.equal(p.ante.everyone, false);
+  // Plain legs on a plain run never move it.
+  for (let i = 0; i < 4; i++) leg(s, 10);
+  p = crunProgress(s);
+  assert.equal(p.ante.amount, 200);
+});
+
+test("Escalating minimum raises the ante on a clock", () => {
+  const s = run({ difficulty: "casual", startingBank: 10000 });
+  s.modifiers = ["escalating_min"];
+  // Every five legs. Casual gives five legs an attempt, so this also proves
+  // the clock counts LEGS and not attempts.
+  for (let i = 0; i < 4; i++) leg(s, 10);
+  assert.equal(crunProgress(s).ante.raises, 0);
+  leg(s, 10); // the fifth
+  const p = crunProgress(s);
+  // That fifth leg also exhausted the attempt, so there are two raises: one
+  // from the clock and one from the miss.
+  assert.equal(p.ante.raises, 2);
+  assert.equal(p.ante.amount, 400, "base 200 plus half the base per raise");
+});
+
+test("EVERY MISSED ATTEMPT raises the ante, so grinding costs something", () => {
+  // The other half of the answer to "there is no way to lose": running out of
+  // legs is not free even before it runs out of attempts, because the table
+  // gets more expensive to sit at each time.
+  const s = run({ difficulty: "standard", startingBank: 10000 }); // 5 legs, 3 attempts
+  for (let i = 0; i < 5; i++) leg(s, 10);
+  let p = crunProgress(s);
+  assert.equal(p.missed, 1);
+  assert.equal(p.ante.raises, 1);
+  assert.equal(p.ante.amount, 300);
+  for (let i = 0; i < 5; i++) leg(s, 10);
+  p = crunProgress(s);
+  assert.equal(p.ante.raises, 2);
+  assert.equal(p.ante.amount, 400);
+});
+
+test("Everyone antes is reported off the card, not stored", () => {
+  const s = run();
+  assert.equal(crunProgress(s).ante.everyone, false);
+  s.modifiers = ["everyone_antes"];
+  assert.equal(crunProgress(s).ante.everyone, true);
+  // And it is independent of the amount.
+  assert.equal(crunProgress(s).ante.amount, 200);
+});
+
+test("the ante never drops below its base, whatever is bought", () => {
+  const s = run({ startingBank: 10000 });
+  crunBuy(s, { token: "ante_relief", playerId: null, at: "x" });
+  crunBuy(s, { token: "ante_relief", playerId: null, at: "x" });
+  const p = crunProgress(s);
+  assert.equal(p.ante.raises, 0);
+  assert.equal(p.ante.amount, 200, "relief cancels a rise, it does not make the table cheaper");
+});
+
+// ---------- one-shot tokens ----------
+
+test("buying a token costs bank and is held for the next leg", () => {
+  const s = run({ startingBank: 10000 });
+  const t = crunBuy(s, { token: "double_next", playerId: "a", at: "x" });
+  assert.equal(t?.id, "double_next");
+  const p = crunProgress(s);
+  // 10% of the starting bank.
+  assert.equal(p.bank, 9000);
+  assert.deepEqual(p.held, ["double_next"], "held until a leg spends it");
+  assert.equal(p.legsUsed, 0, "a purchase is not a stretch of play");
+  assert.equal(p.legsLeft, 5);
+});
+
+test("the next leg spends everything held", () => {
+  const s = run({ startingBank: 10000 });
+  crunBuy(s, { token: "double_next", playerId: "a", at: "x" });
+  crunBuy(s, { token: "mulligan", playerId: "a", at: "x" });
+  assert.deepEqual(crunProgress(s).held, ["double_next", "mulligan"]);
+  leg(s, 500);
+  const p = crunProgress(s);
+  assert.deepEqual(p.held, [], "spent on the leg that followed");
+  assert.equal(p.legsUsed, 1);
+});
+
+test("token costs scale with the run, so one is never trivial or unaffordable", () => {
+  const small = run({ startingBank: 2000 });
+  crunBuy(small, { token: "double_next", playerId: null, at: "x" });
+  assert.equal(crunProgress(small).bank, 1800); // 10% of 2000
+
+  const big = run({ startingBank: 500000 });
+  crunBuy(big, { token: "double_next", playerId: null, at: "x" });
+  assert.equal(crunProgress(big).bank, 450000);
+});
+
+test("BUYING A TOKEN YOU CANNOT AFFORD IS A REAL WAY TO DIE", () => {
+  // Deliberately not blocked. Spending the last of the bank on a hedge is a
+  // stupid, thoroughly in-genre way to end a run, and the floor check catches
+  // it like anything else that moves the bank.
+  const s = run({ startingBank: 10000, floor: 0 });
+  leg(s, -9200); // 800 left; a double_next costs 1000
+  assert.equal(crunProgress(s).status, "running");
+  crunBuy(s, { token: "double_next", playerId: null, at: "x" });
+  const p = crunProgress(s);
+  assert.equal(p.status, "bust");
+  assert.equal(p.ending, "floor");
+  assert.equal(p.bank, -200);
+});
+
+test("One more shot really does add a leg to the attempt", () => {
+  const s = run({ difficulty: "standard", startingBank: 10000 }); // 5 legs
+  for (let i = 0; i < 4; i++) leg(s, 10);
+  assert.equal(crunProgress(s).legsLeft, 1);
+  crunBuy(s, { token: "one_more_shot", playerId: null, at: "x" });
+  assert.equal(crunProgress(s).legsLeft, 2, "the budget grew");
+  leg(s, 10);
+  assert.equal(crunProgress(s).legsUsed, 5, "and the fifth leg did not end the attempt");
+  assert.equal(crunProgress(s).attempt, 1);
+  assert.equal(crunProgress(s).missed, 0);
+});
+
+test("Ante relief cancels exactly one rise", () => {
+  const s = run({ difficulty: "standard", startingBank: 10000 });
+  for (let i = 0; i < 5; i++) leg(s, 10); // one missed attempt -> one raise
+  assert.equal(crunProgress(s).ante.raises, 1);
+  crunBuy(s, { token: "ante_relief", playerId: null, at: "x" });
+  assert.equal(crunProgress(s).ante.raises, 0);
+  assert.equal(crunProgress(s).ante.amount, 200);
+});
+
+test("undoing a purchase gives the money back and un-holds the card", () => {
+  // The reason buys live in the same log as legs: there is no second thing to
+  // unwind.
+  const s = run({ startingBank: 10000 });
+  crunBuy(s, { token: "double_next", playerId: "a", at: "x" });
+  assert.equal(crunProgress(s).bank, 9000);
+  assert.equal(crunUndo(s), true);
+  const p = crunProgress(s);
+  assert.equal(p.bank, 10000);
+  assert.deepEqual(p.held, []);
+});
+
+test("a purchase is attributed but never counted as a leg played", () => {
+  const s = run({ startingBank: 10000 });
+  leg(s, 500, "Blackjack", "a");
+  crunBuy(s, { token: "half_next", playerId: "a", at: "x" });
+  const sum = summarizeCrun(s);
+  const ada = sum.players.find((p) => p.playerId === "a")!;
+  assert.equal(ada.legs, 1, "one leg, not two");
+  assert.equal(ada.delta, 500, "the purchase does not drag their leg total around");
+  assert.equal(ada.best, 500);
+  assert.equal(ada.worst, 500, "and it is not their worst leg either");
+  assert.equal(ada.spent, 600, "6% of 10000");
+});
+
+test("an unknown token is refused rather than recorded as a free card", () => {
+  const s = run();
+  assert.equal(crunBuy(s, { token: "not_a_token", playerId: null, at: "x" }), null);
+  assert.equal(s.legs.length, 0);
+});
+
+test("the ledger counts legs and purchases separately", () => {
+  const s = run({ startingBank: 10000, players: [player("a")] });
+  leg(s, 500);
+  crunBuy(s, { token: "half_next", playerId: "a", at: "x" });
+  leg(s, 500);
+  const [line] = crunLedgerLines(s);
+  assert.equal(line!.meta.legs, 2, "purchases are not stretches of play");
+  assert.equal(line!.meta.tokens, 1);
+});
+
+// ---------- play money, always ----------
+
+test("a run is ALWAYS play money and there is no way to ask for real", () => {
+  // The quotas escalate to multiples of the starting bank and the hardest
+  // ladder is meant to be unwinnable, so this mode has no business taking real
+  // money. There is no stakes parameter to pass.
+  const s = run();
+  assert.equal(s.stakes, "play");
+  assert.equal(summarizeCrun(s).stakes, "play");
+  assert.equal(crunLedgerLines(s)[0]!.meta.stakes, "play");
 });
 
 // ---------- per-leg attribution ----------

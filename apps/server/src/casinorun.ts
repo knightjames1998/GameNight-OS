@@ -20,6 +20,7 @@ import {
   aggregateCrunModifiers,
   aggregateCrunRuns,
   CRUN_LADDERS,
+  crunBuy,
   crunEscalationWeight,
   crunLadder,
   crunLedgerLines,
@@ -33,7 +34,6 @@ import {
   summarizeCrun,
   SESSION_PACKS,
   type CashPlayer,
-  type CashStakes,
   type CrunDifficulty,
   type CrunRunRow,
   type CrunState,
@@ -228,9 +228,10 @@ casinoRunRouter.post(`/events/:eventId/${SEG}`, requireAuth, async (req: AuthedR
 
   const difficulty: CrunDifficulty =
     (CRUN_LADDERS.find((l) => l.key === req.body?.difficulty)?.key as CrunDifficulty) ?? "standard";
-  // Anything that is not the word "play" is real, defaulting the safer way:
-  // a malformed body must not quietly record a real-money night as pretend.
-  const stakes: CashStakes = req.body?.stakes === "play" ? "play" : "real";
+  // NO STAKES PARAMETER. Casino Run is play money, always — see the field
+  // comment on CrunState. A body that sends one is ignored rather than
+  // honoured, so a stale client cannot open a real-money run.
+  const ante = cents(req.body?.ante);
 
   const rawRoster = Array.isArray(req.body?.roster) ? req.body.roster : [];
   const roster: CashPlayer[] = rawRoster
@@ -251,7 +252,7 @@ casinoRunRouter.post(`/events/:eventId/${SEG}`, requireAuth, async (req: AuthedR
     startingBank,
     difficulty,
     floor,
-    stakes,
+    ante: ante && ante > 0 ? ante : undefined,
     modifiers: sanitizeModifierIds(req.body?.modifiers, DEF.ledger),
   });
 
@@ -312,6 +313,50 @@ casinoRunRouter.post(`/${SEG}/:eventId/leg`, requireAuth, async (req: AuthedRequ
   else if (after.missed > before.missed) drew = drawOnMiss(state);
 
   res.json({ ...(await rt.saveState(g.loaded, "live", g.origin)), drew });
+});
+
+/**
+ * Buy a one-shot token out of the bank.
+ *
+ * Not a leg: it moves the bank but spends no leg budget, and it is recorded in
+ * the same log so undo gives the money back with nothing else to unwind. The
+ * cost is deliberately NOT checked against the bank — spending your last chips
+ * on a hedge is a legitimate way to end a run, and the floor check catches it
+ * like anything else.
+ */
+casinoRunRouter.post(`/${SEG}/:eventId/buy`, requireAuth, async (req: AuthedRequest, res) => {
+  const g = await scorer(req, res);
+  if (!g) return;
+  const state = g.loaded.state;
+  const rawPlayer = req.body?.playerId;
+  const playerId = rawPlayer === null || rawPlayer === undefined || rawPlayer === "" ? null : String(rawPlayer);
+  if (playerId !== null && !state.roster.some((p) => p.id === playerId)) {
+    res.status(404).json({ error: "That player is not on the run" });
+    return;
+  }
+  const token = crunBuy(state, {
+    token: String(req.body?.token ?? ""),
+    playerId,
+    at: new Date().toISOString(),
+  });
+  if (!token) {
+    res.status(400).json({ error: "No such card, or the run is over" });
+    return;
+  }
+  res.json({ ...(await rt.saveState(g.loaded, "live", g.origin)), bought: token.id });
+});
+
+/** The host can correct the opening ante; the rises on top of it stay derived. */
+casinoRunRouter.post(`/${SEG}/:eventId/ante`, requireAuth, async (req: AuthedRequest, res) => {
+  const g = await host(req, res);
+  if (!g) return;
+  const amount = cents(req.body?.amount);
+  if (amount === null || amount < 1) {
+    res.status(400).json({ error: "Enter an ante" });
+    return;
+  }
+  g.loaded.state.ante = amount;
+  res.json(await rt.saveState(g.loaded, g.loaded.row.status, g.origin));
 });
 
 casinoRunRouter.post(`/${SEG}/:eventId/undo-leg`, requireAuth, async (req: AuthedRequest, res) => {

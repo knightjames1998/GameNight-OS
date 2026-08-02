@@ -880,6 +880,9 @@ interface CrunStats {
     missed: number;
     legs: number;
     myLegs: number;
+    lostBank: number;
+    ranOut: number;
+    tokens: number;
   }[];
   byModifier: { id: string; runs: number; cleared: number; clearRate: number }[];
   best: { name: string; comeback: number } | null;
@@ -919,7 +922,7 @@ function CasinoRunPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
           <div className="flex items-baseline justify-between gap-2" style={{ marginTop: 2 }}>
             <span className="font-bold truncate">🎰 {data.best.name}&rsquo;s run</span>
             <span className="font-bold shrink-0" style={{ color: "var(--gn-gold)" }}>
-              {formatCents(data.best.comeback)}
+              {formatCents(data.best.comeback, "play")}
             </span>
           </div>
           <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
@@ -941,13 +944,25 @@ function CasinoRunPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
             <p className="gn-hint" style={{ fontSize: "12px", marginTop: 4 }}>
               {p.runs} run{p.runs === 1 ? "" : "s"} &middot; {p.cleared} cleared &middot; {p.busts} bust
               {p.deepest > 0 && ` · deepest ${p.deepest} stage${p.deepest === 1 ? "" : "s"}`}
-              {p.bestComeback > 0 && ` · best comeback ${formatCents(p.bestComeback)}`}
+              {p.bestComeback > 0 && ` · best comeback ${formatCents(p.bestComeback, "play")}`}
             </p>
+            {/* THE TWO WAYS TO LOSE, told apart. "We lost the bank" and "we ran
+                out of shots with money still on the table" are different
+                nights, and a crew that mostly does the second is playing too
+                cautiously rather than too riskily. */}
+            {p.busts > 0 && (
+              <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
+                {p.lostBank > 0 && `${p.lostBank} lost the bank`}
+                {p.lostBank > 0 && p.ranOut > 0 && " · "}
+                {p.ranOut > 0 && `${p.ranOut} ran out of attempts`}
+              </p>
+            )}
             {(p.myLegs > 0 || p.missed > 0) && (
               <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
                 {p.myLegs > 0 && `${p.myLegs} leg${p.myLegs === 1 ? "" : "s"} played`}
                 {p.myLegs > 0 && p.missed > 0 && " · "}
                 {p.missed > 0 && `${p.missed} stage${p.missed === 1 ? "" : "s"} missed to the house`}
+                {p.tokens > 0 && ` · ${p.tokens} one-shot card${p.tokens === 1 ? "" : "s"} bought`}
               </p>
             )}
           </div>
