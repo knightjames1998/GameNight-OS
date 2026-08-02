@@ -962,7 +962,7 @@ function CasinoRunPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
                 {p.myLegs > 0 && `${p.myLegs} leg${p.myLegs === 1 ? "" : "s"} played`}
                 {p.myLegs > 0 && p.missed > 0 && " · "}
                 {p.missed > 0 && `${p.missed} stage${p.missed === 1 ? "" : "s"} missed to the house`}
-                {p.tokens > 0 && ` · ${p.tokens} one-shot card${p.tokens === 1 ? "" : "s"} bought`}
+                {p.tokens > 0 && ` · ${p.tokens} token${p.tokens === 1 ? "" : "s"} bought`}
               </p>
             )}
           </div>

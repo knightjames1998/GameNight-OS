@@ -292,7 +292,13 @@ export default function CasinoSetup({
       {/* Last of the shared cards, and after the required ones on purpose: it
           is entirely optional, and a host in a hurry should reach the start
           button without having to decide anything here. */}
-      <ModifierPicker ledger={ledger} value={modifiers} onChange={setModifiers} />
+      <ModifierPicker
+        ledger={ledger}
+        value={modifiers}
+        onChange={setModifiers}
+        unit={defaultBuyIn}
+        stakes={stakes}
+      />
 
       {extra}
 

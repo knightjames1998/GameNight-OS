@@ -307,7 +307,13 @@ function RunSetup({
         </p>
       </div>
 
-      <ModifierPicker ledger={PACK.ledger} value={modifiers} onChange={setModifiers} />
+      <ModifierPicker
+        ledger={PACK.ledger}
+        value={modifiers}
+        onChange={setModifiers}
+        unit={ante ?? defaultAnte(bank || 1)}
+        stakes="play"
+      />
       <p className="cg-hint" style={{ marginTop: 8 }}>
         Leave these empty and the house deals one card to open the run, then another every time you
         clear a stage — reaching for nastier ones as the quotas climb.
@@ -440,7 +446,9 @@ function LiveRun({
         </div>
       )}
 
-      <ModifierStrip ids={summary.modifiers} />
+      {/* The unit is the LIVE ante, not the base: a card that pays "100% of the
+          minimum" gets dearer as the ante climbs, and the text should say so. */}
+      <ModifierStrip ids={summary.modifiers} unit={summary.ante.amount} stakes={summary.stakes} />
 
       {canScore && !over && <LegForm summary={summary} busy={busy} call={call} at={at} />}
 
@@ -576,7 +584,7 @@ function AnteStrip({ summary }: { summary: CrunSummary }) {
 }
 
 /**
- * ONE-SHOT CARDS, bought out of the bank.
+ * TOKENS: one-time-use cards bought out of the bank.
  *
  * The only decision in the pack that costs money to make: spending bank moves
  * you away from the quota you are chasing, so "buy a hedge and fall further
@@ -601,7 +609,7 @@ function TokenShop({
   return (
     <div className="cg-card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <div className="cg-h" style={{ margin: 0 }}>One-shot cards</div>
+        <div className="cg-h" style={{ margin: 0 }}>Tokens</div>
         <button className="cg-textbtn" onClick={() => setOpen(!open)}>
           {open ? "▴ hide" : "▾ buy one"}
         </button>
@@ -648,7 +656,7 @@ function TokenShop({
       )}
       {!open && summary.held.length === 0 && (
         <p className="cg-hint" style={{ marginTop: 6 }}>
-          Five cards, priced off the starting bank. Buy one when a leg has to land.
+          Priced off the starting bank. Buy one when a leg has to land.
         </p>
       )}
     </div>

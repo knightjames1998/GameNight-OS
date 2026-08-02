@@ -566,6 +566,12 @@ export interface CashSummary<D> {
   /** Active modifier ids. Same reasoning as `stakes`: carried, not threaded. */
   modifiers: string[];
   /**
+   * cents. The table's standard stake, carried for the same reason as the two
+   * above — a modifier card whose rule quotes a fraction ("the house rakes
+   * 10%") is rendered as a real figure, and the renderer needs the unit.
+   */
+  defaultBuyIn: number;
+  /**
    * Carried on the SUMMARY rather than threaded as a prop, so every screen that
    * can draw an amount already has the stakes in hand. A component cannot render
    * this board without it, which is what stops a play-money table showing
@@ -638,6 +644,7 @@ export function summarizeCash<D>(
     bankerId,
     stakes: core.stakes ?? "real",
     modifiers: core.modifiers ?? [],
+    defaultBuyIn: (core as { defaultBuyIn?: number }).defaultBuyIn ?? 0,
     players,
     totalIn: settlement.totalIn,
     totalOut: settlement.totalOut,

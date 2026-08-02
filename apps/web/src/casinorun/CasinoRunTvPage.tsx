@@ -132,7 +132,7 @@ export default function CasinoRunTvPage({ eventId: propEventId }: { eventId?: st
         ))}
       </div>
 
-      <ModifierWall ids={s.modifiers} />
+      <ModifierWall ids={s.modifiers} unit={s.ante.amount} stakes={s.stakes} />
 
       {s.status === "running" && (
         <div className="crun-tv__now">

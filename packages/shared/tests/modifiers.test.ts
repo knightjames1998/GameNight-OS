@@ -25,8 +25,11 @@ import {
   drawWeight,
   modifierById,
   modifierName,
+  modifierRule,
   modifiersFor,
   sanitizeModifierIds,
+  severityPips,
+  SEVERITY_LABEL,
   type Modifier,
 } from "../src/index.js";
 
@@ -39,43 +42,49 @@ import {
  * in the file header and above.
  */
 const SHIPPED_IDS = [
+  // The "any" pool, rewritten on 2026-08-02 to be about THE MONEY AND THE
+  // TOTALS. Six cards were retired in that pass — loser_buys, bust_penalty,
+  // silence, phones_down, last_to_sit and high_roller — because they policed
+  // the room rather than the board, and one of them ("pays the table a
+  // forfeit") never said what it cost. RETIRED IDS ARE NOT REUSED: a run
+  // recorded under one still has rows, and modifierName renders an unknown id
+  // as itself so that history stays readable.
   "escalating_min",
   "everyone_antes",
-  "loser_buys",
-  "dealers_choice",
-  "bust_penalty",
   "leader_tax",
+  "house_rake",
+  "ante_surge",
+  "losses_double",
+  "min_bet_up",
+  "pot_tithe",
+  "dealers_choice",
   "mercy_chip",
   "call_your_shot",
-  "silence",
-  "phones_down",
-  "last_to_sit",
-  "high_roller",
-  "hot_colour",
-  "hot_number",
-  "neighbours_only",
-  "zero_pays_table",
-  "no_come_bets",
-  "pass_line_required",
-  "long_hand_bonus",
-  "hard_ways_only",
-  "extra_card_up",
-  "no_splitting",
-  "blackjack_pays_double",
-  "stands_all_17",
-  // Added 2026-07-30 to reach the 50/50 split. The four "any" boons are the
-  // point of the batch: that pool was 4 boons to 8 banes and it is the ONLY
-  // pool Casino Run draws from, so a co-op run was punished twice as often as
-  // it was helped by its own draws.
   "hot_streak",
   "free_round",
   "underdog_bonus",
   "insurance",
+  "bank_match",
+  "hot_colour",
+  "hot_number",
+  "neighbours_only",
+  "zero_pays_table",
   "no_outside_bets",
+  "no_come_bets",
+  "pass_line_required",
+  "long_hand_bonus",
+  "hard_ways_only",
   "come_out_bonus",
   "no_odds",
+  "extra_card_up",
+  "no_splitting",
+  "blackjack_pays_double",
+  "stands_all_17",
   "no_doubling",
 ];
+
+/** Cards deliberately taken OUT. Reusing one of these ids would collide with real history. */
+const RETIRED_IDS = ["loser_buys", "bust_penalty", "silence", "phones_down", "last_to_sit", "high_roller"];
 
 test("every shipped modifier id is unchanged", () => {
   // An id lands in match_participants.meta. A rename orphans the card's whole
@@ -136,12 +145,69 @@ test("every pack's own pool has both kinds in it", () => {
   }
 });
 
+test("a retired id is gone from the deck and never reused", () => {
+  for (const id of RETIRED_IDS) {
+    assert.equal(modifierById(id), undefined, `${id} is still in the deck`);
+    // And it still renders, because runs played under it are in the ledger.
+    assert.equal(modifierName(id), id);
+  }
+});
+
+test("every card that mentions money names a real fraction", () => {
+  // "Pays a bonus" is not a rule, it is an argument waiting to happen. A card
+  // with a {bonus} placeholder must carry the percentage that fills it, and a
+  // card carrying a percentage must have somewhere to put it.
+  for (const m of MODIFIERS) {
+    const hasSlot = m.rule.includes("{bonus}");
+    assert.equal(hasSlot, m.bonusPct !== undefined, `${m.id}: placeholder and bonusPct disagree`);
+    if (m.bonusPct !== undefined) assert.ok(m.bonusPct > 0, `${m.id}: bonusPct must be positive`);
+  }
+});
+
+test("the bonus is filled in with a real amount when the table has a stake", () => {
+  const card = modifierById("hot_streak")!; // 100% of the stake
+  const fmt = (c: number) => `P$${(c / 100).toFixed(2)}`;
+  assert.equal(modifierRule(card, { unit: 200, fmt }), "Two wins running pays P$2.00 from the table.");
+  // A rising ante makes the card more expensive on its own, which is the whole
+  // reason the unit is the ante rather than a fixed number.
+  assert.equal(modifierRule(card, { unit: 500, fmt }), "Two wins running pays P$5.00 from the table.");
+  // Multiples above 1 work too.
+  assert.equal(modifierRule(modifierById("min_bet_up")!, { unit: 200, fmt }), "No bet may be under P$6.00.");
+});
+
+test("with no table stake the bonus falls back to a percentage, not a blank", () => {
+  // The cash packs' setup screen has no stake typed yet, and a card that read
+  // "pays {bonus}" or "pays " would be worse than useless.
+  assert.equal(
+    modifierRule(modifierById("hot_streak")!),
+    "Two wins running pays 100% of the minimum from the table.",
+  );
+  assert.equal(
+    modifierRule(modifierById("call_your_shot")!, { unit: 0 }),
+    "Call win or lose before the hand; a correct call pays 50% of the minimum.",
+  );
+});
+
+test("a card with no bonus comes back untouched", () => {
+  const plain = modifierById("no_splitting")!;
+  assert.equal(modifierRule(plain, { unit: 200, fmt: (c) => String(c) }), plain.rule);
+});
+
+test("the severity pips have a stated meaning", () => {
+  // They shipped as three bare dots with no legend, which is decoration.
+  assert.equal(severityPips(1), "●○○");
+  assert.equal(severityPips(3), "●●●");
+  for (const sev of [1, 2, 3] as const) {
+    assert.ok(SEVERITY_LABEL[sev].length > 0, `severity ${sev} has no label`);
+  }
+});
+
 test("an unknown id renders as itself rather than as a blank", () => {
   // A card retired from the deck still has rows in the ledger, and the stats
   // panel has to draw them as SOMETHING.
   assert.equal(modifierName("retired_card"), "retired_card");
   assert.equal(modifierById("retired_card"), undefined);
-  assert.equal(modifierName("silence"), "Silence");
+  assert.equal(modifierName("hot_streak"), "Hot streak");
 });
 
 // ---------- appliesTo ----------
@@ -183,16 +249,19 @@ test("a pack with no cards of its own still has the twelve any cards", () => {
 
 test("sanitize keeps known ids in deck order and drops the rest", () => {
   assert.deepEqual(
-    sanitizeModifierIds(["silence", "retired", "loser_buys", 7, null]),
-    ["loser_buys", "silence"], // deck order, not the order given
+    sanitizeModifierIds(["hot_streak", "retired", "leader_tax", 7, null]),
+    ["leader_tax", "hot_streak"], // deck order, not the order given
   );
-  assert.deepEqual(sanitizeModifierIds(["silence", "silence"]), ["silence"]);
+  assert.deepEqual(sanitizeModifierIds(["hot_streak", "hot_streak"]), ["hot_streak"]);
   assert.deepEqual(sanitizeModifierIds("nonsense"), []);
   assert.deepEqual(sanitizeModifierIds(undefined), []);
+  // A RETIRED id is dropped by the same path, so a stale client cannot put one
+  // back on a live table.
+  assert.deepEqual(sanitizeModifierIds(["silence", "hot_streak"]), ["hot_streak"]);
   // Filtered to a pack, a card from another pack is dropped.
-  assert.deepEqual(sanitizeModifierIds(["no_splitting", "silence"], "roulette"), ["silence"]);
-  assert.deepEqual(sanitizeModifierIds(["no_splitting", "silence"], "blackjack"), [
-    "silence",
+  assert.deepEqual(sanitizeModifierIds(["no_splitting", "hot_streak"], "roulette"), ["hot_streak"]);
+  assert.deepEqual(sanitizeModifierIds(["no_splitting", "hot_streak"], "blackjack"), [
+    "hot_streak",
     "no_splitting",
   ]);
 });

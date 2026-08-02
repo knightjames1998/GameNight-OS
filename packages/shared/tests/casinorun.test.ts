@@ -416,6 +416,20 @@ test("Everyone antes is reported off the card, not stored", () => {
   assert.equal(crunProgress(s).ante.amount, 200);
 });
 
+test("Ante surge doubles the tracked ante, because a tracker should track it", () => {
+  const s = run({ startingBank: 10000 }); // base 200
+  assert.equal(crunProgress(s).ante.amount, 200);
+  assert.equal(crunProgress(s).ante.surged, false);
+  s.modifiers = ["ante_surge"];
+  const p = crunProgress(s);
+  assert.equal(p.ante.amount, 400);
+  assert.equal(p.ante.surged, true);
+  // And it stacks with the rises rather than replacing them.
+  for (let i = 0; i < 5; i++) leg(s, 10); // one missed attempt -> one raise
+  assert.equal(crunProgress(s).ante.raises, 1);
+  assert.equal(crunProgress(s).ante.amount, 600, "base 200, doubled, then +50% of base");
+});
+
 test("the ante never drops below its base, whatever is bought", () => {
   const s = run({ startingBank: 10000 });
   crunBuy(s, { token: "ante_relief", playerId: null, at: "x" });
@@ -495,6 +509,36 @@ test("Ante relief cancels exactly one rise", () => {
   assert.equal(crunProgress(s).ante.amount, 200);
 });
 
+test("Second chance buys a whole extra attempt at this stage", () => {
+  // Directly relieves the loss condition, which is why it is the dearest
+  // token: it is the only one that buys you out of dying.
+  const s = run({ difficulty: "degenerate", startingBank: 100000 }); // 4 legs, 2 attempts
+  for (let i = 0; i < 8; i++) leg(s, 1);
+  assert.equal(crunProgress(s).status, "bust", "two attempts is normally the end");
+
+  const t = run({ difficulty: "degenerate", startingBank: 100000 });
+  crunBuy(t, { token: "second_chance", playerId: null, at: "x" });
+  assert.equal(crunProgress(t).attemptsLeft, 3);
+  for (let i = 0; i < 8; i++) leg(t, 1);
+  const p = crunProgress(t);
+  assert.equal(p.status, "running", "the bought attempt kept it alive");
+  assert.equal(p.attempt, 3);
+});
+
+test("Shave the target takes a tenth off THIS stage only", () => {
+  const s = run({ difficulty: "standard", startingBank: 10000 }); // stage 1 wants 11500
+  assert.equal(crunProgress(s).quota, 11500);
+  crunBuy(s, { token: "shave_the_target", playerId: null, at: "x" });
+  assert.equal(crunProgress(s).quota, 10350, "a tenth off");
+
+  // 10350 is now reachable with less. Clear it, and the NEXT stage is at full
+  // price again — one purchase must not discount the whole rest of the run.
+  leg(s, 2150); // bank 10000 - 1800 cost + 2150 = 10350
+  const p = crunProgress(s);
+  assert.equal(p.cleared, 1);
+  assert.equal(p.quota, 13225, "stage 2 is undiscounted");
+});
+
 test("undoing a purchase gives the money back and un-holds the card", () => {
   // The reason buys live in the same log as legs: there is no second thing to
   // unwind.
@@ -510,14 +554,14 @@ test("undoing a purchase gives the money back and un-holds the card", () => {
 test("a purchase is attributed but never counted as a leg played", () => {
   const s = run({ startingBank: 10000 });
   leg(s, 500, "Blackjack", "a");
-  crunBuy(s, { token: "half_next", playerId: "a", at: "x" });
+  crunBuy(s, { token: "steady_hand", playerId: "a", at: "x" });
   const sum = summarizeCrun(s);
   const ada = sum.players.find((p) => p.playerId === "a")!;
   assert.equal(ada.legs, 1, "one leg, not two");
   assert.equal(ada.delta, 500, "the purchase does not drag their leg total around");
   assert.equal(ada.best, 500);
   assert.equal(ada.worst, 500, "and it is not their worst leg either");
-  assert.equal(ada.spent, 600, "6% of 10000");
+  assert.equal(ada.spent, 500, "5% of 10000");
 });
 
 test("an unknown token is refused rather than recorded as a free card", () => {
@@ -529,7 +573,7 @@ test("an unknown token is refused rather than recorded as a free card", () => {
 test("the ledger counts legs and purchases separately", () => {
   const s = run({ startingBank: 10000, players: [player("a")] });
   leg(s, 500);
-  crunBuy(s, { token: "half_next", playerId: "a", at: "x" });
+  crunBuy(s, { token: "steady_hand", playerId: "a", at: "x" });
   leg(s, 500);
   const [line] = crunLedgerLines(s);
   assert.equal(line!.meta.legs, 2, "purchases are not stretches of play");

@@ -190,7 +190,16 @@ button.cg-pill { cursor: pointer; }
 .cg-mod--bane { border-left-color: var(--cg-down); }
 .cg-mod__top { display: flex; align-items: baseline; gap: 8px; }
 .cg-mod__n { font-family: Fredoka, system-ui, sans-serif; font-weight: 800; font-size: 14px; flex: 1; min-width: 0; }
-.cg-mod__sev { color: var(--gn-dim); font-size: 13px; letter-spacing: 1px; flex-shrink: 0; }
+.cg-mod__sev { color: var(--cg-accent); font-size: 11px; letter-spacing: 1px; flex-shrink: 0; }
+/* The pip key. Small and quiet: it answers a question people ask once. */
+.cg-piplegend { font-size: 11px; margin-top: 8px; opacity: 0.8; }
+.cg-piplegend b { color: var(--cg-accent); letter-spacing: 1px; }
+/* Visually hidden, still read aloud. The pips are a picture of a number and a
+   screen reader should get the sentence instead. */
+.cg-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
 .cg-mod__r { color: var(--gn-dim); font-size: 13px; line-height: 1.4; margin-top: 2px; }
 
 /* ---- TV: the live money board ---- */
@@ -284,7 +293,10 @@ button.cg-pill { cursor: pointer; }
    guessed — see the overflow numbers in BACKLOG's bug entry. */
 .cg-tv__mods { display: flex; flex-wrap: wrap; gap: 0.8vmin; margin-top: 1vmin; }
 .cg-tv__mod {
-  display: flex; align-items: baseline; gap: 1.4vmin; min-width: 0;
+  /* SHRINKABLE, so two cards always share one row however long their rules
+     are. Without this a card whose bonus rendered as a longer sentence pushed
+     the pair onto a second row and 43px off the bottom of a 1080p screen. */
+  display: flex; align-items: baseline; gap: 1.4vmin; flex: 1 1 0; min-width: 0;
   border: 2px solid var(--cg-line); border-left-width: 0.9vmin;
   border-radius: 1vmin; padding: 0.8vmin 1.8vmin;
   background: color-mix(in srgb, var(--cg-surface) 72%, transparent);

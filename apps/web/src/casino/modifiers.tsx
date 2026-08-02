@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { drawForPack, modifierById, modifiersFor } from "@gamenight/shared";
+import {
+  SEVERITY_LABEL,
+  drawForPack,
+  modifierById,
+  modifierRule,
+  modifiersFor,
+  severityPips,
+  type Modifier,
+} from "@gamenight/shared";
 
 // The MODIFIER UI for the casino group: the setup picker, the compact strip on
 // the pack page, and the wall on the TV.
@@ -18,9 +26,44 @@ import { drawForPack, modifierById, modifiersFor } from "@gamenight/shared";
 // thing people actually need at the table, so it rides along everywhere,
 // including on the TV at a size readable across a room.
 
-/** One card as a chip: kind sets the colour, severity the pip count. */
-function pips(severity: number) {
-  return "•".repeat(severity);
+/**
+ * The severity pips, WITH A LEGEND ATTACHED.
+ *
+ * They shipped as one to three bare dots and nothing on any screen said what
+ * they meant, which makes them decoration rather than information. Now they
+ * are filled/empty out of three, they carry the label as a tooltip and as
+ * screen-reader text, and every screen that draws them prints the key once.
+ */
+function Pips({ severity }: { severity: 1 | 2 | 3 }) {
+  return (
+    <span className="cg-mod__sev" title={SEVERITY_LABEL[severity]}>
+      <span aria-hidden="true">{severityPips(severity)}</span>
+      <span className="cg-sr">{SEVERITY_LABEL[severity]}</span>
+    </span>
+  );
+}
+
+/** The key, printed once per screen that shows pips. */
+function PipLegend() {
+  return (
+    <p className="cg-hint cg-piplegend">
+      <b>●○○</b> light &middot; <b>●●○</b> changes how you bet &middot; <b>●●●</b> reshapes the night
+    </p>
+  );
+}
+
+/**
+ * A card's rule with any {bonus} resolved to a real figure.
+ *
+ * `unit` is the table's own stake — Casino Run passes its live minimum ante,
+ * so these cards get dearer as it rises; the cash packs pass the default
+ * buy-in. Without one the card still reads as a percentage rather than a gap.
+ */
+function ruleOf(m: Modifier, unit?: number | null, stakes?: "real" | "play") {
+  return modifierRule(m, {
+    unit,
+    fmt: (c) => `${stakes === "play" ? "P$" : "$"}${(c / 100).toFixed(2)}`,
+  });
 }
 
 // ---------- setup: pick them ----------
@@ -29,11 +72,16 @@ export function ModifierPicker({
   ledger,
   value,
   onChange,
+  unit,
+  stakes,
 }: {
   /** The pack's LEDGER key ("blackjack"), which is what filters the deck. */
   ledger: string;
   value: string[];
   onChange: (ids: string[]) => void;
+  /** The table stake in cents, so a card's bonus reads as a real figure. */
+  unit?: number | null;
+  stakes?: "real" | "play";
 }) {
   const [browsing, setBrowsing] = useState(false);
   const pool = modifiersFor(ledger);
@@ -80,20 +128,19 @@ export function ModifierPicker({
         surprise.
       </p>
 
+      {active.length > 0 && <PipLegend />}
       {active.length > 0 && (
         <div className="cg-mods" style={{ marginTop: 12 }}>
           {active.map((m) => (
             <div className={`cg-mod cg-mod--${m.kind}`} key={m.id}>
               <div className="cg-mod__top">
                 <span className="cg-mod__n">{m.name}</span>
-                <span className="cg-mod__sev" title={`Severity ${m.severity}`} aria-hidden="true">
-                  {pips(m.severity)}
-                </span>
+                <Pips severity={m.severity} />
                 <button className="cg-textbtn" style={{ padding: 0 }} onClick={() => toggle(m.id)}>
                   remove
                 </button>
               </div>
-              <div className="cg-mod__r">{m.rule}</div>
+              <div className="cg-mod__r">{ruleOf(m, unit, stakes)}</div>
             </div>
           ))}
         </div>
@@ -109,7 +156,7 @@ export function ModifierPicker({
               key={m.id}
               className={value.includes(m.id) ? "on" : ""}
               aria-pressed={value.includes(m.id)}
-              title={m.rule}
+              title={`${ruleOf(m, unit, stakes)} — ${SEVERITY_LABEL[m.severity]}`}
               onClick={() => toggle(m.id)}
             >
               {m.name}
@@ -123,7 +170,16 @@ export function ModifierPicker({
 
 // ---------- the live table: a compact strip ----------
 
-export function ModifierStrip({ ids }: { ids: string[] }) {
+export function ModifierStrip({
+  ids,
+  unit,
+  stakes,
+}: {
+  ids: string[];
+  /** The table stake in cents, so a card's bonus reads as a real figure. */
+  unit?: number | null;
+  stakes?: "real" | "play";
+}) {
   if (ids.length === 0) return null;
   return (
     <div className="cg-card">
@@ -140,13 +196,14 @@ export function ModifierStrip({ ids }: { ids: string[] }) {
             <div className={`cg-mod cg-mod--${m.kind}`} key={id}>
               <div className="cg-mod__top">
                 <span className="cg-mod__n">{m.name}</span>
-                <span className="cg-mod__sev" aria-hidden="true">{pips(m.severity)}</span>
+                <Pips severity={m.severity} />
               </div>
-              <div className="cg-mod__r">{m.rule}</div>
+              <div className="cg-mod__r">{ruleOf(m, unit, stakes)}</div>
             </div>
           );
         })}
       </div>
+      <PipLegend />
       <p className="cg-hint" style={{ marginTop: 8 }}>
         Set when the table opened, and recorded against everyone here. You apply them; the app
         just remembers.
@@ -184,7 +241,15 @@ export function ModifierStrip({ ids }: { ids: string[] }) {
  * (see the TV overflow bug in BACKLOG; it already overflows at six players
  * with no modifiers at all).
  */
-export function ModifierWall({ ids }: { ids: string[] }) {
+export function ModifierWall({
+  ids,
+  unit,
+  stakes,
+}: {
+  ids: string[];
+  unit?: number | null;
+  stakes?: "real" | "play";
+}) {
   if (ids.length === 0) return null;
   const density = ids.length <= 2 ? "roomy" : "names";
   return (
@@ -194,7 +259,9 @@ export function ModifierWall({ ids }: { ids: string[] }) {
         return (
           <div className={`cg-tv__mod ${m ? `cg-tv__mod--${m.kind}` : ""}`} key={id}>
             <span className="cg-tv__mod__n">{m?.name ?? id}</span>
-            {m && density !== "names" && <span className="cg-tv__mod__r">{m.rule}</span>}
+            {m && density !== "names" && (
+              <span className="cg-tv__mod__r">{ruleOf(m, unit, stakes)}</span>
+            )}
           </div>
         );
       })}

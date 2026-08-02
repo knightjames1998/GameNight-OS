@@ -174,7 +174,12 @@ export function crunQuotas(ladder: CrunLadder, startingBank: number): number[] {
  * ALREADY owns — the leg budget and the minimum ante — and `effect` says which
  * is which rather than leaving a reader to guess.
  */
-export type CrunTokenEffect = "declare" | "extra_leg" | "ante_relief";
+export type CrunTokenEffect =
+  | "declare"
+  | "extra_leg"
+  | "extra_attempt"
+  | "ante_relief"
+  | "quota_cut";
 
 export interface CrunToken {
   /** NEVER change once shipped: it is written into the ledger. */
@@ -191,12 +196,22 @@ export interface CrunToken {
 }
 
 export const CRUN_TOKENS: CrunToken[] = [
-  { id: "double_next", name: "Double or nothing", rule: "The next leg is played at double stakes, win or lose.", cost: 0.1, effect: "declare" },
-  { id: "half_next", name: "Hedge", rule: "The next leg is played at half stakes, win or lose.", cost: 0.06, effect: "declare" },
+  // The one people will actually buy. Play the leg out normally, take the
+  // payout, THEN flip for it — which is a different and better decision from
+  // doubling the stake up front, because you already know what you won.
+  { id: "let_it_ride", name: "Let it ride", rule: "Play the leg. Then flip a coin: the winnings double, or they are gone.", cost: 0.12, effect: "declare" },
+  { id: "double_next", name: "Double down", rule: "The next leg is played at double stakes, win or lose.", cost: 0.1, effect: "declare" },
+  { id: "bank_boost", name: "House bonus", rule: "The house adds a quarter on top of whatever the next leg wins.", cost: 0.1, effect: "declare" },
   { id: "mulligan", name: "Mulligan", rule: "Replay one losing hand during the next leg.", cost: 0.15, effect: "declare" },
+  { id: "steady_hand", name: "Steady hand", rule: "The minimum ante is ignored for the next leg.", cost: 0.05, effect: "declare" },
   { id: "one_more_shot", name: "One more shot", rule: "Adds one leg to this stage attempt.", cost: 0.12, effect: "extra_leg" },
+  { id: "second_chance", name: "Second chance", rule: "Adds one whole attempt at this stage.", cost: 0.2, effect: "extra_attempt" },
+  { id: "shave_the_target", name: "Shave the target", rule: "Takes a tenth off this stage's quota.", cost: 0.18, effect: "quota_cut" },
   { id: "ante_relief", name: "Ante relief", rule: "Cancels one rise in the minimum ante.", cost: 0.08, effect: "ante_relief" },
 ];
+
+/** How much of a stage's quota one Shave the target removes. */
+export const QUOTA_CUT = 0.1;
 
 const TOKEN_BY_ID = new Map(CRUN_TOKENS.map((t) => [t.id, t]));
 
@@ -363,12 +378,17 @@ export interface CrunAnte {
   base: number;
   /** How many times it has gone up, net of any Ante relief bought. */
   raises: number;
+  /** True when Ante surge is live, which doubles it on top of the raises. */
+  surged: boolean;
   /** True when a card says EVERY player antes each round, not just the blinds. */
   everyone: boolean;
 }
 
 /** A raise adds half the BASE, so the climb is linear and a table can predict it. */
 const ANTE_STEP = 0.5;
+/** One Shave the target takes a tenth off the stage it was bought for. */
+const cutQuota = (quota: number, cuts: number) =>
+  cuts > 0 ? Math.max(1, Math.round(quota * Math.pow(1 - QUOTA_CUT, cuts))) : quota;
 /** Escalating minimum raises the ante every this many legs. */
 const ANTE_EVERY = 5;
 
@@ -409,8 +429,11 @@ export function crunProgress(state: CrunState): CrunProgress {
   let trough = start;
   let runningLow = start;
   let comeback = 0;
-  // Legs bought with One more shot, and ante rises cancelled with Ante relief.
+  // What tokens have bought. All of these reset with the stage they were
+  // bought for, except ante relief, which is a run-long cancellation.
   let boughtLegs = 0;
+  let boughtAttempts = 0;
+  let quotaCuts = 0;
   let anteRelief = 0;
   let legCount = 0;
   let held: string[] = [];
@@ -435,6 +458,8 @@ export function crunProgress(state: CrunState): CrunProgress {
     if (!isLeg(entry)) {
       const effect = crunToken(entry.token ?? "")?.effect;
       if (effect === "extra_leg") boughtLegs++;
+      if (effect === "extra_attempt") boughtAttempts++;
+      if (effect === "quota_cut") quotaCuts++;
       if (effect === "ante_relief") anteRelief++;
       if (entry.token) held.push(entry.token);
       continue;
@@ -452,7 +477,7 @@ export function crunProgress(state: CrunState): CrunProgress {
     // on that stage — an incoherent state, and worse than incoherent: the next
     // leg would then clear it no matter what that leg actually did.
     let advanced = false;
-    while (stage < ladder.stages && bank >= crunQuota(ladder, start, stage)) {
+    while (stage < ladder.stages && bank >= cutQuota(crunQuota(ladder, start, stage), quotaCuts)) {
       stage++;
       advanced = true;
     }
@@ -461,6 +486,10 @@ export function crunProgress(state: CrunState): CrunProgress {
       legsUsed = 0;
       legsThisStage = 0;
       boughtLegs = 0;
+      boughtAttempts = 0;
+      // A cut buys down THIS stage only. Carrying it forward would make one
+      // purchase discount the whole rest of the run.
+      quotaCuts = 0;
       if (stage >= ladder.stages) {
         status = "cleared";
         ending = "cleared";
@@ -471,7 +500,7 @@ export function crunProgress(state: CrunState): CrunProgress {
     if (legsUsed >= ladder.legsPerStage + boughtLegs) {
       // The budget ran out short of the quota.
       missed++;
-      if (attempt >= ladder.attemptsPerStage) {
+      if (attempt >= ladder.attemptsPerStage + boughtAttempts) {
         // And that was the last shot at this stage. THE SECOND LOSS CONDITION.
         status = "bust";
         ending = "attempts";
@@ -486,7 +515,7 @@ export function crunProgress(state: CrunState): CrunProgress {
   // Once the run has ended, `stage` points past the last one on a clear, so the
   // quota shown is the final target rather than an out-of-range read.
   const quotaIndex = Math.min(stage, ladder.stages - 1);
-  const quota = crunQuota(ladder, start, quotaIndex);
+  const quota = cutQuota(crunQuota(ladder, start, quotaIndex), quotaCuts);
 
   // THE ANTE, from the base plus what the cards did to it. Escalating minimum
   // raises it on a clock; every missed attempt raises it too, which is what
@@ -497,6 +526,10 @@ export function crunProgress(state: CrunState): CrunProgress {
   const rawRaises = (escalating ? Math.floor(legCount / ANTE_EVERY) : 0) + missed;
   const raises = Math.max(0, rawRaises - anteRelief);
   const base = Math.max(1, Math.trunc(state.ante));
+  // Ante surge is a card that moves the tracked number directly, which is the
+  // point of having a tracker: a rule that says "the ante is doubled" should
+  // show a doubled ante, not a sentence somebody has to remember.
+  const surge = state.modifiers.includes("ante_surge") ? 2 : 1;
 
   return {
     bank,
@@ -506,15 +539,19 @@ export function crunProgress(state: CrunState): CrunProgress {
     quota,
     toGo: Math.max(0, quota - bank),
     legsLeft: Math.max(0, ladder.legsPerStage + boughtLegs - legsUsed),
-    attemptsLeft: Math.max(0, ladder.attemptsPerStage - attempt + (status === "running" ? 1 : 0)),
+    attemptsLeft: Math.max(
+      0,
+      ladder.attemptsPerStage + boughtAttempts - attempt + (status === "running" ? 1 : 0),
+    ),
     status,
     ending,
     cleared: stage,
     missed,
     ante: {
-      amount: Math.round(base * (1 + ANTE_STEP * raises)),
+      amount: Math.round(base * surge * (1 + ANTE_STEP * raises)),
       base,
       raises,
+      surged: surge > 1,
       everyone: state.modifiers.includes("everyone_antes"),
     },
     held,
@@ -702,6 +739,8 @@ export function summarizeCrun(state: CrunState): CrunSummary {
     let attempt = 1;
     let legsUsed = 0;
     let boughtLegs = 0;
+    let boughtAttempts = 0;
+    let quotaCuts = 0;
     let done = false;
     for (const l of state.legs) {
       if (done) break;
@@ -715,22 +754,29 @@ export function summarizeCrun(state: CrunState): CrunSummary {
       }
       // A buy moves the bank and shows in the log, but spends no leg budget.
       if (!isLeg(l)) {
-        if (crunToken(l.token ?? "")?.effect === "extra_leg") boughtLegs++;
+        const effect = crunToken(l.token ?? "")?.effect;
+        if (effect === "extra_leg") boughtLegs++;
+        if (effect === "extra_attempt") boughtAttempts++;
+        if (effect === "quota_cut") quotaCuts++;
         continue;
       }
       legsUsed++;
-      if (bank >= crunQuota(ladder, state.startingBank, stage)) {
+      const target = (i: number) =>
+        quotaCuts > 0
+          ? Math.max(1, Math.round(crunQuota(ladder, state.startingBank, i) * Math.pow(0.9, quotaCuts)))
+          : crunQuota(ladder, state.startingBank, i);
+      if (bank >= target(stage)) {
         // Same while-not-if as crunProgress; the two walks have to agree.
-        while (stage < ladder.stages && bank >= crunQuota(ladder, state.startingBank, stage)) {
-          stage++;
-        }
+        while (stage < ladder.stages && bank >= target(stage)) stage++;
         attempt = 1;
         legsUsed = 0;
         boughtLegs = 0;
+        boughtAttempts = 0;
+        quotaCuts = 0;
         if (stage >= ladder.stages) done = true;
       } else if (legsUsed >= ladder.legsPerStage + boughtLegs) {
         const at = Math.min(stage, ladder.stages - 1);
-        if (attempt >= ladder.attemptsPerStage) {
+        if (attempt >= ladder.attemptsPerStage + boughtAttempts) {
           done = true;
         } else {
           attempt++;

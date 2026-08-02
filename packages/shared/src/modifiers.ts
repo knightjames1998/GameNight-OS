@@ -33,20 +33,56 @@ export type ModKind = "boon" | "bane";
  * How much a card changes a night. 1 is a flavour rule, 3 is one that reshapes
  * how people play. Used to WEIGHT random draws so the nastiest cards stay rare,
  * and so Casino Run can escalate by reaching for higher severities as the
- * floors climb.
+ * stages climb.
  */
 export type ModSeverity = 1 | 2 | 3;
+
+/**
+ * The severity, spelled out. Every screen that draws the pips draws this as
+ * its label too — a row of dots with no legend is decoration, and this deck
+ * shipped with exactly that until somebody had to ask what they meant.
+ */
+export const SEVERITY_LABEL: Record<ModSeverity, string> = {
+  1: "Light — a bit of flavour",
+  2: "Medium — changes how you bet",
+  3: "Heavy — reshapes the night",
+};
+
+/** "●●○" for a severity, for a screen that wants the pips as a string. */
+export const severityPips = (sev: ModSeverity): string => "●".repeat(sev) + "○".repeat(3 - sev);
 
 export interface Modifier {
   /** NEVER change once shipped: it is written into the ledger. */
   id: string;
   name: string;
-  /** The actual rule, one line a person can read off a TV. */
+  /**
+   * The actual rule, one line a person can read off a TV.
+   *
+   * May contain the placeholder `{bonus}`, which `modifierRule` fills in with
+   * a real amount. See bonusPct.
+   */
   rule: string;
   kind: ModKind;
   severity: ModSeverity;
   /** "any", or the ledger keys of the packs this card makes sense at. */
   appliesTo: "any" | string[];
+  /**
+   * A multiple of the TABLE STAKE, for cards whose rule quotes an amount.
+   *
+   * "Pays a bonus" is not a rule, it is an argument waiting to happen — the
+   * first cut of this deck was full of them and nobody could have applied one
+   * without stopping to negotiate. So a card that involves money now names a
+   * FRACTION, and `modifierRule` turns it into an actual figure using the
+   * table's own stake, so the card on screen reads "pays P$2.00" rather than
+   * "pays a bonus" or even "pays 100%".
+   *
+   * The unit is the table stake because that is the number both sides of the
+   * group already have: Casino Run passes its live minimum ante (which rises,
+   * so these cards get more expensive with it), and the cash packs pass their
+   * default buy-in. With no unit at all it falls back to the percentage, which
+   * is still a rule somebody can follow.
+   */
+  bonusPct?: number;
 }
 
 /**
@@ -66,22 +102,28 @@ export interface Modifier {
  */
 export const MODIFIERS: Modifier[] = [
   // ---- any pack ----
-  { id: "escalating_min", name: "Escalating minimum", rule: "The minimum bet rises every five hands.", kind: "bane", severity: 2, appliesTo: "any" },
-  { id: "everyone_antes", name: "Everyone antes", rule: "Every player antes into the pot each round.", kind: "bane", severity: 1, appliesTo: "any" },
-  { id: "loser_buys", name: "Loser buys", rule: "Whoever loses the hand buys the next round.", kind: "bane", severity: 1, appliesTo: "any" },
-  { id: "dealers_choice", name: "Dealer's choice", rule: "Whoever deals picks the variant for that round.", kind: "boon", severity: 1, appliesTo: "any" },
-  { id: "bust_penalty", name: "Bust penalty", rule: "Anyone who busts out pays the table a forfeit.", kind: "bane", severity: 3, appliesTo: "any" },
+  // These are about THE MONEY AND THE TOTALS ON THE BOARD, deliberately. An
+  // earlier batch policed the room instead — no talking, no phones, the last
+  // player to sit out antes — and those were cut on 2026-08-02: they are
+  // party rules wearing a casino costume, they have nothing to do with the
+  // numbers the app is tracking, and half of them ("pays the table a forfeit")
+  // did not even say what they cost.
+  { id: "escalating_min", name: "Escalating minimum", rule: "The minimum ante rises every five legs.", kind: "bane", severity: 2, appliesTo: "any" },
+  { id: "everyone_antes", name: "Everyone antes", rule: "Every player antes into the pot each round, not just the blinds.", kind: "bane", severity: 1, appliesTo: "any" },
   { id: "leader_tax", name: "Leader tax", rule: "Anyone up on the night plays double the minimum.", kind: "bane", severity: 2, appliesTo: "any" },
+  { id: "house_rake", name: "House rake", rule: "The house rakes {bonus} out of every pot.", kind: "bane", severity: 2, appliesTo: "any", bonusPct: 0.1 },
+  { id: "ante_surge", name: "Ante surge", rule: "The minimum ante is doubled for the rest of the run.", kind: "bane", severity: 3, appliesTo: "any" },
+  { id: "losses_double", name: "Losses double", rule: "Every losing hand costs twice what it should.", kind: "bane", severity: 3, appliesTo: "any" },
+  { id: "min_bet_up", name: "Table minimum up", rule: "No bet may be under {bonus}.", kind: "bane", severity: 2, appliesTo: "any", bonusPct: 3 },
+  { id: "pot_tithe", name: "Tithe", rule: "Every fifth hand, each player puts {bonus} in the pot.", kind: "bane", severity: 1, appliesTo: "any", bonusPct: 0.5 },
+  { id: "dealers_choice", name: "Dealer's choice", rule: "Whoever deals picks the variant for that round.", kind: "boon", severity: 1, appliesTo: "any" },
   { id: "mercy_chip", name: "Mercy chip", rule: "The biggest loser gets one free rebuy.", kind: "boon", severity: 2, appliesTo: "any" },
-  { id: "call_your_shot", name: "Call your shot", rule: "Call win or lose before the hand; correct calls pay a bonus.", kind: "boon", severity: 2, appliesTo: "any" },
-  { id: "silence", name: "Silence", rule: "No table talk. Speaking costs an ante.", kind: "bane", severity: 2, appliesTo: "any" },
-  { id: "phones_down", name: "Phones down", rule: "A phone on the table costs an ante.", kind: "bane", severity: 1, appliesTo: "any" },
-  { id: "last_to_sit", name: "Last to sit", rule: "The last player to sit out a hand antes.", kind: "bane", severity: 1, appliesTo: "any" },
-  { id: "high_roller", name: "High roller", rule: "One declared hand each pays double, win or lose.", kind: "boon", severity: 3, appliesTo: "any" },
-  { id: "hot_streak", name: "Hot streak", rule: "Two wins running pays a bonus from the table.", kind: "boon", severity: 2, appliesTo: "any" },
+  { id: "call_your_shot", name: "Call your shot", rule: "Call win or lose before the hand; a correct call pays {bonus}.", kind: "boon", severity: 2, appliesTo: "any", bonusPct: 0.5 },
+  { id: "hot_streak", name: "Hot streak", rule: "Two wins running pays {bonus} from the table.", kind: "boon", severity: 2, appliesTo: "any", bonusPct: 1 },
   { id: "free_round", name: "Free round", rule: "One round a session is played with no ante.", kind: "boon", severity: 1, appliesTo: "any" },
   { id: "underdog_bonus", name: "Underdog bonus", rule: "Whoever is furthest down plays their next hand double.", kind: "boon", severity: 2, appliesTo: "any" },
   { id: "insurance", name: "Insurance", rule: "Once each, take back half of one losing bet.", kind: "boon", severity: 3, appliesTo: "any" },
+  { id: "bank_match", name: "House match", rule: "The house adds {bonus} to the biggest win of each round.", kind: "boon", severity: 3, appliesTo: "any", bonusPct: 0.5 },
 
   // ---- roulette ----
   { id: "hot_colour", name: "Hot colour", rule: "A chosen colour pays double all session.", kind: "boon", severity: 2, appliesTo: ["roulette"] },
@@ -93,7 +135,7 @@ export const MODIFIERS: Modifier[] = [
   // ---- craps ----
   { id: "no_come_bets", name: "No come bets", rule: "Come and don't come bets are off.", kind: "bane", severity: 2, appliesTo: ["craps"] },
   { id: "pass_line_required", name: "Pass line required", rule: "The shooter must back the pass line.", kind: "bane", severity: 1, appliesTo: ["craps"] },
-  { id: "long_hand_bonus", name: "Long hand bonus", rule: "A shooter reaching five rolls pays the table a bonus.", kind: "boon", severity: 2, appliesTo: ["craps"] },
+  { id: "long_hand_bonus", name: "Long hand bonus", rule: "A shooter reaching five rolls pays the table {bonus}.", kind: "boon", severity: 2, appliesTo: ["craps"], bonusPct: 1 },
   { id: "hard_ways_only", name: "Hard ways only", rule: "Prop bets are restricted to the hard ways.", kind: "bane", severity: 2, appliesTo: ["craps"] },
   { id: "come_out_bonus", name: "Come out bonus", rule: "A come-out seven or eleven pays the shooter double.", kind: "boon", severity: 1, appliesTo: ["craps"] },
   { id: "no_odds", name: "No odds", rule: "Taking odds behind the line is off.", kind: "bane", severity: 2, appliesTo: ["craps"] },
@@ -120,6 +162,33 @@ export const modifierById = (id: string): Modifier | undefined => BY_ID.get(id);
  * past row fall through to this branch.
  */
 export const modifierName = (id: string): string => BY_ID.get(id)?.name ?? id;
+
+/**
+ * The rule text with `{bonus}` filled in.
+ *
+ * `unit` is the table's own stake in integer cents — Casino Run passes its
+ * live minimum ante, the cash packs pass their default buy-in. Given one, a
+ * card reads "pays P$2.00"; given none, it falls back to "pays 100% of the
+ * minimum", which is still followable. A card with no `bonusPct` comes back
+ * untouched, so callers never have to check first.
+ *
+ * `fmt` is injected rather than imported so this module stays free of the
+ * money formatter and the caller keeps control of the stakes prefix.
+ */
+export function modifierRule(
+  mod: Modifier,
+  opts?: { unit?: number | null; fmt?: (cents: number) => string },
+): string {
+  if (!mod.rule.includes("{bonus}")) return mod.rule;
+  const pct = mod.bonusPct ?? 0;
+  const unit = opts?.unit ?? null;
+  const fmt = opts?.fmt;
+  const filled =
+    unit != null && unit > 0 && fmt
+      ? fmt(Math.max(1, Math.round(unit * pct)))
+      : `${Math.round(pct * 100)}% of the minimum`;
+  return mod.rule.replace("{bonus}", filled);
+}
 
 /** Does this card make sense at this pack's table? */
 export function appliesToPack(mod: Modifier, packLedger: string): boolean {
