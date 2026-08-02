@@ -3,7 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Arcade's --gn-bg, spelled out. This and the body background below are
+         the two colours that cannot be a token: they are read before the
+         stylesheet exists. Stage 2 gives the script below a small map and sets
+         them from it; until there is a second theme there is nothing to map. -->
     <meta name="theme-color" content="#17111f" />
+    <!-- THEME, BEFORE FIRST PAINT.
+         Reads the same key as src/useTheme.ts and sets the attribute now,
+         inline and render-blocking, because the alternative is painting Arcade
+         and then flipping to the real theme once the bundle has parsed. On a
+         phone that flash reads as a bug, not as a preference being applied.
+         Same class of problem as the cached Me object: state that is correct
+         but arrives after the first paint is still a flash.
+
+         IT MUST FAIL SOFT. This runs before React, so anything thrown here
+         takes the whole app down rather than degrading one control. Storage
+         throws outright in Safari private mode, so the try/catch is load
+         bearing, and falling through leaves the attribute unset, which is
+         Arcade, which is the default anyway.
+
+         The value is shape-checked rather than checked against a list of known
+         themes, so stage 2 does not have to remember to edit this file: an
+         unrecognised name selects no token block and therefore renders Arcade,
+         and useTheme repairs the stored value when it hydrates. -->
+    <script>
+      try {
+        var gnTheme = localStorage.getItem("gamenight.pref.theme");
+        if (gnTheme && /^[a-z][a-z0-9-]{0,23}$/.test(gnTheme)) {
+          document.documentElement.dataset.theme = gnTheme;
+        }
+      } catch (e) {
+        /* no storage: :root is Arcade, so there is nothing to do */
+      }
+    </script>
     <meta name="description" content="Run game nights with your crew: brackets, RSVPs, live scoring and TV views." />
     <!-- Standalone web app: the manifest tells the phone to launch without
          browser chrome; the apple-* tags are what iOS actually reads. -->
@@ -41,6 +73,8 @@
          paint, plus a second hop to fonts.gstatic.com for the files. -->
     <title>GameNight OS</title>
   </head>
+  <!-- Arcade's --gn-bg again: paints before the stylesheet lands so the first
+       frame is not white. See the theme-color note above for stage 2. -->
   <body style="margin:0;background:#17111f">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

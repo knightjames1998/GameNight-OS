@@ -8,6 +8,7 @@ import { buildPickerGames, type SessionPackKey } from "../packs";
 import AddToHomeHint from "../AddToHomeHint";
 import { GroupListSkeleton } from "../Skeleton";
 import { onIntent, routes } from "../prefetch";
+import { THEMES, useTheme } from "../useTheme";
 
 export default function Home({
   me,
@@ -211,6 +212,8 @@ function Groups({
 
             <StatsButton />
           </div>
+
+          <ThemePicker />
         </section>
 
         <Friends />
@@ -259,6 +262,39 @@ function Groups({
         </section>
       </div>
     </main>
+  );
+}
+
+// The theme switcher, sitting with the other per-device account controls
+// rather than inside the Friends cabinet: it is a setting about this phone, in
+// the same visual language as the name field and Change password above it.
+//
+// ONE THEME IN THE LIST TODAY. That is stage 1 doing its job: the plumbing
+// ships and is provably a no-op before any new colour exists to argue about.
+// Stage 2 adds Tabletop to THEMES and this renders two pills with no change
+// here. The pills are .gn-tab, which is the shell's existing "pick one of
+// these" control (the stats leaderboard filters), so it already matches.
+function ThemePicker() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <div className="space-y-2">
+      <span className="gn-lab" id="home-theme-lab">
+        Theme (this device)
+      </span>
+      <div className="flex gap-2 flex-wrap" role="group" aria-labelledby="home-theme-lab">
+        {THEMES.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            className={`gn-tab${theme === t.key ? " gn-tab--on" : ""}`}
+            aria-pressed={theme === t.key}
+            onClick={() => setTheme(t.key)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

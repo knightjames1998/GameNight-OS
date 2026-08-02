@@ -1,4 +1,10 @@
-// Enforces the "no em dashes ever" standing rule (PROJECT-INSTRUCTIONS.md).
+// Enforces two rules a stylesheet or a screen can break without erroring: no
+// em dashes anywhere (PROJECT-INSTRUCTIONS.md), and no colour literal outside
+// the token block in the shell stylesheet (the theming rule, below).
+//
+// Both are here because they are the same SHAPE of rule: a thing that is
+// invisible when it rots. Nothing throws, nothing fails to compile, the page
+// looks fine, and the damage only shows up somewhere far away.
 //
 // It drifted for several sessions and was swept on 2026-08-02: 291 of them
 // across 65 source files. A rule that can rot that far unnoticed is a rule that
@@ -80,6 +86,106 @@ test("NO EM DASH REACHES A SCREEN OR A COMMENT, in any of its spellings", () => 
       "wants; do NOT swap in a hyphen. For an empty-value placeholder use an en dash, and for " +
       "a separator a middot.\n  " + offenders.join("\n  "),
   );
+});
+
+// ---------------------------------------------------------------------------
+// The theming rule: every colour in the shell stylesheet is a token.
+//
+// WHY. Arcade is one of at least two themes now (Tabletop is stage 2), and a
+// theme swap moves the :root token block and nothing else. A colour written as
+// a literal anywhere below that block does not follow the swap. It does not
+// error and it does not look wrong under Arcade, because under Arcade it is
+// the right colour: it only shows up as a half-changed screen the first time
+// somebody picks the other theme, backgrounds moved and the borders, pills and
+// chips sitting on them left behind.
+//
+// It had already happened once. When the sweep that added this test ran, there
+// were 54 hex values and 50 rgba() literals outside :root in index.css, and
+// several were a token spelled out by hand: #241a30 appeared eight times and
+// is exactly --gn-surf. The theming decision (DECISION LOG, 2026-07-15) had
+// been made a fortnight earlier and written down. Writing it down was not
+// enough, which is the entire argument for this test existing.
+//
+// SCOPED TO index.css FOR NOW. The pack stylesheets carry ~207 literals and
+// MOST OF THOSE ARE LOAD BEARING: standing rule 3 puts every pack's TV in that
+// pack's own design language, so smash.css being red is not drift. Stage 3
+// splits pack IDENTITY (the hue, which stays) from THEME TREATMENT (how dark
+// the backdrop, how heavy the border) and widens this list as it goes. Adding
+// a pack file here before that work is done fails the build for no reason.
+const TOKENISED_CSS = ["apps/web/src/index.css"];
+
+/** A hex colour, or an rgb()/rgba() literal. */
+const COLOR_LITERAL = /#[0-9a-fA-F]{3,8}\b|\brgba?\(/g;
+
+/** Blank out a span, keeping its newlines so reported line numbers stay true. */
+const blank = (s: string) => s.replace(/[^\n]/g, " ");
+
+/**
+ * Blank out the two places a colour literal is ALLOWED to appear: comments,
+ * and the token blocks themselves. A token block is a rule whose selector is
+ * :root or a [data-theme="..."] attribute selector, which is what stage 2's
+ * Tabletop block will be.
+ *
+ * Comments are exempt because the token block above these rules explains at
+ * length what went wrong and quotes the literals it is talking about, and that
+ * reasoning is worth more than making the grep simpler.
+ */
+function strippable(css: string): string {
+  const noComments = css.replace(/\/\*[\s\S]*?\*\//g, blank);
+  return noComments.replace(
+    /(^|[};])(\s*(?::root|\[data-theme=[^\]]*\])[^{}]*\{[^{}]*\})/g,
+    (_, lead: string, block: string) => lead + blank(block),
+  );
+}
+
+test("NO COLOUR LITERAL OUTSIDE THE TOKEN BLOCK in the themed stylesheets", () => {
+  const offenders: string[] = [];
+  for (const rel of TOKENISED_CSS) {
+    const body = strippable(readFileSync(path.join(ROOT, rel), "utf8"));
+    for (const [i, text] of body.split("\n").entries()) {
+      for (const hit of text.matchAll(COLOR_LITERAL)) offenders.push(`${rel}:${i + 1} ${hit[0]}`);
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    "colour literals found outside :root. If the value IS a token, use the var(). " +
+      "If it is a token at an alpha, use color-mix(in srgb, var(--gn-x) N%, transparent). " +
+      "If the token set genuinely does not have it, add a token named for what it is FOR " +
+      "(--gn-shadow-depth, not --gn-dark-purple: a token named after its colour cannot " +
+      "survive a light theme).\n  " + offenders.join("\n  "),
+  );
+});
+
+test("the colour-literal check can actually see a literal, and knows where not to look", () => {
+  // Same reason as the em dash samples below: a guard that scans for nothing
+  // passes silently forever. These are the four shapes that matter.
+  const caught = [
+    ".gn-x{color:#241a30}",
+    ".gn-x{color:#fff}",
+    ".gn-x{background:rgba(255,90,95,.16)}",
+    ".gn-x{background:rgb(255,90,95)}",
+  ];
+  for (const sample of caught) {
+    assert.ok(
+      strippable(sample).match(COLOR_LITERAL),
+      `a literal in ${JSON.stringify(sample)} was not caught`,
+    );
+  }
+  const allowed = [
+    ":root{--gn-surf:#241a30}",
+    '[data-theme="tabletop"]{--gn-surf:#f0e6d2}',
+    "/* #241a30 appears eight times and is exactly --gn-surf */",
+    ".gn-x{background:color-mix(in srgb, var(--gn-p1) 45%, transparent)}",
+    ".gn-x{border:2px solid var(--gn-line)}",
+  ];
+  for (const sample of allowed) {
+    assert.equal(
+      strippable(sample).match(COLOR_LITERAL),
+      null,
+      `${JSON.stringify(sample)} was wrongly flagged`,
+    );
+  }
 });
 
 test("the check can actually see all four spellings", () => {

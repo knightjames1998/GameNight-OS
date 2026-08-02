@@ -81,12 +81,34 @@
 /* ============================================================
    GameNight OS - theme tokens
    ------------------------------------------------------------
-   Arcade is the default theme, defined on :root. Adding another
-   theme later (e.g. Tabletop) means adding a second token block,
-   for example:  [data-theme="tabletop"] { --gn-bg: ...; ... }
-   plus a switcher that sets document.documentElement.dataset.theme.
-   The component classes below read ONLY these variables, so a new
-   theme is a swap of values, not a rewrite of components.
+   Arcade is the default theme, defined on :root. A second theme
+   (Tabletop) is a second token block plus a switcher:
+     [data-theme="tabletop"] { --gn-bg: ...; ... }
+   set on document.documentElement by src/useTheme.ts. Arcade IS
+   :root, so data-theme="arcade" and no attribute at all render
+   identically, which is what makes the default free.
+
+   THIS BLOCK IS THE ONLY PLACE A COLOUR IS SPELLED OUT. Every
+   rule below reads var()s from here, or color-mix()es one of them
+   with transparent for a tint. That is enforced, not hoped for:
+   apps/server/tests/copy-rules.test.ts fails the build on a bare
+   hex or rgba() anywhere else in this file.
+
+   It had drifted badly before the theme work started: 54 hex
+   values and 50 rgba() literals had accumulated outside this
+   block, several of them a token spelled out by hand (#241a30
+   appeared eight times and is exactly --gn-surf). None of them
+   would have followed a theme swap, so a second theme would have
+   moved the backgrounds and left the borders, pills and chips
+   sitting on them behind, which reads as broken rather than
+   themed. Same silent-registration shape as the "ping_pong"
+   ledger typo and the missing .bj-root safe-area entry: nothing
+   errors, it just quietly does not work.
+
+   NAME A TOKEN FOR WHAT IT IS FOR, NEVER FOR WHAT COLOUR IT IS.
+   --gn-shadow-depth survives a light theme; --gn-dark-purple
+   cannot, because under Tabletop it would be neither.
+
    Screens that use .gn-* classes are themed; other pages keep
    their current look until their own UI pass.
    ============================================================ */
@@ -98,14 +120,57 @@
   --gn-ink:     #f4ecff;  /* primary text */
   --gn-dim:     #c3b6d6;  /* secondary text */
   --gn-place:   #9a8cb3;  /* input placeholder */
+  --gn-faint:   #8a7ca2;  /* a third text level, below --gn-dim: empty bracket
+                             slots, seed numbers. Present but not read. */
   --gn-p1:      #ff5a5f;  /* coral - primary "go" action */
   --gn-p1-ink:  #1a0d0e;
   --gn-p1-sh:   #b8383c;
+  --gn-p1-tint-ink:#ff8b8f;/* text ON a --gn-p1 tint. --gn-p1 itself is too
+                             saturated to read at chip size on its own wash. */
   --gn-p2:      #35e0c4;  /* teal - confirm / save */
   --gn-p2-ink:  #0d1a17;
   --gn-p2-sh:   #1aa88f;
   --gn-gold:    #ffcf3f;  /* Beerio accent */
   --gn-danger:  #ff9a9e;
+  --gn-danger-hover:#ffb7ba;
+  --gn-yes:     #3ad07a;  /* the on half of a toggle, and the live dot */
+  --gn-yes-ink: #062a17;
+  --gn-no:      #ff6a6f;  /* the off half. Deliberately not --gn-p1: the pill
+                             carries a --gn-p1 border and this reads on it. */
+  --gn-act:     #8caaff;  /* compact secondary action: Share, Night recap,
+                             change date, Change password, Log out */
+  --gn-act-ink: #aec6ff;  /* its label */
+  --gn-brand-ink:#fff;    /* the wordmark, under its own neon glow */
+  --gn-scan:    #fff;     /* the ambient scanline overlay, at 5% */
+  --gn-shadow-depth:#000; /* what every bevel and drop shadow is cut from.
+                             A light theme wants a warm brown here, not black,
+                             which is the whole reason this is a token. */
+
+  /* ---- pack cabinet identity (the buttons on Home) ----
+     Each pack owns three values: the edge, the backdrop its gradient falls
+     from, and its name ink. They are identity, not treatment, and stage 3
+     moves them onto the packs themselves; they sit here now so a theme can
+     re-treat them, since under a light Tabletop, Smash is still red but red
+     on warm paper rather than red on black. Beerio, blackjack and roulette
+     take their ink from --gn-gold / --gn-p2, so they declare only two.
+     The gradient falls TO --gn-surf, except where noted. */
+  --gn-cab-beerio-edge:#5a4a1e;  --gn-cab-beerio-top:#332913;
+  --gn-cab-smash-edge: #5a2026;  --gn-cab-smash-top: #2a1013;  --gn-cab-smash-ink:#ff6a5a;
+  --gn-cab-mk-edge:    #2a3f70;  --gn-cab-mk-top:    #132038;  --gn-cab-mk-ink:   #7fb0ff;
+  --gn-cab-mp-edge:    #4d3573;  --gn-cab-mp-top:    #241539;  --gn-cab-mp-ink:   #ffd24a;
+  --gn-cab-pp-edge:    #1f6b46;  --gn-cab-pp-top:    #0f3826;  --gn-cab-pp-ink:   #ff9a4d;
+  --gn-cab-bj-edge:    #5c2b22;  --gn-cab-bj-top:    #2a1613;
+  --gn-cab-rl-edge:    #1d4a3a;  --gn-cab-rl-top:    #0e2c21;
+  --gn-cab-cr-edge:    #1f3a63;  --gn-cab-cr-top:    #0f2445;  --gn-cab-cr-ink:   #ff8a3d;
+  --gn-cab-crun-edge:  #3c2a63;  --gn-cab-crun-top:  #241541;  --gn-cab-crun-ink: #ffc93f;
+  /* Two cabinets do NOT land on --gn-surf and are preserved exactly as they
+     shipped rather than quietly rounded to it. Mario Party's is 6/255 of red
+     off --gn-surf and is almost certainly a typo for it; Casino Run's is a
+     visibly more purple #2f1a3d and looks deliberate. Neither is worth a
+     silent visual change inside a pass whose whole claim is that it made
+     none, so both keep their own token and the call is James's. */
+  --gn-cab-mp-bot:     #2a1a30;
+  --gn-cab-crun-bot:   #2f1a3d;
 }
 
 /* ---- standalone web app polish -------------------------------- */
@@ -155,7 +220,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 }
 .gn-app::before{                 /* ambient scanlines, very faint */
   content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.05;
-  background:repeating-linear-gradient(to bottom,#fff 0 1px,transparent 1px 3px);
+  background:repeating-linear-gradient(to bottom,var(--gn-scan) 0 1px,transparent 1px 3px);
 }
 .gn-app > *{position:relative;z-index:1}
 .gn-wrap{max-width:28rem;margin:0 auto;padding:20px 18px 48px}
@@ -171,17 +236,17 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 /* ---- wordmark ------------------------------------------------- */
 .gn-brand{
   font-family:"Luckiest Guy", system-ui, cursive;
-  color:#fff;letter-spacing:.5px;line-height:1;
-  text-shadow:0 0 14px rgba(255,90,95,.45), 2px 3px 0 rgba(0,0,0,.35);
+  color:var(--gn-brand-ink);letter-spacing:.5px;line-height:1;
+  text-shadow:0 0 14px color-mix(in srgb, var(--gn-p1) 45%, transparent), 2px 3px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent);
 }
 /* Section titles get a subtle version of the wordmark's neon glow so they
    feel part of the arcade world without competing with the .gn-brand. */
-.gn-title{font-family:Fredoka, system-ui, sans-serif;font-weight:700;color:var(--gn-ink);line-height:1.1;text-shadow:0 0 14px rgba(255,90,95,.24)}
+.gn-title{font-family:Fredoka, system-ui, sans-serif;font-weight:700;color:var(--gn-ink);line-height:1.1;text-shadow:0 0 14px color-mix(in srgb, var(--gn-p1) 24%, transparent)}
 
 /* ---- text bits ------------------------------------------------ */
 .gn-lab{color:var(--gn-dim);font-size:13px;font-weight:700}
 .gn-hint{color:var(--gn-dim);font-size:13px}
-.gn-h2{font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:17px;color:var(--gn-ink);margin:0;text-shadow:0 0 11px rgba(255,90,95,.18)}
+.gn-h2{font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:17px;color:var(--gn-ink);margin:0;text-shadow:0 0 11px color-mix(in srgb, var(--gn-p1) 18%, transparent)}
 
 /* ---- inputs --------------------------------------------------- */
 .gn-input{
@@ -208,11 +273,11 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   transition:transform .1s, box-shadow .1s, filter .1s;
 }
 .gn-btn:disabled{opacity:.4;cursor:default;box-shadow:none}
-.gn-btn--ghost{background:var(--gn-raise);color:var(--gn-ink);box-shadow:inset 0 -3px 0 rgba(0,0,0,.35)}
+.gn-btn--ghost{background:var(--gn-raise);color:var(--gn-ink);box-shadow:inset 0 -3px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent)}
 .gn-btn--go{background:var(--gn-p2);color:var(--gn-p2-ink);box-shadow:0 4px 0 var(--gn-p2-sh)}
 .gn-btn--p1{background:var(--gn-p1);color:var(--gn-p1-ink);box-shadow:0 4px 0 var(--gn-p1-sh)}
 .gn-btn--go:active:not(:disabled),
-.gn-btn--p1:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.4)}
+.gn-btn--p1:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent)}
 
 .gn-textbtn{
   background:transparent;border:0;color:var(--gn-dim);font-weight:700;font-size:13px;
@@ -220,23 +285,23 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 }
 .gn-textbtn:hover{color:var(--gn-ink)}
 .gn-textbtn--danger{color:var(--gn-danger)}
-.gn-textbtn--danger:hover{color:#ffb7ba}
+.gn-textbtn--danger:hover{color:var(--gn-danger-hover)}
 
 /* Compact secondary action that reads as a real button (Share, Night recap,
    change date, Change password). Same soft outlined-pill style as Log out but
    in a light blue, small and tidy. */
 .gn-actionbtn{
   display:inline-flex;align-items:center;gap:4px;white-space:nowrap;text-decoration:none;
-  background:rgba(140,170,255,.10);border:1.5px solid rgba(140,170,255,.34);color:#aec6ff;
+  background:color-mix(in srgb, var(--gn-act) 10%, transparent);border:1.5px solid color-mix(in srgb, var(--gn-act) 34%, transparent);color:var(--gn-act-ink);
   font-family:inherit;font-weight:700;font-size:11.5px;line-height:1;
   padding:5px 10px;border-radius:8px;min-height:29px;cursor:pointer;
   transition:border-color .12s, background .12s, transform .08s;
 }
-.gn-actionbtn:hover{border-color:rgba(140,170,255,.7);background:rgba(140,170,255,.18)}
+.gn-actionbtn:hover{border-color:color-mix(in srgb, var(--gn-act) 70%, transparent);background:color-mix(in srgb, var(--gn-act) 18%, transparent)}
 .gn-actionbtn:active{transform:translateY(1px)}
 .gn-actionbtn:disabled{opacity:.45;cursor:default}
-.gn-actionbtn--danger{color:#ff8b8f;border-color:rgba(255,90,95,.34);background:rgba(255,90,95,.08)}
-.gn-actionbtn--danger:hover{border-color:var(--gn-danger);background:rgba(255,90,95,.15)}
+.gn-actionbtn--danger{color:var(--gn-p1-tint-ink);border-color:color-mix(in srgb, var(--gn-p1) 34%, transparent);background:color-mix(in srgb, var(--gn-p1) 8%, transparent)}
+.gn-actionbtn--danger:hover{border-color:var(--gn-danger);background:color-mix(in srgb, var(--gn-p1) 15%, transparent)}
 
 /* ---- card / panel -------------------------------------------- */
 .gn-card{background:var(--gn-surf);border:2px solid var(--gn-line);border-radius:16px;padding:14px 16px}
@@ -245,23 +310,23 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-cab{
   display:block;text-decoration:none;color:var(--gn-ink);border-radius:16px;
   padding:15px 16px;border:2px solid var(--gn-line);background:var(--gn-surf);
-  box-shadow:0 6px 0 rgba(0,0,0,.4);transition:transform .12s, box-shadow .12s;
+  box-shadow:0 6px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);transition:transform .12s, box-shadow .12s;
 }
-.gn-cab:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.4)}
+.gn-cab:active{transform:translateY(3px);box-shadow:0 3px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent)}
 .gn-cab__name{display:flex;align-items:center;gap:10px;font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:17px}
 .gn-cab__sub{color:var(--gn-dim);font-size:13px;margin-top:3px}
-.gn-cab--beerio{border-color:#5a4a1e;background:linear-gradient(180deg,#332913,#241a30)}
+.gn-cab--beerio{border-color:var(--gn-cab-beerio-edge);background:linear-gradient(180deg,var(--gn-cab-beerio-top),var(--gn-surf))}
 .gn-cab--beerio .gn-cab__name{color:var(--gn-gold)}
 .gn-cab--brk .gn-cab__name{color:var(--gn-p1)}
 .gn-cab--stats .gn-cab__name{color:var(--gn-p2)}
-.gn-cab--smash{border-color:#5a2026;background:linear-gradient(180deg,#2a1013,#241a30)}
-.gn-cab--smash .gn-cab__name{color:#ff6a5a}
-.gn-cab--mk{border-color:#2a3f70;background:linear-gradient(180deg,#132038,#241a30)}
-.gn-cab--mk .gn-cab__name{color:#7fb0ff}
-.gn-cab--mp{border-color:#4d3573;background:linear-gradient(180deg,#241539,#2a1a30)}
-.gn-cab--mp .gn-cab__name{color:#ffd24a}
-.gn-cab--pp{border-color:#1f6b46;background:linear-gradient(180deg,#0f3826,#241a30)}
-.gn-cab--pp .gn-cab__name{color:#ff9a4d}
+.gn-cab--smash{border-color:var(--gn-cab-smash-edge);background:linear-gradient(180deg,var(--gn-cab-smash-top),var(--gn-surf))}
+.gn-cab--smash .gn-cab__name{color:var(--gn-cab-smash-ink)}
+.gn-cab--mk{border-color:var(--gn-cab-mk-edge);background:linear-gradient(180deg,var(--gn-cab-mk-top),var(--gn-surf))}
+.gn-cab--mk .gn-cab__name{color:var(--gn-cab-mk-ink)}
+.gn-cab--mp{border-color:var(--gn-cab-mp-edge);background:linear-gradient(180deg,var(--gn-cab-mp-top),var(--gn-cab-mp-bot))}
+.gn-cab--mp .gn-cab__name{color:var(--gn-cab-mp-ink)}
+.gn-cab--pp{border-color:var(--gn-cab-pp-edge);background:linear-gradient(180deg,var(--gn-cab-pp-top),var(--gn-surf))}
+.gn-cab--pp .gn-cab__name{color:var(--gn-cab-pp-ink)}
 /* Picker group divider: a hairline with a small caption sitting on it. Same
    idea as .gn-divider but quieter and left-aligned, because these are section
    captions inside one list rather than a break between screens. */
@@ -276,14 +341,14 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 
 /* Casino group: each pack keeps its own accent so two money boards are never
    mistaken for each other across a room. Poker joins this block. */
-.gn-cab--bj{border-color:#5c2b22;background:linear-gradient(180deg,#2a1613,#241a30)}
+.gn-cab--bj{border-color:var(--gn-cab-bj-edge);background:linear-gradient(180deg,var(--gn-cab-bj-top),var(--gn-surf))}
 .gn-cab--bj .gn-cab__name{color:var(--gn-gold)}
-.gn-cab--rl{border-color:#1d4a3a;background:linear-gradient(180deg,#0e2c21,#241a30)}
+.gn-cab--rl{border-color:var(--gn-cab-rl-edge);background:linear-gradient(180deg,var(--gn-cab-rl-top),var(--gn-surf))}
 .gn-cab--rl .gn-cab__name{color:var(--gn-p2)}
-.gn-cab--cr{border-color:#1f3a63;background:linear-gradient(180deg,#0f2445,#241a30)}
-.gn-cab--cr .gn-cab__name{color:#ff8a3d}
-.gn-cab--crun{border-color:#3c2a63;background:linear-gradient(180deg,#241541,#2f1a3d)}
-.gn-cab--crun .gn-cab__name{color:#ffc93f}
+.gn-cab--cr{border-color:var(--gn-cab-cr-edge);background:linear-gradient(180deg,var(--gn-cab-cr-top),var(--gn-surf))}
+.gn-cab--cr .gn-cab__name{color:var(--gn-cab-cr-ink)}
+.gn-cab--crun{border-color:var(--gn-cab-crun-edge);background:linear-gradient(180deg,var(--gn-cab-crun-top),var(--gn-cab-crun-bot))}
+.gn-cab--crun .gn-cab__name{color:var(--gn-cab-crun-ink)}
 
 /* Shared on/off pill toggle (the "let members record results" control in
    every pack). The label is the current state; green = on, red = off. */
@@ -292,28 +357,28 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   font-family:inherit;font-weight:800;font-size:13px;letter-spacing:1px;
   text-align:center;cursor:pointer;white-space:nowrap;
 }
-.gn-toggle--on{background:rgba(58,208,122,.16);color:#3ad07a;border-color:#3ad07a}
-.gn-toggle--off{background:rgba(255,90,95,.16);color:#ff6a6f;border-color:#ff5a5f}
+.gn-toggle--on{background:color-mix(in srgb, var(--gn-yes) 16%, transparent);color:var(--gn-yes);border-color:var(--gn-yes)}
+.gn-toggle--off{background:color-mix(in srgb, var(--gn-p1) 16%, transparent);color:var(--gn-no);border-color:var(--gn-p1)}
 
 /* format rows under an expanded game in the game>format picker */
 .gn-fmts{margin:8px 0 2px;padding-left:14px;border-left:2px solid var(--gn-line);
   display:flex;flex-direction:column;gap:8px}
 .gn-fmt{background:var(--gn-raise);border:2px solid var(--gn-line);border-radius:12px;
   padding:11px 14px;color:var(--gn-ink);font-family:inherit;cursor:pointer;
-  box-shadow:0 3px 0 rgba(0,0,0,.35);transition:transform .12s, box-shadow .12s}
-.gn-fmt:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+  box-shadow:0 3px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent);transition:transform .12s, box-shadow .12s}
+.gn-fmt:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent)}
 .gn-fmt:disabled{opacity:.5;cursor:default;box-shadow:none}
 .gn-fmt__name{display:block;font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:15px}
 .gn-fmt__sub{display:block;color:var(--gn-dim);font-size:12px;margin-top:2px}
 
 /* ---- role / status chips ------------------------------------- */
 .gn-chip{font-weight:800;font-size:11px;letter-spacing:.5px;padding:5px 10px;border-radius:999px;text-transform:uppercase;white-space:nowrap}
-.gn-chip--owner{background:rgba(255,207,63,.16);color:var(--gn-gold)}
-.gn-chip--admin{background:rgba(53,224,196,.16);color:var(--gn-p2)}
-.gn-chip--member{background:rgba(255,90,95,.14);color:#ff8b8f}
+.gn-chip--owner{background:color-mix(in srgb, var(--gn-gold) 16%, transparent);color:var(--gn-gold)}
+.gn-chip--admin{background:color-mix(in srgb, var(--gn-p2) 16%, transparent);color:var(--gn-p2)}
+.gn-chip--member{background:color-mix(in srgb, var(--gn-p1) 14%, transparent);color:var(--gn-p1-tint-ink)}
 /* Tap affordance on member names: you = teal (your stats), them = coral (rivalry). */
-.gn-chip--stats{background:rgba(53,224,196,.16);color:var(--gn-p2)}
-.gn-chip--vs{background:rgba(255,90,95,.14);color:#ff8b8f}
+.gn-chip--stats{background:color-mix(in srgb, var(--gn-p2) 16%, transparent);color:var(--gn-p2)}
+.gn-chip--vs{background:color-mix(in srgb, var(--gn-p1) 14%, transparent);color:var(--gn-p1-tint-ink)}
 
 /* Chip-shaped BUTTONS (delete, remove): same pill silhouette as the chips
    around them, but clearly pressable, so every tappable thing in a row
@@ -323,8 +388,8 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   font-weight:800;font-size:11px;letter-spacing:.5px;text-transform:uppercase;
   padding:5px 10px;border-radius:999px;
 }
-.gn-chipbtn--danger{background:rgba(255,90,95,.14);color:var(--gn-danger)}
-.gn-chipbtn--danger:active{background:rgba(255,90,95,.3)}
+.gn-chipbtn--danger{background:color-mix(in srgb, var(--gn-p1) 14%, transparent);color:var(--gn-danger)}
+.gn-chipbtn--danger:active{background:color-mix(in srgb, var(--gn-p1) 30%, transparent)}
 
 /* Role chip as a dropdown: visually the .gn-chip pill with a tiny ▾ so it
    reads as clickable. The native select is unstyled-on-top so the OS picker
@@ -337,8 +402,8 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   padding:5px 22px 5px 10px;border-radius:999px;
 }
 .gn-chipsel__arrow{position:absolute;right:9px;font-size:9px;pointer-events:none;line-height:1}
-.gn-chipsel--admin{background:rgba(53,224,196,.16);color:var(--gn-p2)}
-.gn-chipsel--member{background:rgba(255,90,95,.14);color:#ff8b8f}
+.gn-chipsel--admin{background:color-mix(in srgb, var(--gn-p2) 16%, transparent);color:var(--gn-p2)}
+.gn-chipsel--member{background:color-mix(in srgb, var(--gn-p1) 14%, transparent);color:var(--gn-p1-tint-ink)}
 .gn-chipsel select option{background:var(--gn-surf);color:var(--gn-ink)}
 
 /* Collapsed RSVP pill, inline with the event title. Text color is set
@@ -365,8 +430,13 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 /* ============================================================
    Generic tournament + leaderboard + TV (Arcade)
    Branded packs (Beerio) keep their own styling and ignore all of this.
+
+   --gn-yes / --gn-yes-ink used to be declared here, in a second :root
+   block halfway down the file. They have moved up into the one at the
+   top: a theme block has to be able to override the whole token set by
+   copying ONE block, and a token hiding 300 lines below the others is a
+   token a second theme forgets. No cascade change, both are :root.
    ============================================================ */
-:root{ --gn-yes:#3ad07a; --gn-yes-ink:#062a17; }
 
 /* pill tabs (stats leaderboard filters) */
 .gn-tab{
@@ -377,7 +447,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-tab--on{background:var(--gn-ink);color:var(--gn-bg);border-color:var(--gn-ink)}
 
 /* champion callout (bracket page) */
-.gn-champ{border:2px solid rgba(255,207,63,.55);background:rgba(255,207,63,.10);border-radius:16px}
+.gn-champ{border:2px solid color-mix(in srgb, var(--gn-gold) 55%, transparent);background:color-mix(in srgb, var(--gn-gold) 10%, transparent);border-radius:16px}
 
 /* leaderboard rows */
 .gn-rank{font-family:"Luckiest Guy",system-ui,cursive;color:var(--gn-dim);line-height:1}
@@ -391,13 +461,13 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   padding:12px 14px;font-weight:700;font-size:14px;text-align:left;
   background:transparent;border:0;color:var(--gn-ink);font-family:inherit;
 }
-.gn-slot--win{color:var(--gn-p2);background:rgba(53,224,196,.10)}
+.gn-slot--win{color:var(--gn-p2);background:color-mix(in srgb, var(--gn-p2) 10%, transparent)}
 .gn-slot--lose{color:var(--gn-dim);text-decoration:line-through}
-.gn-slot--empty{color:#8a7ca2;font-style:italic;font-weight:600}
+.gn-slot--empty{color:var(--gn-faint);font-style:italic;font-weight:600}
 .gn-slot--tap{cursor:pointer}
 .gn-slot--tap:active{background:var(--gn-raise)}
 .gn-slot__hint{font-size:11px;color:var(--gn-dim);font-weight:700;flex-shrink:0}
-.gn-slot__seed{font-size:11px;color:#8a7ca2;font-weight:800;flex-shrink:0}
+.gn-slot__seed{font-size:11px;color:var(--gn-faint);font-weight:800;flex-shrink:0}
 .gn-slot__div{height:2px;background:var(--gn-line)}
 .gn-undo{
   width:100%;border:0;border-top:2px solid var(--gn-line);background:transparent;
@@ -427,9 +497,9 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 }
 .gn-bkt-card{
   display:flex;flex-direction:column;background:var(--gn-surf);border:2px solid var(--gn-line);
-  border-radius:11px;overflow:hidden;box-shadow:0 2px 0 rgba(0,0,0,.35);
+  border-radius:11px;overflow:hidden;box-shadow:0 2px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent);
 }
-.gn-bkt-card--live{border-color:var(--gn-p2);box-shadow:0 0 16px rgba(53,224,196,.20)}
+.gn-bkt-card--live{border-color:var(--gn-p2);box-shadow:0 0 16px color-mix(in srgb, var(--gn-p2) 20%, transparent)}
 .gn-bkt-slot{
   flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;
   padding:0 11px;background:transparent;border:0;color:var(--gn-ink);
@@ -437,19 +507,19 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 }
 .gn-bkt-slot--tap{cursor:pointer}
 .gn-bkt-slot--tap:active{background:var(--gn-raise)}
-.gn-bkt-slot--win{color:var(--gn-p2);background:rgba(53,224,196,.10)}
+.gn-bkt-slot--win{color:var(--gn-p2);background:color-mix(in srgb, var(--gn-p2) 10%, transparent)}
 .gn-bkt-slot--lose{color:var(--gn-dim);opacity:.6}
 .gn-bkt-slot--lose .gn-bkt-nm{text-decoration:line-through}
-.gn-bkt-slot--empty{color:#8a7ca2;font-style:italic;font-weight:600}
+.gn-bkt-slot--empty{color:var(--gn-faint);font-style:italic;font-weight:600}
 .gn-bkt-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gn-bkt-meta{display:flex;align-items:center;gap:6px;flex-shrink:0}
-.gn-bkt-seed{font-size:10px;color:#8a7ca2;font-weight:800}
+.gn-bkt-seed{font-size:10px;color:var(--gn-faint);font-weight:800}
 .gn-bkt-div{height:2px;background:var(--gn-line);flex-shrink:0}
 /* Grand-final "needs 2" clarity: the losers finalist must win the set and the reset. */
 .gn-bkt-gf2{
   margin-top:8px;font-family:Fredoka, system-ui, sans-serif;font-weight:800;font-size:11px;
-  letter-spacing:.3px;color:var(--gn-gold);background:rgba(255,207,63,.10);
-  border:1px dashed rgba(255,207,63,.5);border-radius:9px;padding:6px 9px;line-height:1.3;
+  letter-spacing:.3px;color:var(--gn-gold);background:color-mix(in srgb, var(--gn-gold) 10%, transparent);
+  border:1px dashed color-mix(in srgb, var(--gn-gold) 50%, transparent);border-radius:9px;padding:6px 9px;line-height:1.3;
 }
 .gn-bkt-gfnote{
   font-family:Nunito, system-ui, sans-serif;font-weight:700;font-size:11px;line-height:1.35;
@@ -460,24 +530,24 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 /* ---- TV / broadcast (big screen, Arcade) ---- */
 .gn-tv{
   min-height:100dvh;color:var(--gn-ink);font-family:Nunito,system-ui,sans-serif;position:relative;overflow:hidden;
-  background:radial-gradient(1400px 700px at 50% -10%, #241a30 0%, var(--gn-bg) 60%);
+  background:radial-gradient(1400px 700px at 50% -10%, var(--gn-surf) 0%, var(--gn-bg) 60%);
 }
 .gn-tv::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;
-  background:repeating-linear-gradient(to bottom,#fff 0 1px,transparent 1px 4px)}
+  background:repeating-linear-gradient(to bottom,var(--gn-scan) 0 1px,transparent 1px 4px)}
 .gn-tv > *{position:relative;z-index:1}
 .gn-tv-title{
-  font-family:"Luckiest Guy",system-ui,cursive;color:#fff;letter-spacing:1px;line-height:.95;
-  text-shadow:0 0 26px rgba(255,90,95,.45), 3px 4px 0 rgba(0,0,0,.4);
+  font-family:"Luckiest Guy",system-ui,cursive;color:var(--gn-brand-ink);letter-spacing:1px;line-height:.95;
+  text-shadow:0 0 26px color-mix(in srgb, var(--gn-p1) 45%, transparent), 3px 4px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);
 }
 .gn-tv-round{font-family:Fredoka,system-ui,sans-serif;font-weight:700;color:var(--gn-dim);text-transform:uppercase;letter-spacing:2px}
 .gn-tv-match{background:var(--gn-surf);border:3px solid var(--gn-line);border-radius:16px;overflow:hidden}
-.gn-tv-match--live{border-color:var(--gn-p2);box-shadow:0 0 30px rgba(53,224,196,.18)}
+.gn-tv-match--live{border-color:var(--gn-p2);box-shadow:0 0 30px color-mix(in srgb, var(--gn-p2) 18%, transparent)}
 .gn-tv-slot{padding:14px 22px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gn-tv-slot--win{color:var(--gn-p2);background:rgba(53,224,196,.12)}
+.gn-tv-slot--win{color:var(--gn-p2);background:color-mix(in srgb, var(--gn-p2) 12%, transparent)}
 .gn-tv-slot--lose{color:var(--gn-dim);text-decoration:line-through;opacity:.75}
-.gn-tv-slot--empty{color:#8a7ca2;font-style:italic;font-weight:600}
+.gn-tv-slot--empty{color:var(--gn-faint);font-style:italic;font-weight:600}
 .gn-tv-slot__div{height:3px;background:var(--gn-line)}
-.gn-tv-champ{border:3px solid rgba(255,207,63,.6);background:rgba(255,207,63,.10);border-radius:22px}
+.gn-tv-champ{border:3px solid color-mix(in srgb, var(--gn-gold) 60%, transparent);background:color-mix(in srgb, var(--gn-gold) 10%, transparent);border-radius:22px}
 .gn-live-dot{width:.7em;height:.7em;border-radius:50%;background:var(--gn-yes);box-shadow:0 0 12px var(--gn-yes);display:inline-block}
 @media (prefers-reduced-motion:reduce){.gn-pulse{animation:none}}
 .gn-pulse{animation:gnpulse 1.6s ease-in-out infinite}
@@ -521,27 +591,27 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-tv-h2 span{font-size:1.9vmin;color:var(--gn-dim);font-weight:700}
 .gn-tv-stack{display:flex;flex-direction:column;gap:1.6vmin;min-height:0}
 .gn-tvm{background:var(--gn-surf);border:3px solid var(--gn-line);border-radius:2vmin;overflow:hidden}
-.gn-tvm--live{border-color:var(--gn-p2);box-shadow:0 0 3.2vmin rgba(53,224,196,.20)}
+.gn-tvm--live{border-color:var(--gn-p2);box-shadow:0 0 3.2vmin color-mix(in srgb, var(--gn-p2) 20%, transparent)}
 .gn-tvm__rt{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:1.7vmin;letter-spacing:.18vmin;text-transform:uppercase;color:var(--gn-dim);padding:1vmin 1.8vmin 0}
 .gn-tvm__row{display:flex;align-items:center;justify-content:space-between;gap:1.5vmin;padding:1.5vmin 1.8vmin;font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;color:var(--gn-ink)}
-.gn-tvm__row--win{color:var(--gn-p2);background:rgba(53,224,196,.12)}
+.gn-tvm__row--win{color:var(--gn-p2);background:color-mix(in srgb, var(--gn-p2) 12%, transparent)}
 .gn-tvm__row--lose{color:var(--gn-dim);opacity:.6}
 .gn-tvm__row--lose .gn-tvm__nm{text-decoration:line-through}
 .gn-tvm__nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-.gn-tvm__seed{font-size:1.7vmin;color:#8a7ca2;font-weight:800;flex-shrink:0}
+.gn-tvm__seed{font-size:1.7vmin;color:var(--gn-faint);font-weight:800;flex-shrink:0}
 .gn-tvm__vs{font-family:"Luckiest Guy",system-ui,cursive;color:var(--gn-p1);font-size:2vmin;text-align:center;padding:.2vmin 0;letter-spacing:.1vmin}
 .gn-tvm__div{height:3px;background:var(--gn-line)}
 /* Grand-final "needs 2" clarity on the big screen. */
 .gn-tvm__needs2{
   font-family:Fredoka, system-ui, sans-serif;font-weight:800;font-size:1.5vmin;letter-spacing:.1vmin;
-  text-transform:uppercase;color:var(--gn-gold);background:rgba(255,207,63,.14);
-  border:.25vmin solid rgba(255,207,63,.55);border-radius:999px;padding:.3vmin 1.1vmin;
+  text-transform:uppercase;color:var(--gn-gold);background:color-mix(in srgb, var(--gn-gold) 14%, transparent);
+  border:.25vmin solid color-mix(in srgb, var(--gn-gold) 55%, transparent);border-radius:999px;padding:.3vmin 1.1vmin;
   flex-shrink:0;white-space:nowrap;
 }
 .gn-tvm__note{
   font-family:Nunito, system-ui, sans-serif;font-weight:700;font-size:1.7vmin;line-height:1.3;
-  color:var(--gn-gold);background:rgba(255,207,63,.08);padding:1vmin 1.8vmin;
-  border-top:.25vmin dashed rgba(255,207,63,.35);
+  color:var(--gn-gold);background:color-mix(in srgb, var(--gn-gold) 8%, transparent);padding:1vmin 1.8vmin;
+  border-top:.25vmin dashed color-mix(in srgb, var(--gn-gold) 35%, transparent);
 }
 .gn-tv-empty{font-family:Fredoka,system-ui,sans-serif;font-weight:700;font-size:2.2vmin;color:var(--gn-dim);opacity:.7}
 /* The event TV lobby: the yes-RSVP list, sized to read from the couch before
@@ -558,7 +628,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   display:flex;align-items:center;gap:1.6vmin;background:var(--gn-surf);
   border:.35vmin solid var(--gn-line);border-radius:2vmin;padding:1.3vmin 1.8vmin;
 }
-.gn-tvs--lead{border-color:rgba(255,207,63,.6);background:rgba(255,207,63,.10)}
+.gn-tvs--lead{border-color:color-mix(in srgb, var(--gn-gold) 60%, transparent);background:color-mix(in srgb, var(--gn-gold) 10%, transparent)}
 .gn-tvs__rank{font-family:"Luckiest Guy",system-ui,cursive;font-size:2.8vmin;color:var(--gn-dim);width:3.4vmin;flex-shrink:0}
 .gn-tvs__nm{
   flex:1;min-width:0;font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;
