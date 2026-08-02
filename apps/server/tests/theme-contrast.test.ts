@@ -1,0 +1,198 @@
+// Every theme's text stays readable, and every theme is fully declared.
+//
+// WHY THIS IS A TEST AND NOT A REVIEW NOTE. A palette is the one kind of change
+// where "looks fine to me" is actively misleading: the person checking it is
+// looking at a calibrated laptop in a lit room, and the app is used on a phone
+// at a game night and on a television across a room. Contrast is a number, so
+// it belongs somewhere that fails a build rather than somewhere that depends on
+// who is looking.
+//
+// It also catches the thing a screenshot never would. A second theme is a block
+// of token overrides, and the failure mode of a block of token overrides is not
+// a bad colour, it is a MISSING one: forget --gn-faint and Tabletop silently
+// inherits Arcade's plum-grey onto walnut, which looks like a slightly odd
+// colour rather than like a bug. The completeness test below is the one that
+// would have caught that, and it is why it checks the token NAMES and not just
+// the contrasts.
+//
+// THE NUMBERS ARE PARITY NUMBERS, NOT WCAG MINIMUMS. AA (4.5) is the floor and
+// every pair clears it, but the real assertion is that Tabletop sits within a
+// tolerance of Arcade for the SAME pair. A theme that is legible but noticeably
+// flatter than the one it replaces is a regression that passes a WCAG check.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const CSS = readFileSync(path.join(ROOT, "apps/web/src/index.css"), "utf8");
+const HTML = readFileSync(path.join(ROOT, "apps/web/index.html"), "utf8");
+
+// ---------------------------------------------------------------- colour
+
+function hexToRgb(hex: string): [number, number, number] {
+  let h = hex.replace("#", "").trim();
+  if (h.length === 3) h = [...h].map((c) => c + c).join("");
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)) as [number, number, number];
+}
+
+/** WCAG 2.x relative luminance. */
+function luminance(hex: string): number {
+  const [r, g, b] = hexToRgb(hex).map((c) => {
+    const s = c / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  }) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrast(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100;
+}
+
+// ------------------------------------------------------------ the themes
+
+/**
+ * Parse a token block out of index.css. The stylesheet is the source of truth;
+ * copying the values into this file would just create a second place to be
+ * wrong, and the values here would keep passing after the real ones drifted.
+ */
+/** Comments blanked first, so a brace inside one cannot end a block early. */
+const CSS_BARE = CSS.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
+
+function tokens(selector: string): Record<string, string> {
+  const at = CSS_BARE.indexOf(selector + " {");
+  assert.notEqual(at, -1, `no ${selector} block in index.css`);
+  const open = CSS_BARE.indexOf("{", at);
+  const close = CSS_BARE.indexOf("}", open);
+  const body = CSS_BARE.slice(open + 1, close);
+  const out: Record<string, string> = {};
+  for (const m of body.matchAll(/(--gn-[a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{3,8})/g)) out[m[1]!] = m[2]!;
+  return out;
+}
+
+const ARCADE = tokens(":root");
+const TABLETOP = tokens(':root[data-theme="tabletop"]');
+
+/**
+ * Pairs that have to stay readable, as [foreground, background, floor?]. Text
+ * against the two surfaces it actually sits on, and every -ink against the fill
+ * it is printed on. The floor is WCAG AA (4.5) unless a pair says otherwise,
+ * and a pair that says otherwise has to say why in a comment.
+ */
+const PAIRS: [string, string, number?][] = [
+  ["--gn-ink", "--gn-bg"],
+  ["--gn-ink", "--gn-surf"],
+  ["--gn-dim", "--gn-bg"],
+  ["--gn-dim", "--gn-surf"],
+  ["--gn-place", "--gn-surf"],
+  // 3.0, AND THIS IS A PRE-EXISTING ARCADE VALUE, NOT A TABLETOP CONCESSION.
+  // --gn-faint has measured 4.33 against --gn-surf since it was named in stage
+  // 1, and it was that colour (#8a7ca2, hardcoded in six places) for a long
+  // time before that. Tabletop matches it at 4.37, which is marginally better.
+  // It is the third text level, used for empty bracket slots and seed numbers,
+  // which its own comment in index.css describes as "present but not read".
+  // Raising it above 4.5 is a real improvement and a change to a SHIPPED Arcade
+  // colour, so it is James's call and its own commit, not something a palette
+  // session slips in. The floor is set here rather than the assertion softened
+  // globally so that exactly one pair is exempt and it is obvious which.
+  ["--gn-faint", "--gn-surf", 3.0],
+  ["--gn-p1", "--gn-surf"],
+  ["--gn-p2", "--gn-surf"],
+  ["--gn-gold", "--gn-surf"],
+  ["--gn-danger", "--gn-surf"],
+  ["--gn-danger-hover", "--gn-surf"],
+  ["--gn-yes", "--gn-surf"],
+  ["--gn-no", "--gn-surf"],
+  ["--gn-act", "--gn-surf"],
+  ["--gn-act-ink", "--gn-surf"],
+  ["--gn-p1-tint-ink", "--gn-surf"],
+  // Each -ink on the fill it is printed on, not on the page background.
+  ["--gn-p1-ink", "--gn-p1"],
+  ["--gn-p2-ink", "--gn-p2"],
+  ["--gn-yes-ink", "--gn-yes"],
+];
+
+/** Resolve a token for a theme, falling back to Arcade the way the cascade does. */
+const value = (theme: Record<string, string>, token: string) => theme[token] ?? ARCADE[token]!;
+
+const THEME_BLOCKS: [string, Record<string, string>][] = [
+  ["arcade", ARCADE],
+  ["tabletop", TABLETOP],
+];
+
+test("every theme clears WCAG AA on the pairs that carry text", () => {
+  const failures: string[] = [];
+  for (const [name, theme] of THEME_BLOCKS) {
+    for (const [fg, bg, floor = 4.5] of PAIRS) {
+      const ratio = contrast(value(theme, fg), value(theme, bg));
+      if (ratio < floor) failures.push(`${name}: ${fg} on ${bg} = ${ratio} (needs ${floor})`);
+    }
+  }
+  assert.deepEqual(failures, [], "contrast below the floor:\n  " + failures.join("\n  "));
+});
+
+test("TABLETOP HOLDS CONTRAST PARITY WITH ARCADE, pair for pair", () => {
+  // 2.0 is deliberately loose enough that a palette gets to be its own palette
+  // and tight enough that a whole step of legibility cannot go missing. Felt
+  // green is the widest gap in the shipped set at 1.26 below Arcade's teal,
+  // which is the known, accepted cost of a green that is actually green.
+  const TOLERANCE = 2.0;
+  const drifted: string[] = [];
+  for (const [fg, bg] of PAIRS) {
+    const arcade = contrast(value(ARCADE, fg), value(ARCADE, bg));
+    const tabletop = contrast(value(TABLETOP, fg), value(TABLETOP, bg));
+    const delta = Math.round((tabletop - arcade) * 100) / 100;
+    if (Math.abs(delta) > TOLERANCE) {
+      drifted.push(`${fg} on ${bg}: arcade ${arcade}, tabletop ${tabletop} (${delta})`);
+    }
+  }
+  assert.deepEqual(drifted, [], "contrast parity lost:\n  " + drifted.join("\n  "));
+});
+
+test("A THEME DECLARES EVERY TOKEN IT NEEDS TO, or says why not", () => {
+  // The failure mode of a token block is a MISSING token, not a wrong one: the
+  // cascade quietly serves Arcade's value and the screen looks a bit off rather
+  // than broken. Only the cabinet INKS may be inherited, and that is a decision
+  // (DECISION LOG, 2026-08-02): identity belongs to the pack and does not change
+  // with the theme, so Smash is red under Tabletop too.
+  const inherited = Object.keys(ARCADE)
+    .filter((t) => !(t in TABLETOP))
+    .sort();
+  const mayInherit = Object.keys(ARCADE)
+    .filter((t) => /^--gn-cab-[a-z]+-ink$/.test(t))
+    .sort();
+  assert.deepEqual(
+    inherited,
+    mayInherit,
+    "Tabletop inherits a token it should override, or overrides one it should inherit. " +
+      "Only --gn-cab-*-ink may be inherited.",
+  );
+  // And the identity tokens really do exist to be inherited, so a rename that
+  // emptied this list could not pass by matching nothing against nothing.
+  assert.ok(mayInherit.length >= 6, `expected the cabinet ink tokens, found ${mayInherit.length}`);
+});
+
+test("every theme has a pre-paint background in index.html", () => {
+  // index.html sets the theme-color meta and the <html> background before the
+  // stylesheet exists, so those two colours cannot be tokens and are mapped by
+  // name in an inline script. A theme with a token block but no entry there
+  // paints Arcade's plum for one frame and then corrects itself, which is a
+  // flash nobody notices in review and everybody notices on a phone.
+  const map = HTML.match(/var GN_BG = \{([^}]*)\}/);
+  assert.ok(map, "no GN_BG map in apps/web/index.html");
+  const mapped = [...map![1]!.matchAll(/([a-z][a-z0-9-]*)\s*:\s*"(#[0-9a-fA-F]{3,8})"/g)];
+  const byName = Object.fromEntries(mapped.map((m) => [m[1]!, m[2]!]));
+
+  for (const [name, theme] of THEME_BLOCKS) {
+    assert.ok(name in byName, `theme "${name}" has no entry in the GN_BG pre-paint map`);
+    assert.equal(
+      byName[name]!.toLowerCase(),
+      value(theme, "--gn-bg").toLowerCase(),
+      `the pre-paint colour for "${name}" does not match its --gn-bg, so the first frame ` +
+        `is a different colour from the second`,
+    );
+  }
+});

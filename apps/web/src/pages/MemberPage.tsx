@@ -277,8 +277,20 @@ function Profile({ stats, title, subtitle }: { stats: SideStats; title: string; 
 // ---------- Rivalry pieces ----------
 
 // You are always teal, the opponent is always red/coral, here and on the card.
-const P1 = "var(--gn-teal, #2dd4bf)"; // me
-const P2 = "var(--gn-coral, #ff5a5f)"; // them
+//
+// THESE USED TO READ `var(--gn-teal, #2dd4bf)` AND `var(--gn-coral, #ff5a5f)`, and there
+// has never been a --gn-teal or a --gn-coral in the token set. Both var()s therefore
+// always fell through to the literal, which is the one place a hardcoded colour hides
+// from a sweep that reads property values: the property value IS a var(), so it looks
+// tokenised. It was not, and it would not have followed a theme swap.
+//
+// The coral literal was exactly --gn-p1 so nothing moves there. The teal was NOT: it was
+// #2dd4bf while --gn-p2 is #35e0c4, so the comment above was wrong about the card. The
+// share card has drawn #35e0c4 since it shipped (RECAP.teal in recap.tsx) and this page
+// drew a different teal beside it. Pointing at the token fixes the mismatch the comment
+// already claimed did not exist.
+const P1 = "var(--gn-p2)"; // me
+const P2 = "var(--gn-p1)"; // them
 
 function RecordBanner({ r }: { r: Rivalry }) {
   const { wins, losses, ties, together, meetings } = r.h2h;
@@ -371,7 +383,7 @@ function H2hExtras({ r }: { r: Rivalry }) {
                   : m.outcome === "loss"
                     ? P2
                     : m.outcome === "together"
-                      ? "var(--gn-gold, #ffc857)"
+                      ? "var(--gn-gold)"
                       : "var(--gn-dim)";
               return (
                 <span

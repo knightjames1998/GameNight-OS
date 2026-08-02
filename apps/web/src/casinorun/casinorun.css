@@ -66,7 +66,7 @@
    answers it faster than arithmetic does. */
 .crun-bar {
   height: 12px; border-radius: 999px; margin-top: 10px; overflow: hidden;
-  background: var(--cg-raise, #251743);
+  background: var(--cg-raise);
   border: 1px solid var(--cg-line);
 }
 .crun-bar__fill {

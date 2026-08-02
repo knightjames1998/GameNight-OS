@@ -1,10 +1,18 @@
 // The theme switcher.
 //
-// ONE THEME IN IT RIGHT NOW, ON PURPOSE. This is stage 1 of three: make the
-// theme swappable without changing a single colour, so that a regression in
-// the plumbing is provable against a fixed target instead of being tangled up
-// with intended visual change. Stage 2 adds Tabletop as a second token block
-// in index.css and one entry in THEMES below. Nothing else here changes.
+// TWO THEMES. Stage 1 shipped this file with one entry in THEMES and proved
+// the plumbing was a no-op against a fixed target; stage 2 added Tabletop as a
+// second token block in index.css and the one line below, and touched nothing
+// else in here, which is exactly what stage 1 predicted it would cost. Stage 3
+// takes the packs.
+//
+// THE PRE-PAINT COLOURS LIVE IN index.html, NOT HERE. Two colours are read
+// before this module exists (the theme-color meta and the body background) and
+// therefore cannot be tokens. They are mapped per theme by the inline script
+// there. A theme added here needs an entry there too, and the theme-map test
+// in apps/server/tests/theme-contrast.test.ts fails if it does not have one,
+// because "add a theme, forget the pre-paint map" is the silent-registration
+// shape this project keeps getting caught by.
 //
 // HOW A THEME IS APPLIED: document.documentElement.dataset.theme. Arcade is
 // what :root already defines, so it needs no block of its own and
@@ -29,7 +37,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-export const THEMES = [{ key: "arcade", label: "Arcade" }] as const;
+export const THEMES = [
+  { key: "arcade", label: "Arcade" },
+  { key: "tabletop", label: "Tabletop" },
+] as const;
 
 export type ThemeKey = (typeof THEMES)[number]["key"];
 

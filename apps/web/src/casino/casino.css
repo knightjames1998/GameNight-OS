@@ -51,7 +51,7 @@
   font-family: "Luckiest Guy", system-ui, cursive;
   font-size: 30px; letter-spacing: 1px; line-height: 1; color: #fff;
   text-transform: uppercase;
-  text-shadow: 0 0 18px var(--cg-glow, rgba(255, 207, 63, 0.45)), 2px 3px 0 rgba(0, 0, 0, 0.6);
+  text-shadow: 0 0 18px var(--cg-glow), 2px 3px 0 rgba(0, 0, 0, 0.6);
 }
 .cg-brand em { color: var(--cg-accent); font-style: normal; }
 .cg-sub { color: var(--gn-dim); font-size: 13px; margin-top: 2px; }
@@ -103,7 +103,7 @@
   box-shadow: 0 3px 0 var(--cg-accent-sh);
 }
 .cg-btn:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
-.cg-btn--ghost { background: var(--cg-raise, #2a1f19); color: var(--gn-ink); box-shadow: inset 0 -3px 0 rgba(0,0,0,.45); }
+.cg-btn--ghost { background: var(--cg-raise); color: var(--gn-ink); box-shadow: inset 0 -3px 0 rgba(0,0,0,.45); }
 .cg-btn--go { background: var(--gn-p2); color: var(--gn-p2-ink); box-shadow: 0 3px 0 var(--gn-p2-sh); }
 .cg-btn--sm { min-height: 36px; font-size: 13px; width: auto; padding: 0 14px; }
 
@@ -154,7 +154,7 @@ button.cg-pill { cursor: pointer; }
 }
 .cg-tok--up { background: var(--cg-up); color: var(--cg-up-ink); }
 .cg-tok--down { background: var(--cg-down); color: var(--cg-down-ink); }
-.cg-tok--even { background: var(--cg-raise, #2a1f19); color: var(--gn-dim); }
+.cg-tok--even { background: var(--cg-raise); color: var(--gn-dim); }
 .cg-tok--in { background: transparent; color: var(--gn-dim); border: 1px solid var(--cg-line); }
 
 .cg-totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
@@ -239,7 +239,7 @@ button.cg-pill { cursor: pointer; }
 .cg-tv__head { display: flex; justify-content: space-between; align-items: baseline; gap: 3vmin; }
 .cg-tv__brand {
   font-family: "Luckiest Guy", cursive; font-size: 6vmin; color: #fff; text-transform: uppercase;
-  text-shadow: 0 0 3vmin var(--cg-glow, rgba(255, 207, 63, 0.45));
+  text-shadow: 0 0 3vmin var(--cg-glow);
 }
 .cg-tv__brand em { color: var(--cg-accent); font-style: normal; }
 .cg-tv__muted { color: var(--gn-dim); }
@@ -270,7 +270,7 @@ button.cg-pill { cursor: pointer; }
 }
 .cg-tv__net--up { background: var(--cg-up); color: var(--cg-up-ink); }
 .cg-tv__net--down { background: var(--cg-down); color: var(--cg-down-ink); }
-.cg-tv__net--even { background: var(--cg-raise, #2a1f19); color: var(--gn-dim); }
+.cg-tv__net--even { background: var(--cg-raise); color: var(--gn-dim); }
 .cg-tv__net--in { background: transparent; color: var(--gn-dim); border: 2px solid var(--cg-line); font-size: 3.4vmin; }
 
 /* A pack's own headline above the board. Craps uses it for the shooter; it is

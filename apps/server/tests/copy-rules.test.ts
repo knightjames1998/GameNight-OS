@@ -123,18 +123,29 @@ const blank = (s: string) => s.replace(/[^\n]/g, " ");
 /**
  * Blank out the two places a colour literal is ALLOWED to appear: comments,
  * and the token blocks themselves. A token block is a rule whose selector is
- * :root or a [data-theme="..."] attribute selector, which is what stage 2's
- * Tabletop block will be.
+ * :root, or :root with a [data-theme="..."] attribute on it, which is what the
+ * Tabletop block is.
  *
- * Comments are exempt because the token block above these rules explains at
- * length what went wrong and quotes the literals it is talking about, and that
+ * Comments are exempt because the token block in index.css explains at length
+ * what went wrong and quotes the literals it is talking about, and that
  * reasoning is worth more than making the grep simpler.
+ *
+ * THE LEADING DELIMITER IS A LOOKBEHIND, and that is not a style choice. This
+ * used to require and CONSUME a `}` or `;` before the selector, which worked
+ * for exactly as long as there was one token block in the file. The moment
+ * Tabletop was added the first block's closing brace was eaten as the first
+ * match, leaving no delimiter in front of the second, so the second block was
+ * never blanked and every one of its tokens was reported as a stray literal.
+ * A zero-width assertion cannot eat the delimiter, so blocks can sit back to
+ * back. The class excludes the characters that would make this part of a
+ * LONGER selector (`.gn-x[data-theme=...]` is a themed component rule, not a
+ * token block, and its colours should still be caught).
  */
 function strippable(css: string): string {
   const noComments = css.replace(/\/\*[\s\S]*?\*\//g, blank);
   return noComments.replace(
-    /(^|[};])(\s*(?::root|\[data-theme=[^\]]*\])[^{}]*\{[^{}]*\})/g,
-    (_, lead: string, block: string) => lead + blank(block),
+    /(?<![\w.#[-])(?::root|\[data-theme=[^\]]*\])[^{}]*\{[^{}]*\}/g,
+    blank,
   );
 }
 
@@ -165,6 +176,9 @@ test("the colour-literal check can actually see a literal, and knows where not t
     ".gn-x{color:#fff}",
     ".gn-x{background:rgba(255,90,95,.16)}",
     ".gn-x{background:rgb(255,90,95)}",
+    // A themed COMPONENT rule that happens to carry the attribute is not a
+    // token block, and its literals must still be caught.
+    '.gn-x[data-theme="tabletop"]{color:#f0e6d2}',
   ];
   for (const sample of caught) {
     assert.ok(
@@ -175,6 +189,13 @@ test("the colour-literal check can actually see a literal, and knows where not t
   const allowed = [
     ":root{--gn-surf:#241a30}",
     '[data-theme="tabletop"]{--gn-surf:#f0e6d2}',
+    ':root[data-theme="tabletop"]{--gn-surf:#201a12}',
+    // TWO BLOCKS BACK TO BACK, which is the shape that actually ships and the
+    // one that broke: the first block's closing brace used to be consumed as
+    // part of matching it, so the second was never recognised and reported its
+    // whole palette as stray literals.
+    ':root{--gn-surf:#241a30}\n:root[data-theme="tabletop"]{--gn-surf:#201a12}',
+    ":root{--gn-surf:#241a30}:root[data-theme=x]{--gn-surf:#201a12}",
     "/* #241a30 appears eight times and is exactly --gn-surf */",
     ".gn-x{background:color-mix(in srgb, var(--gn-p1) 45%, transparent)}",
     ".gn-x{border:2px solid var(--gn-line)}",

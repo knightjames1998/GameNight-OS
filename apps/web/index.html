@@ -1,12 +1,18 @@
 <!doctype html>
-<html lang="en">
+<!-- The pre-paint background lives on <html>, not on <body>, and that is not a
+     tidy-up. The theme script runs in <head>, where <body> does not exist yet,
+     so <body> is the one element it cannot correct; leaving the colour there
+     meant Tabletop painted Arcade's plum over its own walnut for the width of
+     the body box. On <html> the script can set it, and the canvas takes its
+     background from <html> anyway. -->
+<html lang="en" style="background:#17111f">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <!-- Arcade's --gn-bg, spelled out. This and the body background below are
-         the two colours that cannot be a token: they are read before the
-         stylesheet exists. Stage 2 gives the script below a small map and sets
-         them from it; until there is a second theme there is nothing to map. -->
+    <!-- Arcade's --gn-bg, spelled out, and overwritten by the script below when
+         the stored theme is not Arcade. This and the body background are the
+         only two colours in the app that CANNOT be tokens: both are read before
+         the stylesheet exists, which is the whole reason they are here. -->
     <meta name="theme-color" content="#17111f" />
     <!-- THEME, BEFORE FIRST PAINT.
          Reads the same key as src/useTheme.ts and sets the attribute now,
@@ -22,15 +28,25 @@
          bearing, and falling through leaves the attribute unset, which is
          Arcade, which is the default anyway.
 
-         The value is shape-checked rather than checked against a list of known
-         themes, so stage 2 does not have to remember to edit this file: an
-         unrecognised name selects no token block and therefore renders Arcade,
-         and useTheme repairs the stored value when it hydrates. -->
+         THE ATTRIBUTE IS SHAPE-CHECKED, THE COLOURS ARE LOOKED UP. An
+         unrecognised theme name selects no token block and therefore renders
+         Arcade, so setting it is harmless and a rollback keeps the preference
+         (see readTheme in useTheme.ts). But the two pre-paint colours have to
+         come from somewhere, so GN_BG below is a real map, and a name that is
+         not in it falls back to Arcade's rather than painting nothing.
+         apps/server/tests/theme-contrast.test.ts fails the build if a theme in
+         index.css has no entry here, because "add a theme, forget the pre-paint
+         map" is a flash nobody would notice in review. -->
     <script>
       try {
+        var GN_BG = { arcade: "#17111f", tabletop: "#15110b" };
         var gnTheme = localStorage.getItem("gamenight.pref.theme");
         if (gnTheme && /^[a-z][a-z0-9-]{0,23}$/.test(gnTheme)) {
           document.documentElement.dataset.theme = gnTheme;
+          var gnBg = GN_BG[gnTheme] || GN_BG.arcade;
+          document.documentElement.style.background = gnBg;
+          var gnMeta = document.querySelector('meta[name="theme-color"]');
+          if (gnMeta) gnMeta.setAttribute("content", gnBg);
         }
       } catch (e) {
         /* no storage: :root is Arcade, so there is nothing to do */
@@ -73,9 +89,7 @@
          paint, plus a second hop to fonts.gstatic.com for the files. -->
     <title>GameNight OS</title>
   </head>
-  <!-- Arcade's --gn-bg again: paints before the stylesheet lands so the first
-       frame is not white. See the theme-color note above for stage 2. -->
-  <body style="margin:0;background:#17111f">
+  <body style="margin:0">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -173,6 +173,100 @@
   --gn-cab-crun-bot:   #2f1a3d;
 }
 
+/* ============================================================
+   TABLETOP: warm dark. Felt, brass, low pub light.
+   ------------------------------------------------------------
+   James's direction, and the "dark" half of it is the load-bearing
+   part. A LIGHT Tabletop would have forced a second treatment of
+   all ten pack palettes and turned stage 3 from a design pass into
+   a rebuild; keeping the shell dark means every pack's identity hue
+   goes on working exactly as it does today. The move is Arcade's
+   cool deep plum to warm walnut and low brass: same depth, different
+   temperature. Small enough that a bad token reads as WRONG rather
+   than merely different, which is what you want while checking a
+   theme.
+
+   :root[data-theme=...] rather than [data-theme=...] on purpose. A
+   bare attribute selector has the SAME specificity as :root, so it
+   would win only by being further down the file, and the next person
+   to reorder this file would silently un-theme the app. Adding :root
+   makes it strictly more specific and the order stops mattering.
+
+   CONTRAST IS MEASURED, NOT EYEBALLED, and asserted in
+   apps/server/tests/theme-contrast.test.ts so it stays that way.
+   Every pair is within about 1.0 of Arcade's number for the same
+   pair. Brass and felt green are both LIFTED from a physically
+   accurate brass (#d9a94a) and felt (#4aa86c): those read at 7.98
+   and 5.84 where Arcade's gold and teal read 11.26 and 9.97, which
+   is materially harder to see across a room. If a later pass wants
+   them more muted that is a legitimate call, but it is a legibility
+   trade and the number should be on the table when it is made.
+
+   WHAT IS NOT REDECLARED HERE IS THE POINT. The nine cabinet INK
+   tokens are absent, and that is the identity-versus-treatment split
+   from the DECISION LOG written as code: Smash is red under every
+   theme, so --gn-cab-smash-ink is declared once, in :root, and
+   inherited. What Tabletop overrides is the TREATMENT: the edge and
+   the backdrop the gradient falls from. Those are re-laid over
+   walnut instead of plum by keeping each cabinet's perceptual lift
+   over its background constant, which holds every cabinet's name
+   contrast to within 0.3 of its Arcade value.
+   ============================================================ */
+:root[data-theme="tabletop"] {
+  --gn-bg:      #15110b;  /* dark walnut */
+  --gn-surf:    #201a12;  /* card stock in shade */
+  --gn-raise:   #2b2318;
+  --gn-line:    #3f3423;  /* warm border */
+  --gn-ink:     #f7f0e2;  /* warm paper white */
+  --gn-dim:     #c6b99f;
+  --gn-place:   #948870;
+  --gn-faint:   #8a7f68;
+  --gn-p1:      #f07a58;  /* lacquer red */
+  --gn-p1-ink:  #1c0d08;
+  --gn-p1-sh:   #a8482e;
+  --gn-p1-tint-ink:#eca48a;
+  --gn-p2:      #61cd8b;  /* felt green */
+  --gn-p2-ink:  #07190e;
+  --gn-p2-sh:   #3d8a5c;
+  --gn-gold:    #eec262;  /* brass */
+  --gn-danger:  #eaa79c;
+  --gn-danger-hover:#e8c3b8;
+  --gn-yes:     #5cbc7b;
+  --gn-yes-ink: #06200f;
+  --gn-no:      #ef8769;
+  /* The quiet secondary action stays a blue, because its whole job is to be
+     neither the go, the confirm nor the highlight, and every warm hue on this
+     screen is already one of those. Pewter rather than Arcade's cornflower. */
+  --gn-act:     #93a9c9;
+  --gn-act-ink: #bacde4;
+  --gn-brand-ink:#fffaf0;
+  /* The scanline is an ARCADE motif and it is still here, at 5%, because
+     removing it is a structural change and this is a palette. Warmed to a
+     cream so that over walnut it reads as paper grain rather than a CRT. */
+  --gn-scan:    #ffeeda;
+  /* Warm near-black, not black: this is what every bevel and drop shadow is
+     cut from, and a pure-black bevel under low pub light is the one thing
+     that would still look like Arcade. */
+  --gn-shadow-depth:#0b0703;
+
+  /* ---- pack cabinet TREATMENT (the inks above are not overridden) ---- */
+  --gn-cab-beerio-edge:#594700;  --gn-cab-beerio-top:#322700;
+  --gn-cab-smash-edge: #581e03;  --gn-cab-smash-top: #280e00;
+  --gn-cab-mk-edge:    #26415a;  --gn-cab-mk-top:    #102124;
+  --gn-cab-mp-edge:    #49385d;  --gn-cab-mp-top:    #211725;
+  --gn-cab-pp-edge:    #206925;  --gn-cab-pp-top:    #0f3606;
+  --gn-cab-bj-edge:    #5a2900;  --gn-cab-bj-top:    #281400;
+  --gn-cab-rl-edge:    #1c481e;  --gn-cab-rl-top:    #0e2a04;
+  --gn-cab-cr-edge:    #1a3b4d;  --gn-cab-cr-top:    #0a2531;
+  --gn-cab-crun-edge:  #382d4d;  --gn-cab-crun-top:  #21182d;
+  /* The two that do not land on --gn-surf keep the same near-miss they have
+     under Arcade, rather than being quietly folded in here. If James decides
+     Mario Party's is the typo it looks like, both themes should change in the
+     same commit and for the same reason. */
+  --gn-cab-mp-bot:     #281b1b;
+  --gn-cab-crun-bot:   #2c1c29;
+}
+
 /* ---- standalone web app polish -------------------------------- */
 /* black-translucent status bar + viewport-fit=cover means the app paints
    under the iPhone notch and home indicator. Every root shell insets its

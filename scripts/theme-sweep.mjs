@@ -262,6 +262,15 @@ const COLLECT_FIXTURE = (props) => `(() => {
   host.className = 'gn-app';
   document.body.appendChild(host);
 
+  // Same baseline idea as the rule pass: an unclassed element of the same kind,
+  // so properties nothing in the stylesheet ever sets (fill and stroke are SVG
+  // defaults and appear on all 137 classes) do not pad every snapshot.
+  const plain = document.createElement('button');
+  host.appendChild(plain);
+  const BASE = {};
+  for (const p of PROPS) BASE[p] = getComputedStyle(plain).getPropertyValue(p).trim();
+  plain.remove();
+
   const out = {};
   for (const cls of [...names].sort()) {
     // gn-block__el--mod  ->  block "gn-block", base class "gn-block__el"
@@ -281,8 +290,8 @@ const COLLECT_FIXTURE = (props) => `(() => {
     const cs = getComputedStyle(el);
     const rec = {};
     for (const p of PROPS) {
-      const v = cs.getPropertyValue(p);
-      if (v && v !== 'none' && v !== 'auto') rec[p] = v.trim();
+      const v = cs.getPropertyValue(p).trim();
+      if (v && v !== 'none' && v !== 'auto' && v !== BASE[p]) rec[p] = v;
     }
     out[cls] = rec;
     if (mount !== host) mount.remove(); else el.remove();
@@ -361,6 +370,13 @@ const COLLECT_RULES = (props) => `(async () => {
   const style = document.createElement('style');
   document.head.appendChild(style);
 
+  // What the probe resolves to with NO rule applied. Every reading below is
+  // recorded only if it differs from this. Without it, a rule that sets one
+  // background contributes fifteen rows, fourteen of them the probe's own
+  // inherited black, and the report is 90% noise that hides the finding.
+  const BASE = {};
+  for (const p of PROPS) BASE[p] = getComputedStyle(probe).getPropertyValue(p).trim();
+
   const out = {};
   for (const link of document.querySelectorAll('link[rel="stylesheet"]')) {
     let css;
@@ -368,9 +384,9 @@ const COLLECT_RULES = (props) => `(async () => {
     const name = link.href.split('/').pop().replace(/-[A-Za-z0-9_-]{8}\\.css$/, '.css');
     const merged = new Map();
     for (const { selector, body } of split(css)) {
-      merged.set(selector, (merged.get(selector) ?? '') + ';' + body);
+      merged.set(selector, (merged.get(selector) ?? []).concat(body));
     }
-    for (const [selector, body] of merged) {
+    for (const [selector, bodies] of merged) {
       // The token blocks declare custom properties and paint nothing. Probing
       // them records the probe's own inherited defaults, which is noise, and
       // the filter below matches them anyway once a token is called
@@ -379,13 +395,21 @@ const COLLECT_RULES = (props) => `(async () => {
       // Only rules that speak to paint at all. Without this the snapshot fills
       // up with thousands of identical inherited defaults from layout rules,
       // and a real difference has somewhere to hide.
-      if (!/(color|background|border|shadow|outline|fill|stroke)/i.test(body)) continue;
-      style.textContent = '#gn-theme-probe{' + body + '}';
+      if (!/(color|background|border|shadow|outline|fill|stroke)/i.test(bodies.join(';'))) continue;
+      // ONE RULE PER ORIGINAL RULE, not one merged block, and the difference is
+      // not cosmetic. Lightning CSS emits a color-mix() twice, as an opaque
+      // var() fallback and again inside @supports. Concatenated into a single
+      // block, two \`background:\` shorthands that both contain a var() resolve
+      // to transparent instead of to the second one, so every washed background
+      // in the file read as "unthemed" while the real elements were painting it
+      // correctly. Emitting separate rules lets the browser's own cascade pick
+      // the winner, which is the thing being modelled in the first place.
+      style.textContent = bodies.map((b) => '#gn-theme-probe{' + b + '}').join('');
       const cs = getComputedStyle(probe);
       const rec = {};
       for (const p of PROPS) {
-        const v = cs.getPropertyValue(p);
-        if (v && v !== 'none' && v !== 'auto') rec[p] = v.trim();
+        const v = cs.getPropertyValue(p).trim();
+        if (v && v !== 'none' && v !== 'auto' && v !== BASE[p]) rec[p] = v;
       }
       if (!Object.keys(rec).length) continue;
       out[name + ' || ' + selector] = rec;
@@ -398,7 +422,7 @@ const COLLECT_RULES = (props) => `(async () => {
 
 // ------------------------------------------------------------------ capture
 
-async function capture(outFile) {
+async function capture(outFile, theme) {
   console.log("building apps/web ...");
   await run("pnpm", ["--filter", "@gamenight/web", "build"], ROOT);
 
@@ -470,7 +494,19 @@ async function capture(outFile) {
     });
     await cdp.send("Fetch.enable", { patterns: [{ urlPattern: "*/api/*" }] });
 
-    const snapshot = { routes: {}, fixture: {}, rules: {} };
+    // Pick the theme the way a phone does: write the preference and let the
+    // app's own pre-paint script read it. Forcing data-theme onto <html> from
+    // here would be one line shorter and would test the token block while
+    // skipping the mechanism that delivers it, which is the half that broke
+    // last time.
+    if (theme) {
+      await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+        source: `try{localStorage.setItem("gamenight.pref.theme",${JSON.stringify(theme)})}catch(e){}`,
+      });
+      console.log(`theme: ${theme}`);
+    }
+
+    const snapshot = { theme: theme ?? "default", routes: {}, fixture: {}, rules: {} };
 
     for (const route of ROUTES) {
       await cdp.send("Page.navigate", { url: `http://127.0.0.1:${PORT}${route}` });
@@ -611,14 +647,101 @@ function compare(beforeFile, afterFile) {
   return 1;
 }
 
+/**
+ * The INVERSE report, and the one stage 2 needs. Comparing two THEMES, a value
+ * that is identical in both is the suspicious one: either it does not depend on
+ * the palette at all, or it is a colour that never got tokenised and is quietly
+ * still Arcade under Tabletop. Nothing errors either way, which is why it needs
+ * a report rather than a test.
+ *
+ * Values that cannot move are filtered out or they would bury the finding:
+ * fully transparent paint, and the shadow/gradient entries whose colour parts
+ * are transparent. What is left is bucketed by source, because the answer for
+ * `index.css` ("a stage 1 miss, fix it now") is completely different from the
+ * answer for a pack stylesheet ("stage 3, expected, leave it").
+ */
+/** True if any colour in the value actually paints (alpha > 0). */
+function visible(value) {
+  const colours = normalise(value).match(/rgba\([^)]*\)/g);
+  if (!colours) return false;
+  return colours.some((c) => Number(c.slice(0, -1).split(",")[3]) > 0);
+}
+
+function same(aFile, bFile) {
+  const a = JSON.parse(readFileSync(aFile, "utf8"));
+  const b = JSON.parse(readFileSync(bFile, "utf8"));
+  const buckets = new Map();
+  let compared = 0;
+  let moved = 0;
+
+  const walk = (x, y, trail) => {
+    for (const key of Object.keys(x ?? {})) {
+      const xv = x[key];
+      const yv = y?.[key];
+      if (typeof xv === "object") {
+        walk(xv, yv, [...trail, key]);
+        continue;
+      }
+      if (yv === undefined) continue;
+      compared++;
+      if (normalise(xv) !== normalise(yv)) {
+        moved++;
+        continue;
+      }
+      // Nothing to theme: paint that is entirely invisible either way.
+      if (!visible(xv)) continue;
+      // The shell's own component layer is bucketed apart from everything else
+      // in the same built file. index.css compiles to Tailwind's reset plus our
+      // .gn-* rules, and only the second half is what stage 1 tokenised: a
+      // Tailwind reset rule not following the theme is not a finding.
+      let bucket = trail[0];
+      if (trail[0] === "rules") {
+        const key = String(trail[1]);
+        const sheet = key.split(" || ")[0];
+        bucket = sheet === "index.css" && /\.gn-|:where\(#root\)/.test(key) ? "index.css (shell)" : sheet;
+      }
+      if (!buckets.has(bucket)) buckets.set(bucket, []);
+      buckets.get(bucket).push({ where: [...trail, key].join(" | "), value: xv });
+    }
+  };
+  for (const section of ["routes", "fixture", "rules"]) walk(a[section], b[section], [section]);
+
+  console.log(`compared ${compared} resolved colour values; ${moved} moved with the theme`);
+  const total = [...buckets.values()].reduce((n, v) => n + v.length, 0);
+  console.log(`${total} identical in both themes, by source:\n`);
+  for (const [bucket, rows] of [...buckets].sort((p, q) => q[1].length - p[1].length)) {
+    console.log(`  ${bucket}: ${rows.length}`);
+  }
+  // The shell's own rules are the ones a human has to read: an entry here is a
+  // colour index.css failed to tokenise. Everything else is stage 3 by design.
+  const shell = buckets.get("index.css (shell)") ?? [];
+  if (shell.length) {
+    console.log(`\nshell (.gn-*) entries that did not follow the theme (${shell.length}):\n`);
+    for (const r of shell) console.log(`  ${r.where}\n    ${r.value}`);
+  } else {
+    console.log("\nshell (.gn-*): nothing stayed behind. Every shell colour followed the theme.");
+  }
+  return 0;
+}
+
 // --------------------------------------------------------------------- main
 
 const argv = process.argv.slice(2);
-if (argv[0] === "--compare") {
-  process.exit(compare(argv[1], argv[2]));
-} else if (argv[0]) {
-  await capture(argv[0]);
+const themeArg = argv.find((a) => a.startsWith("--theme="))?.slice("--theme=".length);
+const positional = argv.filter((a) => !a.startsWith("--"));
+
+if (argv.includes("--compare")) {
+  process.exit(compare(positional[0], positional[1]));
+} else if (argv.includes("--same")) {
+  process.exit(same(positional[0], positional[1]));
+} else if (positional[0]) {
+  await capture(positional[0], themeArg);
 } else {
-  console.error("usage: theme-sweep.mjs <out.json> | theme-sweep.mjs --compare <before.json> <after.json>");
+  console.error(
+    "usage:\n" +
+      "  theme-sweep.mjs <out.json> [--theme=<name>]      capture\n" +
+      "  theme-sweep.mjs --compare <a.json> <b.json>      what MOVED (stage 1's question)\n" +
+      "  theme-sweep.mjs --same <a.json> <b.json>         what did NOT (stage 2's question)",
+  );
   process.exit(2);
 }
