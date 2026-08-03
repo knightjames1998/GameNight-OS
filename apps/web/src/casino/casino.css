@@ -48,7 +48,7 @@
 .cg-top { display: flex; justify-content: space-between; align-items: center; }
 
 .cg-brand {
-  font-family: "Luckiest Guy", system-ui, cursive;
+  font-family: var(--gn-font-display);
   font-size: 30px; letter-spacing: 1px; line-height: 1; color: #fff;
   text-transform: uppercase;
   text-shadow: 0 0 18px var(--cg-glow), 2px 3px 0 rgba(0, 0, 0, 0.6);
@@ -238,7 +238,7 @@ button.cg-pill { cursor: pointer; }
 }
 .cg-tv__head { display: flex; justify-content: space-between; align-items: baseline; gap: 3vmin; }
 .cg-tv__brand {
-  font-family: "Luckiest Guy", cursive; font-size: 6vmin; color: #fff; text-transform: uppercase;
+  font-family: var(--gn-font-display); font-size: 6vmin; color: #fff; text-transform: uppercase;
   text-shadow: 0 0 3vmin var(--cg-glow);
 }
 .cg-tv__brand em { color: var(--cg-accent); font-style: normal; }
@@ -261,11 +261,11 @@ button.cg-pill { cursor: pointer; }
 }
 .cg-tv__line--lead { border-color: var(--cg-accent); background: color-mix(in srgb, var(--cg-accent) 9%, transparent); }
 .cg-tv__line--out { opacity: 0.72; }
-.cg-tv__rank { font-family: "Luckiest Guy", cursive; font-size: 3.4vmin; color: var(--gn-dim); }
+.cg-tv__rank { font-family: var(--gn-font-display); font-size: 3.4vmin; color: var(--gn-dim); }
 .cg-tv__nm { font-family: Fredoka, sans-serif; font-weight: 800; font-size: 4.4vmin; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cg-tv__meta { color: var(--gn-dim); font-size: 2.2vmin; font-weight: 700; margin-top: 0.3vmin; }
 .cg-tv__net {
-  font-family: "Luckiest Guy", cursive; font-size: 5.4vmin; line-height: 1;
+  font-family: var(--gn-font-display); font-size: 5.4vmin; line-height: 1;
   padding: 1vmin 2.2vmin; border-radius: 1.2vmin; white-space: nowrap;
 }
 .cg-tv__net--up { background: var(--cg-up); color: var(--cg-up-ink); }
@@ -293,7 +293,7 @@ button.cg-pill { cursor: pointer; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .cg-tv__hero__n {
-  font-family: "Luckiest Guy", cursive; font-size: 11vmin; line-height: 1;
+  font-family: var(--gn-font-display); font-size: 11vmin; line-height: 1;
   color: var(--cg-accent);
 }
 .cg-tv__hero__sub { color: var(--gn-dim); font-size: 2.2vmin; font-weight: 700; }

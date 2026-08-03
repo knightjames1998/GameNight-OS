@@ -17,7 +17,7 @@
 .mk-wrap { max-width: 30rem; margin: 0 auto; padding: 16px 16px 56px; }
 
 .mk-brand {
-  font-family: "Luckiest Guy", system-ui, cursive;
+  font-family: var(--gn-font-display);
   font-size: 30px; letter-spacing: 1px; line-height: 1; color: #fff;
   text-transform: uppercase;
   text-shadow: 0 0 18px rgba(255, 70, 70, 0.55), 2px 3px 0 rgba(0, 0, 0, 0.5);
@@ -71,8 +71,8 @@
 .mk-vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: stretch; }
 .mk-fighter__n { font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 18px; padding: 14px 8px 2px; }
 .mk-fighter__c { color: var(--gn-dim); font-size: 12px; padding-bottom: 12px; }
-.mk-vsbadge { align-self: center; font-family: "Luckiest Guy", cursive; color: var(--gn-p1); font-size: 22px; }
-.mk-score { text-align: center; font-family: "Luckiest Guy", cursive; font-size: 26px; color: var(--gn-ink); letter-spacing: 2px; }
+.mk-vsbadge { align-self: center; font-family: var(--gn-font-display); color: var(--gn-p1); font-size: 22px; }
+.mk-score { text-align: center; font-family: var(--gn-font-display); font-size: 26px; color: var(--gn-ink); letter-spacing: 2px; }
 
 .mk-err { color: var(--gn-danger); font-size: 13px; margin-top: 8px; }
 .mk-textbtn { background: none; border: none; color: var(--gn-dim); font-weight: 700; cursor: pointer; padding: 6px 0; }
@@ -82,7 +82,7 @@
 
 /* TV mode: bigger, meant for a room to read across it */
 .mk-tv { min-height: 100dvh; background: radial-gradient(130% 90% at 50% 0%, #0e2f7a, #060a14); color: #fff; padding: calc(3vmin + env(safe-area-inset-top, 0px)) calc(4vmin + env(safe-area-inset-right, 0px)) calc(3vmin + env(safe-area-inset-bottom, 0px)) calc(4vmin + env(safe-area-inset-left, 0px)); }
-.mk-tv__brand { font-family: "Luckiest Guy", cursive; font-size: 6vmin; text-transform: uppercase; text-shadow: 0 0 22px rgba(255, 70, 70, 0.6); }
+.mk-tv__brand { font-family: var(--gn-font-display); font-size: 6vmin; text-transform: uppercase; text-shadow: 0 0 22px rgba(255, 70, 70, 0.6); }
 .mk-tv__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2vmin; margin-top: 3vmin; }
 .mk-tv__panel { background: rgba(0, 0, 0, 0.35); border: 1px solid #2a4f9a; border-radius: 6px; padding: 2.4vmin; }
 .mk-tv__panel h3 { font-size: 2.6vmin; color: #ff9a6a; margin: 0 0 1.4vmin; text-transform: uppercase; letter-spacing: 0.5px; }

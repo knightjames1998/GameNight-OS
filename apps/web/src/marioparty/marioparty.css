@@ -16,7 +16,7 @@
 .mp-wrap { max-width: 30rem; margin: 0 auto; padding: 16px 16px 56px; }
 
 .mp-brand {
-  font-family: "Luckiest Guy", system-ui, cursive;
+  font-family: var(--gn-font-display);
   font-size: 30px; letter-spacing: 1px; line-height: 1; color: #fff;
   text-transform: uppercase;
   text-shadow: 0 0 18px rgba(255, 210, 90, 0.55), 2px 3px 0 rgba(0, 0, 0, 0.5);
@@ -82,7 +82,7 @@
 
 /* TV mode */
 .mp-tv { min-height: 100dvh; background: radial-gradient(130% 90% at 50% 0%, #5a2a92, #0f0818); color: #fff; padding: calc(3vmin + env(safe-area-inset-top, 0px)) calc(4vmin + env(safe-area-inset-right, 0px)) calc(3vmin + env(safe-area-inset-bottom, 0px)) calc(4vmin + env(safe-area-inset-left, 0px)); }
-.mp-tv__brand { font-family: "Luckiest Guy", cursive; font-size: 6vmin; text-transform: uppercase; text-shadow: 0 0 22px rgba(255, 210, 90, 0.6); }
+.mp-tv__brand { font-family: var(--gn-font-display); font-size: 6vmin; text-transform: uppercase; text-shadow: 0 0 22px rgba(255, 210, 90, 0.6); }
 .mp-tv__lead { font-size: 7vmin; font-family: Fredoka, sans-serif; font-weight: 700; color: #ffd24a; }
 .mp-tv__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2vmin; margin-top: 3vmin; }
 .mp-tv__panel { background: rgba(0, 0, 0, 0.35); border: 1px solid #6b4aa0; border-radius: 6px; padding: 2.4vmin; }

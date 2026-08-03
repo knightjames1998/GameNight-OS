@@ -105,6 +105,12 @@
     font-size: 56px; display: block; margin-bottom: 18px;
     animation: rotateHint 1.8s ease-in-out infinite;
   }
+  /* THIS LITERAL IS CORRECT AND MUST STAY. Every other pack stylesheet had its
+     'Luckiest Guy' replaced with var(--gn-font-display) in stage 4 so the packs
+     follow the theme's display face. Beerio Kart is a vendored 1:1 replica and
+     is permanently exempt from theming, so it must NOT follow: under Tabletop
+     every other pack switches to woodtype and this one stays arcade, on purpose.
+     It is the one place in that commit where the inconsistency is the point. */
   .app-portrait-blocker h2 {
     font-family: 'Luckiest Guy', cursive; color: var(--ink);
     font-size: 26px; letter-spacing: 1px; margin: 0 0 14px; line-height: 1.3;

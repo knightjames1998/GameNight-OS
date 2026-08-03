@@ -19,7 +19,7 @@
 .pp-top { display: flex; justify-content: space-between; align-items: center; }
 
 .pp-brand {
-  font-family: "Luckiest Guy", system-ui, cursive;
+  font-family: var(--gn-font-display);
   font-size: 30px; letter-spacing: 1px; line-height: 1; color: #fff;
   text-transform: uppercase;
   text-shadow: 0 0 18px rgba(255, 122, 26, 0.5), 2px 3px 0 rgba(0, 0, 0, 0.5);
@@ -91,7 +91,7 @@
 .pp-fighter:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.4); }
 .pp-fighter__n { font-family: Fredoka, system-ui, sans-serif; font-weight: 800; font-size: 16px; }
 .pp-fighter__g { color: var(--gn-dim); font-size: 13px; margin-top: 3px; }
-.pp-vsbadge { align-self: center; font-family: "Luckiest Guy", cursive; color: #ff7a1a; font-size: 18px; }
+.pp-vsbadge { align-self: center; font-family: var(--gn-font-display); color: #ff7a1a; font-size: 18px; }
 .pp-score { text-align: center; font-family: Fredoka, sans-serif; font-weight: 800; font-size: 22px; }
 
 /* ---- TV view ---- */
@@ -112,7 +112,7 @@
   color: var(--gn-ink); font-family: Nunito, system-ui, sans-serif;
 }
 .pp-tv__brand {
-  font-family: "Luckiest Guy", cursive; font-size: 6vmin; color: #fff; text-transform: uppercase;
+  font-family: var(--gn-font-display); font-size: 6vmin; color: #fff; text-transform: uppercase;
   text-shadow: 0 0 3vmin rgba(255, 122, 26, 0.5);
 }
 .pp-tv__muted { color: var(--gn-dim); }
@@ -122,7 +122,7 @@
 }
 .pp-tv__vs { display: flex; align-items: center; justify-content: center; gap: 4vmin; margin-top: 1.5vmin; }
 .pp-tv__pl { font-family: Fredoka, sans-serif; font-weight: 800; font-size: 5vmin; }
-.pp-tv__sc { font-family: "Luckiest Guy", cursive; color: #ff7a1a; font-size: 7vmin; }
+.pp-tv__sc { font-family: var(--gn-font-display); color: #ff7a1a; font-size: 7vmin; }
 .pp-tv__grid { display: grid; grid-template-columns: 1fr; gap: 2vmin; margin-top: 3vmin; }
 .pp-tv__panel { border: 2px solid #1f6b46; border-radius: 2vmin; padding: 2vmin 2.5vmin; background: rgba(12,42,29,0.5); }
 .pp-tv__panel h3 { font-family: Fredoka, sans-serif; font-weight: 800; font-size: 2.6vmin; margin: 0 0 1.5vmin; color: var(--gn-dim); text-transform: uppercase; letter-spacing: 0.3vmin; }

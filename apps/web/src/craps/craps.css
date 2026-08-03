@@ -44,6 +44,6 @@
 }
 .cr-shooter__who { font-family: Fredoka, system-ui, sans-serif; font-weight: 800; font-size: 17px; }
 .cr-shooter__n {
-  font-family: "Luckiest Guy", system-ui, cursive; font-size: 46px; line-height: 1.05;
+  font-family: var(--gn-font-display); font-size: 46px; line-height: 1.05;
   color: var(--cg-accent);
 }

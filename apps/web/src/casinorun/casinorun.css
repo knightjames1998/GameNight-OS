@@ -53,7 +53,7 @@
   text-transform: uppercase; letter-spacing: 1px;
 }
 .crun-bank__n {
-  font-family: "Luckiest Guy", system-ui, cursive;
+  font-family: var(--gn-font-display);
   font-size: 44px; line-height: 1.05; margin-top: 2px;
 }
 .crun-bank__n--up { color: var(--cg-up); }
@@ -141,7 +141,7 @@
 }
 .crun-verdict--cleared { border-color: var(--cg-up); background: color-mix(in srgb, var(--cg-up) 14%, transparent); }
 .crun-verdict--bust { border-color: var(--cg-down); background: color-mix(in srgb, var(--cg-down) 14%, transparent); }
-.crun-verdict__h { font-family: "Luckiest Guy", system-ui, cursive; font-size: 26px; line-height: 1.1; }
+.crun-verdict__h { font-family: var(--gn-font-display); font-size: 26px; line-height: 1.1; }
 
 /* ---- the TV ----
    THE BANK IS THE VIEW. Everything else on this screen is context for it, so
@@ -153,7 +153,7 @@
   text-transform: uppercase; letter-spacing: 0.4vmin;
 }
 .crun-tv__bank__n {
-  font-family: "Luckiest Guy", system-ui, cursive;
+  font-family: var(--gn-font-display);
   font-size: 19vmin; line-height: 1;
 }
 .crun-tv__bank__n--up { color: var(--cg-up); }
@@ -195,7 +195,7 @@
 
 .crun-tv__verdict {
   margin-top: 2.4vmin; text-align: center;
-  font-family: "Luckiest Guy", cursive; font-size: 6vmin;
+  font-family: var(--gn-font-display); font-size: 6vmin;
 }
 .crun-tv__verdict--cleared { color: var(--cg-up); }
 .crun-tv__verdict--bust { color: var(--cg-down); }

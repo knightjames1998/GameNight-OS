@@ -17,7 +17,7 @@
 .sm-wrap { max-width: 30rem; margin: 0 auto; padding: 16px 16px 56px; }
 
 .sm-brand {
-  font-family: "Luckiest Guy", system-ui, cursive;
+  font-family: var(--gn-font-display);
   font-size: 30px; letter-spacing: 1px; line-height: 1; color: #fff;
   text-transform: uppercase;
   text-shadow: 0 0 18px rgba(255, 70, 60, 0.6), 2px 3px 0 rgba(0, 0, 0, 0.5);
@@ -75,8 +75,8 @@
 .sm-fighter.win { border-color: var(--gn-p2); }
 .sm-fighter__n { font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 18px; }
 .sm-fighter__c { color: var(--gn-dim); font-size: 12px; margin-top: 2px; }
-.sm-vsbadge { align-self: center; font-family: "Luckiest Guy", cursive; color: #ff4a3d; font-size: 22px; }
-.sm-score { text-align: center; font-family: "Luckiest Guy", cursive; font-size: 26px; color: var(--gn-ink); letter-spacing: 2px; }
+.sm-vsbadge { align-self: center; font-family: var(--gn-font-display); color: #ff4a3d; font-size: 22px; }
+.sm-score { text-align: center; font-family: var(--gn-font-display); font-size: 26px; color: var(--gn-ink); letter-spacing: 2px; }
 
 /* Smashdown: the burn board and the one-tap battle grid.
    A burned fighter is struck through rather than removed, because the point of
@@ -97,7 +97,7 @@
 
 /* TV mode: bigger, darker, meant for a room to read across it */
 .sm-tv { min-height: 100dvh; background: radial-gradient(130% 90% at 50% 0%, #4a0f16, #0f0709); color: #fff; padding: calc(3vmin + env(safe-area-inset-top, 0px)) calc(4vmin + env(safe-area-inset-right, 0px)) calc(3vmin + env(safe-area-inset-bottom, 0px)) calc(4vmin + env(safe-area-inset-left, 0px)); }
-.sm-tv__brand { font-family: "Luckiest Guy", cursive; font-size: 6vmin; text-transform: uppercase; text-shadow: 0 0 22px rgba(255, 70, 60, 0.7); }
+.sm-tv__brand { font-family: var(--gn-font-display); font-size: 6vmin; text-transform: uppercase; text-shadow: 0 0 22px rgba(255, 70, 60, 0.7); }
 .sm-tv__king { font-size: 8vmin; font-family: Fredoka, sans-serif; font-weight: 700; color: var(--gn-gold); }
 .sm-tv__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2vmin; margin-top: 3vmin; }
 .sm-tv__panel { background: rgba(0, 0, 0, 0.35); border: 1px solid #7a2028; border-radius: 6px; padding: 2.4vmin; }
@@ -120,4 +120,4 @@
   text-decoration: line-through; text-decoration-color: #ff4a3d; text-decoration-thickness: 0.4vmin;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.sm-tv__count { font-family: "Luckiest Guy", cursive; font-size: 7vmin; color: var(--gn-gold); line-height: 1; }
+.sm-tv__count { font-family: var(--gn-font-display); font-size: 7vmin; color: var(--gn-gold); line-height: 1; }
