@@ -20,8 +20,12 @@ export default function Home({
   onLogout: () => void;
 }) {
   if (!me) {
+    // The inline padding overrides the shell default in index.css, so it has to
+    // carry --gn-shell-inset itself or the signed-out screen is the one place
+    // content still sits against the rail. Arcade's inset is 0px, so every one
+    // of these collapses to exactly the value it had before.
     return (
-      <main className="gn-app flex flex-col items-center justify-center gap-8" style={{ padding: "calc(1.5rem + env(safe-area-inset-top, 0px)) calc(1.5rem + env(safe-area-inset-right, 0px)) calc(1.5rem + env(safe-area-inset-bottom, 0px)) calc(1.5rem + env(safe-area-inset-left, 0px))" }}>
+      <main className="gn-app flex flex-col items-center justify-center gap-8" style={{ padding: "calc(1.5rem + env(safe-area-inset-top, 0px) + var(--gn-shell-inset)) calc(1.5rem + env(safe-area-inset-right, 0px) + var(--gn-shell-inset)) calc(1.5rem + env(safe-area-inset-bottom, 0px) + var(--gn-shell-inset)) calc(1.5rem + env(safe-area-inset-left, 0px) + var(--gn-shell-inset))" }}>
         <h1 className="gn-brand text-4xl">GameNight OS</h1>
         <div style={{ maxWidth: "24rem", width: "100%" }}>
           <AddToHomeHint />

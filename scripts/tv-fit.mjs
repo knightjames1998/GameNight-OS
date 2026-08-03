@@ -1,0 +1,213 @@
+// The three measured TV layouts, at 1920x1080, asked TWO questions.
+//
+//   FITS     does the layout end inside the screen
+//   IS SEEN  is anything the layout placed still COVERED by a fixed overlay
+//
+// The first is the old question and it is measured against the LOWEST PAINTED
+// PIXEL rather than the footer. The casino money board taught that: its 07-30
+// numbers were taken against the footer and the back button sits below it, so a
+// board that "fit" put the control a person needs off screen.
+//
+// THE SECOND QUESTION EXISTS BECAUSE OF THE RAIL, and it is the same mistake in
+// a new costume. A fixed frame cannot MOVE an element, so every number in the
+// first column was unchanged the day the rail shipped, and that was true and
+// beside the point: the rail paints on top of whatever the layout put at the
+// edge. A fit check that measures layout while a fixed overlay eats the result
+// is measuring where the element was placed, not what a person can see.
+//
+// Standing rule 4 puts a way back on every screen including TV, so the back
+// button is called out by name rather than left in the general sweep.
+//
+//   node scripts/tv-fit.mjs        exits non-zero on a NEW overlap
+//
+// KNOWN AND LOGGED (see BACKLOG, BUGS): Ping Pong's TV does not fit 1080p past
+// six players and never has. Its back button is already 3px off the bottom in
+// Arcade, and under Tabletop the rail deepens that to 17px. That is a pack fit
+// ladder, its own session, and it is exempted by name here rather than by
+// softening the check.
+
+import { spawn } from "node:child_process";
+const PORT = Number(process.env.PORT || 4185), CDP = Number(process.env.CDP || 9340);
+const ROOT = "/home/user/GameNight-OS";
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const preview = spawn("pnpm", ["--filter", "@gamenight/web", "exec", "vite", "preview", "--port", String(PORT), "--strictPort"], { cwd: ROOT, stdio: "ignore" });
+const chrome = spawn("/opt/pw-browsers/chromium", ["--headless=new", `--remote-debugging-port=${CDP}`, "--no-sandbox", "--disable-gpu", "about:blank"], { stdio: "ignore" });
+await sleep(5000);
+const tab = (await (await fetch(`http://127.0.0.1:${CDP}/json/list`)).json()).find((t) => t.type === "page");
+const ws = new WebSocket(tab.webSocketDebuggerUrl);
+await new Promise((r) => ws.addEventListener("open", r));
+let id = 0; const pend = new Map(), on = new Map();
+ws.addEventListener("message", (e) => { const m = JSON.parse(e.data); if (m.method) return on.get(m.method)?.(m.params); pend.get(m.id)?.(m); pend.delete(m.id); });
+const send = (m, p = {}) => new Promise((r) => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method: m, params: p })); });
+const ev = async (e) => (await send("Runtime.evaluate", { expression: e, returnByValue: true, awaitPromise: true })).result.result?.value;
+
+await send("Page.enable"); await send("Runtime.enable");
+await send("Emulation.setDeviceMetricsOverride", { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
+
+// ---- payloads -------------------------------------------------------------
+const money = (n, mods) => {
+  const players = Array.from({ length: n }, (_, i) => ({
+    playerId: "p" + i, name: "Player Nameiskindalong " + (i + 1), kind: "member",
+    isBanker: i === 0, buyIn: 2000, rebuys: i % 2, rebuyTotal: (i % 2) * 2000,
+    totalIn: 2000 + (i % 2) * 2000, cashOut: i % 3 === 0 ? 3000 : null,
+    cashedOut: i % 3 === 0, net: i % 3 === 0 ? 1000 : null, events: 12 + i,
+    detail: { hands: 12 + i, blackjacks: i % 3, busts: i % 4 },
+  }));
+  return { session: { status: "live", tracker: false, summary: {
+    bank: { held: 10000, owed: 0, kind: "player" }, bankerId: "p0",
+    modifiers: mods, defaultBuyIn: 2000, stakes: "real",
+    players, totalIn: 2000 * n, totalOut: 3000, onTable: 2000 * n - 3000,
+    stillIn: n - 1, cashedOut: 1, events: 40,
+    balance: { ok: true, delta: 0 }, warning: null,
+  } } };
+};
+const pingpong = (n) => {
+  const r = Array.from({ length: n }, (_, i) => ({ id: "p" + i, name: "Player Nameiskindalong " + (i + 1) }));
+  return { session: {
+    status: "live", mode: "koth", bestOf: 3, needed: 2, roster: r,
+    matches: Array.from({ length: 8 }, (_, i) => ({ aId: r[i % n].id, bId: r[(i + 1) % n].id, games: [{ winnerId: r[i % n].id }], winnerId: r[i % n].id })),
+    current: { aId: r[0].id, bId: r[1].id, games: [{ winnerId: r[0].id }], winnerId: null },
+    koth: { kingId: r[0].id },
+    summary: { players: r.map((p, i) => ({ playerId: p.id, name: p.name, matches: 9, wins: 9 - i, gameWins: 20 - i, currentStreak: i % 3, longestReign: i % 5 })) },
+  } };
+};
+
+
+// Casino Run's summary is a different animal from the cash packs': a ladder, a
+// progress block, per-stage rows and a leg trail. Built out in full rather than
+// approximated, because a payload the page rejects renders the short "waiting"
+// state, which fits trivially and measures nothing. Mid-run on purpose, which is
+// the state its back button is already logged as escaping in.
+const crun = (n) => {
+  const leg = (i, bank) => ({ delta: i % 3 === 0 ? -1500 : 2200, game: "Blackjack", playerId: "p" + (i % n), at: "2026-08-03T20:0" + (i % 9) + ":00Z", kind: "leg", bank, stage: Math.min(2, Math.floor(i / 4)) });
+  const legs = Array.from({ length: 11 }, (_, i) => leg(i, 20000 + i * 900));
+  return { session: { status: "live", summary: {
+    bank: 29900, stage: 2, attempt: 2, legsUsed: 3, quota: 46000, toGo: 16100,
+    legsLeft: 2, attemptsLeft: 1, status: "live", ending: null, cleared: 2, missed: 1,
+    ante: { cents: 500, why: "stage 3" }, held: ["reroll"], peak: 31000,
+    stakes: "real", modifiers: ["m1", "m2"], difficulty: "standard",
+    ladder: { key: "standard", name: "Standard", escalation: 0.15, stages: 5, legsPerStage: 5, attempts: 2 },
+    startingBank: 20000, floor: 5000,
+    players: Array.from({ length: n }, (_, i) => ({ playerId: "p" + i, name: "Player Nameiskindalong " + (i + 1), kind: "member", legs: 3 + i, delta: (i % 2 ? 1 : -1) * (1200 + i * 300), best: 2600, worst: -1800 })),
+    stages: Array.from({ length: 3 }, (_, i) => ({ index: i, quota: 25000 + i * 7000, cleared: i < 2, attempts: i === 2 ? 2 : 1, legs: legs.slice(i * 3, i * 3 + 3) })),
+    legs,
+    headline: "Two stages down",
+  } } };
+};
+
+let PAYLOAD = money(4, []);
+on.set("Fetch.requestPaused", ({ requestId, request }) => {
+  const p = new URL(request.url).pathname;
+  if (!p.startsWith("/api/")) { send("Fetch.continueRequest", { requestId }).catch(() => {}); return; }
+  let body = { error: "no" }, code = 404;
+  if (p.startsWith("/api/tv/")) { body = PAYLOAD; code = 200; }
+  if (p === "/api/auth/me") { body = { id: "u1", email: "a@b.c", displayName: "S", hasPassword: true }; code = 200; }
+  send("Fetch.fulfillRequest", { requestId, responseCode: code, responseHeaders: [{ name: "content-type", value: "application/json" }], body: Buffer.from(JSON.stringify(body)).toString("base64") }).catch(() => {});
+});
+await send("Fetch.enable", { patterns: [{ urlPattern: "*" }] });
+
+// A FIT CHECK THAT ONLY MEASURES LAYOUT IS MEASURING THE WRONG THING once a
+// fixed overlay exists. The rail cannot move an element, so every number below
+// was unchanged when it shipped and that was true and beside the point: it
+// paints ON TOP of whatever the layout put at the edge. Same class of miss as
+// measuring to the footer instead of to the back button. So this now asks two
+// separate questions:
+//
+//   FITS      does the layout end inside the screen (what it always asked)
+//   IS SEEN   is anything the layout placed still COVERED by a fixed overlay
+//
+// The rail's own width is read off the live document rather than assumed, so a
+// theme that widens it, or a future overlay of any kind, is caught by the same
+// check.
+const MEASURE = `(()=>{
+  const railW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gn-rail-w')) || 0;
+  const vh = window.innerHeight, vw = window.innerWidth;
+  const covered = [];
+  let low = 0, lowWho = null;
+  for (const el of document.querySelectorAll('body *')) {
+    const r = el.getBoundingClientRect();
+    if (!r.height && !r.width) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+    if (cs.position === 'fixed') continue;
+    const b = r.bottom + window.scrollY;
+    if (b > low) { low = b; lowWho = el.className || el.tagName; }
+    // Does this element have PAINT of its own inside a rail band? A container
+    // whose box merely extends under the timber is not covered in any way a
+    // person can see; ink and fills are.
+    const paints = (el.textContent || '').trim().length > 0 && el.children.length === 0
+      || cs.backgroundColor !== 'rgba(0, 0, 0, 0)'
+      || cs.borderTopWidth !== '0px' || cs.borderBottomWidth !== '0px';
+    if (!paints || !railW) continue;
+    // Full-bleed roots are the page itself, not something sitting on it.
+    if (r.width >= vw - 1 && r.height >= vh - 1) continue;
+    const into = Math.max(
+      railW - r.top,                 // under the top timber
+      r.bottom - (vh - railW),       // under the bottom timber
+      railW - r.left,
+      r.right - (vw - railW),
+    );
+    if (into > 0) covered.push((el.className || el.tagName).toString().slice(0, 34) + ' by ' + Math.round(into));
+  }
+  const back = document.querySelector('.cg-textbtn, .pp-textbtn, .cg-tv__back');
+  const bb = back ? back.getBoundingClientRect() : null;
+  return {
+    railW,
+    lowest: Math.round(low),
+    lowWho: String(lowWho).slice(0, 30),
+    backBottom: bb ? Math.round(bb.bottom + window.scrollY) : null,
+    // How far the back button reaches into the bottom timber. Negative is
+    // clearance, positive is a control with wood painted over it.
+    backIntoRail: bb ? Math.round(bb.bottom - (vh - railW)) : null,
+    covered: covered.slice(0, 6),
+    rendered: !!document.querySelector('.cg-tv__line, .pp-tv__panel, .crun-tv, .cg-tv'),
+  };
+})()`;
+
+let seeder = null;
+async function measure(theme, route, payload) {
+  PAYLOAD = payload;
+  if (seeder) await send("Page.removeScriptToEvaluateOnNewDocument", { identifier: seeder });
+  ({ identifier: seeder } = (await send("Page.addScriptToEvaluateOnNewDocument", { source: `try{localStorage.setItem("gamenight.pref.theme","${theme}")}catch(e){}` })).result);
+  await send("Page.navigate", { url: `http://127.0.0.1:${PORT}${route}` });
+  await sleep(2300);
+  return await ev(MEASURE);
+}
+
+const CASES = [
+  ["money board  4 seats", "/blackjack/tv/x", money(4, [])],
+  ["money board  6 seats", "/blackjack/tv/x", money(6, [])],
+  ["money board  8 seats", "/blackjack/tv/x", money(8, [])],
+  ["money board 12 seats", "/blackjack/tv/x", money(12, [])],
+  ["money board 12 + 5 mods", "/blackjack/tv/x", money(12, ["m1", "m2", "m3", "m4", "m5"])],
+  ["ping pong    6 players", "/pingpong/tv/x", pingpong(6)],
+  ["ping pong    7 players", "/pingpong/tv/x", pingpong(7)],
+  ["casino run   6 mid-run", "/casinorun/tv/x", crun(6)],
+  ["casino run  12 mid-run", "/casinorun/tv/x", crun(12)],
+];
+
+// A case that is ALREADY over before any rail exists cannot be made to pass by
+// anything in a theme, so it is named rather than allowed to fail the run.
+const KNOWN = new Set(["ping pong    7 players"]);
+let newOverlaps = 0;
+console.log("case                      theme     rail  lowest  backBtm  vs 1080      back v rail   covered by the rail");
+for (const theme of ["arcade", "tabletop"]) {
+  for (const [label, route, payload] of CASES) {
+    const m = await measure(theme, route, payload);
+    const over = m.lowest - 1080;
+    const back = m.backIntoRail === null ? "no button"
+      : m.backIntoRail > 0 ? `UNDER by ${m.backIntoRail}` : `clear by ${-m.backIntoRail}`;
+    console.log(
+      `  ${label.padEnd(24)}${theme.padEnd(10)}${String(m.railW + "px").padEnd(6)}${String(m.lowest).padEnd(8)}` +
+      `${String(m.backBottom).padEnd(9)}${(over > 0 ? "OVER by " + over : "fits").padEnd(13)}${back.padEnd(14)}${m.covered.join(" | ") || "nothing"}`,
+    );
+    if ((m.covered.length || (m.backIntoRail ?? -1) > 0) && !KNOWN.has(label)) newOverlaps++;
+  }
+}
+console.log(
+  newOverlaps === 0
+    ? "\nPASS  no fixed overlay covers anything a TV layout placed (Ping Pong past six players excepted, and logged)"
+    : `\nFAIL  ${newOverlaps} case(s) have painted content under a fixed overlay`,
+);
+chrome.kill("SIGKILL"); preview.kill("SIGKILL"); process.exit(newOverlaps === 0 ? 0 : 1);

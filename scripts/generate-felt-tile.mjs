@@ -54,9 +54,11 @@
 // 4.6: cloth so flat that, once multiplied into a base as dark as the one it
 // was pointed at, its entire range came to six levels out of 255.
 //
-// The gate is now the FLOOR, on the two surfaces the cloth genuinely covers:
-// the felt, and the felt under the lamp. The lit one is the binding case, since
-// every text colour here is light and a brighter surface is a smaller gap. The
+// The gate is now the FLOOR, on the surfaces the cloth genuinely covers: the
+// felt, the felt under the lamp, and (since the card became a translucent
+// darkening rather than a colour) a card sitting on that lit felt. The lit ones
+// are the binding cases, since every text colour here is light and a brighter
+// surface is a smaller gap. The
 // relative cost is still computed and printed, and still has a cap, but it is a
 // backstop against a tile that has gone wild rather than the thing deciding how
 // much weave the theme is allowed. Raise the amplitude and check the pairs;
@@ -118,7 +120,13 @@ const QUALITY = 0.9;
  */
 const MAX_RELATIVE_COST = 0.2;
 /** And nothing GATED may cross its floor, whatever the fraction says. */
-const FLOORS = {};
+const FLOORS = {
+  // The third text level, "present but not read" in its own comment, and
+  // exempt at 3.0 in theme-contrast.test.ts for the same reason and since
+  // stage 1. Repeated here rather than inferred, so exactly one pair is
+  // exempt and it is obvious which.
+  "--gn-faint on a card at the crown": 3.0,
+};
 const DEFAULT_FLOOR = 4.5;
 
 // --------------------------------------------------------------- the drawing
@@ -307,20 +315,29 @@ const overlay = (c, g) => {
  * composited over the felt, kept in step with `--gn-felt` and `--gn-felt-lit`
  * by hand, which is why both are spelled out with their token names.
  */
-const FELT = "#16402c";      // --gn-felt
-const FELT_CROWN = "#1b4b32"; // --gn-felt-lit (#1c4d33) at 85% over --gn-felt
+const FELT = "#16402c";       // --gn-felt
+const FELT_CROWN = "#24563b"; // --gn-felt-lit (#265a3e) at 85% over --gn-felt
+// THE CARD IS TEXTURED TOO, since 2026-08-03: it is rgba(0,0,0,.5), a darkening
+// of whatever it is laid on, so the weave carries straight through it. The card
+// ON THE CROWN is the worst of the four surfaces here for a light ink, and it is
+// what set --gn-place's value.
+const CARD_ON_CROWN = "#122d1e";
+const INK = "#f7f0e2", DIM = "#d4c9b1", PLACE = "#a2957c", FAINT = "#8a7f68";
 const GUARDED = [
-  { fg: "#f7f0e2", bg: FELT, what: "--gn-ink on --gn-felt", gate: true },
-  { fg: "#c6b99f", bg: FELT, what: "--gn-dim on --gn-felt", gate: true },
-  { fg: "#f7f0e2", bg: FELT_CROWN, what: "--gn-ink on the lit crown", gate: true },
-  { fg: "#c6b99f", bg: FELT_CROWN, what: "--gn-dim on the lit crown", gate: true },
-  // Reported, not gated: nothing paints these through the cloth today. They are
-  // here so that the day a pack's own surface takes the texture (see BUGS: the
-  // felt does not reach the packs), the numbers are already on the page.
-  { fg: "#f7f0e2", bg: "#201a12", what: "--gn-ink on --gn-surf (above the cloth)", gate: false },
-  { fg: "#8a7f68", bg: "#201a12", what: "--gn-faint on --gn-surf (above the cloth)", gate: false },
+  { fg: INK, bg: FELT, what: "--gn-ink on --gn-felt", gate: true },
+  { fg: DIM, bg: FELT, what: "--gn-dim on --gn-felt", gate: true },
+  { fg: INK, bg: FELT_CROWN, what: "--gn-ink on the lit crown", gate: true },
+  { fg: DIM, bg: FELT_CROWN, what: "--gn-dim on the lit crown", gate: true },
+  { fg: INK, bg: CARD_ON_CROWN, what: "--gn-ink on a card at the crown", gate: true },
+  { fg: DIM, bg: CARD_ON_CROWN, what: "--gn-dim on a card at the crown", gate: true },
+  { fg: PLACE, bg: CARD_ON_CROWN, what: "--gn-place on a card at the crown", gate: true },
+  { fg: FAINT, bg: CARD_ON_CROWN, what: "--gn-faint on a card at the crown", gate: true },
+  // Reported, not gated: a pack root is not inside the shell's texture host, so
+  // nothing paints these through the cloth today. They are here so that the day
+  // a pack's own surface takes the texture (see BUGS: the felt does not reach
+  // the packs), the numbers are already on the page.
   { fg: "#ff7a1a", bg: "#0d262b", what: "--pp-accent on --pp-felt (not textured yet)", gate: false },
-  { fg: "#f7f0e2", bg: "#0d262b", what: "--gn-ink on --pp-felt (not textured yet)", gate: false },
+  { fg: INK, bg: "#0d262b", what: "--gn-ink on --pp-felt (not textured yet)", gate: false },
 ];
 
 function checkContrast(min, max) {

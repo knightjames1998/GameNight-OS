@@ -26,6 +26,14 @@
 // two most extreme pixels in the sample and is therefore one dust speck away
 // from passing a flat surface; a standard deviation describes the whole
 // sample, which is what "does this look like cloth" is asking about.
+//
+// IT IS A FLOOR AGAINST FLATNESS, NOT A SCORE, and reading it as a score will
+// send somebody the wrong way. A per-pixel deviation necessarily FALLS as the
+// grain gets finer at constant amplitude, because painting a 512px tile at
+// 220px averages neighbouring pixels together: the same build measured 4.04 at
+// the old coarse paint size and 2.86 at the finer one, and the finer one is the
+// one that stopped looking like stucco. Do not "improve" this number by making
+// the weave coarser again.
 
 import { spawn } from "node:child_process";
 import path from "node:path";

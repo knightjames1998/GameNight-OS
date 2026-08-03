@@ -37,8 +37,13 @@
   --cg-accent-ink: #21180a;
   --cg-accent-sh: #9d7a1c;
   --cg-line: var(--gn-line);
-  --cg-surface: var(--gn-surf);
-  --cg-card: var(--gn-surf);
+  /* --gn-surf-solid, not --gn-surf: since Tabletop's shell card became a
+     translucent darkening of the felt, --gn-surf is an rgba(), and the casino
+     group has not had its Tabletop pass yet. Reading the solid companion keeps
+     these four packs exactly as they shipped until that pass converts them
+     deliberately. Under Arcade the two tokens are the same colour. */
+  --cg-surface: var(--gn-surf-solid);
+  --cg-card: var(--gn-surf-solid);
 
   min-height: 100dvh;
   color: var(--gn-ink);
@@ -234,7 +239,7 @@ button.cg-pill { cursor: pointer; }
   --cg-down-ink: var(--gn-p1-ink);
   --cg-accent: var(--gn-gold);
   --cg-line: var(--gn-line);
-  --cg-surface: var(--gn-surf);
+  --cg-surface: var(--gn-surf-solid);
 }
 .cg-tv__head { display: flex; justify-content: space-between; align-items: baseline; gap: 3vmin; }
 .cg-tv__brand {

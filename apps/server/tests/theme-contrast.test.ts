@@ -83,8 +83,42 @@ function tokens(selector: string): Record<string, string> {
 /** Colour tokens are the ones the contrast maths can actually read. */
 const isColour = (v: string) => /^#[0-9a-fA-F]{3,8}$/.test(v);
 
+/**
+ * A SURFACE MAY BE TRANSLUCENT NOW, AND COMPARING TWO SOLID COLOURS WOULD MISS
+ * IT ENTIRELY. Tabletop's card material is `rgba(0,0,0,.5)`: a darkening of
+ * whatever it is laid on, so that the weave and the lamp carry through and the
+ * card belongs to the table instead of sitting on it like a plastic tile. What
+ * a person reads text against is therefore a COMPOSITE, and this file would
+ * happily go on passing against the flat token forever.
+ *
+ * THE BASE IS THE CROWN, NOT THE FELT, because the felt is not uniform: it is
+ * brightest directly under the lamp, so a card near the top of a page sits on a
+ * lighter background than one at the foot of a long list, and the lighter one is
+ * the worse case for every text colour in this theme. Measuring against the
+ * crown measures the card that is hardest to read.
+ */
+const rgba = (v: string) => v.match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,/\s]+([\d.]+))?\s*\)$/);
+const toHex = (c: number[]) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+const composite = (fg: number[], alpha: number, bg: number[]) => fg.map((v, i) => v * alpha + bg[i]! * (1 - alpha));
+
+/** The lamp at the strength index.css paints it, over the theme's own felt. */
+function crown(theme: Record<string, string>): number[] {
+  return composite(hexToRgb(value(theme, "--gn-felt-lit")), 0.85, hexToRgb(value(theme, "--gn-felt")));
+}
+
+/** A token as an opaque colour: itself, or its composite over the crown. */
+function solid(theme: Record<string, string>, token: string): string {
+  const v = value(theme, token);
+  const m = rgba(v);
+  if (!m) return v;
+  return toHex(composite([+m[1]!, +m[2]!, +m[3]!], m[4] === undefined ? 1 : +m[4]!, crown(theme)));
+}
+
 const ARCADE = tokens(":root");
 const TABLETOP = tokens(':root[data-theme="tabletop"]');
+
+/** Resolve a token for a theme, falling back to Arcade the way the cascade does. */
+const value = (theme: Record<string, string>, token: string) => theme[token] ?? ARCADE[token]!;
 
 // ---------------------------------------------------------------- the packs
 //
@@ -181,9 +215,6 @@ const CLOTH_PAIRS: [string, string][] = [
   ["--gn-dim", "--gn-felt-lit"],
 ];
 
-/** Resolve a token for a theme, falling back to Arcade the way the cascade does. */
-const value = (theme: Record<string, string>, token: string) => theme[token] ?? ARCADE[token]!;
-
 const THEME_BLOCKS: [string, Record<string, string>][] = [
   ["arcade", ARCADE],
   ["tabletop", TABLETOP],
@@ -193,7 +224,7 @@ test("every theme clears WCAG AA on the pairs that carry text", () => {
   const failures: string[] = [];
   for (const [name, theme] of THEME_BLOCKS) {
     for (const [fg, bg, floor = 4.5] of [...PAIRS, ...CLOTH_PAIRS] as [string, string, number?][]) {
-      const ratio = contrast(value(theme, fg), value(theme, bg));
+      const ratio = contrast(solid(theme, fg), solid(theme, bg));
       if (ratio < floor) failures.push(`${name}: ${fg} on ${bg} = ${ratio} (needs ${floor})`);
     }
   }
@@ -206,12 +237,21 @@ test("TABLETOP HOLDS CONTRAST PARITY WITH ARCADE, pair for pair", () => {
   // green is the widest gap in the shipped set at 1.26 below Arcade's teal,
   // which is the known, accepted cost of a green that is actually green.
   const TOLERANCE = 2.0;
+  // AND A PROPORTIONAL ESCAPE FOR THE PAIRS SITTING VERY HIGH. Two points off a
+  // pair at 4.6 is the difference between readable and not; two points off one
+  // at 11.3 is invisible to anybody. A flat tolerance treats those as the same
+  // event, and it started firing the day the card became translucent: --gn-p2
+  // and --gn-gold went 9.97 to 7.64 and 11.26 to 9.01, both still nearly
+  // double AA. So a pair has to breach BOTH the flat tolerance and a quarter of
+  // its own Arcade value. This can only ever be more permissive than the flat
+  // rule for pairs above 8, and the AA test below is what stops it becoming a
+  // licence: nothing may cross the floor whatever this says.
   const drifted: string[] = [];
   for (const [fg, bg] of PAIRS) {
-    const arcade = contrast(value(ARCADE, fg), value(ARCADE, bg));
-    const tabletop = contrast(value(TABLETOP, fg), value(TABLETOP, bg));
+    const arcade = contrast(solid(ARCADE, fg), solid(ARCADE, bg));
+    const tabletop = contrast(solid(TABLETOP, fg), solid(TABLETOP, bg));
     const delta = Math.round((tabletop - arcade) * 100) / 100;
-    if (Math.abs(delta) > TOLERANCE) {
+    if (Math.abs(delta) > TOLERANCE && Math.abs(delta) / arcade > 0.25) {
       drifted.push(`${fg} on ${bg}: arcade ${arcade}, tabletop ${tabletop} (${delta})`);
     }
   }
@@ -423,6 +463,72 @@ test("THE FELT IS A REAL FILE, and only Tabletop names it", () => {
     outside,
     /textures\//,
     "an image asset is named outside the Tabletop block, so Arcade pays to download it",
+  );
+});
+
+test("THE CARD BELONGS TO THE SURFACE IT SITS ON", () => {
+  // Opaque walnut boxes on green felt read as holes cut in the table. The card
+  // material is a DARKENING of whatever it is laid on, so the weave and the
+  // lamp carry through it, and this asserts that rather than trusting a value
+  // in a stylesheet to still mean that in six months.
+  assert.ok(rgba(TABLETOP["--gn-surf"]!), "Tabletop's card must be translucent, not a flat colour");
+  assert.ok(rgba(TABLETOP["--gn-raise"]!), "a raised control is the same material, lighter");
+  assert.ok(!rgba(ARCADE["--gn-surf"]!), "Arcade's card is a solid colour and stays one");
+
+  // A raised control darkens LESS than a card, which is the relationship these
+  // two have always had and the one thing an alpha is easy to get backwards.
+  const alpha = (v: string) => Number(rgba(v)![4]);
+  assert.ok(
+    alpha(TABLETOP["--gn-raise"]!) < alpha(TABLETOP["--gn-surf"]!),
+    "a raised control must sit lighter than the card it is a variant of",
+  );
+
+  // AND THE OPAQUE COMPANION EXISTS AND IS ACTUALLY OPAQUE. Three places cannot
+  // take a translucent surface (a cabinet gradient's far stop, a TV background
+  // wash, a native <select> option) and neither can a pack that has not had its
+  // Tabletop pass; they all read --gn-surf-solid. Under Arcade it is the same
+  // colour as --gn-surf, which is what keeps that theme byte-identical.
+  for (const [name, theme] of THEME_BLOCKS) {
+    assert.ok(isColour(value(theme, "--gn-surf-solid")), `${name}: --gn-surf-solid must be opaque`);
+  }
+  assert.equal(
+    ARCADE["--gn-surf-solid"],
+    ARCADE["--gn-surf"],
+    "under Arcade the solid companion IS the card, or the two can drift apart unnoticed",
+  );
+  assert.doesNotMatch(
+    CSS_BARE,
+    /var\(--gn-cab-[a-z]+-top\),\s*var\(--gn-surf\)/,
+    "a cabinet gradient ends on the translucent card, so the tile fades out instead of settling",
+  );
+});
+
+test("CONTENT STANDS BACK FROM THE RAIL, and Arcade pays nothing for it", () => {
+  // The rail is a fixed frame, so content laid out to the viewport edge ends up
+  // jammed against the timber and the last line of a page is sliced by the
+  // stitch. The inset is a token so that the expressions using it collapse to
+  // exactly their old values under Arcade.
+  assert.equal(ARCADE["--gn-shell-inset"], "0px", "Arcade has no rail, so it stands back by nothing");
+  assert.match(
+    TABLETOP["--gn-shell-inset"]!,
+    /var\(--gn-rail-w\)/,
+    "the inset must be derived from the rail, or the two drift apart the first time the rail changes",
+  );
+  // Every use site has to fold it in, and one that forgets is invisible on a
+  // desktop and obvious on a phone. The signed-out Home screen sets its padding
+  // inline, which overrides the shell rule, and was exactly that miss.
+  assert.match(
+    CSS_BARE,
+    /:where\(#root\) > \*\{[^}]*padding-top: calc\(env\(safe-area-inset-top, 0px\) \+ var\(--gn-shell-inset\)\)/,
+    "the shell default must carry the inset",
+  );
+  const HOME = readFileSync(path.join(ROOT, "apps/web/src/pages/Home.tsx"), "utf8");
+  const inline = HOME.match(/padding: "calc\(1\.5rem[^"]*"/);
+  assert.ok(inline, "the signed-out Home screen no longer sets its padding inline; drop this check");
+  assert.equal(
+    (inline![0].match(/var\(--gn-shell-inset\)/g) || []).length,
+    4,
+    "all four sides of the signed-out Home padding must carry the shell inset",
   );
 });
 

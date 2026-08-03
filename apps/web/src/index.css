@@ -136,6 +136,17 @@
 :root {
   --gn-bg:      #17111f;  /* deep plum, not flat black */
   --gn-surf:    #241a30;  /* cards / inputs */
+  /* THE SAME SURFACE, GUARANTEED OPAQUE. Since Tabletop's card material became
+     a darkening of the cloth rather than a colour, --gn-surf can be an rgba(),
+     and there are three places where that is wrong: as the far stop of a
+     cabinet gradient (the tile would fade out rather than settle), as the wash
+     behind a TV (a background is not an object on the table), and inside a
+     native <select>'s option list (a translucent option paints on the
+     compositor's own backdrop, not on the page). Those read this instead.
+     Under Arcade the two are the same colour, so nothing computes differently.
+     A pack that has not had its Tabletop pass yet also reads this, so its
+     cards keep the look they shipped with until that pass happens. */
+  --gn-surf-solid: #241a30;
   --gn-raise:   #2e2140;  /* raised (ghost buttons) */
   --gn-line:    #3a2c4d;  /* borders */
   --gn-ink:     #f4ecff;  /* primary text */
@@ -312,6 +323,14 @@
      tighter one. */
   --gn-radius-rail:     0px;
   --gn-radius-felt:     0px;
+  /* HOW FAR CONTENT STANDS BACK FROM THE EDGE OF THE SCREEN, on top of the
+     safe-area insets. It exists because the rail is a fixed frame: content laid
+     out to the viewport edge ends up jammed against the timber, and the last
+     line of a page gets sliced by the stitch, which does not read as cloth
+     sliding under wood, it reads as a clipping bug. Arcade is 0px and every
+     expression that uses it is a calc() that collapses to exactly the value it
+     had before, so the sweep sees nothing. */
+  --gn-shell-inset:     0px;
 
   /* Blurred light behind a letter is a lit sign. A theme that is not a lit
      sign sets these to `none` and leans on weight and tracking instead. */
@@ -395,12 +414,36 @@
    ============================================================ */
 :root[data-theme="tabletop"] {
   --gn-bg:      #15110b;  /* dark walnut */
-  --gn-surf:    #201a12;  /* card stock in shade */
-  --gn-raise:   #2b2318;
+  /* THE CARD IS A DARKENING OF THE CLOTH, NOT A COLOUR ON TOP OF IT. Opaque
+     walnut boxes on green felt read as holes cut in the table rather than as
+     objects resting on it, which is what made the screen look like plastic
+     laid on cloth. A translucent black lets the weave AND the lamp carry
+     through, so a card near the crown is lighter than one at the foot of a
+     long page, exactly as a real card would be.
+     THE ALPHA IS MEASURED, NOT CHOSEN. At .24 (the render's number, on the
+     render's much darker felt) five text pairs fall under AA once the lamp is
+     under the card; .5 lands the card on the crown at #112e1f, which is within
+     a level or two of the render's own card, and every pair holds. The test
+     asserts on the COMPOSITE over the crown, since that is the worst case.
+     WHERE TRANSLUCENCY IS WRONG, --gn-surf-solid is the token. */
+  --gn-surf:    rgba(0,0,0,.5);
+  --gn-surf-solid: #201a12;  /* card stock in shade, for the three exceptions */
+  /* A raised control darkens LESS than a card, which is the same relationship
+     these two have always had. Nested inside a card it goes darker rather than
+     lighter, which is the one place the model does not hold; nothing in the app
+     nests a ghost button inside a card today. */
+  --gn-raise:   rgba(0,0,0,.34);
   --gn-line:    #3f3423;  /* warm border */
   --gn-ink:     #f7f0e2;  /* warm paper white */
-  --gn-dim:     #c6b99f;
-  --gn-place:   #948870;
+  /* PALER THAN ARCADE'S EQUIVALENT, AND THAT BUYS THE LAMP. The crown's
+     brightness is capped by whichever text sits on it, and that was --gn-dim:
+     at #c6b99f the lamp could only lift the felt by 13 levels of green before
+     dim went under AA. Taking the headroom in the ink instead buys a 28-level
+     crown, which is what the render has and what makes the surface read as lit
+     rather than flat. Same move for --gn-place, whose ceiling comes from
+     sitting on a translucent field over that crown. */
+  --gn-dim:     #d4c9b1;
+  --gn-place:   #a2957c;
   --gn-faint:   #8a7f68;
   --gn-p1:      #f07a58;  /* lacquer red */
   --gn-p1-ink:  #1c0d08;
@@ -498,9 +541,15 @@
      composed in the rule so that Arcade keeps a single-layer background-image
      and stays byte-identical. */
   --gn-felt:     #16402c;
-  --gn-felt-lit: #1c4d33;
-  /* The lamp's ceiling is set by --gn-dim on the crown, not by taste: at this
-     strength it measures 5.16, and a brighter lamp walks it under AA. */
+  --gn-felt-lit: #265a3e;
+  /* The lamp's ceiling is set by --gn-dim on the crown, not by taste. It is
+     still exactly that, but the ink moved: at #c6b99f the cap was a 13-level
+     lift of the felt's green, and at #d4c9b1 it is 22, which is where this
+     sits. The binding number is --gn-dim on the crown WITH THE CLOTH ON IT,
+     4.51 against a 4.5 floor; the flat crown reads 5.17. Going further needs a
+     paler dim again (#ddd3bd buys 28 levels) and that starts closing the gap
+     to --gn-ink, which is a hierarchy this palette needs more than it needs
+     another six levels of light. */
   --gn-lamp-geom: 120% 78% at 50% -12%;
   --gn-lamp-fade: 56%;
   --gn-texture:
@@ -512,7 +561,7 @@
   --gn-texture-opacity: 1;
   --gn-texture-tint: var(--gn-felt);
   --gn-texture-blend: overlay, normal;
-  --gn-texture-size: 512px, 100% 100%;
+  --gn-texture-size: 220px, 100% 100%;
   /* Bigger on the big screen so the tile repeats twice across 1920 rather than
      four times. The failure mode of a tiled texture is not the seam, it is the
      LATTICE: the eye finds a repeating grid across a television long before it
@@ -575,6 +624,10 @@
   --gn-rail-lip-blur:  5px;
   --gn-radius-rail:    16px;
   --gn-radius-felt:    4px;
+  /* The timber plus real breathing room inside the stitch. The rail does NOT
+     get thinner to make room: the rail is the effect that was approved, so the
+     content moves in and the timber stays put. */
+  --gn-shell-inset:    calc(var(--gn-rail-w) + 10px);
 
   /* NO GLOW ANYWHERE. Print on card does not emit light. The wordmark keeps a
      hard drop with no blur radius, which is ink sitting slightly proud of the
@@ -653,10 +706,10 @@
    in the selector would outrank all of them and silently replace their
    padding. */
 :where(#root) > *{
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  padding-left: env(safe-area-inset-left, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
+  padding-top: calc(env(safe-area-inset-top, 0px) + var(--gn-shell-inset));
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--gn-shell-inset));
+  padding-left: calc(env(safe-area-inset-left, 0px) + var(--gn-shell-inset));
+  padding-right: calc(env(safe-area-inset-right, 0px) + var(--gn-shell-inset));
 }
 html{ -webkit-text-size-adjust: 100%; }
 body{ overscroll-behavior-y: none; }        /* no rubber-band background flash */
@@ -825,17 +878,17 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-cab:active{transform:translateY(3px);box-shadow:var(--gn-bevel-press)}
 .gn-cab__name{display:flex;align-items:center;gap:10px;font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:17px}
 .gn-cab__sub{color:var(--gn-dim);font-size:13px;margin-top:3px}
-.gn-cab--beerio{border-color:var(--gn-cab-beerio-edge);background:linear-gradient(180deg,var(--gn-cab-beerio-top),var(--gn-surf))}
+.gn-cab--beerio{border-color:var(--gn-cab-beerio-edge);background:linear-gradient(180deg,var(--gn-cab-beerio-top),var(--gn-surf-solid))}
 .gn-cab--beerio .gn-cab__name{color:var(--gn-gold)}
 .gn-cab--brk .gn-cab__name{color:var(--gn-p1)}
 .gn-cab--stats .gn-cab__name{color:var(--gn-p2)}
-.gn-cab--smash{border-color:var(--gn-cab-smash-edge);background:linear-gradient(180deg,var(--gn-cab-smash-top),var(--gn-surf))}
+.gn-cab--smash{border-color:var(--gn-cab-smash-edge);background:linear-gradient(180deg,var(--gn-cab-smash-top),var(--gn-surf-solid))}
 .gn-cab--smash .gn-cab__name{color:var(--gn-cab-smash-ink)}
-.gn-cab--mk{border-color:var(--gn-cab-mk-edge);background:linear-gradient(180deg,var(--gn-cab-mk-top),var(--gn-surf))}
+.gn-cab--mk{border-color:var(--gn-cab-mk-edge);background:linear-gradient(180deg,var(--gn-cab-mk-top),var(--gn-surf-solid))}
 .gn-cab--mk .gn-cab__name{color:var(--gn-cab-mk-ink)}
 .gn-cab--mp{border-color:var(--gn-cab-mp-edge);background:linear-gradient(180deg,var(--gn-cab-mp-top),var(--gn-cab-mp-bot))}
 .gn-cab--mp .gn-cab__name{color:var(--gn-cab-mp-ink)}
-.gn-cab--pp{border-color:var(--gn-cab-pp-edge);background:linear-gradient(180deg,var(--gn-cab-pp-top),var(--gn-surf))}
+.gn-cab--pp{border-color:var(--gn-cab-pp-edge);background:linear-gradient(180deg,var(--gn-cab-pp-top),var(--gn-surf-solid))}
 .gn-cab--pp .gn-cab__name{color:var(--gn-cab-pp-ink)}
 /* Picker group divider: a hairline with a small caption sitting on it. Same
    idea as .gn-divider but quieter and left-aligned, because these are section
@@ -851,11 +904,11 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 
 /* Casino group: each pack keeps its own accent so two money boards are never
    mistaken for each other across a room. Poker joins this block. */
-.gn-cab--bj{border-color:var(--gn-cab-bj-edge);background:linear-gradient(180deg,var(--gn-cab-bj-top),var(--gn-surf))}
+.gn-cab--bj{border-color:var(--gn-cab-bj-edge);background:linear-gradient(180deg,var(--gn-cab-bj-top),var(--gn-surf-solid))}
 .gn-cab--bj .gn-cab__name{color:var(--gn-gold)}
-.gn-cab--rl{border-color:var(--gn-cab-rl-edge);background:linear-gradient(180deg,var(--gn-cab-rl-top),var(--gn-surf))}
+.gn-cab--rl{border-color:var(--gn-cab-rl-edge);background:linear-gradient(180deg,var(--gn-cab-rl-top),var(--gn-surf-solid))}
 .gn-cab--rl .gn-cab__name{color:var(--gn-p2)}
-.gn-cab--cr{border-color:var(--gn-cab-cr-edge);background:linear-gradient(180deg,var(--gn-cab-cr-top),var(--gn-surf))}
+.gn-cab--cr{border-color:var(--gn-cab-cr-edge);background:linear-gradient(180deg,var(--gn-cab-cr-top),var(--gn-surf-solid))}
 .gn-cab--cr .gn-cab__name{color:var(--gn-cab-cr-ink)}
 .gn-cab--crun{border-color:var(--gn-cab-crun-edge);background:linear-gradient(180deg,var(--gn-cab-crun-top),var(--gn-cab-crun-bot))}
 .gn-cab--crun .gn-cab__name{color:var(--gn-cab-crun-ink)}
@@ -914,7 +967,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-chipsel__arrow{position:absolute;right:9px;font-size:9px;pointer-events:none;line-height:1}
 .gn-chipsel--admin{background:color-mix(in srgb, var(--gn-p2) 16%, transparent);color:var(--gn-p2)}
 .gn-chipsel--member{background:color-mix(in srgb, var(--gn-p1) 14%, transparent);color:var(--gn-p1-tint-ink)}
-.gn-chipsel select option{background:var(--gn-surf);color:var(--gn-ink)}
+.gn-chipsel select option{background:var(--gn-surf-solid);color:var(--gn-ink)}
 
 /* Collapsed RSVP pill, inline with the event title. Text color is set
    inline to the active status color (in/maybe/out). */
@@ -1040,7 +1093,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 /* ---- TV / broadcast (big screen, Arcade) ---- */
 .gn-tv{
   min-height:100dvh;color:var(--gn-ink);font-family:Nunito,system-ui,sans-serif;position:relative;overflow:hidden;
-  background:radial-gradient(1400px 700px at 50% -10%, var(--gn-surf) 0%, var(--gn-bg) 60%);
+  background:radial-gradient(1400px 700px at 50% -10%, var(--gn-surf-solid) 0%, var(--gn-bg) 60%);
 }
 .gn-tv::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:var(--gn-texture-opacity);
   background-color:var(--gn-texture-tint);
@@ -1073,7 +1126,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
    while centred grey text reads as broken, and because matching the shape
    removes the layout shift when the data lands. */
 .gn-skel{
-  background:linear-gradient(90deg,var(--gn-surf) 0%,var(--gn-raise) 50%,var(--gn-surf) 100%);
+  background:linear-gradient(90deg,var(--gn-surf-solid) 0%,var(--gn-raise) 50%,var(--gn-surf-solid) 100%);
   background-size:200% 100%;animation:gnskel 1.4s ease-in-out infinite;
 }
 .gn-skel-group{display:flex;flex-direction:column;gap:10px}
