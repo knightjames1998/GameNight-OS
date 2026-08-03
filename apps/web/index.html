@@ -91,6 +91,18 @@
   </head>
   <body style="margin:0">
     <div id="root"></div>
+    <!-- THE RAIL, and it lives here rather than in React on purpose.
+         It is pure decoration with no state, so rendering it from a component
+         would buy nothing and cost two things: it would appear a frame late,
+         after hydration, which on a phone reads as the furniture arriving
+         after the felt; and as a second child of #root it would break the
+         invariant the safe-area rule in index.css depends on, which is that
+         #root has exactly ONE child and that child is the route's shell.
+         Sitting in <body> beside #root, it exists before the first paint and
+         leaves that invariant alone.
+         Under Arcade it draws nothing: --gn-rail-w is 0px and every colour it
+         reads is transparent. An arcade cabinet has no rail. -->
+    <div class="gn-rail" aria-hidden="true"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

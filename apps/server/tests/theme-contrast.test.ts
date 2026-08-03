@@ -22,7 +22,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -225,6 +225,15 @@ test("A THEME OWNS ITS MATERIAL, not just its palette", () => {
     "--gn-texture",
     "--gn-texture-tv",
     "--gn-texture-opacity",
+    // The four that turn a texture from a pattern into a MATERIAL. Arcade's
+    // raster is a translucent overlay at its natural size and needs none of
+    // them; felt is a greyscale tile that only becomes cloth once it is tinted
+    // by the page colour and blended into it, at a size chosen so the weave
+    // reads at arm's length on a phone and across a room on a television.
+    "--gn-texture-tint",
+    "--gn-texture-blend",
+    "--gn-texture-size",
+    "--gn-texture-size-tv",
     "--gn-glow-title",
     "--gn-glow-h2",
     "--gn-glow-brand",
@@ -258,6 +267,80 @@ test("A THEME OWNS ITS MATERIAL, not just its palette", () => {
     TABLETOP["--gn-texture"]!,
     /to bottom/,
     "Tabletop's texture is still a horizontal raster, which is a CRT whatever colour it is",
+  );
+});
+
+test("A TABLE HAS AN EDGE AND AN ARCADE CABINET DOES NOT", () => {
+  // The rail is the thing that made Tabletop read as a table rather than as a
+  // dark page (James, 2026-08-03: shown a rail and no rail, he chose the rail
+  // definitively), so it gets an assertion rather than a screenshot.
+  //
+  // What is actually being protected is that the rail is THEME-OWNED. Every
+  // token below exists in :root so the shell rules can read it unconditionally,
+  // and every one of them is inert there: zero width, no timber, transparent
+  // colours. That inertness is the whole reason .gn-rail can sit in index.html
+  // for every theme without Arcade growing furniture, and it is one careless
+  // "sensible default" away from being lost.
+  const INERT: [string, string][] = [
+    ["--gn-rail-w", "0px"],
+    ["--gn-rail-timber", "none"],
+    ["--gn-rail-timber-v", "none"],
+    ["--gn-rail-stitch", "transparent"],
+    ["--gn-rail-stitch-w", "0px"],
+    ["--gn-rail-drop", "transparent"],
+    ["--gn-rail-drop-blur", "0px"],
+  ];
+  for (const [token, inert] of INERT) {
+    assert.equal(ARCADE[token], inert, `${token} must be inert under Arcade: an arcade cabinet has no rail`);
+    assert.ok(token in TABLETOP, `${token} is theme-owned and Tabletop must declare it`);
+  }
+  // And Tabletop's rail is actually drawn, in real units. "14px" rather than a
+  // bare number is load-bearing: the rail rules use it as a background size and
+  // as an inset, both of which silently invalidate on a unitless value.
+  assert.match(TABLETOP["--gn-rail-w"]!, /^\d+(\.\d+)?px$/, "the rail width needs a unit");
+  assert.notEqual(TABLETOP["--gn-rail-w"], "0px", "Tabletop's rail must have width");
+  assert.notEqual(TABLETOP["--gn-rail-timber"], "none", "Tabletop's rail must have timber");
+
+  // The rail is FIXED, and that is a budget claim rather than a style one. The
+  // money board, Ping Pong and Casino Run TV layouts are measured to the pixel
+  // against 1080 and one of them is already over; a rail in flow would eat 28px
+  // of that and push a back button off a television.
+  const rail = CSS_BARE.match(/\.gn-rail\s*\{([^}]*)\}/);
+  assert.ok(rail, "no .gn-rail rule in index.css");
+  assert.match(rail![1]!, /position\s*:\s*fixed/, "the rail must not cost layout");
+  assert.match(rail![1]!, /pointer-events\s*:\s*none/, "the rail must never eat a tap");
+  // Pinned inside the safe area, or on a notched phone in landscape the timber
+  // is under the cutout and the stitch line is under the home indicator.
+  assert.match(rail![1]!, /env\(safe-area-inset-top/, "the rail must respect the safe area");
+  assert.ok(
+    HTML.includes('class="gn-rail"'),
+    "the rail element lives in index.html, beside #root: see the comment there for why not React",
+  );
+});
+
+test("THE FELT IS A REAL FILE, and only Tabletop names it", () => {
+  // Stage 3 ruled an image asset out and James overturned it on 2026-08-03
+  // ("felt is a grey texture plus a colour, so one tile serves every pack"), so
+  // the cost that ruling was protecting is the thing to keep measured. The tile
+  // is greyscale, tinted at use, and paid for exactly once.
+  const url = TABLETOP["--gn-texture"]!.match(/url\("([^"]+)"\)/);
+  assert.ok(url, `Tabletop's texture should be a url(): got ${TABLETOP["--gn-texture"]}`);
+  const tile = path.join(ROOT, "apps/web/src", url![1]!.replace(/^\.\//, ""));
+  const bytes = statSync(tile).size;
+  // 48KB. The shipped tile is 33KB; the headroom is for a regenerate that
+  // changes the weave, not for a second thought about the format.
+  assert.ok(bytes < 48 * 1024, `the felt tile is ${bytes} bytes, which is too much to ship on a phone`);
+
+  // Arcade must not so much as mention it, or every Arcade session pays for a
+  // tile it never paints. Asserted over the whole stylesheet minus the Tabletop
+  // block, because the leak that matters is a stray rule, not a stray token.
+  const at = CSS_BARE.indexOf(':root[data-theme="tabletop"] {');
+  const end = CSS_BARE.indexOf("}", at);
+  const outside = CSS_BARE.slice(0, at) + CSS_BARE.slice(end + 1);
+  assert.doesNotMatch(
+    outside,
+    /textures\//,
+    "an image asset is named outside the Tabletop block, so Arcade pays to download it",
   );
 });
 

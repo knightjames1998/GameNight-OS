@@ -165,6 +165,17 @@ const TRACKED_PROPS = [
   "border-bottom-left-radius",
   "font-family",
   "opacity",
+  // Material, added for the felt + rail session and BEFORE it was used. A
+  // tinted tile is background-color plus background-image plus a blend mode,
+  // and the rail is layered backgrounds at set sizes and positions; with none
+  // of these captured, the sweep would have watched a CRT raster become a
+  // blended felt weave and a timber frame appear, and reported that only the
+  // background-image string changed.
+  "background-size",
+  "background-repeat",
+  "background-position",
+  "background-blend-mode",
+  "mix-blend-mode",
 ];
 
 // ---------------------------------------------------------------- CDP client

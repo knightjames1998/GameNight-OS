@@ -215,6 +215,29 @@
   --gn-texture:     repeating-linear-gradient(to bottom, var(--gn-scan) 0 1px, transparent 1px 3px);
   --gn-texture-tv:  repeating-linear-gradient(to bottom, var(--gn-scan) 0 1px, transparent 1px 4px);
   --gn-texture-opacity: .05;
+  /* The overlay is a TINT, an IMAGE and a BLEND, not just an image, because a
+     cloth is a grey texture multiplied into a colour. Arcade uses none of it:
+     transparent, auto and normal are the initial values of those three
+     properties, so splitting the old `background:` shorthand into longhands
+     leaves Arcade computing exactly what it computed before. */
+  --gn-texture-tint:    transparent;
+  --gn-texture-blend:   normal;
+  --gn-texture-size:    auto;
+  --gn-texture-size-tv: auto;
+
+  /* ---- the rail ----
+     A fixed frame drawn around the viewport by <div class="gn-rail"> in
+     index.html: timber, a stitch line, and the shadow the felt falls into
+     under it. ARCADE DRAWS NOTHING, and does it by width rather than by
+     display:none so that the element's box is identical under both themes and
+     only its paint differs. An arcade cabinet has no rail. */
+  --gn-rail-w:          0px;
+  --gn-rail-timber:     none;
+  --gn-rail-timber-v:   none;
+  --gn-rail-stitch:     transparent;
+  --gn-rail-stitch-w:   0px;
+  --gn-rail-drop:       transparent;
+  --gn-rail-drop-blur:  0px;
 
   /* Blurred light behind a letter is a lit sign. A theme that is not a lit
      sign sets these to `none` and leans on weight and tracking instead. */
@@ -367,15 +390,56 @@
      The opacity drops from .05 to .03 because two crossing layers ink roughly
      55% of the pixels where one inks 33%, so holding the number would have
      made the weave nearly twice as heavy as the raster it replaces. */
-  --gn-texture:
-    repeating-linear-gradient(45deg, var(--gn-scan) 0 1px, transparent 1px 3px),
-    repeating-linear-gradient(-45deg, var(--gn-scan) 0 1px, transparent 1px 3px);
-  /* Coarser on the big screen: a 3px diagonal seen from a sofa is either
-     invisible or aliasing, and neither is a texture. */
-  --gn-texture-tv:
-    repeating-linear-gradient(45deg, var(--gn-scan) 0 1px, transparent 1px 6px),
-    repeating-linear-gradient(-45deg, var(--gn-scan) 0 1px, transparent 1px 6px);
-  --gn-texture-opacity: .03;
+  /* REAL CLOTH, AND THE CROSS-HATCH IS GONE. James on the shipped version: it
+     still did not feel like felt. He was right, and the diagnosis is worth
+     keeping: crossed gradients are a PATTERN, and a pattern on an edge-to-edge
+     field is wallpaper. Two things fix that, and this is the first. The second
+     is the rail below, because a poker table reads as a table largely because
+     its cloth has an EDGE.
+
+     One seamless greyscale tile, tinted here. That is the whole reason it
+     translates to the packs for nothing: felt is a grey texture plus a colour,
+     so Ping Pong's green, poker's oxblood and a pool blue are the same 33KB
+     file. Mid grey is the identity value of an overlay blend, so the tile
+     lifts and deepens the tint without recolouring it. See
+     scripts/generate-felt-tile.mjs, which also enforces the amplitude bound
+     that keeps the cloth from eating measured contrast.
+
+     NAMED ONLY HERE, exactly as Bevan is: a browser fetches a background image
+     only when a rendered element uses it, so an Arcade session never requests
+     it. Verified over CDP. */
+  --gn-texture:     url("./textures/felt.webp");
+  --gn-texture-tv:  url("./textures/felt.webp");
+  --gn-texture-opacity: 1;
+  --gn-texture-tint: var(--gn-bg);
+  --gn-texture-blend: overlay;
+  --gn-texture-size: 512px;
+  /* Bigger on the big screen so the tile repeats twice across 1920 rather than
+     four times. The failure mode of a tiled texture is not the seam, it is the
+     LATTICE: the eye finds a repeating grid across a television long before it
+     finds an edge. The generator keeps the tile's coarse structure faint for
+     the same reason. */
+  --gn-texture-size-tv: 900px;
+
+  /* ---- the rail: walnut, a stitch line, and the drop beneath it ----
+     Shown a rail and no rail side by side, James chose the rail definitively.
+     It is what turns an expanse of cloth into a piece of furniture.
+
+     PER-PACK OVERRIDE. The rail belongs to the THEME so that ten packs read as
+     one table rather than as ten pieces of furniture, but a pack that wants its
+     own timber (a pool table's darker rail, poker's padded leather) overrides
+     the tokens without touching this block. The rail element lives in
+     index.html, outside the route, so a pack reaches it from its own stylesheet
+     through the root:
+       :root[data-theme="tabletop"]:has(.pp-root) { --gn-rail-timber: ...; }
+     No pack does this yet; stage 4 will. */
+  --gn-rail-w:         14px;
+  --gn-rail-timber:    linear-gradient(180deg, #7a5533 0%, #5c3d24 45%, #3d2817 100%);
+  --gn-rail-timber-v:  linear-gradient(90deg, #7a5533 0%, #5c3d24 45%, #3d2817 100%);
+  --gn-rail-stitch:    #a2825c;
+  --gn-rail-stitch-w:  1px;
+  --gn-rail-drop:      #000;
+  --gn-rail-drop-blur: 18px;
 
   /* NO GLOW ANYWHERE. Print on card does not emit light. The wordmark keeps a
      hard drop with no blur radius, which is ink sitting slightly proud of the
@@ -471,11 +535,66 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   font-family:Nunito, system-ui, sans-serif;
   position:relative;
 }
-.gn-app::before{                 /* ambient scanlines, very faint */
+.gn-app::before{                 /* the ambient surface: scanlines, or cloth */
   content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:var(--gn-texture-opacity);
-  background:var(--gn-texture);
+  background-color:var(--gn-texture-tint);
+  background-image:var(--gn-texture);
+  background-size:var(--gn-texture-size);
+  background-blend-mode:var(--gn-texture-blend);
 }
 .gn-app > *{position:relative;z-index:1}
+
+/* ---- the rail ------------------------------------------------
+   A fixed frame drawn OVER everything, never part of the layout. That choice
+   is the whole reason this session could not move a TV: three of the app's
+   television layouts are measured to the pixel at 1080 and one is already
+   over, so a rail that took 15px off the top and bottom would have pushed a
+   money board band over and the correct fix would then have been to re-tune a
+   ladder to absorb a decoration, which is backwards. Being fixed, it costs
+   exactly zero layout: content scrolls under it, the way felt slides under a
+   real rail.
+
+   pointer-events:none, and this is load bearing rather than tidy. A
+   full-screen overlay that swallows the first tap is a bug that only appears
+   in someone's hand, never in a headless check.
+
+   INSET BY THE SAFE AREA. An installed iOS PWA paints under the notch and the
+   home indicator, so a rail pinned to the raw viewport edge would run its
+   timber underneath both. Pinned to the safe area instead, the frame is
+   always whole.
+
+   Two pseudo-elements: ::before lays the four timbers as background strips,
+   ::after starts where the felt does and carries the stitch line and the
+   shadow the cloth falls into. Deliberately NOT border-image, which is fiddly,
+   fights border-radius, and buys nothing that layered backgrounds and an inset
+   shadow do not. */
+.gn-rail{
+  position:fixed;
+  top:env(safe-area-inset-top, 0px);
+  right:env(safe-area-inset-right, 0px);
+  bottom:env(safe-area-inset-bottom, 0px);
+  left:env(safe-area-inset-left, 0px);
+  pointer-events:none;
+  z-index:3;
+}
+.gn-rail::before{
+  content:"";position:absolute;inset:0;
+  background:
+    var(--gn-rail-timber)   top    / 100% var(--gn-rail-w) no-repeat,
+    var(--gn-rail-timber)   bottom / 100% var(--gn-rail-w) no-repeat,
+    var(--gn-rail-timber-v) left   / var(--gn-rail-w) 100% no-repeat,
+    var(--gn-rail-timber-v) right  / var(--gn-rail-w) 100% no-repeat;
+}
+.gn-rail::after{
+  content:"";position:absolute;inset:var(--gn-rail-w);
+  box-shadow:
+    inset 0 0 0 var(--gn-rail-stitch-w) var(--gn-rail-stitch),
+    inset 0 0 var(--gn-rail-drop-blur) var(--gn-rail-drop);
+}
+@media (prefers-reduced-motion:reduce){
+  .gn-rail{transition:none}
+}
+
 .gn-wrap{max-width:28rem;margin:0 auto;padding:20px 18px 48px}
 /* Home runs wider so the account can sit beside the personal-stats panel;
    still centered and mobile-first (single column until the md breakpoint). */
@@ -786,7 +905,10 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   background:radial-gradient(1400px 700px at 50% -10%, var(--gn-surf) 0%, var(--gn-bg) 60%);
 }
 .gn-tv::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:var(--gn-texture-opacity);
-  background:var(--gn-texture-tv)}
+  background-color:var(--gn-texture-tint);
+  background-image:var(--gn-texture-tv);
+  background-size:var(--gn-texture-size-tv);
+  background-blend-mode:var(--gn-texture-blend)}
 .gn-tv > *{position:relative;z-index:1}
 .gn-tv-title{
   font-family:var(--gn-font-display);color:var(--gn-brand-ink);letter-spacing:1px;line-height:.95;
