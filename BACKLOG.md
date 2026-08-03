@@ -12,136 +12,55 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-02 (start of the tabletop stage 2 session)
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-08-03 (start of the felt + rail session)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
-    Counter is below 3: continue with the requested work and increment it by 1 in the
-    same commit as any session that ships. Reconciled + redrawn on 2026-08-02 at the
-    START of the tabletop theme stage 2 session, because stage 1 handed the counter over
-    at 3. Stage 2's own work (the Tabletop palette) began only after the regenerated map
-    was committed, which is what the rule is for, and it is the second consecutive time
-    the handover has worked as designed: stage 1 wrote down what this pass would find,
-    and this pass found exactly that and nothing else.
+    THE RULE, applied to the two numbers above and to nothing else:
+
+      counter >= 3   reconcile this file and redraw the map BEFORE this session's own
+                     work, then set the date to today and the counter back to 0.
+      counter <  3   do the requested work, and increment the counter by 1 in the same
+                     commit as any session that ships.
+
+    The test is what the counter READS when a session starts, never what it will read
+    when that session ends.
+
+    DO NOT WRITE A CONCLUSION UNDER THESE NUMBERS. This block used to open with the
+    sentence "Counter is below 3: continue with the requested work and increment it by
+    1", which was true on the day it was written and false every day after the counter
+    moved. Three consecutive sessions read it, and the last one was told by it to skip a
+    redraw that was due. A sentence that restates which branch applies is stale by
+    construction, because the numbers above it change and it does not. If you find one
+    here, delete it: the rule is four lines long and the reader can apply it.
+
+    HISTORY, which is safe to write down because it is about passes that already
+    happened rather than about what to do next:
+      - 2026-08-02, stage 2's pass. Zone 1 took the theme's stage 1; zone 2 lost its two
+        (NEW) highlights; zone 5 took the money board fix, the three review findings and
+        a fifth Watch trap. Row 2 grew 660 -> 720, row 1 did not. That pass also learned
+        that a row is THREE zones, not two: its first attempt raised FEATURES and BUG
+        FIXES and left IDEAS behind, which reading the generated file back caught.
+      - 2026-08-03, this pass. Below.
 
     What this pass changed beyond the counter:
-      - Zone 1 gained the tabletop theme stage 1 item, marked (NEW). It goes in
-        FOUNDATION rather than GAME PACKS, as stage 1 predicted it should: it shipped no
-        pack and no user-visible feature beyond a one-option switcher.
-      - Zone 2 lost its two (NEW) highlights (declarative modifiers, Casino Run) and
-        gained nothing. Two consecutive foundation sessions is not a stall, it is what
-        the run-up to a theme looks like.
-      - Zone 3 keeps the tabletop theme at slot 3 and now says STAGES 2 AND 3 on it.
-        Deliberately NOT moved to a green zone: stage 1 of three shipped, and a reader
-        who sees "tabletop theme" in SHIPPED will believe the app has two themes today.
-        Slots 1 and 2 (poker, Smash Tournament) are unchanged and were not renumbered.
-      - Zone 5 was again where the work was. The money board bug drawn as OPEN is FIXED,
-        and so are the three review findings drawn as OPEN beside it; Casino Run's TV
-        back button is the one OPEN item now. The 07-30 event-TV FIXED entry aged out on
-        its second redraw, exactly as the 07-29 safe-area one did. A fifth Watch trap
-        joined: color-mix's opaque fallback on pre-2023 browsers, which stage 1
-        introduced across the shell and recorded in the DECISION LOG. It is a Watch and
-        not a bug because nothing is broken on any browser the app already supports.
-      - ROW 2 GREW, 660 -> 720, and row 1 did not. At 660 zone 5 would have had 18px left
-        once the fifth Watch trap landed, which is less than any item costs and would have
-        dropped the trap on whoever added the next line. Row 1 was left alone on purpose:
-        zone 2 keeps the 102px the last pass chose for it deliberately, and zone 1 has
-        186px even after taking the stage 1 item. Full canvas 1560x1960, and the closing
-        panorama grew with it (1600x1950 -> 1600x2010).
+      - Zone 1's tabletop item became ONE item covering the whole shell: tokens, palette,
+        material and woodtype, plus the Ping Pong pilot. Four sessions rendered as one,
+        the same call Casino Run's five got, because the map renders ideas rather than
+        commits and "the shell is themed" is one idea. Marked (NEW).
+      - Zone 3's tabletop item is now STAGE 4, THE REMAINING EIGHT PACKS. It stays in
+        NEXT UP for the fourth pass running, and for the same reason every time: the
+        shell has two themes but eight of the nine packs do not, and a reader who sees
+        "tabletop theme" in a green zone will believe otherwise.
+      - Zone 5 took the two items stage 4 predicted it would: Ping Pong's TV does not fit
+        1080p past six players (OPEN, found by the pilot, pre-existing), and the canvas
+        share cards follow no theme at all (Watch). Two OPEN and six Watch traps now.
+      - ROW 2 GREW AGAIN, 720 -> 840, and row 1 did not. Zone 5 needed 764px of a
+        720px zone, so it was already over before the raise rather than merely tight.
+        At 800 it would have had 36px, which is less than the 58px an item costs, so it
+        went to 840 for 76px of headroom. Canvas 1560x2080, closing panorama 1600x2130.
     Zone heights checked against their contents by reading the generated file back, not
-    by hand: all six fit, smallest slack 78px (zone 5, BUG FIXES). THE CHECK EARNED ITS
-    KEEP THIS PASS: row 2 has THREE zones, and the first attempt raised FEATURES and BUG
-    FIXES and left IDEAS at 660, which reading the file back caught and no amount of
-    re-reading the diff would have.
-
-    0 -> 1 on 2026-08-02 by the tabletop theme stage 2 session, which did the redraw
-    above at its start and then shipped the palette. Nothing is owed until 3.
-
-    1 -> 2 on 2026-08-02 by the tabletop theme stage 3 session (the shell's material).
-    (That entry originally read "the next session that ships hits 3 and owes the redraw
-    before its own work", which cost the stage 4 session a re-read: a session that FINDS
-    2 is below the threshold and does its work, and it is the one that finds 3 that owes
-    the redraw. The rule is about what the counter READS when a session starts, never
-    about what it will read when that session ends. Reworded here and in the protocol.)
-    What the redraw will find, so it does not have to rediscover it:
-      - Zone 3: the theme is FOUR stages now, not three. What was stage 3 (the packs)
-        is stage 4 and is still open; stages 1 to 3 have shipped. The item should read
-        STAGE 4 and stay in NEXT UP, for the same reason it has stayed there twice
-        already: a reader who sees it in a green zone will think the packs are done.
-      - Zone 1 takes the stage 3 item. FOUNDATION again, not GAME PACKS: it is the
-        shell.
-      - Zone 5 gained a SIXTH Watch trap after the last redraw (the canvas share cards),
-        and stage 4's pilot added a SEVENTH open bug (Ping Pong's TV does not fit 1080p
-        past six players). Zone 5 was left with 78px and each item costs 58px, so row 2
-        MUST be raised on the next redraw: two more items do not fit.
-
-    2 -> 3 on 2026-08-02 by the tabletop theme stage 4 PILOT (Ping Pong). It read the
-    counter at 2, which is below the threshold, so it did its own work and incremented.
-    THE COUNTER NOW READS 3: THE NEXT SESSION THAT SHIPS FINDS 3 AND OWES THE RECONCILE
-    AND REDRAW BEFORE ITS OWN WORK, then resets this to 0.
-    One thing for whoever redraws next, since it landed AFTER the map was regenerated
-    and the map therefore does not show it: BUGS gained a SIXTH Watch trap (the canvas
-    share cards follow no theme). Zone 5 was left with 78px, and an eleventh item costs
-    58px, so it fits, but that leaves 20px and the row will want raising again.
-
-    What this pass changed beyond the counter:
-      - Zone 2 gained the two things that shipped since the last pass, both marked (NEW):
-        declarative modifiers, and CASINO RUN. Casino Run is FIVE sessions of work
-        rendered as ONE item, deliberately: the rounds were all the same idea being
-        finished (a real fail state, the ante, tokens, the clarity fixes, the playtest),
-        and the map renders ideas rather than commits. Same call the roulette item made
-        when it absorbed per-player buy-ins. Roulette, craps and the stakes flag lost
-        their (NEW) highlights; zone 1 gained nothing this pass and the pack picker
-        groups lost theirs.
-      - Zone 3's committed three are now poker, the Smash Tournament format and the
-        tabletop theme, since modifiers and Casino Run have both shipped out of it.
-      - Zone 5 is where this pass actually owed work. The casino TV money board's OPEN
-        entry has been in this file since 2026-07-30 and was NEVER RENDERED: the last
-        pass added it here and did not add it to the map, which is exactly the drift the
-        reconcile step exists to catch, and it is the one thing on the map that a person
-        would have acted on. It is drawn now. Alongside it: the 07-29 safe-area FIXED
-        item aged out (its second redraw, as this section's rule says), the 07-30
-        event-TV one took its place, and the review findings this session is about went
-        in as OPEN, because they are open at the moment this commit lands.
-      - BOTH ROWS GREW. Row 1 zones 990 -> 1120, row 2 pushed down 1110 -> 1240, and row
-        2's own zones 530 -> 660. Zone 2 had 118px of slack and needed 146 for its two new
-        items; zone 5 overflowed a 530px zone by 60px once the open bugs were all
-        rendered. Both rows were raised past their minimum on purpose, the same
-        pre-emptive call every previous pass has made: at 1090 zone 2 would have had 66px
-        left and at 620 zone 5 would have had 30px, and 30px is less than any item costs,
-        so the trap would just have landed on whoever added the next line. The closing
-        panorama grew with it (1600x1690 -> 1600x1950).
-    Zone heights checked against their contents by reading the generated file back, not
-    by hand: all six fit, smallest slack 76px (zone 5, BUG FIXES), full canvas 1560x1900.
-
-    THE COUNTER WAS UNDERCOUNTING, and that is worth writing down rather than quietly
-    resetting. It moved 2 -> 3 by the Casino Run round-two session (2026-08-01), and then
-    rounds three, four and five each shipped a feature set WITHOUT incrementing it and
-    without redrawing. Two rule breaks in the same three sessions: the redraw was due at
-    round three, and each of those sessions also owed a +1. The honest tally handed to
-    this session was 6, not 3. It changes nothing about what this pass does, since a
-    redraw that is due is due, but the counter only survives a lost chat if a session
-    that skips it says so here instead of leaving the number wrong.
-
-    Counter moved 0 -> 1 by the review-fixes session itself (2026-08-02), which is the
-    session that ran the redraw above. Same shape as the modifiers session: redraw first,
-    in its own commit, then the feature work, then the counter.
-
-    Previous passes, kept for the record: redrawn 2026-07-30 at the start of the
-    modifiers session (zone 2 took roulette, craps and the stakes flag; zone 3 took
-    Casino Run in place of co-op-as-a-format; row 1 went 920 -> 990), and 2026-07-29 at
-    the start of the roulette session (zone 2 took Smashdown, the series rows and
-    blackjack; row 1 went 860 -> 920).
-
-**Every session that ships anything (feature, pack, or fix set) increments the counter by 1
-as part of its delivery, in the same commit as its other changes.** Doc-only sessions do not
-increment it and must not reset it.
-
-**When the counter reaches 3:** that session's FIRST task is to reconcile this file and
-redraw the map (see MAP PROTOCOL below), then set "Last map redraw" to today's date and the
-counter back to 0. Do that before starting the feature work, so a long session can't end with
-the map skipped. If the person asks to skip it, note the skip here and carry the counter
-forward rather than resetting.
+    by hand.
 
 ## MAP PROTOCOL
 How and when the Excalidraw project map gets redrawn. Written so any session reproduces
@@ -174,7 +93,7 @@ another reference section does not change the map; adding or renaming one of the
 above does, and must update this table in the same commit.
 
 **Layout (fixed, so redraws are stable):** 3 columns x 2 rows. Columns at x=40, 560, 1080,
-each 480 wide. Row 1 at y=95 (height 1120), row 2 at y=1240 (height 720). Zone header text
+each 480 wide. Row 1 at y=95 (height 1120), row 2 at y=1240 (height 840). Zone header text
 15px below zone top, fontSize 22. Items 440 wide, 40 tall, 46px step, first item 50px below
 zone top; give a taller box (52-70) to any item whose label wraps past one line. Row 1 grew
 from 540 to 730 on 2026-07-27 (SHIPPED FOUNDATION reached 14 items and overflowed its
@@ -190,7 +109,8 @@ have landed on whoever added the next line.
 ROW 2 GREW FOR THE FIRST TIME on 2026-08-02, 530 to 660: it had been a fixed height through
 six passes because only row 1 was filling up, and zone 5 overflowed it by 20px once the
 open bugs were all rendered. It grew again the same day, 660 to 720, on the stage 2 pass,
-when a fifth Watch trap left zone 5 with 18px. Both times every row-2 zone was raised
+when a fifth Watch trap left zone 5 with 18px, and again on 2026-08-03, 720 to 840, when
+zone 5 went genuinely OVER (764px of content in a 720px zone) rather than merely tight. Both times every row-2 zone was raised
 together for the same reason row 1's are.
 When a zone outgrows its height again, raise EVERY zone in its row together (there are
 THREE per row, not two: the stage 2 pass raised FEATURES and BUG FIXES and left IDEAS
@@ -205,7 +125,7 @@ they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb).
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x2010 at the current zone heights). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
+on a panorama covering the full canvas (1600x2130 at the current zone heights). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 
 **Reconcile step (do this before drawing):** move finished items from NEXT UP into the right
 SHIPPED section with a one-line summary and date; renumber the top three of NEXT UP; move

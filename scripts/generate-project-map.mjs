@@ -13,8 +13,21 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-08-02 at the START of the tabletop theme stage 2 session, because stage 1
+// Redrawn 2026-08-03 at the START of the felt + rail session, because stage 4's pilot
 // handed the counter over at 3. This pass:
+//   - Zone 1's tabletop item became ONE item covering the whole shell (tokens, palette,
+//     material, woodtype) plus the Ping Pong pilot. Four sessions rendered as one, the
+//     same call Casino Run's five got: the map renders ideas, and "the shell is themed"
+//     is one idea. The packs are NOT done, which is why zone 3 still carries it.
+//   - Zone 3's tabletop item is now STAGE 4, THE REMAINING EIGHT PACKS.
+//   - Zone 5 took the two items stage 4 predicted: Ping Pong's TV does not fit 1080p past
+//     six players (OPEN, pre-existing, found by the pilot) and the canvas share cards
+//     follow no theme (Watch). Two OPEN, six Watch, four FIXED.
+//   - ROW 2 GREW AGAIN, 720 -> 840. Zone 5 needed 764 of a 720px zone, so it was over
+//     rather than tight; 800 would have left 36px, under the 58px an item costs.
+//     Canvas 1560x2080.
+//
+// The 2026-08-02 pass, kept short:
 //   - Zone 1 gained the tabletop theme stage 1 item, (NEW). FOUNDATION, not GAME PACKS:
 //     it shipped no pack and no user-visible feature beyond a one-option switcher.
 //   - Zone 2 lost its two (NEW) highlights and gained nothing.
@@ -40,7 +53,7 @@ const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
 // rows and blackjack; row 1 860 -> 920).
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
-// each 480 wide, row 1 y=95 h=1120, row 2 y=1240 h=720. Items 440x40, 46px
+// each 480 wide, row 1 y=95 h=1120, row 2 y=1240 h=840. Items 440x40, 46px
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
@@ -63,7 +76,7 @@ const ZONES = [
       { t: "One TV button per night: /e/:id/tv auto-follows" },
       { t: "One pack registry: SESSION_PACKS, one entry per pack" },
       { t: "Pack picker groups: Nintendo / Casino / Bar / Other" },
-      { t: "Tabletop theme STAGE 1/3: Arcade made swappable, 0 new colours, 52 tokens, literals banned by test (NEW)", bg: "#c3fae8", h: 70 },
+      { t: "TABLETOP THEME, SHELL COMPLETE: 73 tokens, warm-dark palette, felt/wood material, woodtype face, Ping Pong pilot (NEW)", bg: "#c3fae8", h: 88 },
     ],
   },
   {
@@ -95,12 +108,12 @@ const ZONES = [
     items: [
       { t: "1. Poker (cash engine PLUS a tournament format)", sw: 2, h: 52 },
       { t: "2. Smash Tournament format (bracket + fighters)", sw: 2, h: 52 },
-      { t: "3. Tabletop theme, STAGES 2 AND 3 (stage 1 shipped)", sw: 2, h: 52 },
+      { t: "3. Tabletop theme STAGE 4: the remaining 8 packs", sw: 2, h: 52 },
       { t: "More packs: board games, darts" },
     ],
   },
   {
-    x: 40, y: 1240, h: 720,
+    x: 40, y: 1240, h: 840,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
       { t: "Unified event TV + single active pack" },
@@ -113,15 +126,17 @@ const ZONES = [
     ],
   },
   {
-    x: 560, y: 1240, h: 720,
+    x: 560, y: 1240, h: 840,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
       { t: "OPEN: Casino Run's TV has the same back-button blind spot the money board had", h: 52 },
+      { t: "OPEN: Ping Pong's TV does not fit 1080p past SIX players (pre-existing)", h: 52 },
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
       { t: "Watch: countLastPlace IN list grows without bound", bg: "#fff3bf", h: 52 },
       { t: "Watch: ws hub broadcasts everything to everyone (no rooms)", bg: "#fff3bf", h: 52 },
       { t: "Watch: drizzle push can no-op in CI, check build log", bg: "#fff3bf", h: 52 },
       { t: "Watch: color-mix's opaque fallback on pre-2023 browsers (shell-wide since stage 1)", bg: "#fff3bf", h: 52 },
+      { t: "Watch: the canvas share cards follow NO theme (16 hardcoded colours, JS not CSS)", bg: "#fff3bf", h: 52 },
       { t: "FIXED: casino TV money board now fits 1080p at every seat count", bg: "#b2f2bb", h: 52 },
       { t: "FIXED: co-op results are no longer a TIE between every pair (`side`)", bg: "#b2f2bb", h: 52 },
       { t: "FIXED: Casino Run undo no longer double-draws a stage-clear card", bg: "#b2f2bb", h: 52 },
@@ -129,7 +144,7 @@ const ZONES = [
     ],
   },
   {
-    x: 1080, y: 1240, h: 720,
+    x: 1080, y: 1240, h: 840,
     title: "IDEAS — NOT SOLIDIFIED", zoneBg: "#e5dbff", header: "#6d28d9", itemBg: "#d0bfff",
     items: [
       { t: "Draft night mode (snake drafts, TV board)" },
