@@ -39,7 +39,12 @@
          map" is a flash nobody would notice in review. -->
     <script>
       try {
-        var GN_BG = { arcade: "#17111f", tabletop: "#15110b" };
+        /* The colour each theme's first frame must be. It is the theme's FELT,
+           not its --gn-bg: since the cloth became its own surface the shell
+           paints green edge to edge, and mapping this to the walnut underneath
+           would flash a wood-coloured screen for one frame before the table
+           arrived. Arcade has no cloth, so its felt is its background. */
+        var GN_BG = { arcade: "#17111f", tabletop: "#16402c" };
         var gnTheme = localStorage.getItem("gamenight.pref.theme");
         if (gnTheme && /^[a-z][a-z0-9-]{0,23}$/.test(gnTheme)) {
           document.documentElement.dataset.theme = gnTheme;

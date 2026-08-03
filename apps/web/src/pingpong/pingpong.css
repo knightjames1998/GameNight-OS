@@ -130,10 +130,18 @@
   --pp-glow-brand-tv:0 3px 0 color-mix(in srgb, var(--gn-shadow-depth) 55%, transparent);
 }
 
+/* THE LAMP IS THE SHELL'S NOW, and only its colour is the pack's. This table
+   had the only crown of light in the app, so when the shell needed one the
+   shape was generalised out of here rather than copied: --gn-lamp-geom and
+   --gn-lamp-fade carry Ping Pong's exact Arcade values at :root, which is why
+   nothing moved under Arcade, and Tabletop re-aims them for every surface at
+   once. The COLOUR stays at the use site on purpose, because a token holding the whole
+   gradient would resolve --pp-felt-lit where the token was declared, which is
+   the root, and this table would light itself in the shell's green. */
 .pp-root {
   min-height: 100dvh;
   background:
-    radial-gradient(120% 80% at 50% -10%, var(--pp-felt-lit) 0%, transparent 55%),
+    radial-gradient(var(--gn-lamp-geom), var(--pp-felt-lit) 0%, transparent var(--gn-lamp-fade)),
     linear-gradient(180deg, var(--pp-felt-top), var(--pp-felt-deep));
   color: var(--gn-ink);
   font-family: Nunito, system-ui, sans-serif;
@@ -234,7 +242,7 @@
     calc(4vmin + env(safe-area-inset-bottom, 0px))
     calc(4vmin + env(safe-area-inset-left, 0px));
   background:
-    radial-gradient(120% 80% at 50% -10%, var(--pp-felt-lit) 0%, transparent 55%),
+    radial-gradient(var(--gn-lamp-geom), var(--pp-felt-lit) 0%, transparent var(--gn-lamp-fade)),
     linear-gradient(180deg, var(--pp-felt-top), var(--pp-felt-deep-tv));
   color: var(--gn-ink); font-family: Nunito, system-ui, sans-serif;
 }

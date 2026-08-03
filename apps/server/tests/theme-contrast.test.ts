@@ -149,6 +149,38 @@ const PAIRS: [string, string, number?][] = [
   ["--gn-yes-ink", "--gn-yes"],
 ];
 
+/**
+ * THE CLOTH. Since 2026-08-03 the shell paints a felt surface of its own rather
+ * than the page's --gn-bg, so this is where the shell's body text actually
+ * lands under Tabletop, and these pairs have to clear AA like any other.
+ *
+ * ONLY INK AND DIM, and the two that are missing are missing on purpose:
+ * --gn-place is `.gn-input::placeholder` and --gn-faint is bracket slots and
+ * seed numbers, and all of those sit inside an input or a card, which paints
+ * ABOVE the texture layer (`.gn-app::before` is z-index 0, `.gn-app > *` is 1).
+ * Asserting a pair that is never rendered on cloth sets the palette from a
+ * screen nobody sees, and that mistake is not free in either direction: the
+ * same list, applied to the tile generator, is what capped the weave's
+ * amplitude until it was invisible.
+ *
+ * THEY ARE HELD APART FROM PAIRS BECAUSE PARITY DOES NOT APPLY. Arcade has no
+ * cloth, so its --gn-felt is simply its background, and comparing "ink on the
+ * plum page" with "ink on a green table" is comparing two different objects:
+ * the gap is 6 points and every point of it is the table being a table. The AA
+ * floor is the assertion that matters here; the parity assertion would only be
+ * measuring that Tabletop grew a surface Arcade does not have.
+ *
+ * --gn-felt-lit is the crown at full strength, which is stricter than what the
+ * screen paints (the lamp is laid at 85% and its centre sits above the top
+ * edge), so passing here means passing everywhere on the cloth.
+ */
+const CLOTH_PAIRS: [string, string][] = [
+  ["--gn-ink", "--gn-felt"],
+  ["--gn-dim", "--gn-felt"],
+  ["--gn-ink", "--gn-felt-lit"],
+  ["--gn-dim", "--gn-felt-lit"],
+];
+
 /** Resolve a token for a theme, falling back to Arcade the way the cascade does. */
 const value = (theme: Record<string, string>, token: string) => theme[token] ?? ARCADE[token]!;
 
@@ -160,7 +192,7 @@ const THEME_BLOCKS: [string, Record<string, string>][] = [
 test("every theme clears WCAG AA on the pairs that carry text", () => {
   const failures: string[] = [];
   for (const [name, theme] of THEME_BLOCKS) {
-    for (const [fg, bg, floor = 4.5] of PAIRS) {
+    for (const [fg, bg, floor = 4.5] of [...PAIRS, ...CLOTH_PAIRS] as [string, string, number?][]) {
       const ratio = contrast(value(theme, fg), value(theme, bg));
       if (ratio < floor) failures.push(`${name}: ${fg} on ${bg} = ${ratio} (needs ${floor})`);
     }
@@ -234,6 +266,13 @@ test("A THEME OWNS ITS MATERIAL, not just its palette", () => {
     "--gn-texture-blend",
     "--gn-texture-size",
     "--gn-texture-size-tv",
+    // The cloth and the light on it. A flat surface is a page; a surface with a
+    // lamp over it is a table, and it is also what lifts the middle of the
+    // screen enough for the weave to be visible at all.
+    "--gn-felt",
+    "--gn-felt-lit",
+    "--gn-lamp-geom",
+    "--gn-lamp-fade",
     "--gn-glow-title",
     "--gn-glow-h2",
     "--gn-glow-brand",
@@ -285,10 +324,23 @@ test("A TABLE HAS AN EDGE AND AN ARCADE CABINET DOES NOT", () => {
     ["--gn-rail-w", "0px"],
     ["--gn-rail-timber", "none"],
     ["--gn-rail-timber-v", "none"],
-    ["--gn-rail-stitch", "transparent"],
+    ["--gn-rail-grain", "none"],
+    ["--gn-rail-grain-v", "none"],
+    ["--gn-rail-face", "none, none, none, none"],
+    // currentcolor rather than transparent, and that is not a typo: it is the
+    // initial value of outline-color, so Arcade computes exactly what it
+    // computed before the stitch existed an outline at all.
+    ["--gn-rail-stitch", "currentcolor"],
     ["--gn-rail-stitch-w", "0px"],
+    ["--gn-rail-stitch-style", "none"],
+    ["--gn-rail-stitch-inset", "0px"],
     ["--gn-rail-drop", "transparent"],
     ["--gn-rail-drop-blur", "0px"],
+    ["--gn-rail-lip", "transparent"],
+    ["--gn-rail-lip-y", "0px"],
+    ["--gn-rail-lip-blur", "0px"],
+    ["--gn-radius-rail", "0px"],
+    ["--gn-radius-felt", "0px"],
   ];
   for (const [token, inert] of INERT) {
     assert.equal(ARCADE[token], inert, `${token} must be inert under Arcade: an arcade cabinet has no rail`);
@@ -300,6 +352,32 @@ test("A TABLE HAS AN EDGE AND AN ARCADE CABINET DOES NOT", () => {
   assert.match(TABLETOP["--gn-rail-w"]!, /^\d+(\.\d+)?px$/, "the rail width needs a unit");
   assert.notEqual(TABLETOP["--gn-rail-w"], "0px", "Tabletop's rail must have width");
   assert.notEqual(TABLETOP["--gn-rail-timber"], "none", "Tabletop's rail must have timber");
+
+  // THE FOUR MATERIAL FIXES, each stated so that "tidying" one out fails here
+  // rather than being noticed on a phone six weeks later. Each one is a thing
+  // that made the shipped rail read as a window frame rather than furniture.
+  assert.match(
+    TABLETOP["--gn-rail-grain"]!,
+    /^repeating-linear-gradient/,
+    "the timber needs a grain stripe; one smooth gradient is moulded plastic",
+  );
+  assert.equal(
+    TABLETOP["--gn-rail-stitch-style"],
+    "dashed",
+    "the stitch is DASHED; a solid hairline is a border, and a border is a window",
+  );
+  assert.match(
+    TABLETOP["--gn-rail-stitch-inset"]!,
+    /^-\d/,
+    "the stitch sits IN from the cloth's edge, not flush against it",
+  );
+  assert.notEqual(TABLETOP["--gn-radius-rail"], "0px", "a table has rounded corners");
+  assert.notEqual(TABLETOP["--gn-radius-felt"], "0px", "the cloth is rounded inside the timber");
+  // The layer lists have to stay in step or the timbers land in the wrong
+  // places, and the failure is silent: the frame simply draws wrong.
+  const layers = (v: string) => v.split(",").length;
+  assert.equal(layers(TABLETOP["--gn-rail-face"]!), layers(TABLETOP["--gn-rail-face-pos"]!));
+  assert.equal(layers(TABLETOP["--gn-rail-face"]!), layers(TABLETOP["--gn-rail-face-repeat"]!));
 
   // The rail is FIXED, and that is a budget claim rather than a style one. The
   // money board, Ping Pong and Casino Run TV layouts are measured to the pixel
@@ -327,9 +405,13 @@ test("THE FELT IS A REAL FILE, and only Tabletop names it", () => {
   assert.ok(url, `Tabletop's texture should be a url(): got ${TABLETOP["--gn-texture"]}`);
   const tile = path.join(ROOT, "apps/web/src", url![1]!.replace(/^\.\//, ""));
   const bytes = statSync(tile).size;
-  // 48KB. The shipped tile is 33KB; the headroom is for a regenerate that
-  // changes the weave, not for a second thought about the format.
-  assert.ok(bytes < 48 * 1024, `the felt tile is ${bytes} bytes, which is too much to ship on a phone`);
+  // 64KB, raised from 48 on 2026-08-03 when the weave was allowed to be a
+  // weave: noise is what costs bytes in a lossy codec, so the tile went from a
+  // standard deviation of 4.6 at 33KB to 8.1 at 53KB. That is the trade being
+  // made knowingly: it is one immutably-cached request, only under Tabletop,
+  // and it is the theme's entire material. The headroom is for a regenerate
+  // that changes the weave, not for a second thought about the format.
+  assert.ok(bytes < 64 * 1024, `the felt tile is ${bytes} bytes, which is too much to ship on a phone`);
 
   // Arcade must not so much as mention it, or every Arcade session pays for a
   // tile it never paints. Asserted over the whole stylesheet minus the Tabletop
@@ -357,11 +439,16 @@ test("every theme has a pre-paint background in index.html", () => {
 
   for (const [name, theme] of THEME_BLOCKS) {
     assert.ok(name in byName, `theme "${name}" has no entry in the GN_BG pre-paint map`);
+    // AGAINST THE FELT, NOT --gn-bg, and the difference is the whole point of
+    // the check. The shell paints its cloth edge to edge over the page colour,
+    // so the colour of the second frame IS the felt; mapping this to the walnut
+    // underneath would put a frame of bare wood in front of every Tabletop
+    // load. Arcade's felt is its background, so nothing changed there.
     assert.equal(
       byName[name]!.toLowerCase(),
-      value(theme, "--gn-bg").toLowerCase(),
-      `the pre-paint colour for "${name}" does not match its --gn-bg, so the first frame ` +
-        `is a different colour from the second`,
+      value(theme, "--gn-felt").toLowerCase(),
+      `the pre-paint colour for "${name}" does not match the surface it paints, so the ` +
+        `first frame is a different colour from the second`,
     );
   }
 });

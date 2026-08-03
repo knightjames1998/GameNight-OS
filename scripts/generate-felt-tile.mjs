@@ -42,6 +42,26 @@
 // difference between comfortable and not. What matters is the FRACTION of a
 // pair's contrast the cloth eats, plus a hard floor nothing may cross.
 //
+// AND THE BOUND APPLIES TO THE SURFACE THE CLOTH ACTUALLY COVERS, WHICH IS NOT
+// EVERY SURFACE. That is the correction of 2026-08-03, and it was costing real
+// texture. The first version listed every pair theme-contrast.test.ts measures,
+// including text on --gn-surf and on Ping Pong's felt, and capped the tile so
+// that none of them moved. None of them is textured: the ambient layer is
+// `.gn-app::before` at z-index 0 and `.gn-app > *` sits at z-index 1, so every
+// card, input and button paints ON TOP of the cloth, and a pack root is not
+// inside the shell's texture host at all. So the cap was being set by surfaces
+// the tile never touches, which is how it ended up at a standard deviation of
+// 4.6: cloth so flat that, once multiplied into a base as dark as the one it
+// was pointed at, its entire range came to six levels out of 255.
+//
+// The gate is now the FLOOR, on the two surfaces the cloth genuinely covers:
+// the felt, and the felt under the lamp. The lit one is the binding case, since
+// every text colour here is light and a brighter surface is a smaller gap. The
+// relative cost is still computed and printed, and still has a cap, but it is a
+// backstop against a tile that has gone wild rather than the thing deciding how
+// much weave the theme is allowed. Raise the amplitude and check the pairs;
+// never cap the amplitude to avoid having to check them.
+//
 // THE TILE IS ASYMMETRIC ABOUT MID GREY, and that is the trick that makes both
 // halves of this affordable. Only the LIGHT pixels cost contrast: every surface
 // in this theme is dark and every text colour on it is light, so lifting the
@@ -82,8 +102,8 @@ const CDP_PORT = 9351;
 const SIZE = 512;
 // How far the cloth travels from mid grey, up and down. See the note above for
 // why these are not the same number.
-const AMPLITUDE_UP = 0.018;
-const AMPLITUDE_DOWN = 0.075;
+const AMPLITUDE_UP = 0.032;
+const AMPLITUDE_DOWN = 0.130;
 // Lossy, and the amplitude above is budgeted around it. WebP rings the extremes
 // outward: at quality 0.9 a tile drawn to 133 decodes at 139. Quality 1.0 lands
 // exactly on the budget and costs 139KB, which is larger than the whole main
@@ -91,10 +111,14 @@ const AMPLITUDE_DOWN = 0.075;
 // in. The guard measures the DECODED file, so the number that matters is
 // checked whatever the encoder does.
 const QUALITY = 0.9;
-/** The most of its own contrast, as a fraction, the cloth may cost any pair. */
-const MAX_RELATIVE_COST = 0.04;
-/** And nothing may cross its floor, whatever the fraction says. */
-const FLOORS = { "--gn-faint on --gn-surf (tabletop)": 3.0 };
+/**
+ * A backstop, not the design constraint. See the note above: the floors decide
+ * how much weave is affordable, and this only catches a tile that has gone wild
+ * enough to be eating a fifth of a pair's contrast on its own.
+ */
+const MAX_RELATIVE_COST = 0.2;
+/** And nothing GATED may cross its floor, whatever the fraction says. */
+const FLOORS = {};
 const DEFAULT_FLOOR = 4.5;
 
 // --------------------------------------------------------------- the drawing
@@ -266,22 +290,42 @@ const overlay = (c, g) => {
 };
 
 /**
- * Every pair the contrast test measures where the BACKGROUND is a surface the
- * cloth actually covers. Text is not textured; the surface under it is.
+ * The pairs that decide how much weave is affordable, and the ones that are
+ * only reported.
+ *
+ * GATED are text colours on a surface the cloth genuinely covers: the felt, and
+ * the felt under the lamp. `--gn-place` and `--gn-faint` are not here on
+ * purpose and it is not an oversight. Place is `.gn-input::placeholder` and
+ * faint is bracket slots and seed numbers, both of which sit inside cards and
+ * inputs, which paint above the texture layer. A pair that is never rendered on
+ * cloth must not be allowed to set the cloth's amplitude.
+ *
+ * THE LIT CROWN IS THE BINDING CASE and is where the ceiling actually comes
+ * from: every text colour in this theme is light, so the brighter the surface
+ * the smaller the gap, and the lamp is the brightest the felt ever gets. Its
+ * value here is the lamp colour at the strength the stylesheet paints it,
+ * composited over the felt, kept in step with `--gn-felt` and `--gn-felt-lit`
+ * by hand, which is why both are spelled out with their token names.
  */
+const FELT = "#16402c";      // --gn-felt
+const FELT_CROWN = "#1b4b32"; // --gn-felt-lit (#1c4d33) at 85% over --gn-felt
 const GUARDED = [
-  { fg: "#f7f0e2", bg: "#15110b", what: "--gn-ink on --gn-bg (tabletop)" },
-  { fg: "#f7f0e2", bg: "#201a12", what: "--gn-ink on --gn-surf (tabletop)" },
-  { fg: "#c6b99f", bg: "#201a12", what: "--gn-dim on --gn-surf (tabletop)" },
-  { fg: "#948870", bg: "#201a12", what: "--gn-place on --gn-surf (tabletop)" },
-  { fg: "#8a7f68", bg: "#201a12", what: "--gn-faint on --gn-surf (tabletop)" },
-  { fg: "#ff7a1a", bg: "#0d262b", what: "--pp-accent on --pp-felt (tabletop)" },
-  { fg: "#f7f0e2", bg: "#0d262b", what: "--gn-ink on --pp-felt (tabletop)" },
+  { fg: "#f7f0e2", bg: FELT, what: "--gn-ink on --gn-felt", gate: true },
+  { fg: "#c6b99f", bg: FELT, what: "--gn-dim on --gn-felt", gate: true },
+  { fg: "#f7f0e2", bg: FELT_CROWN, what: "--gn-ink on the lit crown", gate: true },
+  { fg: "#c6b99f", bg: FELT_CROWN, what: "--gn-dim on the lit crown", gate: true },
+  // Reported, not gated: nothing paints these through the cloth today. They are
+  // here so that the day a pack's own surface takes the texture (see BUGS: the
+  // felt does not reach the packs), the numbers are already on the page.
+  { fg: "#f7f0e2", bg: "#201a12", what: "--gn-ink on --gn-surf (above the cloth)", gate: false },
+  { fg: "#8a7f68", bg: "#201a12", what: "--gn-faint on --gn-surf (above the cloth)", gate: false },
+  { fg: "#ff7a1a", bg: "#0d262b", what: "--pp-accent on --pp-felt (not textured yet)", gate: false },
+  { fg: "#f7f0e2", bg: "#0d262b", what: "--gn-ink on --pp-felt (not textured yet)", gate: false },
 ];
 
 function checkContrast(min, max) {
   const rows = [];
-  for (const { fg, bg, what } of GUARDED) {
+  for (const { fg, bg, what, gate } of GUARDED) {
     const base = hexToRgb(bg), text = hexToRgb(fg);
     const flat = ratio(text, base);
     // Worst case is whichever extreme of the cloth moves the surface TOWARDS
@@ -289,7 +333,7 @@ function checkContrast(min, max) {
     const lightest = base.map((c) => overlay(c, max));
     const darkest = base.map((c) => overlay(c, min));
     const worst = Math.min(ratio(text, lightest), ratio(text, darkest));
-    rows.push({ what, flat, worst, cost: flat - worst, rel: (flat - worst) / flat, floor: FLOORS[what] ?? DEFAULT_FLOOR });
+    rows.push({ what, gate, flat, worst, cost: flat - worst, rel: (flat - worst) / flat, floor: FLOORS[what] ?? DEFAULT_FLOOR });
   }
   return rows;
 }
@@ -345,9 +389,11 @@ try {
   let worstRel = 0;
   const under = [];
   for (const r of rows) {
-    worstRel = Math.max(worstRel, r.rel);
-    if (r.worst < r.floor) under.push(`${r.what}: ${r.worst.toFixed(2)} is under its ${r.floor} floor`);
-    console.log(`  ${r.what.padEnd(34)} ${r.flat.toFixed(2)} -> ${r.worst.toFixed(2)}  (${(r.rel * 100).toFixed(1)}% of it)`);
+    if (r.gate) {
+      worstRel = Math.max(worstRel, r.rel);
+      if (r.worst < r.floor) under.push(`${r.what}: ${r.worst.toFixed(2)} is under its ${r.floor} floor`);
+    }
+    console.log(`  ${r.gate ? "GATE" : "    "} ${r.what.padEnd(42)} ${r.flat.toFixed(2)} -> ${r.worst.toFixed(2)}  (${(r.rel * 100).toFixed(1)}% of it)`);
   }
   if (worstRel > MAX_RELATIVE_COST || under.length) {
     console.error(`\nREFUSING TO WRITE.`);

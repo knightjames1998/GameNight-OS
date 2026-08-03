@@ -225,6 +225,38 @@
   --gn-texture-size:    auto;
   --gn-texture-size-tv: auto;
 
+  /* ---- the cloth, and the lamp over it ----
+     THE SURFACE IS ITS OWN TOKEN, SEPARATE FROM --gn-bg, and that separation is
+     the fix for the flattest thing about the first felt. `overlay` against a
+     base darker than 50% resolves to 2 x base x texture, so pointing the tint
+     at the page's darkest colour multiplied the tile's whole range down to a
+     swing of six levels out of 255. The weave was not subtle, it was
+     arithmetically absent. The cloth needs a surface bright enough for a
+     multiply to have something to work with, and --gn-bg is not it: that is the
+     colour OUTSIDE the cloth, the timber the rail is cut from.
+
+     Arcade has no cloth, so its felt is simply its background spelled out. The
+     token exists in both themes so that the contrast pairs can be asserted
+     against "the surface the page paints" without the test branching on which
+     theme it is looking at. */
+  --gn-felt:     #17111f;   /* = --gn-bg: an arcade cabinet has no cloth */
+  --gn-felt-lit: #17111f;
+
+  /* THE LAMP IS GEOMETRY, NOT A COLOUR, and that is deliberate rather than
+     awkward. A custom property containing var() resolves where it is DECLARED,
+     so a token holding the whole gradient would bake in whichever felt colour
+     was in scope at :root and no pack could ever re-light its own table with
+     it, exactly the bug --gn-bevel-btn shipped with in stage 3. So the shape
+     lives here and every use site supplies its own colour:
+
+       radial-gradient(var(--gn-lamp-geom), <that surface's lit colour> 0%,
+                       transparent var(--gn-lamp-fade))
+
+     Arcade's values are Ping Pong's, because Ping Pong's lit table is the only
+     lamp in the app under Arcade and this is where its shape now comes from. */
+  --gn-lamp-geom: 120% 80% at 50% -10%;
+  --gn-lamp-fade: 55%;
+
   /* ---- the rail ----
      A fixed frame drawn around the viewport by <div class="gn-rail"> in
      index.html: timber, a stitch line, and the shadow the felt falls into
@@ -234,10 +266,52 @@
   --gn-rail-w:          0px;
   --gn-rail-timber:     none;
   --gn-rail-timber-v:   none;
-  --gn-rail-stitch:     transparent;
-  --gn-rail-stitch-w:   0px;
+  /* Grain. A single smooth gradient is moulded plastic; timber has fibre
+     running along it, and the stripe is what supplies it. Off-axis on purpose:
+     grain is never perfectly square to the board. */
+  --gn-rail-grain:      none;
+  --gn-rail-grain-v:    none;
+  /* THE FOUR TIMBERS AS ONE BACKGROUND, held as four longhand LISTS rather
+     than as a `background:` shorthand in the rule. The reason is layer COUNT: a
+     theme with grain needs two layers per side and a theme without needs one,
+     and a shorthand in the rule can only have one of those shapes. Keeping the
+     lists in tokens lets Arcade compute exactly the four `none` layers it
+     computed before grain existed, which is what "Arcade is identical" has to
+     mean on an element that is 0px wide and paints nothing.
+
+     --gn-rail-w APPEARS INSIDE THE SIZE LIST, so it resolves at the block where
+     the list is declared, not at the element. That is fine because every theme
+     declares both together and the completeness test enforces it; a pack that
+     wants a different rail width must override --gn-rail-face-size too. */
+  --gn-rail-face:        none, none, none, none;
+  --gn-rail-face-pos:    top, bottom, left, right;
+  --gn-rail-face-size:   100% var(--gn-rail-w), 100% var(--gn-rail-w),
+                         var(--gn-rail-w) 100%, var(--gn-rail-w) 100%;
+  --gn-rail-face-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
+  /* The stitch is an OUTLINE, not a box-shadow, because the whole effect is
+     that it is DASHED and a shadow cannot be. Negative offset sets it in from
+     the felt's edge, where a tailor would put it. Arcade's colour is
+     `currentcolor` rather than `transparent` for one specific reason: that is
+     the initial value of outline-color, so at zero width and style `none`
+     Arcade computes precisely what it computed with no outline at all. */
+  --gn-rail-stitch:        currentcolor;
+  --gn-rail-stitch-w:      0px;
+  --gn-rail-stitch-style:  none;
+  --gn-rail-stitch-inset:  0px;
+  /* Two shadows, and both slots exist under every theme so the computed
+     box-shadow keeps its shape. The DROP is the deep well that makes the cloth
+     look like it is under the rail rather than beside it; the LIP is the tight
+     line right under the inner edge. */
   --gn-rail-drop:       transparent;
   --gn-rail-drop-blur:  0px;
+  --gn-rail-lip:        transparent;
+  --gn-rail-lip-y:      0px;
+  --gn-rail-lip-blur:   0px;
+  /* Corners. A table has rounded ones; a square frame reads as a window
+     border. Two radii, because the felt sits INSIDE the timber and takes the
+     tighter one. */
+  --gn-radius-rail:     0px;
+  --gn-radius-felt:     0px;
 
   /* Blurred light behind a letter is a lit sign. A theme that is not a lit
      sign sets these to `none` and leans on weight and tracking instead. */
@@ -399,7 +473,7 @@
 
      One seamless greyscale tile, tinted here. That is the whole reason it
      translates to the packs for nothing: felt is a grey texture plus a colour,
-     so Ping Pong's green, poker's oxblood and a pool blue are the same 33KB
+     so Ping Pong's green, poker's oxblood and a pool blue are the same 53KB
      file. Mid grey is the identity value of an overlay blend, so the tile
      lifts and deepens the tint without recolouring it. See
      scripts/generate-felt-tile.mjs, which also enforces the amplitude bound
@@ -407,19 +481,44 @@
 
      NAMED ONLY HERE, exactly as Bevan is: a browser fetches a background image
      only when a rendered element uses it, so an Arcade session never requests
-     it. Verified over CDP. */
-  --gn-texture:     url("./textures/felt.webp");
-  --gn-texture-tv:  url("./textures/felt.webp");
+     it. Verified over CDP.
+
+     THE SURFACE IS GREEN, NOT WALNUT, and that is the correction that made the
+     cloth appear at all. Deep green is what reads as a table across poker and
+     pool, and more prosaically it is bright enough for the overlay multiply to
+     have something to work with: against walnut the tile's whole range came to
+     six levels out of 255, against this it comes to nineteen in the green
+     channel. Walnut is not gone, it is where it belongs: the rail, and the
+     card stock sitting on the cloth.
+
+     TWO LAYERS, TILE OVER LAMP. The lamp is the bottom layer and blends
+     `normal` into the felt; the tile is the top layer and overlays the LIT
+     result, which is why the weave is strongest exactly where the light falls,
+     the way real cloth behaves. The list is written out per theme rather than
+     composed in the rule so that Arcade keeps a single-layer background-image
+     and stays byte-identical. */
+  --gn-felt:     #16402c;
+  --gn-felt-lit: #1c4d33;
+  /* The lamp's ceiling is set by --gn-dim on the crown, not by taste: at this
+     strength it measures 5.16, and a brighter lamp walks it under AA. */
+  --gn-lamp-geom: 120% 78% at 50% -12%;
+  --gn-lamp-fade: 56%;
+  --gn-texture:
+    url("./textures/felt.webp"),
+    radial-gradient(var(--gn-lamp-geom), color-mix(in srgb, var(--gn-felt-lit) 85%, transparent) 0%, transparent var(--gn-lamp-fade));
+  --gn-texture-tv:
+    url("./textures/felt.webp"),
+    radial-gradient(var(--gn-lamp-geom), color-mix(in srgb, var(--gn-felt-lit) 85%, transparent) 0%, transparent var(--gn-lamp-fade));
   --gn-texture-opacity: 1;
-  --gn-texture-tint: var(--gn-bg);
-  --gn-texture-blend: overlay;
-  --gn-texture-size: 512px;
+  --gn-texture-tint: var(--gn-felt);
+  --gn-texture-blend: overlay, normal;
+  --gn-texture-size: 512px, 100% 100%;
   /* Bigger on the big screen so the tile repeats twice across 1920 rather than
      four times. The failure mode of a tiled texture is not the seam, it is the
      LATTICE: the eye finds a repeating grid across a television long before it
      finds an edge. The generator keeps the tile's coarse structure faint for
      the same reason. */
-  --gn-texture-size-tv: 900px;
+  --gn-texture-size-tv: 900px, 100% 100%;
 
   /* ---- the rail: walnut, a stitch line, and the drop beneath it ----
      Shown a rail and no rail side by side, James chose the rail definitively.
@@ -434,12 +533,48 @@
        :root[data-theme="tabletop"]:has(.pp-root) { --gn-rail-timber: ...; }
      No pack does this yet; stage 4 will. */
   --gn-rail-w:         14px;
-  --gn-rail-timber:    linear-gradient(180deg, #7a5533 0%, #5c3d24 45%, #3d2817 100%);
-  --gn-rail-timber-v:  linear-gradient(90deg, #7a5533 0%, #5c3d24 45%, #3d2817 100%);
-  --gn-rail-stitch:    #a2825c;
-  --gn-rail-stitch-w:  1px;
-  --gn-rail-drop:      #000;
-  --gn-rail-drop-blur: 18px;
+  /* The base runs warmer and darker than the first cut, which read as a smooth
+     moulded strip. The 150deg angle puts the light along the board rather than
+     square across it, and the third stop lifts the far edge so each timber has
+     two lit faces like a real moulding. */
+  --gn-rail-timber:    linear-gradient(150deg, #5a3d24 0%, #3b2716 46%, #57391f 100%);
+  --gn-rail-timber-v:  linear-gradient(60deg,  #5a3d24 0%, #3b2716 46%, #57391f 100%);
+  /* Grain: a hard 2px-in-7px stripe at 6 degrees off square. It is the single
+     cheapest thing that stops the timber reading as plastic. */
+  --gn-rail-grain:     repeating-linear-gradient(96deg, rgba(0,0,0,.16) 0 2px, transparent 2px 7px);
+  --gn-rail-grain-v:   repeating-linear-gradient(6deg,  rgba(0,0,0,.16) 0 2px, transparent 2px 7px);
+  /* Eight layers, grain over timber on each of the four sides. Same order as
+     the position and size lists below, and they have to stay in step. */
+  --gn-rail-face:
+    var(--gn-rail-grain),   var(--gn-rail-timber),
+    var(--gn-rail-grain),   var(--gn-rail-timber),
+    var(--gn-rail-grain-v), var(--gn-rail-timber-v),
+    var(--gn-rail-grain-v), var(--gn-rail-timber-v);
+  --gn-rail-face-pos:    top, top, bottom, bottom, left, left, right, right;
+  --gn-rail-face-size:
+    100% var(--gn-rail-w), 100% var(--gn-rail-w),
+    100% var(--gn-rail-w), 100% var(--gn-rail-w),
+    var(--gn-rail-w) 100%, var(--gn-rail-w) 100%,
+    var(--gn-rail-w) 100%, var(--gn-rail-w) 100%;
+  --gn-rail-face-repeat: no-repeat, no-repeat, no-repeat, no-repeat,
+                         no-repeat, no-repeat, no-repeat, no-repeat;
+  /* Brass thread, dashed, set 4px in from the cloth's edge. Dashed is the
+     entire effect: the solid hairline this replaces read as a border, and a
+     border around the screen is a window, not a table. */
+  --gn-rail-stitch:       rgba(238,194,98,.34);
+  --gn-rail-stitch-w:     1px;
+  --gn-rail-stitch-style: dashed;
+  --gn-rail-stitch-inset: -4px;
+  /* The deep well plus the tight lip. This is what makes the cloth read as
+     being UNDER the rail rather than beside it, and it does more for the
+     illusion than the timber does. */
+  --gn-rail-drop:      rgba(0,0,0,.6);
+  --gn-rail-drop-blur: 44px;
+  --gn-rail-lip:       rgba(0,0,0,.5);
+  --gn-rail-lip-y:     2px;
+  --gn-rail-lip-blur:  5px;
+  --gn-radius-rail:    16px;
+  --gn-radius-felt:    4px;
 
   /* NO GLOW ANYWHERE. Print on card does not emit light. The wordmark keeps a
      hard drop with no blur radius, which is ink sitting slightly proud of the
@@ -579,17 +714,20 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 }
 .gn-rail::before{
   content:"";position:absolute;inset:0;
-  background:
-    var(--gn-rail-timber)   top    / 100% var(--gn-rail-w) no-repeat,
-    var(--gn-rail-timber)   bottom / 100% var(--gn-rail-w) no-repeat,
-    var(--gn-rail-timber-v) left   / var(--gn-rail-w) 100% no-repeat,
-    var(--gn-rail-timber-v) right  / var(--gn-rail-w) 100% no-repeat;
+  border-radius:var(--gn-radius-rail);
+  background-image:    var(--gn-rail-face);
+  background-position: var(--gn-rail-face-pos);
+  background-size:     var(--gn-rail-face-size);
+  background-repeat:   var(--gn-rail-face-repeat);
 }
 .gn-rail::after{
   content:"";position:absolute;inset:var(--gn-rail-w);
+  border-radius:var(--gn-radius-felt);
+  outline:var(--gn-rail-stitch-w) var(--gn-rail-stitch-style) var(--gn-rail-stitch);
+  outline-offset:var(--gn-rail-stitch-inset);
   box-shadow:
-    inset 0 0 0 var(--gn-rail-stitch-w) var(--gn-rail-stitch),
-    inset 0 0 var(--gn-rail-drop-blur) var(--gn-rail-drop);
+    inset 0 0 var(--gn-rail-drop-blur) var(--gn-rail-drop),
+    inset 0 var(--gn-rail-lip-y) var(--gn-rail-lip-blur) var(--gn-rail-lip);
 }
 @media (prefers-reduced-motion:reduce){
   .gn-rail{transition:none}
