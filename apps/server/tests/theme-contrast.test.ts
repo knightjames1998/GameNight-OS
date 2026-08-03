@@ -86,6 +86,30 @@ const isColour = (v: string) => /^#[0-9a-fA-F]{3,8}$/.test(v);
 const ARCADE = tokens(":root");
 const TABLETOP = tokens(':root[data-theme="tabletop"]');
 
+// ---------------------------------------------------------------- the packs
+//
+// A pack keeps its own tokens in its own stylesheet, on its own roots, because
+// identity belongs to the pack and so does its re-treatment (DECISION LOG,
+// stage 4). Ping Pong is the pilot and the only converted pack; each one that
+// follows adds an entry here and a PACK_PAIRS block below.
+const PP_CSS = readFileSync(path.join(ROOT, "apps/web/src/pingpong/pingpong.css"), "utf8");
+
+function packTokens(css: string, selectorStart: string): Record<string, string> {
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
+  const at = bare.indexOf(selectorStart);
+  assert.notEqual(at, -1, `no block starting "${selectorStart}" in the pack stylesheet`);
+  const open = bare.indexOf("{", at);
+  const close = bare.indexOf("}", open);
+  const out: Record<string, string> = {};
+  for (const m of bare.slice(open + 1, close).matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
+    out[m[1]!] = m[2]!.replace(/\s+/g, " ").trim();
+  }
+  return out;
+}
+
+const PP_ARCADE = packTokens(PP_CSS, ".pp-root,");
+const PP_TABLETOP = packTokens(PP_CSS, ':root[data-theme="tabletop"] .pp-root,');
+
 /**
  * Pairs that have to stay readable, as [foreground, background, floor?]. Text
  * against the two surfaces it actually sits on, and every -ink against the fill
@@ -256,5 +280,85 @@ test("every theme has a pre-paint background in index.html", () => {
       `the pre-paint colour for "${name}" does not match its --gn-bg, so the first frame ` +
         `is a different colour from the second`,
     );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// THE PACKS. Ping Pong is the stage 4 pilot and the only converted pack; the
+// remaining eight add a block here as they land.
+//
+// The pairs are TEXT pairs, the same shape the shell uses: ink on the surface
+// it sits on, and each -ink on the fill it is printed on. Borders are not in
+// the list for the same reason --gn-line is not in the shell's, and it matters
+// more here: under Tabletop --pp-line stops being a lit green edge and becomes
+// the table's painted white centre line, which moves its contrast against the
+// felt from 3.07 to 10.9. That is the object being right, not a regression, and
+// a parity assertion over it would be asserting that the theme did nothing.
+const PP_PAIRS: [string, string][] = [
+  ["--gn-ink", "--pp-felt"],
+  ["--gn-dim", "--pp-felt"],
+  ["--pp-accent", "--pp-felt"],
+  ["--pp-accent-tint-ink", "--pp-felt"],
+  ["--pp-err", "--pp-felt"],
+  // Each -ink on its own fill. --pp-go-ink prints on the SHELL's confirm green,
+  // because the Go button is the shell's action wearing pack paint.
+  ["--pp-accent-ink", "--pp-accent"],
+  ["--pp-go-ink", "--gn-p2"],
+];
+
+/** Pack tokens first, then the shell's, resolved for the given theme. */
+function ppValue(themeShell: Record<string, string>, themePack: Record<string, string>, token: string) {
+  return themePack[token] ?? PP_ARCADE[token] ?? themeShell[token] ?? ARCADE[token]!;
+}
+
+const PP_BLOCKS: [string, Record<string, string>, Record<string, string>][] = [
+  ["arcade", ARCADE, PP_ARCADE],
+  ["tabletop", TABLETOP, PP_TABLETOP],
+];
+
+test("PING PONG clears WCAG AA in both themes", () => {
+  const failures: string[] = [];
+  for (const [name, shell, pack] of PP_BLOCKS) {
+    for (const [fg, bg] of PP_PAIRS) {
+      const ratio = contrast(ppValue(shell, pack, fg), ppValue(shell, pack, bg));
+      if (ratio < 4.5) failures.push(`${name}: ${fg} on ${bg} = ${ratio} (needs 4.5)`);
+    }
+  }
+  assert.deepEqual(failures, [], "pack contrast below AA:\n  " + failures.join("\n  "));
+});
+
+test("PING PONG holds contrast parity between the themes", () => {
+  // The felt was tuned against this, not picked and hoped for: the first
+  // candidate (#143a3f) put the orange rubber at 4.72 against it, barely over
+  // AA where Arcade reads 5.90, and it was darkened until the pair came back.
+  const TOLERANCE = 2.0;
+  const drifted: string[] = [];
+  for (const [fg, bg] of PP_PAIRS) {
+    const a = contrast(ppValue(ARCADE, PP_ARCADE, fg), ppValue(ARCADE, PP_ARCADE, bg));
+    const t = contrast(ppValue(TABLETOP, PP_TABLETOP, fg), ppValue(TABLETOP, PP_TABLETOP, bg));
+    const delta = Math.round((t - a) * 100) / 100;
+    if (Math.abs(delta) > TOLERANCE) {
+      drifted.push(`${fg} on ${bg}: arcade ${a}, tabletop ${t} (${delta})`);
+    }
+  }
+  assert.deepEqual(drifted, [], "pack contrast parity lost:\n  " + drifted.join("\n  "));
+});
+
+test("PING PONG'S IDENTITY SURVIVES THE THEME, and its material does not", () => {
+  // The rubber is the identity and identity does not change with the theme,
+  // exactly as the shell's cabinet inks do not. If a later pass "tidies" the
+  // accent into the Tabletop block, the pack stops being recognisable across a
+  // room, which is what standing rule 3 is protecting.
+  for (const t of ["--pp-accent", "--pp-accent-ink", "--pp-accent-sh", "--pp-accent-tint-ink"]) {
+    assert.ok(t in PP_ARCADE, `${t} should be declared on the pack root`);
+    assert.ok(
+      !(t in PP_TABLETOP),
+      `${t} is identity and must NOT be redeclared under Tabletop`,
+    );
+  }
+  // And the material DOES change, or the pack is just a recolour of the shell.
+  for (const t of ["--pp-felt", "--pp-edge", "--pp-line", "--pp-radius-card", "--pp-bevel"]) {
+    assert.ok(t in PP_TABLETOP, `${t} is material and must be re-treated under Tabletop`);
+    assert.notEqual(PP_ARCADE[t], PP_TABLETOP[t], `${t} carries Arcade's value under Tabletop`);
   }
 });

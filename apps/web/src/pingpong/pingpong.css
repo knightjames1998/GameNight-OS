@@ -4,13 +4,137 @@
    centre/boundary line and an orange-ball accent. Distinct from
    Mario Kart's race blue/red, Smash's red/steel, Mario Party's
    purple. Reads the shared --gn-* tokens where it can.
+   ------------------------------------------------------------
+   THE STAGE 4 PILOT, and the pattern the other eight packs follow.
+   Blackjack would have been the easy conversion and was rejected for
+   exactly that reason: it is 36 lines and already entirely on the
+   --cg-* contract, so converting it would have proved nothing. A
+   mechanism that only works on the pack that needed no work is not a
+   mechanism. This file was the honest shape: 129 lines, 34 hex
+   literals, 12 rgb() and only 15 token reads.
+
+   THE MECHANISM, in four rules:
+
+   1. A PACK'S OWN VALUES BECOME --pp-* TOKENS ON ITS OWN ROOTS, named
+      for their JOB. Identity lives with the pack, so its re-treatment
+      lives with the pack too, and index.css does not grow by a line
+      per pack. The casino group's --cg-* block is the precedent.
+
+   2. ANYTHING THAT IS ACTUALLY A SHELL VALUE READS THE SHELL TOKEN
+      instead of getting a pack one. Four were hiding here as literals:
+      #35e0c4 and #1aa88f are exactly --gn-p2 and --gn-p2-sh (the Go
+      button is the shell's confirm action wearing pack paint), #fff is
+      --gn-brand-ink, and an rgba() gold was --gn-gold at 16%.
+
+   3. STRUCTURE COMES FROM THE STAGE 3 CONTRACT WHERE THE VALUE ALREADY
+      MATCHES, so a Ping Pong card sits on the table the same way a
+      shell card does: the pills, the paddle box radius and the two TV
+      panel radii were already exactly --gn-radius-pill, --gn-radius-tile
+      and --gn-radius-card-tv. Where the pack's number DIFFERS from the
+      shell's it keeps a pack token rather than being rounded to fit,
+      because rounding it would move Arcade and this pass may not.
+
+   4. THE THEME BLOCK LIVES HERE, not in index.css:
+        :root[data-theme="tabletop"] .pp-root,
+        :root[data-theme="tabletop"] .pp-tv { ... }
+
+   THE TABLETOP OBJECT is a real table tennis table: a dark blue-green
+   painted top, a crisp white centre line, a wooden rail, and the brand
+   orange surviving as the rubber. --pp-accent is therefore NOT
+   redeclared under Tabletop, exactly as the shell's cabinet inks are
+   not: it is the identity that has to stay recognisable across a room,
+   and a theme does not get to take it.
    ============================================================ */
+
+.pp-root,
+.pp-tv {
+  /* ---- identity + surfaces ---- */
+  --pp-felt:         #0c2a1d;  /* the table surface: cards, inputs, controls */
+  --pp-felt-lit:     #0f5a3a;  /* the crown of the table under the lamp */
+  --pp-felt-top:     #0a2a1c;  /* the page gradient, top */
+  --pp-felt-deep:    #071c13;  /* the page gradient, bottom */
+  --pp-felt-deep-tv: #061912;  /* the TV runs a shade deeper than the phone */
+  --pp-card:         #0f3826;  /* a card's lit upper face */
+  --pp-raise:        #123a28;  /* a raised control (the ghost button) */
+  --pp-edge:         #1f6b46;  /* the quiet border: cards, TV panels */
+  --pp-line:         #2f7d55;  /* the crisp line: inputs, segments, paddle box */
+  --pp-accent:       #ff7a1a;  /* THE RUBBER. Identity. Not themed. */
+  --pp-accent-ink:   #201007;  /* ink printed on the rubber */
+  --pp-accent-sh:    #b8551a;  /* the rubber's bevel */
+  --pp-accent-tint-ink:#ffb779;/* ink on a rubber-tinted pill */
+  --pp-go-ink:       #08221d;  /* ink on the shell's confirm fill. NOT --gn-p2-ink
+                                  (#0d1a17): close, but not equal, and adopting the
+                                  shell's would have moved Arcade. */
+  --pp-err:          #ffb4a2;
+
+  /* ---- structure the shell contract has no exact match for ----
+     The shell's radii are 16/12px and its bevels sit at 35-40% depth;
+     this pack was built at 10/8px and 40-50%. Those are pack tokens
+     rather than shell reads because the numbers genuinely differ, and
+     Arcade may not move in this pass. --pp-bevel-btn carries GEOMETRY
+     ONLY and the use site supplies the colour, which is the trap stage
+     3 hit: a custom property containing a var() resolves where it is
+     DECLARED, so a token here cannot read one set on a descendant. */
+  --pp-radius-card:  10px;
+  --pp-radius-input: 8px;
+  --pp-bevel:        0 2px 0 color-mix(in srgb, var(--gn-shadow-depth) 50%, transparent);
+  --pp-bevel-btn:    0 3px 0;
+  --pp-bevel-sm:     0 3px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);
+  --pp-bevel-sm-press:0 1px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);
+  --pp-bevel-inset:  inset 0 -3px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);
+  --pp-glow-brand:   0 0 18px color-mix(in srgb, var(--pp-accent) 50%, transparent), 2px 3px 0 color-mix(in srgb, var(--gn-shadow-depth) 50%, transparent);
+  --pp-glow-brand-tv:0 0 3vmin color-mix(in srgb, var(--pp-accent) 50%, transparent);
+}
+
+/* ============================================================
+   TABLETOP: the actual table.
+   A dark blue-green painted top, a wooden rail, a painted white line,
+   and the same orange rubber. The felt was tuned against the accent
+   rather than picked: at #143a3f the rubber read 4.72 against it,
+   barely over AA and well under Arcade's 5.90, so it was darkened
+   until the pair came back to parity. Every text pair is asserted in
+   apps/server/tests/theme-contrast.test.ts.
+   ============================================================ */
+:root[data-theme="tabletop"] .pp-root,
+:root[data-theme="tabletop"] .pp-tv {
+  --pp-felt:         #0d262b;
+  --pp-felt-lit:     #17454e;
+  --pp-felt-top:     #0b2228;
+  --pp-felt-deep:    #071a1e;
+  --pp-felt-deep-tv: #06171a;
+  --pp-card:         #103038;
+  --pp-raise:        #12333a;
+  /* The rail is WOOD, which is the one place this object stops being a
+     recolour of the arcade card and becomes a different material. */
+  --pp-edge:         #6b4a2a;
+  /* And the line is painted on, not a lit green edge. */
+  --pp-line:         #ddd6c4;
+  --pp-go-ink:       #07190e;
+  --pp-err:          #eeb4a6;
+
+  /* --pp-accent, --pp-accent-ink, --pp-accent-sh and
+     --pp-accent-tint-ink are deliberately NOT redeclared. The rubber is
+     the identity and identity does not change with the theme, which is
+     the same call the shell's cabinet inks make. */
+
+  /* Squarer and softer, in step with the shell's own material. */
+  --pp-radius-card:  3px;
+  --pp-radius-input: 3px;
+  --pp-bevel:        0 1px 3px color-mix(in srgb, var(--gn-shadow-depth) 45%, transparent);
+  --pp-bevel-btn:    0 2px 5px;
+  --pp-bevel-sm:     0 1px 4px color-mix(in srgb, var(--gn-shadow-depth) 45%, transparent), inset 0 1px 0 color-mix(in srgb, var(--gn-ink) 8%, transparent);
+  --pp-bevel-sm-press:0 1px 2px color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);
+  --pp-bevel-inset:  inset 0 1px 0 color-mix(in srgb, var(--gn-ink) 8%, transparent);
+  /* Print on a table does not glow. */
+  --pp-glow-brand:   0 2px 0 color-mix(in srgb, var(--gn-shadow-depth) 55%, transparent);
+  --pp-glow-brand-tv:0 3px 0 color-mix(in srgb, var(--gn-shadow-depth) 55%, transparent);
+}
 
 .pp-root {
   min-height: 100dvh;
   background:
-    radial-gradient(120% 80% at 50% -10%, #0f5a3a 0%, transparent 55%),
-    linear-gradient(180deg, #0a2a1c, #071c13);
+    radial-gradient(120% 80% at 50% -10%, var(--pp-felt-lit) 0%, transparent 55%),
+    linear-gradient(180deg, var(--pp-felt-top), var(--pp-felt-deep));
   color: var(--gn-ink);
   font-family: Nunito, system-ui, sans-serif;
 }
@@ -20,49 +144,51 @@
 
 .pp-brand {
   font-family: var(--gn-font-display);
-  font-size: 30px; letter-spacing: 1px; line-height: 1; color: #fff;
+  font-size: 30px; letter-spacing: 1px; line-height: 1; color: var(--gn-brand-ink);
   text-transform: uppercase;
-  text-shadow: 0 0 18px rgba(255, 122, 26, 0.5), 2px 3px 0 rgba(0, 0, 0, 0.5);
+  text-shadow: var(--pp-glow-brand);
 }
-.pp-brand em { color: #ff7a1a; font-style: normal; }
+.pp-brand em { color: var(--pp-accent); font-style: normal; }
 .pp-sub { color: var(--gn-dim); font-size: 13px; margin-top: 2px; }
 
 .pp-card {
-  background: linear-gradient(180deg, #0f3826, #0c2a1d);
-  border: 1px solid #1f6b46;
-  border-radius: 10px;
+  background: linear-gradient(180deg, var(--pp-card), var(--pp-felt));
+  border: 1px solid var(--pp-edge);
+  border-radius: var(--pp-radius-card);
   padding: 14px;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+  box-shadow: var(--pp-bevel);
 }
 .pp-card + .pp-card { margin-top: 12px; }
 .pp-h { font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 16px; margin: 0 0 10px; }
 .pp-lab { color: var(--gn-dim); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
 .pp-hint { color: var(--gn-dim); font-size: 13px; }
-.pp-err { color: #ffb4a2; font-size: 13px; margin-top: 8px; }
+.pp-err { color: var(--pp-err); font-size: 13px; margin-top: 8px; }
 
 .pp-seg { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 .pp-seg button {
-  border: 1px solid #2f7d55; background: #0c2a1d; color: var(--gn-ink);
-  border-radius: 999px; padding: 7px 13px; font-family: inherit; font-weight: 700;
+  border: 1px solid var(--pp-line); background: var(--pp-felt); color: var(--gn-ink);
+  border-radius: var(--gn-radius-pill); padding: 7px 13px; font-family: inherit; font-weight: 700;
   font-size: 13px; cursor: pointer;
 }
-.pp-seg button.on { background: #ff7a1a; color: #201007; border-color: #ff7a1a; }
+.pp-seg button.on { background: var(--pp-accent); color: var(--pp-accent-ink); border-color: var(--pp-accent); }
 
 .pp-input, .pp-select {
-  width: 100%; min-height: 40px; border-radius: 8px; background: #0c2a1d;
-  border: 1px solid #2f7d55; color: var(--gn-ink); padding: 0 12px;
+  width: 100%; min-height: 40px; border-radius: var(--pp-radius-input); background: var(--pp-felt);
+  border: 1px solid var(--pp-line); color: var(--gn-ink); padding: 0 12px;
   /* 16px min avoids iOS Safari's zoom-on-focus that leaves the app enlarged. */
   font-size: 16px; font-family: inherit; color-scheme: dark;
 }
 
 .pp-btn {
-  width: 100%; min-height: 46px; border-radius: 10px; border: 0;
+  width: 100%; min-height: 46px; border-radius: var(--pp-radius-card); border: 0;
   font-weight: 800; font-size: 15px; font-family: inherit; cursor: pointer;
-  background: #ff7a1a; color: #201007; box-shadow: 0 3px 0 #b8551a;
+  background: var(--pp-accent); color: var(--pp-accent-ink); box-shadow: var(--pp-bevel-btn) var(--pp-accent-sh);
 }
 .pp-btn:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
-.pp-btn--ghost { background: #123a28; color: var(--gn-ink); box-shadow: inset 0 -3px 0 rgba(0,0,0,.4); }
-.pp-btn--go { background: #35e0c4; color: #08221d; box-shadow: 0 3px 0 #1aa88f; }
+.pp-btn--ghost { background: var(--pp-raise); color: var(--gn-ink); box-shadow: var(--pp-bevel-inset); }
+/* The shell's confirm action, wearing pack paint: the fill and its bevel are
+   --gn-p2 / --gn-p2-sh exactly, so they read the shell tokens. */
+.pp-btn--go { background: var(--gn-p2); color: var(--pp-go-ink); box-shadow: var(--pp-bevel-btn) var(--gn-p2-sh); }
 
 .pp-textbtn {
   background: transparent; border: 0; color: var(--gn-dim); font-weight: 700;
@@ -72,26 +198,27 @@
 .pp-textbtn:hover { color: var(--gn-ink); }
 
 .pp-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; }
-.pp-row + .pp-row { border-top: 1px solid rgba(47, 125, 85, 0.35); }
+.pp-row + .pp-row { border-top: 1px solid color-mix(in srgb, var(--pp-line) 35%, transparent); }
 .pp-name { font-weight: 700; }
 .pp-pill {
   font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;
-  padding: 3px 8px; border-radius: 999px; background: rgba(255, 122, 26, 0.16); color: #ffb779;
+  padding: 3px 8px; border-radius: var(--gn-radius-pill);
+  background: color-mix(in srgb, var(--pp-accent) 16%, transparent); color: var(--pp-accent-tint-ink);
 }
-.pp-pill--king { background: rgba(255, 207, 63, 0.16); color: var(--gn-gold); }
+.pp-pill--king { background: color-mix(in srgb, var(--gn-gold) 16%, transparent); color: var(--gn-gold); }
 
 /* The two big one-tap winner buttons */
 .pp-vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: stretch; }
 .pp-fighter {
-  border: 2px solid #2f7d55; background: #0c2a1d; color: var(--gn-ink);
-  border-radius: 12px; padding: 14px 10px; text-align: center; cursor: pointer;
-  font-family: inherit; box-shadow: 0 3px 0 rgba(0,0,0,.4);
+  border: 2px solid var(--pp-line); background: var(--pp-felt); color: var(--gn-ink);
+  border-radius: var(--gn-radius-tile); padding: 14px 10px; text-align: center; cursor: pointer;
+  font-family: inherit; box-shadow: var(--pp-bevel-sm);
 }
 .pp-fighter:disabled { opacity: 0.5; cursor: default; }
-.pp-fighter:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.4); }
+.pp-fighter:active:not(:disabled) { transform: translateY(2px); box-shadow: var(--pp-bevel-sm-press); }
 .pp-fighter__n { font-family: Fredoka, system-ui, sans-serif; font-weight: 800; font-size: 16px; }
 .pp-fighter__g { color: var(--gn-dim); font-size: 13px; margin-top: 3px; }
-.pp-vsbadge { align-self: center; font-family: var(--gn-font-display); color: #ff7a1a; font-size: 18px; }
+.pp-vsbadge { align-self: center; font-family: var(--gn-font-display); color: var(--pp-accent); font-size: 18px; }
 .pp-score { text-align: center; font-family: Fredoka, sans-serif; font-weight: 800; font-size: 22px; }
 
 /* ---- TV view ---- */
@@ -107,23 +234,23 @@
     calc(4vmin + env(safe-area-inset-bottom, 0px))
     calc(4vmin + env(safe-area-inset-left, 0px));
   background:
-    radial-gradient(120% 80% at 50% -10%, #0f5a3a 0%, transparent 55%),
-    linear-gradient(180deg, #0a2a1c, #061912);
+    radial-gradient(120% 80% at 50% -10%, var(--pp-felt-lit) 0%, transparent 55%),
+    linear-gradient(180deg, var(--pp-felt-top), var(--pp-felt-deep-tv));
   color: var(--gn-ink); font-family: Nunito, system-ui, sans-serif;
 }
 .pp-tv__brand {
-  font-family: var(--gn-font-display); font-size: 6vmin; color: #fff; text-transform: uppercase;
-  text-shadow: 0 0 3vmin rgba(255, 122, 26, 0.5);
+  font-family: var(--gn-font-display); font-size: 6vmin; color: var(--gn-brand-ink); text-transform: uppercase;
+  text-shadow: var(--pp-glow-brand-tv);
 }
 .pp-tv__muted { color: var(--gn-dim); }
 .pp-tv__now {
-  margin-top: 3vmin; border: 3px solid #2f7d55; border-radius: 2vmin; padding: 3vmin;
-  background: rgba(12, 42, 29, 0.7); text-align: center;
+  margin-top: 3vmin; border: 3px solid var(--pp-line); border-radius: var(--gn-radius-card-tv); padding: 3vmin;
+  background: color-mix(in srgb, var(--pp-felt) 70%, transparent); text-align: center;
 }
 .pp-tv__vs { display: flex; align-items: center; justify-content: center; gap: 4vmin; margin-top: 1.5vmin; }
 .pp-tv__pl { font-family: Fredoka, sans-serif; font-weight: 800; font-size: 5vmin; }
-.pp-tv__sc { font-family: var(--gn-font-display); color: #ff7a1a; font-size: 7vmin; }
+.pp-tv__sc { font-family: var(--gn-font-display); color: var(--pp-accent); font-size: 7vmin; }
 .pp-tv__grid { display: grid; grid-template-columns: 1fr; gap: 2vmin; margin-top: 3vmin; }
-.pp-tv__panel { border: 2px solid #1f6b46; border-radius: 2vmin; padding: 2vmin 2.5vmin; background: rgba(12,42,29,0.5); }
+.pp-tv__panel { border: 2px solid var(--pp-edge); border-radius: var(--gn-radius-card-tv); padding: 2vmin 2.5vmin; background: color-mix(in srgb, var(--pp-felt) 50%, transparent); }
 .pp-tv__panel h3 { font-family: Fredoka, sans-serif; font-weight: 800; font-size: 2.6vmin; margin: 0 0 1.5vmin; color: var(--gn-dim); text-transform: uppercase; letter-spacing: 0.3vmin; }
 .pp-tv__line { display: flex; justify-content: space-between; font-size: 3vmin; padding: 0.8vmin 0; }

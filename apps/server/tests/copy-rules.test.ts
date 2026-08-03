@@ -106,13 +106,20 @@ test("NO EM DASH REACHES A SCREEN OR A COMMENT, in any of its spellings", () => 
 // been made a fortnight earlier and written down. Writing it down was not
 // enough, which is the entire argument for this test existing.
 //
-// SCOPED TO index.css FOR NOW. The pack stylesheets carry ~207 literals and
-// MOST OF THOSE ARE LOAD BEARING: standing rule 3 puts every pack's TV in that
-// pack's own design language, so smash.css being red is not drift. Stage 3
-// splits pack IDENTITY (the hue, which stays) from THEME TREATMENT (how dark
-// the backdrop, how heavy the border) and widens this list as it goes. Adding
-// a pack file here before that work is done fails the build for no reason.
-const TOKENISED_CSS = ["apps/web/src/index.css"];
+// THE LIST GROWS ONE PACK AT A TIME. The pack stylesheets carry ~207 literals
+// and MOST OF THOSE ARE LOAD BEARING: standing rule 3 puts every pack's TV in
+// that pack's own design language, so smash.css being red is not drift. What
+// stage 4 does per pack is move those literals into that pack's OWN token
+// block, which is what makes them themeable without flattening the packs into
+// each other. A pack joins this list on the commit that converts it; listing
+// one before then just fails the build on work nobody has done yet.
+const TOKENISED_CSS = [
+  "apps/web/src/index.css",
+  // Stage 4 adds one line here per pack AS IT CONVERTS. Adding all nine now
+  // would fail the build on the eight that have not been done, which is a
+  // broken build rather than a useful signal.
+  "apps/web/src/pingpong/pingpong.css",
+];
 
 /** A hex colour, or an rgb()/rgba() literal. */
 const COLOR_LITERAL = /#[0-9a-fA-F]{3,8}\b|\brgba?\(/g;
@@ -122,31 +129,31 @@ const blank = (s: string) => s.replace(/[^\n]/g, " ");
 
 /**
  * Blank out the two places a colour literal is ALLOWED to appear: comments,
- * and the token blocks themselves. A token block is a rule whose selector is
- * :root, or :root with a [data-theme="..."] attribute on it, which is what the
- * Tabletop block is.
+ * and the token blocks themselves.
+ *
+ * A TOKEN BLOCK IS RECOGNISED BY ITS SHAPE, not by a list of known selectors:
+ * it is any rule whose declarations are ALL custom properties. That definition
+ * is the honest one (a rule that sets only custom properties cannot paint
+ * anything itself, so every literal in it IS a token value) and it is the one
+ * that survives stage 4, where each pack adds two more token blocks on its own
+ * roots. Matching `:root` and `[data-theme=...]` by name, as this used to,
+ * would have meant editing this test nine more times, and the version before
+ * that consumed the previous block's closing brace as a delimiter and silently
+ * stopped recognising the SECOND block in a file the day Tabletop was added.
+ *
+ * A rule that mixes custom properties with real ones is NOT a token block and
+ * its literals are still caught.
  *
  * Comments are exempt because the token block in index.css explains at length
  * what went wrong and quotes the literals it is talking about, and that
  * reasoning is worth more than making the grep simpler.
- *
- * THE LEADING DELIMITER IS A LOOKBEHIND, and that is not a style choice. This
- * used to require and CONSUME a `}` or `;` before the selector, which worked
- * for exactly as long as there was one token block in the file. The moment
- * Tabletop was added the first block's closing brace was eaten as the first
- * match, leaving no delimiter in front of the second, so the second block was
- * never blanked and every one of its tokens was reported as a stray literal.
- * A zero-width assertion cannot eat the delimiter, so blocks can sit back to
- * back. The class excludes the characters that would make this part of a
- * LONGER selector (`.gn-x[data-theme=...]` is a themed component rule, not a
- * token block, and its colours should still be caught).
  */
 function strippable(css: string): string {
   const noComments = css.replace(/\/\*[\s\S]*?\*\//g, blank);
-  return noComments.replace(
-    /(?<![\w.#[-])(?::root|\[data-theme=[^\]]*\])[^{}]*\{[^{}]*\}/g,
-    blank,
-  );
+  return noComments.replace(/([^{}]*)\{([^{}]*)\}/g, (whole, _sel: string, body: string) => {
+    const decls = body.split(";").map((d) => d.trim()).filter(Boolean);
+    return decls.length && decls.every((d) => d.startsWith("--")) ? blank(whole) : whole;
+  });
 }
 
 test("NO COLOUR LITERAL OUTSIDE THE TOKEN BLOCK in the themed stylesheets", () => {
@@ -179,6 +186,8 @@ test("the colour-literal check can actually see a literal, and knows where not t
     // A themed COMPONENT rule that happens to carry the attribute is not a
     // token block, and its literals must still be caught.
     '.gn-x[data-theme="tabletop"]{color:#f0e6d2}',
+    // A rule that MIXES a custom property with a real one is not a token block.
+    ".pp-btn{--pp-x:#ff7a1a;background:#ff7a1a}",
   ];
   for (const sample of caught) {
     assert.ok(
@@ -196,6 +205,11 @@ test("the colour-literal check can actually see a literal, and knows where not t
     // whole palette as stray literals.
     ':root{--gn-surf:#241a30}\n:root[data-theme="tabletop"]{--gn-surf:#201a12}',
     ":root{--gn-surf:#241a30}:root[data-theme=x]{--gn-surf:#201a12}",
+    // A PACK's token blocks, which is the shape stage 4 adds nine times over.
+    // Neither selector is :root, so a check that matched on selector names
+    // rather than on shape would report a pack's whole palette as stray.
+    ".pp-root,\n.pp-tv{--pp-felt:#0c2a1d;--pp-accent:#ff7a1a}",
+    ':root[data-theme="tabletop"] .pp-root{--pp-felt:#0d262b}',
     "/* #241a30 appears eight times and is exactly --gn-surf */",
     ".gn-x{background:color-mix(in srgb, var(--gn-p1) 45%, transparent)}",
     ".gn-x{border:2px solid var(--gn-line)}",

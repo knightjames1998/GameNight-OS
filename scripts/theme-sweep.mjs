@@ -87,6 +87,27 @@ const ROUTES = [
 ];
 
 /**
+ * One route per stylesheet in the app, for the rule pass. Every pack ships its
+ * CSS inside its own lazy chunk, so a stylesheet only exists in the document
+ * once a route that imports it has been visited. Visiting one route per pack is
+ * what makes the rule pass cover the pack files at all; without it a pack
+ * conversion is checked only by whatever its empty state happens to render.
+ */
+const RULE_ROUTES = [
+  "/",
+  "/pingpong",
+  "/pingpong/tv/x",
+  "/smash",
+  "/mariokart",
+  "/marioparty",
+  "/blackjack",
+  "/roulette",
+  "/craps",
+  "/casinorun",
+  "/beerio",
+];
+
+/**
  * The stub backend. Only the handful of endpoints that decide whether a screen
  * paints at all: /auth/me gets past the signed-out gate, and the three Home
  * reads fill the crew list, the friends cabinet and the stats tile, which is
@@ -397,9 +418,59 @@ const COLLECT_RULES = (props) => `(async () => {
     return out;
   };
 
+  // Collect the sheets first, because the probe needs an ancestor before it can
+  // be measured and the ancestor is derived from what the sheets declare.
+  const sheets = [];
+  for (const link of document.querySelectorAll('link[rel="stylesheet"]')) {
+    try {
+      sheets.push({
+        name: link.href.split('/').pop().replace(/-[A-Za-z0-9_-]{8}\\.css$/, '.css'),
+        css: await (await fetch(link.href)).text(),
+      });
+    } catch { /* cross-origin or gone */ }
+  }
+
+  // THE PROBE NEEDS THE PACK'S ANCESTRY OR ITS TOKENS DO NOT EXIST. A pack
+  // declares --pp-* on .pp-root, not on :root, so a probe hanging off <html>
+  // resolves every one of them to nothing and every pack rule reads as invalid
+  // and disappears from the snapshot. That is the same descendant-scope trap
+  // that ate --gn-btn-sh in stage 3, and here it would have silently emptied
+  // the sweep of the entire file this session changed.
+  //
+  // A token block is recognised structurally rather than by a list of known
+  // selectors: it is a rule whose declarations are ALL custom properties. Every
+  // class named in one goes on a wrapper the probe sits inside. There is no
+  // cross-pack collision to worry about because pack CSS rides a lazy chunk, so
+  // the sheets loaded on a pack route are that pack's and the shell's.
+  //
+  // The tokens are copied onto the host as INLINE custom properties rather than
+  // by giving it the pack's class. Wearing .pp-root would also make the host
+  // match every .pp-root STYLE rule, so the probe would inherit the pack's own
+  // colour and font, the baseline would shift under it, and real values would
+  // be filtered out as "same as base". Inline properties inherit to the probe
+  // while the host still matches no selector at all.
+  const host = document.createElement('div');
+  const themeMatches = (selector) => {
+    const scoped = selector.match(/^\\s*(:root\\[[^\\]]*\\])/);
+    return !scoped || document.documentElement.matches(scoped[1]);
+  };
+  for (const { css } of sheets) {
+    for (const { selector, body } of split(css)) {
+      // :root blocks already sit on the document and inherit for free; what the
+      // probe cannot see without help is a block scoped to a pack's own root.
+      if (!selector.includes('.') || !themeMatches(selector)) continue;
+      const decls = body.split(';').map((d) => d.trim()).filter(Boolean);
+      if (!decls.length || !decls.every((d) => d.startsWith('--'))) continue;
+      for (const d of decls) {
+        const at = d.indexOf(':');
+        host.style.setProperty(d.slice(0, at).trim(), d.slice(at + 1).trim());
+      }
+    }
+  }
   const probe = document.createElement('div');
   probe.id = 'gn-theme-probe';
-  document.documentElement.appendChild(probe);
+  host.appendChild(probe);
+  document.body.appendChild(host);
   const style = document.createElement('style');
   document.head.appendChild(style);
 
@@ -411,10 +482,7 @@ const COLLECT_RULES = (props) => `(async () => {
   for (const p of PROPS) BASE[p] = getComputedStyle(probe).getPropertyValue(p).trim();
 
   const out = {};
-  for (const link of document.querySelectorAll('link[rel="stylesheet"]')) {
-    let css;
-    try { css = await (await fetch(link.href)).text(); } catch { continue; }
-    const name = link.href.split('/').pop().replace(/-[A-Za-z0-9_-]{8}\\.css$/, '.css');
+  for (const { name, css } of sheets) {
     const merged = new Map();
     for (const { selector, body } of split(css)) {
       merged.set(selector, (merged.get(selector) ?? []).concat(body));
@@ -449,7 +517,7 @@ const COLLECT_RULES = (props) => `(async () => {
     }
   }
   style.remove();
-  probe.remove();
+  host.remove();
   return out;
 })()`;
 
@@ -555,14 +623,32 @@ async function capture(outFile, theme) {
       process.stdout.write(`  ${route} (${Object.keys(snapshot.routes[route]).length} elements)\n`);
     }
 
-    // The fixture and rule passes run on "/" so exactly the shell stylesheet is
-    // loaded: the pack stylesheets ride lazy chunks and are stage 3's problem.
+    // The fixture pass runs on "/", where exactly the shell stylesheet is
+    // loaded, because it builds one element per .gn-* class.
     await cdp.send("Page.navigate", { url: `http://127.0.0.1:${PORT}/` });
     await sleep(1200);
     snapshot.fixture = await evaluate(cdp, COLLECT_FIXTURE(TRACKED_PROPS));
     console.log(`  fixture: ${Object.keys(snapshot.fixture).length} classes`);
-    snapshot.rules = await evaluate(cdp, COLLECT_RULES(TRACKED_PROPS));
-    console.log(`  rules: ${Object.keys(snapshot.rules).length} colour-bearing declarations`);
+
+    // THE RULE PASS RUNS ON EVERY ROUTE THAT CARRIES A STYLESHEET, not just on
+    // "/". It used to run on "/" alone, which was right while only index.css
+    // was being themed and became quietly wrong the moment a PACK was: the pack
+    // stylesheets ride lazy chunks, so on "/" they are not loaded and the pass
+    // cannot see a single rule in them. The route pass does reach the pack
+    // pages, but without a database it reaches their empty and error states, so
+    // it renders four or five elements out of a 129-line stylesheet. Between
+    // the two, "Arcade is identical" would have been true and nearly vacuous
+    // for the file the session actually changed. Rules are keyed by sheet name,
+    // so visiting several routes merges cleanly instead of colliding.
+    for (const route of RULE_ROUTES) {
+      await cdp.send("Page.navigate", { url: `http://127.0.0.1:${PORT}${route}` });
+      await sleep(1400);
+      Object.assign(snapshot.rules, await evaluate(cdp, COLLECT_RULES(TRACKED_PROPS)));
+    }
+    const sheets = new Set(Object.keys(snapshot.rules).map((k) => k.split(" || ")[0]));
+    console.log(
+      `  rules: ${Object.keys(snapshot.rules).length} declarations across ${sheets.size} stylesheets`,
+    );
 
     writeFileSync(outFile, JSON.stringify(snapshot, null, 2));
     console.log(`wrote ${outFile}`);
