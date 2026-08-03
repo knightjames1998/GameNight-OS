@@ -45,6 +45,27 @@
   src:url('./fonts/luckiest-guy-latin.woff2') format('woff2');
   unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
+/* Bevan is TABLETOP-ONLY and is referenced from exactly one place, the
+   --gn-font-display token inside the Tabletop block. Declaring a @font-face
+   does not fetch anything; a browser fetches a face the first time rendered
+   text actually uses it, so an Arcade session never touches these two files.
+   That containment is what made a second display face affordable. */
+@font-face{
+  font-family:'Bevan';
+  font-style:normal;
+  font-weight:400;
+  font-display:swap;
+  src:url('./fonts/bevan-latin-ext.woff2') format('woff2');
+  unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face{
+  font-family:'Bevan';
+  font-style:normal;
+  font-weight:400;
+  font-display:swap;
+  src:url('./fonts/bevan-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 @font-face{
   font-family:'Fredoka';
   font-style:normal;
@@ -171,6 +192,69 @@
      none, so both keep their own token and the call is James's. */
   --gn-cab-mp-bot:     #2a1a30;
   --gn-cab-crun-bot:   #2f1a3d;
+
+  /* ---- STRUCTURE: what a surface is MADE of ----
+     Stage 2 shipped Tabletop as a palette and James's read on it was that it
+     felt like Arcade with a different scheme. He was right, and the scope was
+     the mistake rather than the work: a theme is not only its colours, and
+     swapping sixteen hex values was never going to make a screen feel like a
+     table. Everything below survived stage 2 because it is geometry and type,
+     not colour, and it is all unmistakably arcade: a CRT raster, neon behind
+     the headings, moulded plastic bevels, lozenge buttons, a cartoon face.
+
+     These are TOKENS for the same reason the colours are. The alternative was
+     a pile of `:root[data-theme="tabletop"] .gn-title { ... }` overrides,
+     which is how the hardcoded-colour problem started in the first place: a
+     rule that a theme has to remember to override is a rule the next theme
+     forgets. Named for the JOB, so that `--gn-glow-title: none` is a sensible
+     thing to write. */
+
+  /* The ambient overlay. The whole background shorthand, not just its colour,
+     so a theme swaps the GEOMETRY: Arcade is a horizontal raster, and no
+     amount of recolouring stops horizontal lines at 3px reading as a CRT. */
+  --gn-texture:     repeating-linear-gradient(to bottom, var(--gn-scan) 0 1px, transparent 1px 3px);
+  --gn-texture-tv:  repeating-linear-gradient(to bottom, var(--gn-scan) 0 1px, transparent 1px 4px);
+  --gn-texture-opacity: .05;
+
+  /* Blurred light behind a letter is a lit sign. A theme that is not a lit
+     sign sets these to `none` and leans on weight and tracking instead. */
+  --gn-glow-title:    0 0 14px color-mix(in srgb, var(--gn-p1) 24%, transparent);
+  --gn-glow-h2:       0 0 11px color-mix(in srgb, var(--gn-p1) 18%, transparent);
+  --gn-glow-brand:    0 0 14px color-mix(in srgb, var(--gn-p1) 45%, transparent), 2px 3px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent);
+  --gn-glow-brand-tv: 0 0 26px color-mix(in srgb, var(--gn-p1) 45%, transparent), 3px 4px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);
+
+  /* Bevels. Zero blur and a hard offset is a moulded arcade button; an object
+     resting on a table casts a soft contact shadow and catches a light edge
+     instead. There are six because the shipped depths genuinely differ and
+     collapsing them would have moved Arcade, which this pass may not do.
+     --gn-bevel-btn CARRIES ONLY THE GEOMETRY and the button supplies its own
+     colour after it. The first attempt had the token read a --gn-btn-sh that
+     each button set locally, which looked tidier and silently painted every
+     accent button's lip transparent: a custom property containing a var()
+     resolves where it is DECLARED, so a token on :root cannot see a local set
+     on a descendant. The sweep caught it on the same run it was extended for. */
+  --gn-bevel:            0 6px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);
+  --gn-bevel-press:      0 3px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);
+  --gn-bevel-sm:         0 3px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent);
+  --gn-bevel-sm-press:   0 1px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent);
+  --gn-bevel-xs:         0 2px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent);
+  --gn-bevel-inset:      inset 0 -3px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent);
+  --gn-bevel-btn:        0 4px 0;
+  --gn-bevel-btn-press:  0 1px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);
+
+  /* Geometry. --gn-radius-pill stays 999px under every theme: the things that
+     use it ARE pills (toggles, chips, the live tag), and a squared chip is
+     just a small rectangle. Cards and tiles are what get squarer. */
+  --gn-radius-pill:    999px;
+  --gn-radius-card:    16px;
+  --gn-radius-card-tv: 2vmin;
+  --gn-radius-tile:    12px;
+
+  /* The wordmark and the display numerals. Luckiest Guy is a cartoon arcade
+     face; it carries the brand on every screen, so leaving it alone would
+     have left every screen reading as arcade whatever else changed. */
+  --gn-font-display: "Luckiest Guy", system-ui, cursive;
+  --gn-brand-track: .5px;
 }
 
 /* ============================================================
@@ -265,6 +349,81 @@
      same commit and for the same reason. */
   --gn-cab-mp-bot:     #281b1b;
   --gn-cab-crun-bot:   #2c1c29;
+
+  /* ---- STRUCTURE: felt, wood and print ----
+     The palette alone left this reading as Arcade with a different scheme,
+     which is fair: the raster, the neon, the moulded bevels and the cartoon
+     face are what make a screen feel like a cabinet, and none of them is a
+     colour. This is that half.
+
+     FELT, AS CROSSED GRADIENTS. Two fine diagonals at opposite angles give a
+     woven tooth where one horizontal repeat gives a CRT. Deliberately NOT an
+     SVG feTurbulence and NOT a tiling image: a turbulence filter on a fixed
+     full-screen overlay is a real GPU cost on a television left open all
+     night, which is precisely the screen this most needs to work on, and an
+     image is another request plus bytes on a bundle that has been trimmed on
+     purpose. Gradients cost nothing and composite once.
+
+     The opacity drops from .05 to .03 because two crossing layers ink roughly
+     55% of the pixels where one inks 33%, so holding the number would have
+     made the weave nearly twice as heavy as the raster it replaces. */
+  --gn-texture:
+    repeating-linear-gradient(45deg, var(--gn-scan) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-45deg, var(--gn-scan) 0 1px, transparent 1px 3px);
+  /* Coarser on the big screen: a 3px diagonal seen from a sofa is either
+     invisible or aliasing, and neither is a texture. */
+  --gn-texture-tv:
+    repeating-linear-gradient(45deg, var(--gn-scan) 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(-45deg, var(--gn-scan) 0 1px, transparent 1px 6px);
+  --gn-texture-opacity: .03;
+
+  /* NO GLOW ANYWHERE. Print on card does not emit light. The wordmark keeps a
+     hard drop with no blur radius, which is ink sitting slightly proud of the
+     board rather than a sign lit from behind. */
+  --gn-glow-title:    none;
+  --gn-glow-h2:       none;
+  --gn-glow-brand:    0 2px 0 color-mix(in srgb, var(--gn-shadow-depth) 55%, transparent);
+  --gn-glow-brand-tv: 0 3px 0 color-mix(in srgb, var(--gn-shadow-depth) 55%, transparent);
+
+  /* Wood at the edges: a soft warm contact shadow so the thing looks like it
+     is LYING ON the table, plus a light top edge where the surface catches the
+     room. The light edge is mixed from --gn-ink, so it warms with the theme
+     instead of being a hardcoded white lip.
+     --gn-bevel-btn is geometry only (see the Arcade block), so the accent
+     buttons keep casting in their own --gn-*-sh. Under Tabletop those are
+     already muted browns and greens, so a 5px blur of one reads as a warm
+     contact shadow rather than as the hard moulding lip it replaces. */
+  --gn-bevel:           0 2px 6px color-mix(in srgb, var(--gn-shadow-depth) 55%, transparent), inset 0 1px 0 color-mix(in srgb, var(--gn-ink) 10%, transparent);
+  --gn-bevel-press:     0 1px 2px color-mix(in srgb, var(--gn-shadow-depth) 50%, transparent), inset 0 1px 0 color-mix(in srgb, var(--gn-ink) 6%, transparent);
+  --gn-bevel-sm:        0 1px 4px color-mix(in srgb, var(--gn-shadow-depth) 45%, transparent), inset 0 1px 0 color-mix(in srgb, var(--gn-ink) 8%, transparent);
+  --gn-bevel-sm-press:  0 1px 2px color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);
+  --gn-bevel-xs:        0 1px 3px color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);
+  --gn-bevel-inset:     inset 0 1px 0 color-mix(in srgb, var(--gn-ink) 8%, transparent);
+  --gn-bevel-btn:       0 2px 5px;
+  --gn-bevel-btn-press: 0 1px 2px color-mix(in srgb, var(--gn-shadow-depth) 45%, transparent);
+
+  /* Squarer. --gn-radius-pill is DELIBERATELY NOT REDECLARED: the things that
+     read it are toggles, chips and the live tag, and those genuinely are
+     pills under any theme, so a squared one is just a small rectangle. That
+     inheritance is asserted in theme-contrast.test.ts so it reads as a
+     decision rather than an omission. */
+  --gn-radius-card:    5px;
+  --gn-radius-card-tv: .7vmin;
+  --gn-radius-tile:    4px;
+
+  /* Woodtype, the register of a pub sign or a board game box lid. Fredoka was
+     the free option and was rejected: it is a rounded geometric face in the
+     same friendly-cartoon family as Luckiest Guy, so the wordmark would have
+     gone on reading as arcade on every screen, which is the exact complaint
+     this stage answers.
+     THIS IS THE ONLY PLACE BEVAN IS NAMED. A browser downloads a face only
+     when rendered text actually uses it, so an Arcade session never requests
+     these files. Do not preload it and do not reference it from any selector
+     outside this block; that containment is what made a second display face
+     affordable at all. */
+  --gn-font-display: "Bevan", Georgia, "Times New Roman", serif;
+  /* Bevan sets tighter than Luckiest Guy and needs none of its extra tracking. */
+  --gn-brand-track: 0;
 }
 
 /* ---- standalone web app polish -------------------------------- */
@@ -313,8 +472,8 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   position:relative;
 }
 .gn-app::before{                 /* ambient scanlines, very faint */
-  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.05;
-  background:repeating-linear-gradient(to bottom,var(--gn-scan) 0 1px,transparent 1px 3px);
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:var(--gn-texture-opacity);
+  background:var(--gn-texture);
 }
 .gn-app > *{position:relative;z-index:1}
 .gn-wrap{max-width:28rem;margin:0 auto;padding:20px 18px 48px}
@@ -329,22 +488,22 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 
 /* ---- wordmark ------------------------------------------------- */
 .gn-brand{
-  font-family:"Luckiest Guy", system-ui, cursive;
-  color:var(--gn-brand-ink);letter-spacing:.5px;line-height:1;
-  text-shadow:0 0 14px color-mix(in srgb, var(--gn-p1) 45%, transparent), 2px 3px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent);
+  font-family:var(--gn-font-display);
+  color:var(--gn-brand-ink);letter-spacing:var(--gn-brand-track);line-height:1;
+  text-shadow:var(--gn-glow-brand);
 }
 /* Section titles get a subtle version of the wordmark's neon glow so they
    feel part of the arcade world without competing with the .gn-brand. */
-.gn-title{font-family:Fredoka, system-ui, sans-serif;font-weight:700;color:var(--gn-ink);line-height:1.1;text-shadow:0 0 14px color-mix(in srgb, var(--gn-p1) 24%, transparent)}
+.gn-title{font-family:Fredoka, system-ui, sans-serif;font-weight:700;color:var(--gn-ink);line-height:1.1;text-shadow:var(--gn-glow-title)}
 
 /* ---- text bits ------------------------------------------------ */
 .gn-lab{color:var(--gn-dim);font-size:13px;font-weight:700}
 .gn-hint{color:var(--gn-dim);font-size:13px}
-.gn-h2{font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:17px;color:var(--gn-ink);margin:0;text-shadow:0 0 11px color-mix(in srgb, var(--gn-p1) 18%, transparent)}
+.gn-h2{font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:17px;color:var(--gn-ink);margin:0;text-shadow:var(--gn-glow-h2)}
 
 /* ---- inputs --------------------------------------------------- */
 .gn-input{
-  width:100%;min-height:48px;border-radius:12px;background:var(--gn-surf);
+  width:100%;min-height:48px;border-radius:var(--gn-radius-tile);background:var(--gn-surf);
   border:2px solid var(--gn-line);color:var(--gn-ink);padding:0 14px;
   /* 16px min: iOS Safari auto-zooms the page on focus of any text field under
      16px and often does not zoom back out, leaving the app slightly enlarged. */
@@ -355,23 +514,23 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 
 .gn-code{
   display:block;background:var(--gn-surf);border:2px solid var(--gn-line);
-  border-radius:12px;padding:10px 12px;color:var(--gn-ink);
+  border-radius:var(--gn-radius-tile);padding:10px 12px;color:var(--gn-ink);
   font-family:ui-monospace, SFMono-Regular, Menlo, monospace;font-size:12px;
   word-break:break-all;
 }
 
 /* ---- buttons -------------------------------------------------- */
 .gn-btn{
-  min-height:48px;padding:0 16px;border-radius:12px;border:0;
+  min-height:48px;padding:0 16px;border-radius:var(--gn-radius-tile);border:0;
   font-weight:800;font-size:14px;font-family:inherit;cursor:pointer;white-space:nowrap;
   transition:transform .1s, box-shadow .1s, filter .1s;
 }
 .gn-btn:disabled{opacity:.4;cursor:default;box-shadow:none}
-.gn-btn--ghost{background:var(--gn-raise);color:var(--gn-ink);box-shadow:inset 0 -3px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent)}
-.gn-btn--go{background:var(--gn-p2);color:var(--gn-p2-ink);box-shadow:0 4px 0 var(--gn-p2-sh)}
-.gn-btn--p1{background:var(--gn-p1);color:var(--gn-p1-ink);box-shadow:0 4px 0 var(--gn-p1-sh)}
+.gn-btn--ghost{background:var(--gn-raise);color:var(--gn-ink);box-shadow:var(--gn-bevel-inset)}
+.gn-btn--go{background:var(--gn-p2);color:var(--gn-p2-ink);box-shadow:var(--gn-bevel-btn) var(--gn-p2-sh)}
+.gn-btn--p1{background:var(--gn-p1);color:var(--gn-p1-ink);box-shadow:var(--gn-bevel-btn) var(--gn-p1-sh)}
 .gn-btn--go:active:not(:disabled),
-.gn-btn--p1:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent)}
+.gn-btn--p1:active:not(:disabled){transform:translateY(3px);box-shadow:var(--gn-bevel-btn-press)}
 
 .gn-textbtn{
   background:transparent;border:0;color:var(--gn-dim);font-weight:700;font-size:13px;
@@ -398,15 +557,15 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-actionbtn--danger:hover{border-color:var(--gn-danger);background:color-mix(in srgb, var(--gn-p1) 15%, transparent)}
 
 /* ---- card / panel -------------------------------------------- */
-.gn-card{background:var(--gn-surf);border:2px solid var(--gn-line);border-radius:16px;padding:14px 16px}
+.gn-card{background:var(--gn-surf);border:2px solid var(--gn-line);border-radius:var(--gn-radius-card);padding:14px 16px}
 
 /* ---- arcade "cabinet" nav button (modes, stats, crews, events) */
 .gn-cab{
-  display:block;text-decoration:none;color:var(--gn-ink);border-radius:16px;
+  display:block;text-decoration:none;color:var(--gn-ink);border-radius:var(--gn-radius-card);
   padding:15px 16px;border:2px solid var(--gn-line);background:var(--gn-surf);
-  box-shadow:0 6px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);transition:transform .12s, box-shadow .12s;
+  box-shadow:var(--gn-bevel);transition:transform .12s, box-shadow .12s;
 }
-.gn-cab:active{transform:translateY(3px);box-shadow:0 3px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent)}
+.gn-cab:active{transform:translateY(3px);box-shadow:var(--gn-bevel-press)}
 .gn-cab__name{display:flex;align-items:center;gap:10px;font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:17px}
 .gn-cab__sub{color:var(--gn-dim);font-size:13px;margin-top:3px}
 .gn-cab--beerio{border-color:var(--gn-cab-beerio-edge);background:linear-gradient(180deg,var(--gn-cab-beerio-top),var(--gn-surf))}
@@ -447,7 +606,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 /* Shared on/off pill toggle (the "let members record results" control in
    every pack). The label is the current state; green = on, red = off. */
 .gn-toggle{
-  border:2px solid;border-radius:999px;padding:6px 18px;min-width:64px;
+  border:2px solid;border-radius:var(--gn-radius-pill);padding:6px 18px;min-width:64px;
   font-family:inherit;font-weight:800;font-size:13px;letter-spacing:1px;
   text-align:center;cursor:pointer;white-space:nowrap;
 }
@@ -457,16 +616,16 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 /* format rows under an expanded game in the game>format picker */
 .gn-fmts{margin:8px 0 2px;padding-left:14px;border-left:2px solid var(--gn-line);
   display:flex;flex-direction:column;gap:8px}
-.gn-fmt{background:var(--gn-raise);border:2px solid var(--gn-line);border-radius:12px;
+.gn-fmt{background:var(--gn-raise);border:2px solid var(--gn-line);border-radius:var(--gn-radius-tile);
   padding:11px 14px;color:var(--gn-ink);font-family:inherit;cursor:pointer;
-  box-shadow:0 3px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent);transition:transform .12s, box-shadow .12s}
-.gn-fmt:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent)}
+  box-shadow:var(--gn-bevel-sm);transition:transform .12s, box-shadow .12s}
+.gn-fmt:active:not(:disabled){transform:translateY(2px);box-shadow:var(--gn-bevel-sm-press)}
 .gn-fmt:disabled{opacity:.5;cursor:default;box-shadow:none}
 .gn-fmt__name{display:block;font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:15px}
 .gn-fmt__sub{display:block;color:var(--gn-dim);font-size:12px;margin-top:2px}
 
 /* ---- role / status chips ------------------------------------- */
-.gn-chip{font-weight:800;font-size:11px;letter-spacing:.5px;padding:5px 10px;border-radius:999px;text-transform:uppercase;white-space:nowrap}
+.gn-chip{font-weight:800;font-size:11px;letter-spacing:.5px;padding:5px 10px;border-radius:var(--gn-radius-pill);text-transform:uppercase;white-space:nowrap}
 .gn-chip--owner{background:color-mix(in srgb, var(--gn-gold) 16%, transparent);color:var(--gn-gold)}
 .gn-chip--admin{background:color-mix(in srgb, var(--gn-p2) 16%, transparent);color:var(--gn-p2)}
 .gn-chip--member{background:color-mix(in srgb, var(--gn-p1) 14%, transparent);color:var(--gn-p1-tint-ink)}
@@ -480,7 +639,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-chipbtn{
   border:0;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;
   font-weight:800;font-size:11px;letter-spacing:.5px;text-transform:uppercase;
-  padding:5px 10px;border-radius:999px;
+  padding:5px 10px;border-radius:var(--gn-radius-pill);
 }
 .gn-chipbtn--danger{background:color-mix(in srgb, var(--gn-p1) 14%, transparent);color:var(--gn-danger)}
 .gn-chipbtn--danger:active{background:color-mix(in srgb, var(--gn-p1) 30%, transparent)}
@@ -488,12 +647,12 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 /* Role chip as a dropdown: visually the .gn-chip pill with a tiny ▾ so it
    reads as clickable. The native select is unstyled-on-top so the OS picker
    still opens on tap. */
-.gn-chipsel{position:relative;display:inline-flex;align-items:center;border-radius:999px;flex-shrink:0}
+.gn-chipsel{position:relative;display:inline-flex;align-items:center;border-radius:var(--gn-radius-pill);flex-shrink:0}
 .gn-chipsel select{
   appearance:none;-webkit-appearance:none;border:0;background:transparent;
   font-family:inherit;font-weight:800;font-size:11px;letter-spacing:.5px;
   text-transform:uppercase;color:inherit;cursor:pointer;
-  padding:5px 22px 5px 10px;border-radius:999px;
+  padding:5px 22px 5px 10px;border-radius:var(--gn-radius-pill);
 }
 .gn-chipsel__arrow{position:absolute;right:9px;font-size:9px;pointer-events:none;line-height:1}
 .gn-chipsel--admin{background:color-mix(in srgb, var(--gn-p2) 16%, transparent);color:var(--gn-p2)}
@@ -504,7 +663,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
    inline to the active status color (in/maybe/out). */
 .gn-rsvp-pill{
   flex-shrink:0;display:inline-flex;align-items:center;gap:5px;margin-top:4px;
-  background:var(--gn-surf);border:2px solid var(--gn-line);border-radius:999px;
+  background:var(--gn-surf);border:2px solid var(--gn-line);border-radius:var(--gn-radius-pill);
   padding:7px 12px;font-family:inherit;font-weight:800;font-size:12px;
   cursor:pointer;white-space:nowrap;
 }
@@ -534,21 +693,21 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 
 /* pill tabs (stats leaderboard filters) */
 .gn-tab{
-  flex-shrink:0;min-height:40px;padding:0 14px;border-radius:999px;border:2px solid var(--gn-line);
+  flex-shrink:0;min-height:40px;padding:0 14px;border-radius:var(--gn-radius-pill);border:2px solid var(--gn-line);
   background:var(--gn-surf);color:var(--gn-dim);font-weight:800;font-size:13px;font-family:inherit;
   cursor:pointer;white-space:nowrap;
 }
 .gn-tab--on{background:var(--gn-ink);color:var(--gn-bg);border-color:var(--gn-ink)}
 
 /* champion callout (bracket page) */
-.gn-champ{border:2px solid color-mix(in srgb, var(--gn-gold) 55%, transparent);background:color-mix(in srgb, var(--gn-gold) 10%, transparent);border-radius:16px}
+.gn-champ{border:2px solid color-mix(in srgb, var(--gn-gold) 55%, transparent);background:color-mix(in srgb, var(--gn-gold) 10%, transparent);border-radius:var(--gn-radius-card)}
 
 /* leaderboard rows */
-.gn-rank{font-family:"Luckiest Guy",system-ui,cursive;color:var(--gn-dim);line-height:1}
+.gn-rank{font-family:var(--gn-font-display);color:var(--gn-dim);line-height:1}
 .gn-rank--top{color:var(--gn-gold)}
 
 /* bracket match card + slots (phone / desktop scoring) */
-.gn-match{background:var(--gn-surf);border:2px solid var(--gn-line);border-radius:12px;overflow:hidden}
+.gn-match{background:var(--gn-surf);border:2px solid var(--gn-line);border-radius:var(--gn-radius-tile);overflow:hidden}
 .gn-match--live{border-color:var(--gn-p2)}
 .gn-slot{
   width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;
@@ -579,7 +738,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-bkt-tag{
   display:inline-flex;align-items:center;gap:8px;margin-bottom:10px;
   font-family:Fredoka, system-ui, sans-serif;font-weight:800;font-size:12px;
-  letter-spacing:.7px;text-transform:uppercase;padding:5px 13px;border-radius:999px;
+  letter-spacing:.7px;text-transform:uppercase;padding:5px 13px;border-radius:var(--gn-radius-pill);
   border:2px solid var(--gn-line);background:var(--gn-surf);
 }
 .gn-bkt-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;padding-bottom:6px}
@@ -591,7 +750,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 }
 .gn-bkt-card{
   display:flex;flex-direction:column;background:var(--gn-surf);border:2px solid var(--gn-line);
-  border-radius:11px;overflow:hidden;box-shadow:0 2px 0 color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent);
+  border-radius:11px;overflow:hidden;box-shadow:var(--gn-bevel-xs);
 }
 .gn-bkt-card--live{border-color:var(--gn-p2);box-shadow:0 0 16px color-mix(in srgb, var(--gn-p2) 20%, transparent)}
 .gn-bkt-slot{
@@ -626,15 +785,15 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   min-height:100dvh;color:var(--gn-ink);font-family:Nunito,system-ui,sans-serif;position:relative;overflow:hidden;
   background:radial-gradient(1400px 700px at 50% -10%, var(--gn-surf) 0%, var(--gn-bg) 60%);
 }
-.gn-tv::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;
-  background:repeating-linear-gradient(to bottom,var(--gn-scan) 0 1px,transparent 1px 4px)}
+.gn-tv::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:var(--gn-texture-opacity);
+  background:var(--gn-texture-tv)}
 .gn-tv > *{position:relative;z-index:1}
 .gn-tv-title{
-  font-family:"Luckiest Guy",system-ui,cursive;color:var(--gn-brand-ink);letter-spacing:1px;line-height:.95;
-  text-shadow:0 0 26px color-mix(in srgb, var(--gn-p1) 45%, transparent), 3px 4px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);
+  font-family:var(--gn-font-display);color:var(--gn-brand-ink);letter-spacing:1px;line-height:.95;
+  text-shadow:var(--gn-glow-brand-tv);
 }
 .gn-tv-round{font-family:Fredoka,system-ui,sans-serif;font-weight:700;color:var(--gn-dim);text-transform:uppercase;letter-spacing:2px}
-.gn-tv-match{background:var(--gn-surf);border:3px solid var(--gn-line);border-radius:16px;overflow:hidden}
+.gn-tv-match{background:var(--gn-surf);border:3px solid var(--gn-line);border-radius:var(--gn-radius-card);overflow:hidden}
 .gn-tv-match--live{border-color:var(--gn-p2);box-shadow:0 0 30px color-mix(in srgb, var(--gn-p2) 18%, transparent)}
 .gn-tv-slot{padding:14px 22px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gn-tv-slot--win{color:var(--gn-p2);background:color-mix(in srgb, var(--gn-p2) 12%, transparent)}
@@ -684,7 +843,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-tv-h2{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;color:var(--gn-ink);margin-bottom:1.8vmin;display:flex;align-items:baseline;gap:1.4vmin}
 .gn-tv-h2 span{font-size:1.9vmin;color:var(--gn-dim);font-weight:700}
 .gn-tv-stack{display:flex;flex-direction:column;gap:1.6vmin;min-height:0}
-.gn-tvm{background:var(--gn-surf);border:3px solid var(--gn-line);border-radius:2vmin;overflow:hidden}
+.gn-tvm{background:var(--gn-surf);border:3px solid var(--gn-line);border-radius:var(--gn-radius-card-tv);overflow:hidden}
 .gn-tvm--live{border-color:var(--gn-p2);box-shadow:0 0 3.2vmin color-mix(in srgb, var(--gn-p2) 20%, transparent)}
 .gn-tvm__rt{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:1.7vmin;letter-spacing:.18vmin;text-transform:uppercase;color:var(--gn-dim);padding:1vmin 1.8vmin 0}
 .gn-tvm__row{display:flex;align-items:center;justify-content:space-between;gap:1.5vmin;padding:1.5vmin 1.8vmin;font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;color:var(--gn-ink)}
@@ -693,13 +852,13 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-tvm__row--lose .gn-tvm__nm{text-decoration:line-through}
 .gn-tvm__nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .gn-tvm__seed{font-size:1.7vmin;color:var(--gn-faint);font-weight:800;flex-shrink:0}
-.gn-tvm__vs{font-family:"Luckiest Guy",system-ui,cursive;color:var(--gn-p1);font-size:2vmin;text-align:center;padding:.2vmin 0;letter-spacing:.1vmin}
+.gn-tvm__vs{font-family:var(--gn-font-display);color:var(--gn-p1);font-size:2vmin;text-align:center;padding:.2vmin 0;letter-spacing:.1vmin}
 .gn-tvm__div{height:3px;background:var(--gn-line)}
 /* Grand-final "needs 2" clarity on the big screen. */
 .gn-tvm__needs2{
   font-family:Fredoka, system-ui, sans-serif;font-weight:800;font-size:1.5vmin;letter-spacing:.1vmin;
   text-transform:uppercase;color:var(--gn-gold);background:color-mix(in srgb, var(--gn-gold) 14%, transparent);
-  border:.25vmin solid color-mix(in srgb, var(--gn-gold) 55%, transparent);border-radius:999px;padding:.3vmin 1.1vmin;
+  border:.25vmin solid color-mix(in srgb, var(--gn-gold) 55%, transparent);border-radius:var(--gn-radius-pill);padding:.3vmin 1.1vmin;
   flex-shrink:0;white-space:nowrap;
 }
 .gn-tvm__note{
@@ -714,16 +873,16 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-tv-names{display:flex;flex-wrap:wrap;gap:1.4vmin}
 .gn-tv-name{
   font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;color:var(--gn-ink);
-  background:var(--gn-surf);border:.3vmin solid var(--gn-line);border-radius:2vmin;padding:1vmin 2.2vmin;
+  background:var(--gn-surf);border:.3vmin solid var(--gn-line);border-radius:var(--gn-radius-card-tv);padding:1vmin 2.2vmin;
 }
 /* The event TV between-games screen: standings, and what was just won. Same
    card language as .gn-tvm so the waiting screen reads as part of the TV. */
 .gn-tvs{
   display:flex;align-items:center;gap:1.6vmin;background:var(--gn-surf);
-  border:.35vmin solid var(--gn-line);border-radius:2vmin;padding:1.3vmin 1.8vmin;
+  border:.35vmin solid var(--gn-line);border-radius:var(--gn-radius-card-tv);padding:1.3vmin 1.8vmin;
 }
 .gn-tvs--lead{border-color:color-mix(in srgb, var(--gn-gold) 60%, transparent);background:color-mix(in srgb, var(--gn-gold) 10%, transparent)}
-.gn-tvs__rank{font-family:"Luckiest Guy",system-ui,cursive;font-size:2.8vmin;color:var(--gn-dim);width:3.4vmin;flex-shrink:0}
+.gn-tvs__rank{font-family:var(--gn-font-display);font-size:2.8vmin;color:var(--gn-dim);width:3.4vmin;flex-shrink:0}
 .gn-tvs__nm{
   flex:1;min-width:0;font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;
   color:var(--gn-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -734,7 +893,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-tvs__sub{font-family:Nunito,system-ui,sans-serif;font-weight:700;font-size:1.7vmin;color:var(--gn-dim);white-space:nowrap}
 .gn-tvr{
   display:flex;align-items:center;justify-content:space-between;gap:1.6vmin;
-  background:var(--gn-surf);border:.35vmin solid var(--gn-line);border-radius:2vmin;padding:1.3vmin 1.8vmin;
+  background:var(--gn-surf);border:.35vmin solid var(--gn-line);border-radius:var(--gn-radius-card-tv);padding:1.3vmin 1.8vmin;
 }
 .gn-tvr__game{
   font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:2.4vmin;color:var(--gn-ink);
@@ -745,5 +904,5 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-live-tag{
   font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:11px;letter-spacing:.5px;
   text-transform:uppercase;color:var(--gn-yes-ink);background:var(--gn-yes);
-  border-radius:999px;padding:2px 8px;margin-left:8px;white-space:nowrap;
+  border-radius:var(--gn-radius-pill);padding:2px 8px;margin-left:8px;white-space:nowrap;
 }

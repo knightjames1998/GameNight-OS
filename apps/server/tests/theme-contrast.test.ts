@@ -69,9 +69,19 @@ function tokens(selector: string): Record<string, string> {
   const close = CSS_BARE.indexOf("}", open);
   const body = CSS_BARE.slice(open + 1, close);
   const out: Record<string, string> = {};
-  for (const m of body.matchAll(/(--gn-[a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{3,8})/g)) out[m[1]!] = m[2]!;
+  // EVERY token, not only the colours. Since stage 3 a theme also owns what a
+  // surface is made of (its texture, glow, bevel, radius and display face), and
+  // those are the tokens most likely to be forgotten because a missing one
+  // looks like a design choice rather than a bug. The value runs to the
+  // semicolon so multi-line values (the texture is two gradients) survive.
+  for (const m of body.matchAll(/(--gn-[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
+    out[m[1]!] = m[2]!.replace(/\s+/g, " ").trim();
+  }
   return out;
 }
+
+/** Colour tokens are the ones the contrast maths can actually read. */
+const isColour = (v: string) => /^#[0-9a-fA-F]{3,8}$/.test(v);
 
 const ARCADE = tokens(":root");
 const TABLETOP = tokens(':root[data-theme="tabletop"]');
@@ -161,18 +171,70 @@ test("A THEME DECLARES EVERY TOKEN IT NEEDS TO, or says why not", () => {
   const inherited = Object.keys(ARCADE)
     .filter((t) => !(t in TABLETOP))
     .sort();
+  // Two things are inherited on purpose, and both are decisions rather than
+  // omissions. The cabinet INKS are pack identity: Smash is red under every
+  // theme. --gn-radius-pill is theme-invariant because the things that read it
+  // (toggles, chips, the live tag) genuinely ARE pills, and a squared chip is
+  // just a small rectangle.
   const mayInherit = Object.keys(ARCADE)
-    .filter((t) => /^--gn-cab-[a-z]+-ink$/.test(t))
+    .filter((t) => /^--gn-cab-[a-z]+-ink$/.test(t) || t === "--gn-radius-pill")
     .sort();
   assert.deepEqual(
     inherited,
     mayInherit,
     "Tabletop inherits a token it should override, or overrides one it should inherit. " +
-      "Only --gn-cab-*-ink may be inherited.",
+      "Only --gn-cab-*-ink and --gn-radius-pill may be inherited.",
   );
-  // And the identity tokens really do exist to be inherited, so a rename that
-  // emptied this list could not pass by matching nothing against nothing.
-  assert.ok(mayInherit.length >= 6, `expected the cabinet ink tokens, found ${mayInherit.length}`);
+  // And the tokens really do exist to be inherited, so a rename that emptied
+  // this list could not pass by matching nothing against nothing.
+  assert.ok(mayInherit.length >= 7, `expected the inherited tokens, found ${mayInherit.length}`);
+});
+
+test("A THEME OWNS ITS MATERIAL, not just its palette", () => {
+  // Stage 2 shipped Tabletop as a palette and it read as Arcade with a
+  // different scheme, because a raster, a neon glow, a moulded bevel, a lozenge
+  // and a cartoon face are structure rather than colour and none of them moved.
+  // This asserts the structure tokens exist and that Tabletop actually says
+  // something different with them, so a future theme cannot be only a palette
+  // again without noticing.
+  const STRUCTURE = [
+    "--gn-texture",
+    "--gn-texture-tv",
+    "--gn-texture-opacity",
+    "--gn-glow-title",
+    "--gn-glow-h2",
+    "--gn-glow-brand",
+    "--gn-bevel",
+    "--gn-bevel-press",
+    "--gn-radius-card",
+    "--gn-radius-tile",
+    "--gn-font-display",
+  ];
+  const missing = STRUCTURE.filter((t) => !(t in ARCADE));
+  assert.deepEqual(missing, [], `structure tokens missing from :root: ${missing.join(", ")}`);
+
+  const unmoved = STRUCTURE.filter((t) => ARCADE[t] === TABLETOP[t]);
+  assert.deepEqual(
+    unmoved,
+    [],
+    "Tabletop declares these structure tokens but gives them Arcade's value, which is " +
+      "the same as not theming them: " + unmoved.join(", "),
+  );
+
+  // The two that carry the most weight, stated outright rather than left to a
+  // reader to infer from a diff.
+  assert.equal(TABLETOP["--gn-glow-title"], "none", "Tabletop must not glow");
+  assert.equal(TABLETOP["--gn-glow-h2"], "none", "Tabletop must not glow");
+  assert.match(
+    ARCADE["--gn-texture"]!,
+    /repeating-linear-gradient\(to bottom/,
+    "Arcade's texture is a horizontal raster; if that changed, Arcade moved",
+  );
+  assert.doesNotMatch(
+    TABLETOP["--gn-texture"]!,
+    /to bottom/,
+    "Tabletop's texture is still a horizontal raster, which is a CRT whatever colour it is",
+  );
 });
 
 test("every theme has a pre-paint background in index.html", () => {

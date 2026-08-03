@@ -107,8 +107,21 @@ const API_STUB = {
   "/api/me/stats": { played: 12, wins: 5, winRate: 0.4166 },
 };
 
-/** The properties a theme can move. Longhands only, so shorthands cannot hide. */
-const COLOR_PROPS = [
+/**
+ * The properties a theme can move. Longhands only, so shorthands cannot hide.
+ *
+ * IT IS NOT ONLY COLOUR, and it stopped being only colour the moment a theme
+ * was allowed to change what a surface is MADE of. Stage 3 turns the scanline
+ * raster into a woven texture, the neon glow off, the moulded bevel into a
+ * contact shadow, the pill into a card and the arcade face into woodtype. Every
+ * one of those is geometry or type rather than a colour, so a sweep that
+ * captured colour alone would have watched the entire session go past and
+ * reported that nothing happened. The radius, font and opacity entries below
+ * were added BEFORE any of that work started, and the Arcade baseline was taken
+ * with them in place; a sweep extended afterwards can only tell you that the
+ * two trees you already changed agree with each other.
+ */
+const TRACKED_PROPS = [
   "color",
   "background-color",
   "background-image",
@@ -124,6 +137,13 @@ const COLOR_PROPS = [
   "fill",
   "stroke",
   "-webkit-text-fill-color",
+  // Structure, added for stage 3.
+  "border-top-left-radius",
+  "border-top-right-radius",
+  "border-bottom-right-radius",
+  "border-bottom-left-radius",
+  "font-family",
+  "opacity",
 ];
 
 // ---------------------------------------------------------------- CDP client
@@ -222,13 +242,26 @@ const COLLECT_DOM = (props) => `(() => {
     // captured, so the shell leaking a background or a border into it would
     // still be caught.
     if (el.parentElement && el.parentElement.closest('.beerio-root')) continue;
-    const cs = getComputedStyle(el);
-    const rec = {};
-    for (const p of PROPS) {
-      const v = cs.getPropertyValue(p);
-      if (v && v !== 'none' && v !== 'auto') rec[p] = v.trim();
+    // THE PSEUDO-ELEMENTS ARE NOT OPTIONAL HERE. The ambient texture is painted
+    // by .gn-app::before and .gn-tv::before, so a pass that only reads elements
+    // cannot see the single most theme-defining surface in the app: it would
+    // have watched a CRT raster become a woven felt and reported no change.
+    // Only pseudos that actually exist are recorded, which is what a set
+    // \`content\` tells us.
+    for (const pseudo of [null, '::before', '::after']) {
+      const cs = getComputedStyle(el, pseudo);
+      if (pseudo && (cs.content === 'none' || !cs.content)) continue;
+      const rec = {};
+      for (const p of PROPS) {
+        const v = cs.getPropertyValue(p);
+        if (!v || v === 'none' || v === 'auto') continue;
+        // opacity is 1 on essentially every element, so recording it there says
+        // nothing and buries the one place it matters (the texture overlay).
+        if (p === 'opacity' && v === '1') continue;
+        rec[p] = v.trim();
+      }
+      if (Object.keys(rec).length) out[key(el) + (pseudo ?? '')] = rec;
     }
-    if (Object.keys(rec).length) out[key(el)] = rec;
   }
   return out;
 })()`;
@@ -395,7 +428,7 @@ const COLLECT_RULES = (props) => `(async () => {
       // Only rules that speak to paint at all. Without this the snapshot fills
       // up with thousands of identical inherited defaults from layout rules,
       // and a real difference has somewhere to hide.
-      if (!/(color|background|border|shadow|outline|fill|stroke)/i.test(bodies.join(';'))) continue;
+      if (!/(color|background|border|shadow|outline|fill|stroke|font|opacity|radius)/i.test(bodies.join(';'))) continue;
       // ONE RULE PER ORIGINAL RULE, not one merged block, and the difference is
       // not cosmetic. Lightning CSS emits a color-mix() twice, as an opaque
       // var() fallback and again inside @supports. Concatenated into a single
@@ -518,7 +551,7 @@ async function capture(outFile, theme) {
         40,
       ).catch(() => null);
       await sleep(600);
-      snapshot.routes[route] = await evaluate(cdp, COLLECT_DOM(COLOR_PROPS));
+      snapshot.routes[route] = await evaluate(cdp, COLLECT_DOM(TRACKED_PROPS));
       process.stdout.write(`  ${route} (${Object.keys(snapshot.routes[route]).length} elements)\n`);
     }
 
@@ -526,9 +559,9 @@ async function capture(outFile, theme) {
     // loaded: the pack stylesheets ride lazy chunks and are stage 3's problem.
     await cdp.send("Page.navigate", { url: `http://127.0.0.1:${PORT}/` });
     await sleep(1200);
-    snapshot.fixture = await evaluate(cdp, COLLECT_FIXTURE(COLOR_PROPS));
+    snapshot.fixture = await evaluate(cdp, COLLECT_FIXTURE(TRACKED_PROPS));
     console.log(`  fixture: ${Object.keys(snapshot.fixture).length} classes`);
-    snapshot.rules = await evaluate(cdp, COLLECT_RULES(COLOR_PROPS));
+    snapshot.rules = await evaluate(cdp, COLLECT_RULES(TRACKED_PROPS));
     console.log(`  rules: ${Object.keys(snapshot.rules).length} colour-bearing declarations`);
 
     writeFileSync(outFile, JSON.stringify(snapshot, null, 2));
@@ -660,10 +693,16 @@ function compare(beforeFile, afterFile) {
  * `index.css` ("a stage 1 miss, fix it now") is completely different from the
  * answer for a pack stylesheet ("stage 3, expected, leave it").
  */
-/** True if any colour in the value actually paints (alpha > 0). */
+/**
+ * True if the value is worth reporting. A colour has to actually paint (a fully
+ * transparent one cannot differ between themes in any way a person sees), but a
+ * structural value (a radius, a font stack, an opacity) carries no colour at
+ * all and is always worth reporting: since stage 3 those are exactly the values
+ * a theme is expected to move.
+ */
 function visible(value) {
   const colours = normalise(value).match(/rgba\([^)]*\)/g);
-  if (!colours) return false;
+  if (!colours) return true;
   return colours.some((c) => Number(c.slice(0, -1).split(",")[3]) > 0);
 }
 
