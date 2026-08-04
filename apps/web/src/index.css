@@ -555,18 +555,26 @@
      paler dim again (#ddd3bd buys 28 levels) and that starts closing the gap
      to --gn-ink, which is a hierarchy this palette needs more than it needs
      another six levels of light. */
-  --gn-lamp-geom: 120% 78% at 50% -12%;
-  --gn-lamp-fade: 56%;
+  --gn-lamp-geom: 92% 58% at 50% 0%;
+  --gn-lamp-fade: 58%;
   --gn-texture:
     url("./textures/felt.webp"),
-    radial-gradient(var(--gn-lamp-geom), color-mix(in srgb, var(--gn-felt-lit) 85%, transparent) 0%, transparent var(--gn-lamp-fade));
+    radial-gradient(var(--gn-lamp-geom),
+      color-mix(in srgb, var(--gn-felt-lit) 88%, transparent) 0%,
+      color-mix(in srgb, var(--gn-felt-lit) 62%, transparent) 30%,
+      color-mix(in srgb, var(--gn-felt-lit) 22%, transparent) 46%,
+      transparent var(--gn-lamp-fade));
   --gn-texture-tv:
     url("./textures/felt.webp"),
-    radial-gradient(var(--gn-lamp-geom), color-mix(in srgb, var(--gn-felt-lit) 85%, transparent) 0%, transparent var(--gn-lamp-fade));
+    radial-gradient(var(--gn-lamp-geom),
+      color-mix(in srgb, var(--gn-felt-lit) 88%, transparent) 0%,
+      color-mix(in srgb, var(--gn-felt-lit) 62%, transparent) 30%,
+      color-mix(in srgb, var(--gn-felt-lit) 22%, transparent) 46%,
+      transparent var(--gn-lamp-fade));
   --gn-texture-opacity: 1;
   --gn-texture-tint: var(--gn-felt);
   --gn-texture-blend: overlay, normal;
-  --gn-texture-size: 220px, 100% 100%;
+  --gn-texture-size: 240px, 100% 100%;
   /* Bigger on the big screen so the tile repeats twice across 1920 rather than
      four times. The failure mode of a tiled texture is not the seam, it is the
      LATTICE: the eye finds a repeating grid across a television long before it
@@ -591,27 +599,32 @@
      moulded strip. The 150deg angle puts the light along the board rather than
      square across it, and the third stop lifts the far edge so each timber has
      two lit faces like a real moulding. */
-  --gn-rail-timber:    linear-gradient(150deg, #5a3d24 0%, #3b2716 46%, #57391f 100%);
-  --gn-rail-timber-v:  linear-gradient(60deg,  #5a3d24 0%, #3b2716 46%, #57391f 100%);
+  --gn-rail-timber:    linear-gradient(to bottom, #2c1c0f 0%, #5c3f24 14%, #7d5735 30%, #b58859 50%, #7d5735 70%, #5c3f24 86%, #2c1c0f 100%);
+  --gn-rail-timber-v:  linear-gradient(to right,  #2c1c0f 0%, #5c3f24 14%, #7d5735 30%, #b58859 50%, #7d5735 70%, #5c3f24 86%, #2c1c0f 100%);
   /* Grain: a hard 2px-in-7px stripe at 6 degrees off square. It is the single
      cheapest thing that stops the timber reading as plastic. */
-  --gn-rail-grain:     repeating-linear-gradient(96deg, rgba(0,0,0,.16) 0 2px, transparent 2px 7px);
-  --gn-rail-grain-v:   repeating-linear-gradient(6deg,  rgba(0,0,0,.16) 0 2px, transparent 2px 7px);
+  --gn-rail-grain:     repeating-linear-gradient(94deg, rgba(0,0,0,.11) 0 1px, rgba(255,236,205,.05) 1px 2px, transparent 2px 7px);
+  --gn-rail-sheen:     linear-gradient(100deg, transparent 4%, rgba(255,243,222,.16) 24%, rgba(255,243,222,.04) 40%, transparent 52%, rgba(255,243,222,.10) 74%, transparent 92%);
+  --gn-rail-grain-v:   repeating-linear-gradient(4deg,  rgba(0,0,0,.11) 0 1px, rgba(255,236,205,.05) 1px 2px, transparent 2px 7px);
+  --gn-rail-sheen-v:   linear-gradient(172deg, transparent 4%, rgba(255,243,222,.13) 22%, rgba(255,243,222,.03) 38%, transparent 54%, rgba(255,243,222,.08) 76%, transparent 94%);
   /* Eight layers, grain over timber on each of the four sides. Same order as
      the position and size lists below, and they have to stay in step. */
   --gn-rail-face:
-    var(--gn-rail-grain),   var(--gn-rail-timber),
-    var(--gn-rail-grain),   var(--gn-rail-timber),
-    var(--gn-rail-grain-v), var(--gn-rail-timber-v),
-    var(--gn-rail-grain-v), var(--gn-rail-timber-v);
-  --gn-rail-face-pos:    top, top, bottom, bottom, left, left, right, right;
+    var(--gn-rail-sheen),   var(--gn-rail-grain),   var(--gn-rail-timber),
+    var(--gn-rail-sheen),   var(--gn-rail-grain),   var(--gn-rail-timber),
+    var(--gn-rail-sheen-v), var(--gn-rail-grain-v), var(--gn-rail-timber-v),
+    var(--gn-rail-sheen-v), var(--gn-rail-grain-v), var(--gn-rail-timber-v);
+  --gn-rail-face-pos:
+    top, top, top, bottom, bottom, bottom,
+    left, left, left, right, right, right;
   --gn-rail-face-size:
-    100% var(--gn-rail-w), 100% var(--gn-rail-w),
-    100% var(--gn-rail-w), 100% var(--gn-rail-w),
-    var(--gn-rail-w) 100%, var(--gn-rail-w) 100%,
-    var(--gn-rail-w) 100%, var(--gn-rail-w) 100%;
-  --gn-rail-face-repeat: no-repeat, no-repeat, no-repeat, no-repeat,
-                         no-repeat, no-repeat, no-repeat, no-repeat;
+    100% var(--gn-rail-w), 100% var(--gn-rail-w), 100% var(--gn-rail-w),
+    100% var(--gn-rail-w), 100% var(--gn-rail-w), 100% var(--gn-rail-w),
+    var(--gn-rail-w) 100%, var(--gn-rail-w) 100%, var(--gn-rail-w) 100%,
+    var(--gn-rail-w) 100%, var(--gn-rail-w) 100%, var(--gn-rail-w) 100%;
+  --gn-rail-face-repeat:
+    no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+    no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   /* Brass thread, dashed, set 4px in from the cloth's edge. Dashed is the
      entire effect: the solid hairline this replaces read as a border, and a
      border around the screen is a window, not a table. */
@@ -763,10 +776,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
    shadow do not. */
 .gn-rail{
   position:fixed;
-  top:env(safe-area-inset-top, 0px);
-  right:env(safe-area-inset-right, 0px);
-  bottom:env(safe-area-inset-bottom, 0px);
-  left:env(safe-area-inset-left, 0px);
+  inset:0;
   pointer-events:none;
   z-index:3;
 }
