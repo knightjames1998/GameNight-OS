@@ -426,13 +426,13 @@
      a level or two of the render's own card, and every pair holds. The test
      asserts on the COMPOSITE over the crown, since that is the worst case.
      WHERE TRANSLUCENCY IS WRONG, --gn-surf-solid is the token. */
-  --gn-surf:    rgba(0,0,0,.5);
+  --gn-surf:    rgba(0,0,0,.24);
   --gn-surf-solid: #201a12;  /* card stock in shade, for the three exceptions */
   /* A raised control darkens LESS than a card, which is the same relationship
      these two have always had. Nested inside a card it goes darker rather than
      lighter, which is the one place the model does not hold; nothing in the app
      nests a ghost button inside a card today. */
-  --gn-raise:   rgba(0,0,0,.34);
+  --gn-raise:   rgba(0,0,0,.16);
   --gn-line:    #3f3423;  /* warm border */
   --gn-ink:     #f7f0e2;  /* warm paper white */
   /* PALER THAN ARCADE'S EQUIVALENT, AND THAT BUYS THE LAMP. The crown's
@@ -440,12 +440,17 @@
      at #c6b99f the lamp could only lift the felt by 13 levels of green before
      dim went under AA. Taking the headroom in the ink instead buys a 28-level
      crown, which is what the render has and what makes the surface read as lit
-     rather than flat. Same move for --gn-place, whose ceiling comes from
-     sitting on a translucent field over that crown. */
+     rather than flat. THE SAME MOVE, FORCED AGAIN BY THE CARD: at
+     rgba(0,0,0,.24) the card sits at #1b412d over the crown, which is far
+     lighter than the walnut it replaced, so --gn-place, --gn-faint and
+     --gn-p1 all had to come up with it. Each was lifted along its own hue by
+     the least that clears its floor with the cloth on it, which is why the
+     lacquer red is a shade warmer than it was rather than a different colour.
+     If the card ever goes back to a heavier alpha, these come back down. */
   --gn-dim:     #d4c9b1;
-  --gn-place:   #a2957c;
-  --gn-faint:   #8a7f68;
-  --gn-p1:      #f07a58;  /* lacquer red */
+  --gn-place:   #baae99;
+  --gn-faint:   #998e79;
+  --gn-p1:      #fc9375;  /* lacquer red, lifted for the .24 card */
   --gn-p1-ink:  #1c0d08;
   --gn-p1-sh:   #a8482e;
   --gn-p1-tint-ink:#eca48a;

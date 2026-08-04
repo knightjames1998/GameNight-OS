@@ -246,15 +246,56 @@ test("TABLETOP HOLDS CONTRAST PARITY WITH ARCADE, pair for pair", () => {
   // its own Arcade value. This can only ever be more permissive than the flat
   // rule for pairs above 8, and the AA test below is what stops it becoming a
   // licence: nothing may cross the floor whatever this says.
+  //
+  // ONLY LOSSES COUNT. The stated job is that "a whole step of legibility
+  // cannot go missing", and a pair that got MORE readable has not lost
+  // anything. Lifting --gn-p1 for the lighter card took --gn-p1-ink on
+  // --gn-p1 from 6.21 to 8.62, and failing a build over that is the test
+  // working in the wrong direction.
+  //
+  // AND ONE NAMED EXEMPTION LIST, RATHER THAN A WIDER TOLERANCE. Tabletop's
+  // card is rgba(0,0,0,.24), a darkening of lit cloth instead of an opaque
+  // walnut panel, and it is a good deal lighter than the panel it replaced, so
+  // every accent printed on a card loses ground. That is a real parity
+  // regression by this test's own definition and it is an ACCEPTED one (James,
+  // on the alpha): the material is the point, and the AA test above still holds
+  // the floor for every pair here. It is written out pair by pair with the
+  // numbers, exactly as --gn-faint's 3.0 floor is, so the cost is on the page
+  // and so a tenth pair cannot join the list without somebody adding a line.
+  // If the alpha ever goes back up, these come off.
+  const CARD_COST = new Map([
+    ["--gn-ink on --gn-surf", "14.45 -> 10.06"],
+    ["--gn-p2 on --gn-surf", "9.97 -> 5.77"],
+    ["--gn-gold on --gn-surf", "11.26 -> 6.81"],
+    ["--gn-danger on --gn-surf", "8.19 -> 5.71"],
+    ["--gn-danger-hover on --gn-surf", "10.06 -> 7.02"],
+    ["--gn-yes on --gn-surf", "8.28 -> 4.85"],
+    ["--gn-act on --gn-surf", "7.36 -> 4.76"],
+    ["--gn-act-ink on --gn-surf", "9.74 -> 7.03"],
+  ]);
   const drifted: string[] = [];
   for (const [fg, bg] of PAIRS) {
     const arcade = contrast(solid(ARCADE, fg), solid(ARCADE, bg));
     const tabletop = contrast(solid(TABLETOP, fg), solid(TABLETOP, bg));
     const delta = Math.round((tabletop - arcade) * 100) / 100;
-    if (Math.abs(delta) > TOLERANCE && Math.abs(delta) / arcade > 0.25) {
+    if (CARD_COST.has(`${fg} on ${bg}`)) continue;
+    if (arcade - tabletop > TOLERANCE && (arcade - tabletop) / arcade > 0.25) {
       drifted.push(`${fg} on ${bg}: arcade ${arcade}, tabletop ${tabletop} (${delta})`);
     }
   }
+  // The exemptions must stay live. A pair listed above that has since come back
+  // inside the tolerance is a line nobody needs, and leaving it there would let
+  // a future regression on that pair pass unnoticed.
+  const stale: string[] = [];
+  for (const [key] of CARD_COST) {
+    const [fg, bg] = key.split(" on ") as [string, string];
+    const arcade = contrast(solid(ARCADE, fg), solid(ARCADE, bg));
+    const tabletop = contrast(solid(TABLETOP, fg), solid(TABLETOP, bg));
+    if (!(arcade - tabletop > TOLERANCE && (arcade - tabletop) / arcade > 0.25)) {
+      stale.push(`${key} is exempt but no longer drifts (arcade ${arcade}, tabletop ${tabletop}); delete the line`);
+    }
+  }
+  assert.deepEqual(stale, [], "stale parity exemptions:\n  " + stale.join("\n  "));
   assert.deepEqual(drifted, [], "contrast parity lost:\n  " + drifted.join("\n  "));
 });
 

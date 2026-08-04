@@ -317,12 +317,12 @@ const overlay = (c, g) => {
  */
 const FELT = "#16402c";       // --gn-felt
 const FELT_CROWN = "#24563b"; // --gn-felt-lit (#265a3e) at 85% over --gn-felt
-// THE CARD IS TEXTURED TOO, since 2026-08-03: it is rgba(0,0,0,.5), a darkening
+// THE CARD IS TEXTURED TOO, since 2026-08-03: it is rgba(0,0,0,.24), a darkening
 // of whatever it is laid on, so the weave carries straight through it. The card
 // ON THE CROWN is the worst of the four surfaces here for a light ink, and it is
 // what set --gn-place's value.
-const CARD_ON_CROWN = "#122d1e";
-const INK = "#f7f0e2", DIM = "#d4c9b1", PLACE = "#a2957c", FAINT = "#8a7f68";
+const CARD_ON_CROWN = "#1b412d";
+const INK = "#f7f0e2", DIM = "#d4c9b1", PLACE = "#baae99", FAINT = "#998e79";
 const GUARDED = [
   { fg: INK, bg: FELT, what: "--gn-ink on --gn-felt", gate: true },
   { fg: DIM, bg: FELT, what: "--gn-dim on --gn-felt", gate: true },
