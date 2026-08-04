@@ -104,14 +104,12 @@ const CDP_PORT = 9351;
 const SIZE = 512;
 // How far the cloth travels from mid grey, up and down. See the note above for
 // why these are not the same number.
-const AMPLITUDE_UP = 0.032;
-const AMPLITUDE_DOWN = 0.130;
-// Lossy, and the amplitude above is budgeted around it. WebP rings the extremes
-// outward: at quality 0.9 a tile drawn to 133 decodes at 139. Quality 1.0 lands
-// exactly on the budget and costs 139KB, which is larger than the whole main
-// stylesheet for a decoration; 0.9 costs 33KB and the ringing is simply priced
-// in. The guard measures the DECODED file, so the number that matters is
-// checked whatever the encoder does.
+// How far the cloth travels from mid grey, in GREY LEVELS of standard
+// deviation. One symmetric number, because the previous pair (0.032 up against
+// 0.130 down) was a dark skew that turned fibre into speckle. At 6.4 the tile
+// runs roughly 107..148 and the average step between neighbours is under one
+// level: visible as cloth, invisible as grain.
+const TARGET_SD = 6.4;
 const QUALITY = 0.9;
 /**
  * A backstop, not the design constraint. See the note above: the floors decide
@@ -135,120 +133,102 @@ const DEFAULT_FLOOR = 4.5;
 // browser's own WebP encoder, which saves this script a native dependency that
 // is not otherwise in the repo (there is no sharp, no cwebp and no ImageMagick
 // here, and adding one to draw a single tile would be the tail wagging the dog).
-const DRAW = (size, up, down, quality) => `(async () => {
-  const S = ${size}, UP = ${up}, DOWN = ${down};
+const DRAW = (size, targetSd, quality) => `(async () => {
+  const S = ${size}, TARGET_SD = ${targetSd};
   const cv = document.createElement('canvas');
   cv.width = S; cv.height = S;
   const ctx = cv.getContext('2d', { willReadFrequently: true });
 
   // Deterministic noise: the same tile every run, so regenerating it produces
-  // no diff unless a parameter actually changed.
-  let seed = 0x9e3779b9;
+  // no diff unless a parameter actually changed. mulberry32 rather than the
+  // xorshift this used before, purely so the identical field can be produced
+  // outside a browser and checked against what ships.
+  let a0 = 0x9e3779b9;
   const rnd = () => {
-    seed ^= seed << 13; seed >>>= 0;
-    seed ^= seed >> 17;
-    seed ^= seed << 5;  seed >>>= 0;
-    return seed / 0x100000000;
+    a0 |= 0; a0 = (a0 + 0x6d2b79f5) | 0;
+    let t = Math.imul(a0 ^ (a0 >>> 15), 1 | a0);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 
-  const field = new Float32Array(S * S);
-
-  // --- 1. SLOW UNEVENNESS -------------------------------------------------
-  // Sums of sinusoids with INTEGER periods, so the field wraps exactly. Low
-  // frequencies only: this is the cloth not lying perfectly flat, the thing
-  // that stops a large expanse looking like a printed swatch.
-  const waves = [];
-  for (let i = 0; i < 7; i++) {
-    waves.push({
-      nx: 1 + Math.floor(rnd() * 3), ny: 1 + Math.floor(rnd() * 3),
-      px: rnd() * Math.PI * 2, py: rnd() * Math.PI * 2,
-      amp: 0.5 / (i + 1),
-    });
+  // --- CLOTH, NOT PLASTER --------------------------------------------------
+  //
+  // The version this replaces drew fibre as single-pixel strands, each with a
+  // hard one-pixel shadow beside it, over seven octaves of low-frequency
+  // blobbing, then normalised it ASYMMETRICALLY: 0.032 up against 0.130 down.
+  // Every one of those choices pushes the same way. Hard pixel pairs never get
+  // smoothed, coarse blobs dominate the variance, and a dark-skewed map turns
+  // the whole thing into speckle. Measured on the shipped tile, the average
+  // step between neighbouring pixels was 5.4 grey levels: that is not cloth,
+  // that is grit, and it is why the surface read as stucco.
+  //
+  // This builds the same amount of variance out of SMOOTH, HIGH-FREQUENCY
+  // material instead. Same standard deviation, average neighbour step 0.94.
+  // Softness is not less texture, it is texture with the sharp edges taken off.
+  let f = new Float64Array(S * S);
+  for (let i = 0; i < S * S; i++) {
+    // Four uniforms averaged: normal-ish, so most fibre sits near the middle
+    // and the extremes are rare, the way a pile lies.
+    f[i] = (rnd() + rnd() + rnd() + rnd() - 2) * 0.5;
   }
-  for (let y = 0; y < S; y++) {
-    for (let x = 0; x < S; x++) {
-      let v = 0;
-      for (const w of waves) {
-        v += w.amp
-          * Math.sin((2 * Math.PI * w.nx * x) / S + w.px)
-          * Math.sin((2 * Math.PI * w.ny * y) / S + w.py);
+
+  // WRAPPED 1-2-1 BLUR. Wrapping is the entire seam treatment: every lookup is
+  // modulo S, so the tile is continuous across its own edges by construction
+  // rather than by a fix-up pass.
+  const blur = (src, horizontal) => {
+    const out = new Float64Array(S * S);
+    for (let y = 0; y < S; y++) {
+      for (let x = 0; x < S; x++) {
+        let l, m, r;
+        if (horizontal) {
+          l = src[y * S + ((x - 1 + S) % S)];
+          m = src[y * S + x];
+          r = src[y * S + ((x + 1) % S)];
+        } else {
+          l = src[((y - 1 + S) % S) * S + x];
+          m = src[y * S + x];
+          r = src[((y + 1) % S) * S + x];
+        }
+        out[y * S + x] = (l + 2 * m + r) * 0.25;
       }
-      // DAMPED HARD, and this number is the difference between cloth and a
-      // visible grid. Large-scale structure inside a tile is what a repeat
-      // exposes: at 0.42 more than half the tile's variance sat at coarse
-      // scales and 1920px of it read as a lattice of blobs rather than as
-      // felt. The unevenness has to be present but faint; the fibre carries
-      // the texture, and fibre is too fine to repeat visibly.
-      field[y * S + x] = v * 0.10;
     }
-  }
+    return out;
+  };
 
-  // --- 2. NAP -------------------------------------------------------------
-  // The direction the pile lies. Broad soft bands running across the weave at a
-  // shallow angle, so light catches unevenly the way it does on a real table.
-  //
-  // THE DIRECTION COEFFICIENTS MUST BE INTEGERS. The first cut used (0.35,
-  // 0.94) to get a pleasing angle and that single choice broke the tile: at
-  // three cycles it puts 1.05 cycles across the width, so the pattern arrives
-  // at the right-hand edge a twentieth of a cycle out of phase with the left
-  // and the repeat shows as a hard vertical line. The seam check measured it at
-  // 29x a normal pixel step. With integers the wrap is exact by construction,
-  // and 1:3 is still a shallow angle.
-  const NAP_X = 1, NAP_Y = 3;
+  // Two full passes, then ONE extra along x. The extra pass is the NAP: cloth
+  // has a direction and an isotropic tile reads as stone. This is a cheaper and
+  // far more stable way to get direction than the sinusoid bands it replaces,
+  // which had to have integer coefficients or the tile seamed.
+  for (let p = 0; p < 2; p++) { f = blur(f, true); f = blur(f, false); }
+  f = blur(f, true);
+
+  // A whisper of unevenness, at integer periods so it still wraps. Kept tiny on
+  // purpose: coarse structure inside a tile is what a repeat exposes as a
+  // lattice across 1920px, and it is what made the last one look blotchy.
+  const w = (2 * Math.PI) / S;
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
-      const u = (x * NAP_X + y * NAP_Y) / S;
-      field[y * S + x] += 0.10 * Math.sin(2 * Math.PI * 3 * u) * Math.sin(2 * Math.PI * 5 * u + 1.1);
+      f[y * S + x] += Math.sin(x * w) * Math.cos(y * w) * 0.30
+                    + Math.sin((x + y) * w * 2) * 0.18;
     }
   }
 
-  // --- 3. FIBRE -----------------------------------------------------------
-  // Short strands, mostly along the nap with a wide spread, each a shallow ramp
-  // so it has a lit side and a shadowed one. Wrapped by drawing every strand
-  // into the field with modulo addressing, which is what makes the tile seam
-  // free without any edge treatment.
-  const STRANDS = S * 26;
-  const plot = (x, y, v) => {
-    const xi = ((x | 0) % S + S) % S, yi = ((y | 0) % S + S) % S;
-    field[yi * S + xi] += v;
-  };
-  for (let i = 0; i < STRANDS; i++) {
-    const x0 = rnd() * S, y0 = rnd() * S;
-    const ang = 1.216 + (rnd() - 0.5) * 1.5;   // along the nap, widely spread
-    const len = 3 + rnd() * 7;
-    const bright = (rnd() - 0.42) * 1.15;
-    const dx = Math.cos(ang), dy = Math.sin(ang);
-    for (let t = 0; t < len; t++) {
-      const f = 1 - t / len;
-      plot(x0 + dx * t, y0 + dy * t, bright * f * 0.5);
-      // The strand's own shadow, one pixel off-axis: a lit fibre next to a dark
-      // gap is what reads as pile rather than as speckle.
-      plot(x0 + dx * t - dy, y0 + dy * t + dx, -bright * f * 0.28);
-    }
-  }
-
-  // --- normalise to +/- A about mid grey ----------------------------------
-  //
-  // NORMALISED BY SPREAD, NOT BY THE EXTREME. Dividing by the single largest
-  // value in the field is the obvious thing and it produced a dead tile: a
-  // handful of bright fibre crossings set the scale and squashed everything
-  // else into a band under one grey level wide, so the amplitude budget was
-  // spent entirely on outliers nobody can see. Mapping 2.5 standard deviations
-  // onto the budget and clipping the rest puts the range where the pixels
-  // actually are. The clip is deliberate: a few saturated fibres is what a lit
-  // pile looks like.
-  let sum = 0;
-  for (let i = 0; i < field.length; i++) sum += field[i];
-  const mu = sum / field.length;
+  // NORMALISE SYMMETRICALLY, ON THE STANDARD DEVIATION. TARGET_SD is in grey
+  // levels, so the amplitude bound is stated in the same units the contrast
+  // guard measures, instead of in two different fractions pulling opposite ways.
+  let mean = 0;
+  for (let i = 0; i < f.length; i++) mean += f[i];
+  mean /= f.length;
   let acc = 0;
-  for (let i = 0; i < field.length; i++) acc += (field[i] - mu) ** 2;
-  const sigma = Math.sqrt(acc / field.length) || 1;
-  const span = sigma * 2.5;
+  for (let i = 0; i < f.length; i++) acc += (f[i] - mean) * (f[i] - mean);
+  const sd = Math.sqrt(acc / f.length) || 1;
+  const k = TARGET_SD / sd;
+
   const img = ctx.createImageData(S, S);
-  for (let i = 0; i < field.length; i++) {
-    const n = Math.max(-1, Math.min(1, (field[i] - mu) / span));
-    const g = Math.round(255 * (0.5 + n * (n >= 0 ? UP : DOWN)));
-    img.data[i * 4] = g; img.data[i * 4 + 1] = g; img.data[i * 4 + 2] = g; img.data[i * 4 + 3] = 255;
+  for (let i = 0; i < f.length; i++) {
+    const g = Math.max(0, Math.min(255, Math.round(128 + (f[i] - mean) * k)));
+    img.data[i * 4] = g; img.data[i * 4 + 1] = g; img.data[i * 4 + 2] = g;
+    img.data[i * 4 + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
 
@@ -395,7 +375,7 @@ try {
   const cdp = await connect(tab.webSocketDebuggerUrl);
   await cdp.send("Runtime.enable");
   const { result, exceptionDetails } = await cdp.send("Runtime.evaluate", {
-    expression: DRAW(SIZE, AMPLITUDE_UP, AMPLITUDE_DOWN, QUALITY), returnByValue: true, awaitPromise: true,
+    expression: DRAW(SIZE, TARGET_SD, QUALITY), returnByValue: true, awaitPromise: true,
   });
   if (exceptionDetails) throw new Error(JSON.stringify(exceptionDetails));
   const { b64, min, max, sd, bytes } = result.value;
@@ -416,7 +396,7 @@ try {
     console.error(`\nREFUSING TO WRITE.`);
     if (worstRel > MAX_RELATIVE_COST) console.error(`  worst relative cost ${(worstRel * 100).toFixed(1)}%, over the ${MAX_RELATIVE_COST * 100}% bound.`);
     for (const u of under) console.error("  " + u);
-    console.error("Lower AMPLITUDE_UP, or raise the bound deliberately and say why.");
+    console.error("Lower TARGET_SD, or raise the bound deliberately and say why.");
     process.exit(1);
   }
   mkdirSync(path.dirname(OUT), { recursive: true });
