@@ -149,4 +149,6 @@ export * from "./roulette.js";
 export * from "./craps.js";
 // The co-op one. Its own state module, deliberately not settleCash.
 export * from "./casinorun.js";
+// The tabletop one. No engine at all: a tapped order and a title.
+export * from "./boardgame.js";
 export * from "./modifiers.js";

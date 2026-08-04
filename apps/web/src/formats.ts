@@ -28,6 +28,11 @@ export const FORMAT_LABEL: Record<string, string> = {
   // The whole casino group records one row per SESSION, so they share one
   // format key. The pack (games.name) is what tells blackjack from poker.
   cash: "Cash game",
+  // One row per board game played, so the default "games" unit is right and
+  // there is no FORMAT_UNIT entry. The TITLE is on matches.label, not here:
+  // this pack has one format and many titles, which is the opposite of the
+  // casino group's one format across many packs.
+  boardgame: "Board game",
   other: "Other",
 };
 

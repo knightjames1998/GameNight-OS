@@ -180,6 +180,26 @@ export const SESSION_PACKS = {
     emoji: "\u{1F3B0}", // 🎰
     quickTitle: "Casino Run",
   },
+  // THE TABLETOP ONE. A crew plays board games on a night and each board game
+  // played is one recorded result: title on matches.label (Mario Party's
+  // pattern for its board), placement from the tapped finish order, one games
+  // row for the whole pack.
+  //
+  // ONE `games` ROW, NEVER ONE PER TITLE. Per-title stats derive from the
+  // label, and a row per title would split this pack into a leaderboard tab per
+  // board game, which is exactly what the gameName warning at the top of this
+  // file exists to prevent.
+  boardgame: {
+    ledger: "boardgame",
+    gameName: "Board Game",
+    keyPrefix: "bg",
+    route: "boardgame",
+    wsType: "boardgame_updated",
+    table: "game_sessions",
+    name: "Board Game",
+    emoji: "\u{265F}\u{FE0F}", // ♟️
+    quickTitle: "Board game night",
+  },
 } as const satisfies Record<string, SessionPackDef>;
 
 /**

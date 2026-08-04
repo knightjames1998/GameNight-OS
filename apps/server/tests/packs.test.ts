@@ -61,6 +61,11 @@ const SHIPPED = {
   // the same split Mario Kart has, and the registry exists precisely so the
   // two spellings can differ without anything drifting.
   casinorun: { ledger: "casino_run", gameName: "Casino Run", keyPrefix: "casinorun", wsType: "casino_run", table: "game_sessions", route: "casinorun" },
+  // The tabletop one. Pinned the day it shipped (2026-08-04). Note gameName is
+  // "Board Game" SINGULAR and there is exactly one of these rows per crew: the
+  // per-title breakdown lives on matches.label, and a games row per title would
+  // split this pack into a leaderboard tab per board game.
+  boardgame: { ledger: "boardgame", gameName: "Board Game", keyPrefix: "bg", wsType: "boardgame_updated", table: "game_sessions", route: "boardgame" },
 } as const;
 
 test("every pack's shipped identifiers are unchanged", () => {
@@ -87,7 +92,7 @@ test("the registry holds exactly the session packs, in order", () => {
   // ORDER IS SHIP ORDER, and it is asserted rather than incidental: this list
   // feeds the event TV's tiebreak, so a new pack inserted ABOVE a live one
   // would silently re-rank the live one. Append; never insert.
-  assert.deepEqual(SESSION_PACK_KEYS, ["smash", "mariokart", "marioparty", "pingpong", "blackjack", "roulette", "craps", "casinorun"]);
+  assert.deepEqual(SESSION_PACK_KEYS, ["smash", "mariokart", "marioparty", "pingpong", "blackjack", "roulette", "craps", "casinorun", "boardgame"]);
 });
 
 test("Ping Pong's ledger key is pingpong, not ping_pong", () => {
@@ -153,6 +158,7 @@ test("packEmoji resolves every value games.pack can hold", () => {
   assert.equal(packEmoji("pingpong"), "\u{1F3D3}"); // 🏓
   assert.equal(packEmoji("blackjack"), "\u{1F0CF}"); // 🃏
   assert.equal(packEmoji("roulette"), "\u{1F3A1}"); // 🎡
+  assert.equal(packEmoji("boardgame"), "\u{265F}\u{FE0F}"); // ♟️
   assert.equal(packEmoji(BEERIO_LEDGER), "\u{1F37A}"); // 🍺
   assert.equal(packEmoji(GENERIC_LEDGER), "\u{1F3C6}"); // 🏆
 });

@@ -50,6 +50,8 @@ const CrapsPage = lazy(() => import("./craps/CrapsPage"));
 const CrapsTvPage = lazy(() => import("./craps/CrapsTvPage"));
 const CasinoRunPage = lazy(() => import("./casinorun/CasinoRunPage"));
 const CasinoRunTvPage = lazy(() => import("./casinorun/CasinoRunTvPage"));
+const BoardGamePage = lazy(() => import("./boardgame/BoardGamePage"));
+const BoardGameTvPage = lazy(() => import("./boardgame/BoardGameTvPage"));
 
 function SmashSearchKeyed() {
   // /smash?event=A -> /smash?event=B is a same-route navigation and won't
@@ -91,6 +93,11 @@ function CrapsSearchKeyed() {
 function CasinoRunSearchKeyed() {
   const location = useLocation();
   return <CasinoRunPage key={location.search} />;
+}
+
+function BoardGameSearchKeyed() {
+  const location = useLocation();
+  return <BoardGamePage key={location.search} />;
 }
 
 /**
@@ -224,6 +231,8 @@ export default function App() {
             <Route path="/craps/tv/:eventId" element={<CrapsTvPage />} />
             <Route path="/casinorun" element={<CasinoRunSearchKeyed />} />
             <Route path="/casinorun/tv/:eventId" element={<CasinoRunTvPage />} />
+            <Route path="/boardgame" element={<BoardGameSearchKeyed />} />
+            <Route path="/boardgame/tv/:eventId" element={<BoardGameTvPage />} />
             <Route path="/join/:code" element={<JoinPage me={me} />} />
           </Routes>
         </Suspense>

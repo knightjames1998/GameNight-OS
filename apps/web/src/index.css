@@ -195,6 +195,7 @@
   --gn-cab-rl-edge:    #1d4a3a;  --gn-cab-rl-top:    #0e2c21;
   --gn-cab-cr-edge:    #1f3a63;  --gn-cab-cr-top:    #0f2445;  --gn-cab-cr-ink:   #ff8a3d;
   --gn-cab-crun-edge:  #3c2a63;  --gn-cab-crun-top:  #241541;  --gn-cab-crun-ink: #ffc93f;
+  --gn-cab-bg-edge:    #5a422c;  --gn-cab-bg-top:    #2a1c12;  --gn-cab-bg-ink:   #e0a54a;
   /* Two cabinets do NOT land on --gn-surf and are preserved exactly as they
      shipped rather than quietly rounded to it. Mario Party's is 6/255 of red
      off --gn-surf and is almost certainly a typo for it; Casino Run's is a
@@ -488,6 +489,7 @@
   --gn-cab-rl-edge:    #1c481e;  --gn-cab-rl-top:    #0e2a04;
   --gn-cab-cr-edge:    #1a3b4d;  --gn-cab-cr-top:    #0a2531;
   --gn-cab-crun-edge:  #382d4d;  --gn-cab-crun-top:  #21182d;
+  --gn-cab-bg-edge:    #55401f;  --gn-cab-bg-top:    #271a0a;
   /* The two that do not land on --gn-surf keep the same near-miss they have
      under Arcade, rather than being quietly folded in here. If James decides
      Mario Party's is the typo it looks like, both themes should change in the
@@ -776,7 +778,15 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
    shadow do not. */
 .gn-rail{
   position:fixed;
-  inset:0;
+  /* Pinned INSIDE the safe area, or on a notched phone in landscape the timber
+     sits under the cutout and the stitch line under the home indicator. This
+     was briefly `inset:0` on 2026-08-04, alongside the timber gradient rewrite,
+     which looks identical on a desktop (every env() inset is 0 there) and wrong
+     on the device the rule exists for. That is exactly why it is a test. */
+  top:env(safe-area-inset-top, 0px);
+  right:env(safe-area-inset-right, 0px);
+  bottom:env(safe-area-inset-bottom, 0px);
+  left:env(safe-area-inset-left, 0px);
   pointer-events:none;
   z-index:3;
 }
@@ -927,6 +937,8 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-cab--cr .gn-cab__name{color:var(--gn-cab-cr-ink)}
 .gn-cab--crun{border-color:var(--gn-cab-crun-edge);background:linear-gradient(180deg,var(--gn-cab-crun-top),var(--gn-cab-crun-bot))}
 .gn-cab--crun .gn-cab__name{color:var(--gn-cab-crun-ink)}
+.gn-cab--bg{border-color:var(--gn-cab-bg-edge);background:linear-gradient(180deg,var(--gn-cab-bg-top),var(--gn-surf-solid))}
+.gn-cab--bg .gn-cab__name{color:var(--gn-cab-bg-ink)}
 
 /* Shared on/off pill toggle (the "let members record results" control in
    every pack). The label is the current state; green = on, red = off. */

@@ -304,16 +304,48 @@ export function kothNextPair(koth: KothState): [string, string] | null {
 }
 
 /**
+ * The default ceiling on one FFA game, and it is SMASH'S number rather than a
+ * general one: Ultimate seats 8, and Smashdown's battle cap is arithmetic
+ * against it (`floor(rosterSize / playerCount)` for the chosen title). Raising
+ * this would quietly change every Smashdown cap in the app, which is why the
+ * cap is a per-pack argument below rather than a constant packs share.
+ */
+export const FFA_MAX_PLAYERS = 8;
+
+/**
+ * The size half of an FFA validation, on its own so a pack that seats more than
+ * Smash can reuse it without reimplementing "how many people can be in one
+ * game". Board Game passes 12; every existing caller stays on the default 8.
+ *
+ * `what` names the thing being capped, because "FFA is capped at 12 players" is
+ * not a sentence a board game player should ever be shown.
+ */
+export function validateFfaSize(
+  count: number,
+  maxPlayers: number = FFA_MAX_PLAYERS,
+  what = "FFA",
+): string | null {
+  if (count < 2) return "Need at least 2 players in a game";
+  if (count > maxPlayers) return `${what} is capped at ${maxPlayers} players`;
+  return null;
+}
+
+/**
  * Validate a set of placements for an FFA game. Returns an error string or
  * null. In winner-only detail exactly one line is the winner; in placement
  * detail placements must be a permutation of 1..N.
+ *
+ * `maxPlayers` defaults to Smash's 8. It is an argument rather than a constant
+ * so a pack that seats more can pass its own without moving anybody else's
+ * ceiling; see FFA_MAX_PLAYERS for why moving Smash's is not free.
  */
 export function validateFfa(
   lines: SmashResultLine[],
   detail: SmashResultDetail,
+  maxPlayers: number = FFA_MAX_PLAYERS,
 ): string | null {
-  if (lines.length < 2) return "Need at least 2 players in a game";
-  if (lines.length > 8) return "FFA is capped at 8 players";
+  const size = validateFfaSize(lines.length, maxPlayers);
+  if (size) return size;
   if (detail === "winner") {
     const winners = lines.filter((l) => l.isWinner).length;
     if (winners !== 1) return "Pick exactly one winner";

@@ -67,6 +67,12 @@ export const PACK_GROUPS = [
   { key: "nintendo", label: "Nintendo" },
   { key: "casino", label: "Casino" },
   { key: "bar", label: "Bar and sports" },
+  // "Board and card", NOT "Tabletop". That word already means the THEME in this
+  // repo, and one word with two meanings here is how "stake" and "floor" both
+  // went wrong: a session reads "tabletop" on a picker group and a "tabletop"
+  // in the theme tokens and has to work out which is which every time. The Card
+  // table pack joins this group when it lands.
+  { key: "boardcard", label: "Board and card" },
   { key: "other", label: "Other" },
 ] as const;
 
@@ -182,6 +188,17 @@ export const PACKS: PackSpec[] = [
     // genuinely not a cash game: there are no buy-ins and no cash-outs, just
     // one shared bank against a target.
     formats: [{ key: "coop", label: "🎰 Co-op run", sub: "one bank, quotas, everybody wins or nobody" }],
+  },
+  {
+    key: "boardgame",
+    name: S.boardgame.name,
+    emoji: S.boardgame.emoji,
+    cabClass: "gn-cab--bg",
+    group: "boardcard",
+    // One format. A board game night is a sequence of board games, and the
+    // TITLE is not a format: it is a label on the result, so it never appears
+    // here. Card table joins this group as its own tile when it lands.
+    formats: [{ key: "night", label: "♟️ Game night", sub: "one result per board game" }],
   },
   {
     key: "tournament",

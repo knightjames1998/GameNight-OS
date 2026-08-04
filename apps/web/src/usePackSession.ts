@@ -46,8 +46,16 @@ export interface PackCtx {
   live: boolean;
 }
 
-export interface PackSessionApi<S> {
-  ctx: PackCtx | null;
+/**
+ * `C` widens the launch context for a pack whose *-context endpoint returns
+ * more than the shared envelope. Board Game is the first: its endpoint adds the
+ * crew's own recent titles, because the setup screen needs them BEFORE the
+ * first game is recorded and they are the pack's main defence against a
+ * free-text title splitting a crew's history. It defaults to PackCtx, so every
+ * other pack is untouched.
+ */
+export interface PackSessionApi<S, C extends PackCtx = PackCtx> {
+  ctx: C | null;
   session: S | null;
   /** True only until the first load settles. */
   loading: boolean;
@@ -83,9 +91,11 @@ export interface PackSessionOptions {
   replacePrompt: string;
 }
 
-export function usePackSession<S>(opts: PackSessionOptions): PackSessionApi<S> {
+export function usePackSession<S, C extends PackCtx = PackCtx>(
+  opts: PackSessionOptions,
+): PackSessionApi<S, C> {
   const { pack, wsType, eventId, replacePrompt } = opts;
-  const [ctx, setCtx] = useState<PackCtx | null>(null);
+  const [ctx, setCtx] = useState<C | null>(null);
   const [session, setSession] = useState<S | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -98,7 +108,7 @@ export function usePackSession<S>(opts: PackSessionOptions): PackSessionApi<S> {
   const refetch = useCallback(async () => {
     if (!eventId) return;
     const [c, s] = await Promise.all([
-      api<PackCtx>(`/api/${pack}-context/${eventId}`).catch(() => null),
+      api<C>(`/api/${pack}-context/${eventId}`).catch(() => null),
       api<{ session: S | null }>(`/api/${pack}/${eventId}`).catch(() => ({ session: null })),
     ]);
     // The context is allowed to fail without wiping what we have: it is

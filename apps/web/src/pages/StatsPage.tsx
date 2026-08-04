@@ -1000,6 +1000,120 @@ function CasinoRunPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
   );
 }
 
+// The generic aggregator names the Board Game pack's game this.
+const BOARD_GAME_GAME_NAME = "Board Game";
+
+interface BgStats {
+  games: number;
+  titles: number;
+  byPlayer: {
+    userId: string;
+    name: string;
+    games: number;
+    wins: number;
+    winRate: number;
+    avgPlacement: number | null;
+    titles: number;
+  }[];
+  byTitle: {
+    title: string;
+    games: number;
+    winners: { name: string; wins: number }[];
+    champion: string | null;
+    championWins: number;
+  }[];
+  mostPlayed: { title: string; games: number } | null;
+}
+
+/**
+ * The Board Game panel. Everything below the shared player list is per TITLE,
+ * and every one of those groupings is `matches.label`: there is ONE `games` row
+ * for this pack, never a row per title, because a row per title would split the
+ * pack into a leaderboard tab per board game.
+ *
+ * Which is also why the titles have to be canonicalized on the way in. These
+ * sections ARE the spelling: "Catan" and "catan" would sit here as two titles,
+ * two champions and two histories, and nothing anywhere would have errored.
+ */
+function BoardGamePanel({ groupId, rows, open, setOpen }: PackPanelProps) {
+  const { data, error } = useCachedApi<BgStats>(
+    `group:${groupId}:boardgame`,
+    `/api/groups/${groupId}/boardgame-stats`,
+  );
+
+  if (!data && error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
+  if (!data) return <StatsSkeleton />;
+  if (data.games === 0) {
+    return <p className="gn-hint">No board games recorded yet. Play a night and it fills in here.</p>;
+  }
+
+  const accent = "#e0a54a";
+  const head = (label: string) => packHead(label, accent);
+
+  // How many different titles somebody has played is the one per-player number
+  // no other pack has, so it rides the shared row as a subline tail.
+  const extras = new Map(
+    data.byPlayer.map((p) => [
+      p.userId,
+      <>
+        {" "}&middot; {p.titles} {p.titles === 1 ? "title" : "titles"}
+        {p.avgPlacement !== null && <> &middot; avg {p.avgPlacement.toFixed(1)}</>}
+      </>,
+    ]),
+  );
+
+  return (
+    <div className="space-y-6">
+      <section>
+        {head("Players")}
+        <PlayerRows rows={rows} open={open} setOpen={setOpen} extras={extras} />
+      </section>
+
+      <section>
+        {head("Titles played")}
+        {data.mostPlayed && (
+          <p className="gn-hint" style={{ marginBottom: 8 }}>
+            Most played: <span style={{ color: "var(--gn-ink)" }} className="font-bold">{data.mostPlayed.title}</span>{" "}
+            ({data.mostPlayed.games} {data.mostPlayed.games === 1 ? "game" : "games"} across {data.titles}{" "}
+            {data.titles === 1 ? "title" : "titles"})
+          </p>
+        )}
+        <ul className="space-y-1">
+          {data.byTitle.map((t) => (
+            <li key={t.title} className="gn-card flex items-baseline justify-between gap-2" style={{ padding: "10px 16px" }}>
+              <span className="font-bold truncate">{t.title}</span>
+              <span className="text-sm shrink-0 gn-hint">
+                {t.games} played
+                {t.champion ? <> &middot; <span style={{ color: "var(--gn-ink)" }}>{t.champion}</span> {t.championWins}W</> : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        {head("Wins by title")}
+        {/* The champion above is the top of each of these lists. The full
+            breakdown is here rather than folded into that line, because "who
+            owns Catan" and "who else has ever won it" are different questions
+            and the second one is the argument at the table. */}
+        <ul className="space-y-1">
+          {data.byTitle
+            .filter((t) => t.winners.length > 0)
+            .map((t) => (
+              <li key={t.title} className="gn-card" style={{ padding: "10px 16px" }}>
+                <div className="font-bold truncate">{t.title}</div>
+                <p className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
+                  {t.winners.map((w) => `${w.name} ${w.wins}`).join(" · ")}
+                </p>
+              </li>
+            ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
+
 export default function StatsPage() {
   const { id } = useParams();
   const [open, setOpen] = useState<string | null>(null);
@@ -1043,6 +1157,8 @@ export default function StatsPage() {
                 ? `${count} craps ${count === 1 ? "night" : "nights"}`
                 : tab === CASINO_RUN_GAME_NAME
                 ? `${count} casino ${count === 1 ? "run" : "runs"}`
+                : tab === BOARD_GAME_GAME_NAME
+                ? `${count} board ${count === 1 ? "game" : "games"}`
                 : `${count} ${count === 1 ? "result" : "results"}${active ? ` of ${active.name}` : " across all game modes"}`}
             </p>
           )}
@@ -1089,6 +1205,8 @@ export default function StatsPage() {
           <CrapsPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : tab === CASINO_RUN_GAME_NAME && id ? (
           <CasinoRunPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
+        ) : tab === BOARD_GAME_GAME_NAME && id ? (
+          <BoardGamePanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : (
           <PlayerRows rows={shown ?? []} open={open} setOpen={setOpen} showByGame={tab === null} />
         )}
