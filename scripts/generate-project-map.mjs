@@ -13,44 +13,35 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-08-03 at the START of the felt + rail session, because stage 4's pilot
-// handed the counter over at 3. This pass:
-//   - Zone 1's tabletop item became ONE item covering the whole shell (tokens, palette,
-//     material, woodtype) plus the Ping Pong pilot. Four sessions rendered as one, the
-//     same call Casino Run's five got: the map renders ideas, and "the shell is themed"
-//     is one idea. The packs are NOT done, which is why zone 3 still carries it.
-//   - Zone 3's tabletop item is now STAGE 4, THE REMAINING EIGHT PACKS.
-//   - Zone 5 took the two items stage 4 predicted: Ping Pong's TV does not fit 1080p past
-//     six players (OPEN, pre-existing, found by the pilot) and the canvas share cards
-//     follow no theme (Watch). Two OPEN, six Watch, four FIXED.
-//   - ROW 2 GREW AGAIN, 720 -> 840. Zone 5 needed 764 of a 720px zone, so it was over
-//     rather than tight; 800 would have left 36px, under the 58px an item costs.
-//     Canvas 1560x2080.
+// Redrawn 2026-08-04 at the START of the Board Game pack session, because the three felt
+// sessions handed the counter over at 3. This pass:
+//   - Zone 1's tabletop item ABSORBED all three of them (the felt tile and the rail, the
+//     materials pass, the room and card-alpha pass) instead of growing three more items.
+//     Third redraw running to make that call, and for the same reason each time: the map
+//     renders ideas, and "the shell is a table" is one idea. It keeps (NEW) because it
+//     took new shipped work this pass rather than merely surviving one.
+//   - ZONE 5 SHRANK FOR THE FIRST TIME, 12 items to 9. The four FIXED entries from
+//     2026-08-02 have now been drawn on two consecutive redraws, which is what "age out
+//     after a couple of redraws" means, and every one has its permanent record in the
+//     DECISION LOG. In exchange it took one real OPEN: the felt does not reach the PACKS.
+//   - Zone 4 took the modifier wall's cut at three, in FEATURES since 2026-08-02 and
+//     never drawn. Found by reading the headings against the zone, not by memory.
+//   - NO ROW MOVED. Row 2 stays at 840 with zone 5 needing 566 of it. Deliberate: a pack
+//     lands in zone 2 and four backlog items land in zone 3 within the hour, so shrinking
+//     now would only mean regrowing next pass. Canvas 1560x2080, unchanged.
 //
-// The 2026-08-02 pass, kept short:
-//   - Zone 1 gained the tabletop theme stage 1 item, (NEW). FOUNDATION, not GAME PACKS:
-//     it shipped no pack and no user-visible feature beyond a one-option switcher.
-//   - Zone 2 lost its two (NEW) highlights and gained nothing.
-//   - Zone 3 keeps the tabletop theme at slot 3, now labelled STAGES 2 AND 3. NOT moved
-//     to a green zone: one stage of three has shipped, and a reader who sees "tabletop
-//     theme" in SHIPPED will believe the app has two themes today. It does not, yet.
-//   - Zone 5 was where the work was, again. FOUR items drawn OPEN last pass are FIXED
-//     (money board, the co-op TIE, Casino Run's undo, the three cosmetic ones), Casino
-//     Run's TV back button is the only OPEN one now, the 07-30 event-TV FIXED entry aged
-//     out on its second redraw, and a fifth Watch trap landed (color-mix's opaque
-//     fallback on pre-2023 browsers, which stage 1 introduced across the shell).
-//   - ROW 2 GREW, 660 -> 720, and ROW 1 DID NOT. At 660 zone 5 would have had 18px left
-//     once the fifth Watch trap landed, and 18px is less than any item costs. Row 1 was
-//     left alone deliberately: zone 2 keeps the 102px the last pass chose for it, and
-//     zone 1 still has 186px after taking the stage 1 item. Canvas 1560x1960. NOTE that
-//     row 2 is THREE zones, not two: the first attempt at this raised FEATURES and BUG
-//     FIXES and left IDEAS at 660, caught by reading the generated file back.
+// The 2026-08-03 pass, kept short: zone 1's tabletop item became ONE item covering the
+// whole shell plus the Ping Pong pilot; zone 3's became STAGE 4, THE REMAINING EIGHT
+// PACKS; zone 5 took Ping Pong's TV fit and the unthemed share cards; ROW 2 GREW
+// 720 -> 840, because zone 5 needed 764 of a 720px zone and 800 would have left 36px,
+// under the 58px an item costs.
 //
-// Earlier passes, kept short: 2026-08-02 (zone 2 took declarative modifiers and Casino
-// Run; zone 5 finally got the money board bug it had never drawn; row 1 990 -> 1120 and
-// row 2 530 -> 660, its first growth in six passes), 2026-07-30 (zone 2 took roulette,
-// craps and stakes; row 1 920 -> 990) and 2026-07-29 (zone 2 took Smashdown, the series
-// rows and blackjack; row 1 860 -> 920).
+// Earlier passes, kept short: 2026-08-02 twice (stage 1 into zone 1; four zone-5 items
+// went FIXED and a fifth Watch trap landed; row 1 990 -> 1120 and row 2 530 -> 660 then
+// 660 -> 720, row 2's first growth in six passes, and the pass that learned a row is
+// THREE zones, not two), 2026-07-30 (zone 2 took roulette, craps and stakes; row 1
+// 920 -> 990) and 2026-07-29 (zone 2 took Smashdown, the series rows and blackjack;
+// row 1 860 -> 920).
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
 // each 480 wide, row 1 y=95 h=1120, row 2 y=1240 h=840. Items 440x40, 46px
@@ -76,7 +67,7 @@ const ZONES = [
       { t: "One TV button per night: /e/:id/tv auto-follows" },
       { t: "One pack registry: SESSION_PACKS, one entry per pack" },
       { t: "Pack picker groups: Nintendo / Casino / Bar / Other" },
-      { t: "TABLETOP THEME, SHELL COMPLETE: 73 tokens, warm-dark palette, felt/wood material, woodtype face, Ping Pong pilot (NEW)", bg: "#c3fae8", h: 88 },
+      { t: "TABLETOP THEME, SHELL COMPLETE: 73 tokens, warm-dark palette, real felt tile + rail, translucent cards, woodtype face, Ping Pong pilot (NEW)", bg: "#c3fae8", h: 88 },
     ],
   },
   {
@@ -116,6 +107,7 @@ const ZONES = [
     x: 40, y: 1240, h: 840,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
+      { t: "Revisit the modifier wall's cut at three (the room exists now)", h: 52 },
       { t: "Unified event TV + single active pack" },
       { t: "Detailed personal stats block on Home" },
       { t: "Per-route dynamic link previews" },
@@ -129,6 +121,7 @@ const ZONES = [
     x: 560, y: 1240, h: 840,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
+      { t: "OPEN: the felt does not reach the PACKS (no pack root mounts .gn-app / .gn-tv)", h: 52 },
       { t: "OPEN: Casino Run's TV has the same back-button blind spot the money board had", h: 52 },
       { t: "OPEN: Ping Pong's TV does not fit 1080p past SIX players (pre-existing)", h: 52 },
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
@@ -137,10 +130,6 @@ const ZONES = [
       { t: "Watch: drizzle push can no-op in CI, check build log", bg: "#fff3bf", h: 52 },
       { t: "Watch: color-mix's opaque fallback on pre-2023 browsers (shell-wide since stage 1)", bg: "#fff3bf", h: 52 },
       { t: "Watch: the canvas share cards follow NO theme (16 hardcoded colours, JS not CSS)", bg: "#fff3bf", h: 52 },
-      { t: "FIXED: casino TV money board now fits 1080p at every seat count", bg: "#b2f2bb", h: 52 },
-      { t: "FIXED: co-op results are no longer a TIE between every pair (`side`)", bg: "#b2f2bb", h: 52 },
-      { t: "FIXED: Casino Run undo no longer double-draws a stage-clear card", bg: "#b2f2bb", h: 52 },
-      { t: "FIXED: em dashes swept; retired ids render; a way back to the event", bg: "#b2f2bb", h: 70 },
     ],
   },
   {
