@@ -298,6 +298,69 @@ export function matchGameTally(match: PpMatch): Map<string, { wins: number; play
   return t;
 }
 
+// ---------- the ledger shape ----------
+//
+// MOVED HERE VERBATIM from materializeMatch in apps/server/src/pingpong.ts,
+// unchanged, so that what one completed match writes to the ledger is a PURE
+// function with no database anywhere near it. That matters for one reason: the
+// side conversion has to prove that every existing singles path still produces
+// identical rows, and a shape that can only be observed through a Drizzle call
+// cannot be pinned by a fixture. The server now calls this and does the insert.
+
+/** One participant row a completed match produces, before the runtime sees it. */
+export interface PpLedgerLine {
+  playerId: string;
+  placement: number;
+  isWinner: boolean;
+  /** The player's points across the games they lost, or null when none typed. */
+  score: number | null;
+  meta: { gameWins: number; gamesPlayed: number };
+}
+
+/** matches.label for this session's matches: bo1 / bo3 / bo5 / bo7. */
+export function ppMatchLabel(state: PpSessionState): string {
+  return `bo${state.bestOf}`;
+}
+
+/**
+ * The participant rows for one completed match. Winner placement 1, loser 2.
+ *
+ * Points captured are the LOSER'S points per game, summed per player. `score`
+ * is null (not zero) for everybody when no points were typed anywhere in the
+ * match, because an absent count is not a count of zero. Per-player game
+ * wins/played ride meta, which is what lets lifetime "single game" totals
+ * survive even though the games themselves are never rows.
+ *
+ * Returns [] for a match with no winner, which is what the server's early
+ * return did.
+ */
+export function ppMatchLines(match: PpMatch): PpLedgerLine[] {
+  if (!match.winnerId) return [];
+
+  const points = new Map<string, number>();
+  let anyPoints = false;
+  for (const g of match.games) {
+    if (g.loserPoints != null) {
+      const gameLoserId = g.winnerId === match.aId ? match.bId : match.aId;
+      points.set(gameLoserId, (points.get(gameLoserId) ?? 0) + g.loserPoints);
+      anyPoints = true;
+    }
+  }
+
+  const tally = matchGameTally(match);
+  const loserId = match.winnerId === match.aId ? match.bId : match.aId;
+  return [match.winnerId, loserId].map((slotId) => {
+    const g = tally.get(slotId) ?? { wins: 0, played: 0 };
+    return {
+      playerId: slotId,
+      placement: slotId === match.winnerId ? 1 : 2,
+      isWinner: slotId === match.winnerId,
+      score: anyPoints ? points.get(slotId) ?? 0 : null,
+      meta: { gameWins: g.wins, gamesPlayed: g.played },
+    };
+  });
+}
+
 export function summarizePingPong(state: PpSessionState): { players: PpPlayerStat[] } {
   const acc = new Map<
     string,

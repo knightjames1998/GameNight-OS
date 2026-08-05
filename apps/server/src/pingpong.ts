@@ -35,7 +35,8 @@ import {
   undoLast,
   neededWins,
   summarizePingPong,
-  matchGameTally,
+  ppMatchLines,
+  ppMatchLabel,
   type PpSessionState,
   type PpPlayer,
   type PpMode,
@@ -83,31 +84,11 @@ async function materializeMatch(
   state: PpSessionState,
   linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
 ): Promise<{ recorded: number; guests: number }> {
-  if (!match.winnerId) return { recorded: 0, guests: 0 };
-
-  // Points captured are the loser's points per game; sum them per player.
-  const points = new Map<string, number>();
-  let anyPoints = false;
-  for (const g of match.games) {
-    if (g.loserPoints != null) {
-      const gameLoserId = g.winnerId === match.aId ? match.bId : match.aId;
-      points.set(gameLoserId, (points.get(gameLoserId) ?? 0) + g.loserPoints);
-      anyPoints = true;
-    }
-  }
-
-  const tally = matchGameTally(match);
-  const loserId = match.winnerId === match.aId ? match.bId : match.aId;
-  const lines: LedgerLine[] = [match.winnerId, loserId].map((slotId) => {
-    const g = tally.get(slotId) ?? { wins: 0, played: 0 };
-    return {
-      playerId: slotId,
-      placement: slotId === match.winnerId ? 1 : 2,
-      isWinner: slotId === match.winnerId,
-      score: anyPoints ? points.get(slotId) ?? 0 : null,
-      meta: { gameWins: g.wins, gamesPlayed: g.played },
-    };
-  });
+  // The row shape is a PURE function in the shared module (ppMatchLines), so
+  // what a match writes can be pinned by a fixture with no database in the way.
+  // This file keeps the insert and nothing else.
+  const lines: LedgerLine[] = ppMatchLines(match);
+  if (lines.length === 0) return { recorded: 0, guests: 0 };
 
   return rt.materializeUnit({
     groupId,
@@ -115,7 +96,7 @@ async function materializeMatch(
     gameId,
     idx: match.idx,
     sessionKey: state.sessionKey,
-    label: `bo${state.bestOf}`,
+    label: ppMatchLabel(state),
     format: state.format,
     roster: state.roster,
     lines,
