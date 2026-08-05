@@ -34,9 +34,40 @@ import {
   startFfaMatch,
   summarizePingPong,
   undoLast,
+  currentSides,
   type PpPlayer,
   type PpSessionState,
 } from "../src/index.js";
+
+// The engine speaks in SIDE ids now, and a singles session is one side per
+// player in roster order, so p0 sits on side "a", p1 on "b" and so on. These
+// two helpers are the whole translation: every EXPECTED VALUE below is
+// unchanged from what the pre-conversion engine produced.
+const S = ["a", "b", "c", "d"];
+/** The members of the two sides teed up right now, as player ids. */
+const teed = (state: PpSessionState) =>
+  state.current ? [state.current.a.memberIds, state.current.b.memberIds] : null;
+/**
+ * The KOTH throne and queue in MEMBER terms.
+ *
+ * The koth STATE SHAPE changed by design in this conversion (kingId became
+ * kingSideId, the queue holds side ids, and the reign record names a side), so
+ * a deepEqual against the old shape could not survive it. Reading it through
+ * members instead says exactly what the old assertions said: for a singles
+ * night, side "a" IS p0, so `king: ["p0"]` is the same claim `kingId: "p0"`
+ * was. Every expected value below is unchanged.
+ */
+const kothMembers = (state: PpSessionState) => {
+  const k = state.koth!;
+  const members = (id: string | null) =>
+    id ? currentSides(state).find((s) => s.id === id)?.memberIds ?? null : null;
+  return {
+    king: members(k.kingSideId),
+    queue: k.queue.map(members),
+    reign: k.reign,
+    best: k.bestReign ? { members: k.bestReign.memberIds, reign: k.bestReign.reign } : null,
+  };
+};
 
 const players = (...names: string[]): PpPlayer[] =>
   names.map((name, i) => ({ id: `p${i}`, kind: "member", userId: `u${i}`, name }));
@@ -84,43 +115,42 @@ test("SINGLES: the format expansion is unchanged", () => {
 
 test("SINGLES: one free-play game writes exactly two rows, and NO side", () => {
   const s = freePlay();
-  assert.ok(startFfaMatch(s, "p0", "p1"));
-  const { completed } = recordGame(s, "p0", 18);
+  assert.ok(startFfaMatch(s, S[0]!, S[1]!));
+  const { completed } = recordGame(s, S[0]!, 18);
   assert.ok(completed);
 
   assert.equal(ppMatchLabel(s), "bo1");
   assert.deepEqual(ppMatchLines(completed!), [
-    { playerId: "p0", placement: 1, isWinner: true, score: 0, meta: { gameWins: 1, gamesPlayed: 1 } },
-    { playerId: "p1", placement: 2, isWinner: false, score: 18, meta: { gameWins: 0, gamesPlayed: 1 } },
+    { playerId: "p0", placement: 1, isWinner: true, score: 0, meta: { gameWins: 1, gamesPlayed: 1 }, side: null },
+    { playerId: "p1", placement: 2, isWinner: false, score: 18, meta: { gameWins: 0, gamesPlayed: 1 }, side: null },
   ]);
 });
 
 test("SINGLES: with no points typed anywhere, score is NULL and not zero", () => {
   const s = freePlay();
-  startFfaMatch(s, "p0", "p1");
-  const { completed } = recordGame(s, "p1", null);
+  startFfaMatch(s, S[0]!, S[1]!);
+  const { completed } = recordGame(s, S[1]!, null);
   assert.deepEqual(ppMatchLines(completed!), [
-    { playerId: "p1", placement: 1, isWinner: true, score: null, meta: { gameWins: 1, gamesPlayed: 1 } },
-    { playerId: "p0", placement: 2, isWinner: false, score: null, meta: { gameWins: 0, gamesPlayed: 1 } },
+    { playerId: "p1", placement: 1, isWinner: true, score: null, meta: { gameWins: 1, gamesPlayed: 1 }, side: null },
+    { playerId: "p0", placement: 2, isWinner: false, score: null, meta: { gameWins: 0, gamesPlayed: 1 }, side: null },
   ]);
 });
 
 test("SINGLES: free play keeps the same two teed up", () => {
   const s = freePlay();
-  startFfaMatch(s, "p0", "p1");
-  recordGame(s, "p0", 15);
-  assert.equal(s.current?.aId, "p0");
-  assert.equal(s.current?.bId, "p1");
+  startFfaMatch(s, S[0]!, S[1]!);
+  recordGame(s, S[0]!, 15);
+  assert.deepEqual(teed(s), [["p0"], ["p1"]]);
   assert.equal(s.current?.games.length, 0);
   assert.equal(s.matches.length, 1);
 });
 
 test("SINGLES: a free-play night's standings", () => {
   const s = freePlay();
-  startFfaMatch(s, "p0", "p1");
-  recordGame(s, "p0", 12);
-  recordGame(s, "p0", 9);
-  recordGame(s, "p1", 20);
+  startFfaMatch(s, S[0]!, S[1]!);
+  recordGame(s, S[0]!, 12);
+  recordGame(s, S[0]!, 9);
+  recordGame(s, S[1]!, 20);
   assert.deepEqual(standings(s), [
     { playerId: "p0", matches: 3, wins: 2, gameWins: 2, gamesPlayed: 3, currentStreak: 0, bestStreak: 2, longestReign: 0 },
     { playerId: "p1", matches: 3, wins: 1, gameWins: 1, gamesPlayed: 3, currentStreak: 1, bestStreak: 1, longestReign: 0 },
@@ -133,10 +163,10 @@ test("SINGLES: a free-play night's standings", () => {
 
 test("SINGLES: a bo3 materializes once, on the deciding game", () => {
   const s = bestOf(3);
-  startFfaMatch(s, "p0", "p1");
-  assert.equal(recordGame(s, "p0", 19).completed, null);
-  assert.equal(recordGame(s, "p1", 21).completed, null);
-  const { completed } = recordGame(s, "p0", 17);
+  startFfaMatch(s, S[0]!, S[1]!);
+  assert.equal(recordGame(s, S[0]!, 19).completed, null);
+  assert.equal(recordGame(s, S[1]!, 21).completed, null);
+  const { completed } = recordGame(s, S[0]!, 17);
   assert.ok(completed);
   assert.equal(s.matches.length, 1);
   // The set is over, so nothing is teed up.
@@ -147,18 +177,18 @@ test("SINGLES: a bo3 materializes once, on the deciding game", () => {
   // Per-player game wins ride meta, which is what makes lifetime single-game
   // totals possible from a ledger that holds only the match.
   assert.deepEqual(ppMatchLines(completed!), [
-    { playerId: "p0", placement: 1, isWinner: true, score: 21, meta: { gameWins: 2, gamesPlayed: 3 } },
-    { playerId: "p1", placement: 2, isWinner: false, score: 36, meta: { gameWins: 1, gamesPlayed: 3 } },
+    { playerId: "p0", placement: 1, isWinner: true, score: 21, meta: { gameWins: 2, gamesPlayed: 3 }, side: null },
+    { playerId: "p1", placement: 2, isWinner: false, score: 36, meta: { gameWins: 1, gamesPlayed: 3 }, side: null },
   ]);
 });
 
 test("SINGLES: matchGameTally counts both players every game", () => {
   const s = bestOf(5);
-  startFfaMatch(s, "p2", "p3");
-  recordGame(s, "p2", 10);
-  recordGame(s, "p3", 11);
-  recordGame(s, "p2", 12);
-  const { completed } = recordGame(s, "p2", 13);
+  startFfaMatch(s, S[2]!, S[3]!);
+  recordGame(s, S[2]!, 10);
+  recordGame(s, S[3]!, 11);
+  recordGame(s, S[2]!, 12);
+  const { completed } = recordGame(s, S[2]!, 13);
   const tally = matchGameTally(completed!);
   assert.deepEqual(tally.get("p2"), { wins: 3, played: 4 });
   assert.deepEqual(tally.get("p3"), { wins: 1, played: 4 });
@@ -166,82 +196,81 @@ test("SINGLES: matchGameTally counts both players every game", () => {
 
 test("SINGLES: an abandoned bo5 finalizes to the game leader", () => {
   const s = bestOf(5);
-  startFfaMatch(s, "p0", "p1");
-  recordGame(s, "p0", 14);
-  recordGame(s, "p1", 15);
-  recordGame(s, "p0", 16);
+  startFfaMatch(s, S[0]!, S[1]!);
+  recordGame(s, S[0]!, 14);
+  recordGame(s, S[1]!, 15);
+  recordGame(s, S[0]!, 16);
   const finalized = finalizeCurrent(s);
   assert.ok(finalized);
-  assert.equal(finalized!.winnerId, "p0");
+  // Same claim as the old `winnerId === "p0"`: side "a" is p0 in a singles night.
+  assert.deepEqual(currentSides(s).find((x) => x.id === finalized!.winnerSideId)?.memberIds, ["p0"]);
   assert.equal(finalized!.idx, 0);
   assert.deepEqual(ppMatchLines(finalized!), [
-    { playerId: "p0", placement: 1, isWinner: true, score: 15, meta: { gameWins: 2, gamesPlayed: 3 } },
-    { playerId: "p1", placement: 2, isWinner: false, score: 30, meta: { gameWins: 1, gamesPlayed: 3 } },
+    { playerId: "p0", placement: 1, isWinner: true, score: 15, meta: { gameWins: 2, gamesPlayed: 3 }, side: null },
+    { playerId: "p1", placement: 2, isWinner: false, score: 30, meta: { gameWins: 1, gamesPlayed: 3 }, side: null },
   ]);
 });
 
 test("SINGLES: a dead-level abandoned set stays unrecorded", () => {
   const s = bestOf(5);
-  startFfaMatch(s, "p0", "p1");
-  recordGame(s, "p0", 14);
-  recordGame(s, "p1", 15);
+  startFfaMatch(s, S[0]!, S[1]!);
+  recordGame(s, S[0]!, 14);
+  recordGame(s, S[1]!, 15);
   assert.equal(finalizeCurrent(s), null);
   assert.equal(s.matches.length, 0);
 });
 
 test("SINGLES: startFfaMatch refuses to clobber a set in progress", () => {
   const s = bestOf(3);
-  assert.equal(startFfaMatch(s, "p0", "p1"), true);
-  recordGame(s, "p0", 11);
-  assert.equal(startFfaMatch(s, "p2", "p3"), false);
-  assert.equal(s.current?.aId, "p0");
+  assert.equal(startFfaMatch(s, S[0]!, S[1]!), true);
+  recordGame(s, S[0]!, 11);
+  assert.equal(startFfaMatch(s, S[2]!, S[3]!), false);
+  assert.deepEqual(teed(s), [["p0"], ["p1"]]);
   // And it refuses nonsense pairings.
   const fresh = bestOf(3);
-  assert.equal(startFfaMatch(fresh, "p0", "p0"), false);
-  assert.equal(startFfaMatch(fresh, "p0", "ghost"), false);
+  assert.equal(startFfaMatch(fresh, S[0]!, S[0]!), false);
+  assert.equal(startFfaMatch(fresh, S[0]!, "ghost"), false);
 });
 
 // ---------- king of the hill ----------
 
 test("SINGLES KOTH: the opening throne and queue", () => {
   const s = koth();
-  assert.deepEqual(s.koth, { kingId: "p0", queue: ["p1", "p2", "p3"], reign: 0, bestReign: null });
-  assert.equal(s.current?.aId, "p0");
-  assert.equal(s.current?.bId, "p1");
+  assert.deepEqual(kothMembers(s), { king: ["p0"], queue: [["p1"], ["p2"], ["p3"]], reign: 0, best: null });
+  assert.deepEqual(teed(s), [["p0"], ["p1"]]);
 });
 
 test("SINGLES KOTH: winner stays, loser goes to the back", () => {
   const s = koth();
-  recordGame(s, "p0", 12);
-  assert.deepEqual(s.koth, {
-    kingId: "p0",
-    queue: ["p2", "p3", "p1"],
+  recordGame(s, S[0]!, 12);
+  assert.deepEqual(kothMembers(s), {
+    king: ["p0"],
+    queue: [["p2"], ["p3"], ["p1"]],
     reign: 1,
-    bestReign: { playerId: "p0", reign: 1 },
+    best: { members: ["p0"], reign: 1 },
   });
-  assert.equal(s.current?.aId, "p0");
-  assert.equal(s.current?.bId, "p2");
+  assert.deepEqual(teed(s), [["p0"], ["p2"]]);
 });
 
 test("SINGLES KOTH: the throne changes hands and the reign resets to 1", () => {
   const s = koth();
-  recordGame(s, "p0", 12); // p0 beats p1
-  recordGame(s, "p0", 13); // p0 beats p2
-  recordGame(s, "p3", 14); // p3 takes the throne
-  assert.deepEqual(s.koth, {
-    kingId: "p3",
-    queue: ["p1", "p2", "p0"],
+  recordGame(s, S[0]!, 12); // p0 beats p1
+  recordGame(s, S[0]!, 13); // p0 beats p2
+  recordGame(s, S[3]!, 14); // p3 takes the throne
+  assert.deepEqual(kothMembers(s), {
+    king: ["p3"],
+    queue: [["p1"], ["p2"], ["p0"]],
     reign: 1,
-    bestReign: { playerId: "p0", reign: 2 },
+    best: { members: ["p0"], reign: 2 },
   });
 });
 
 test("SINGLES KOTH: a KOTH night's standings, longestReign included", () => {
   const s = koth();
-  recordGame(s, "p0", 12);
-  recordGame(s, "p0", 13);
-  recordGame(s, "p3", 14);
-  recordGame(s, "p3", 15);
+  recordGame(s, S[0]!, 12);
+  recordGame(s, S[0]!, 13);
+  recordGame(s, S[3]!, 14);
+  recordGame(s, S[3]!, 15);
   // Transcribed from the unmodified engine, and the first draft of this
   // expectation was WRONG in three places because it was reasoned out by hand
   // instead: the queue rotation puts p1 back in at match 4, so p1 plays twice
@@ -257,11 +286,11 @@ test("SINGLES KOTH: a KOTH night's standings, longestReign included", () => {
 
 test("SINGLES KOTH: a match writes the same two rows as any other", () => {
   const s = koth();
-  const { completed } = recordGame(s, "p1", 19);
+  const { completed } = recordGame(s, S[1]!, 19);
   assert.equal(ppMatchLabel(s), "bo1");
   assert.deepEqual(ppMatchLines(completed!), [
-    { playerId: "p1", placement: 1, isWinner: true, score: 0, meta: { gameWins: 1, gamesPlayed: 1 } },
-    { playerId: "p0", placement: 2, isWinner: false, score: 19, meta: { gameWins: 0, gamesPlayed: 1 } },
+    { playerId: "p1", placement: 1, isWinner: true, score: 0, meta: { gameWins: 1, gamesPlayed: 1 }, side: null },
+    { playerId: "p0", placement: 2, isWinner: false, score: 19, meta: { gameWins: 0, gamesPlayed: 1 }, side: null },
   ]);
 });
 
@@ -269,9 +298,9 @@ test("SINGLES KOTH: a match writes the same two rows as any other", () => {
 
 test("SINGLES: undo mid-set drops one game and materializes nothing", () => {
   const s = bestOf(3);
-  startFfaMatch(s, "p0", "p1");
-  recordGame(s, "p0", 11);
-  recordGame(s, "p1", 12);
+  startFfaMatch(s, S[0]!, S[1]!);
+  recordGame(s, S[0]!, 11);
+  recordGame(s, S[1]!, 12);
   assert.deepEqual(undoLast(s), { unmaterializeIdx: null });
   assert.equal(s.current?.games.length, 1);
   assert.equal(s.matches.length, 0);
@@ -279,9 +308,9 @@ test("SINGLES: undo mid-set drops one game and materializes nothing", () => {
 
 test("SINGLES: undo of a completed match reports its idx", () => {
   const s = freePlay();
-  startFfaMatch(s, "p0", "p1");
-  recordGame(s, "p0", 11);
-  recordGame(s, "p0", 12);
+  startFfaMatch(s, S[0]!, S[1]!);
+  recordGame(s, S[0]!, 11);
+  recordGame(s, S[0]!, 12);
   // The current match has no games, so undo pops the last COMPLETED one.
   assert.deepEqual(undoLast(s), { unmaterializeIdx: 1 });
   assert.equal(s.matches.length, 1);
@@ -289,31 +318,30 @@ test("SINGLES: undo of a completed match reports its idx", () => {
 
 test("SINGLES KOTH: undo REBUILDS the throne rather than unwinding it", () => {
   const s = koth();
-  recordGame(s, "p0", 12);
-  recordGame(s, "p0", 13);
-  recordGame(s, "p3", 14);
-  assert.equal(s.koth?.kingId, "p3");
+  recordGame(s, S[0]!, 12);
+  recordGame(s, S[0]!, 13);
+  recordGame(s, S[3]!, 14);
+  assert.deepEqual(kothMembers(s).king, ["p3"]);
   assert.deepEqual(undoLast(s), { unmaterializeIdx: 2 });
   // Back to exactly the state after two matches, queue and reign included.
-  assert.deepEqual(s.koth, {
-    kingId: "p0",
-    queue: ["p3", "p1", "p2"],
+  assert.deepEqual(kothMembers(s), {
+    king: ["p0"],
+    queue: [["p3"], ["p1"], ["p2"]],
     reign: 2,
-    bestReign: { playerId: "p0", reign: 2 },
+    best: { members: ["p0"], reign: 2 },
   });
-  assert.equal(s.current?.aId, "p0");
-  assert.equal(s.current?.bId, "p3");
+  assert.deepEqual(teed(s), [["p0"], ["p3"]]);
 });
 
 test("SINGLES KOTH: undoing every match returns to the opening arrangement", () => {
   const s = koth();
-  recordGame(s, "p0", 1);
-  recordGame(s, "p2", 2);
-  recordGame(s, "p2", 3);
+  recordGame(s, S[0]!, 1);
+  recordGame(s, S[2]!, 2);
+  recordGame(s, S[2]!, 3);
   undoLast(s);
   undoLast(s);
   undoLast(s);
-  assert.deepEqual(s.koth, { kingId: "p0", queue: ["p1", "p2", "p3"], reign: 0, bestReign: null });
+  assert.deepEqual(kothMembers(s), { king: ["p0"], queue: [["p1"], ["p2"], ["p3"]], reign: 0, best: null });
   assert.equal(s.matches.length, 0);
   assert.deepEqual(undoLast(s), { unmaterializeIdx: null });
 });

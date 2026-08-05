@@ -12,8 +12,11 @@
 // Backed by game_sessions keyed (eventId, pack='pingpong') so it can coexist
 // with other packs on the same event.
 //
-// Doubles is explicitly out: match_participants is per player, so nothing
-// here builds toward a team model.
+// SIDES: a match is between two SIDES and a side holds one or more players, so
+// doubles is a first-class format rather than the thing this pack said it could
+// never do. A singles night is sides of one and writes `side` NULL on every
+// row, which is byte-identical to what shipped before (see teams.ts sideIdFor,
+// and the fixtures in packages/shared/tests/pingpong-singles.test.ts).
 
 import { Router } from "express";
 import {
@@ -37,6 +40,16 @@ import {
   summarizePingPong,
   ppMatchLines,
   ppMatchLabel,
+  normalizePpState,
+  reshuffleSides,
+  currentSides,
+  isDoubles,
+  shuffleIntoSides,
+  singletonSides,
+  validateSides,
+  sideIdAt,
+  defaultSideName,
+  type Side,
   type PpSessionState,
   type PpPlayer,
   type PpMode,
@@ -58,8 +71,14 @@ export const pingPongTvRouter = Router();
 
 export const pingPongRuntime = createPackRuntime<PpSessionState>({
   ...packConfig("pingpong"),
+  // Sessions written before sides existed load through this at the two points
+  // where jsonb becomes state, so a night already in progress when this deploys
+  // keeps working and the guest backfill can still read finished ones.
+  normalize: normalizePpState,
   extras: (state) => ({
     needed: neededWins(state.bestOf),
+    sides: currentSides(state),
+    doubles: isDoubles(state),
     summary: summarizePingPong(state),
   }),
 });
@@ -131,10 +150,16 @@ export async function creditGuestPingPong(
     const credited = await memberCreditedKeys(eventId, memberId);
     const label = state.format === "koth" ? "King of the Hill" : state.format === "bestof" ? `Best of ${state.bestOf}` : "Ping Pong game";
 
+    const played = (m: (typeof state.matches)[number]) =>
+      [...m.a.memberIds, ...m.b.memberIds].some((id) => guestSlots.has(id));
+
     for (const m of state.matches ?? []) {
-      if (!m.winnerId || !(guestSlots.has(m.aId) || guestSlots.has(m.bId))) continue;
+      if (!m.winnerSideId || !played(m)) continue;
       if (credited.has(rt.ledgerKey(eventId, state.sessionKey, m.idx))) continue;
-      const won = guestSlots.has(m.winnerId);
+      // Won if the guest was on the winning SIDE, which in a doubles match is
+      // true for both of its members.
+      const winner = m.winnerSideId === m.a.id ? m.a : m.b;
+      const won = winner.memberIds.some((id) => guestSlots.has(id));
       items.push({
         pack: "pingpong",
         packLabel: "Ping Pong",
@@ -149,7 +174,7 @@ export async function creditGuestPingPong(
     if (!dryRun) {
       gameId = gameId ?? (await rt.ensureGame(groupId));
       for (const m of state.matches ?? []) {
-        if (m.winnerId && (guestSlots.has(m.aId) || guestSlots.has(m.bId))) {
+        if (m.winnerSideId && played(m)) {
           await materializeMatch(groupId, eventId, gameId, m, state, linkMap);
         }
       }
@@ -255,8 +280,88 @@ pingPongRouter.post("/events/:eventId/pingpong", requireAuth, async (req: Authed
     return;
   }
 
-  const state = newPingPongState({ format, mode, bestOf, roster });
+  // SIDES AT SETUP. The client expresses them as ROSTER INDICES, because slot
+  // ids are minted here and it has never seen them: `sides: [[0,1],[2,3]]` is
+  // "p0 and p1 against p2 and p3". Absent means one side per player, which is a
+  // singles night and exactly what every client sent before sides existed.
+  //
+  // `sideCount` with no `sides` is the random deal, done server-side so the
+  // arrangement everybody sees is the one that was actually stored.
+  const rawSides = Array.isArray(req.body?.sides) ? req.body.sides : null;
+  let sides: Side[];
+  if (rawSides) {
+    sides = rawSides.map((members: unknown, i: number): Side => ({
+      id: sideIdAt(i),
+      name: defaultSideName(i),
+      memberIds: (Array.isArray(members) ? members : [])
+        .map((n: unknown) => roster[Number(n)]?.id)
+        .filter((id: string | undefined): id is string => !!id),
+    }));
+    const check = validateSides(sides);
+    if (check.error) {
+      res.status(400).json({ error: check.error });
+      return;
+    }
+    // Anybody the host left off a side is not playing, and a roster slot with
+    // no side would be invisible to every screen. Reject rather than guess.
+    const placed = new Set(sides.flatMap((x) => x.memberIds));
+    if (placed.size !== roster.length) {
+      res.status(400).json({ error: "Every player has to be on a side" });
+      return;
+    }
+  } else if (Number(req.body?.sideCount) >= 2) {
+    sides = shuffleIntoSides(roster.map((p) => p.id), Number(req.body.sideCount));
+  } else {
+    sides = singletonSides(roster.map((p) => p.id));
+  }
+
+  const state = newPingPongState({ format, mode, bestOf, roster, sides });
   res.json(await rt.startSession(eventId, event.groupId, state, req.get("x-gn-client")));
+});
+
+// ---------- host: reshuffle the sides mid-night ----------
+//
+// Sides are FIXED for the night by default (James's call), and this is the
+// explicit way out of that: it applies from the NEXT match on and never touches
+// a match already played, because each completed match carries its own snapshot
+// of who was on it. In KOTH the ladder restarts, since a queue of sides that no
+// longer exist is not a queue.
+
+pingPongRouter.post("/pingpong/:eventId/sides", requireAuth, async (req: AuthedRequest, res) => {
+  const eventId = String(req.params.eventId);
+  const loaded = await rt.loadState(eventId);
+  if (!loaded) {
+    res.status(404).json({ error: "No session" });
+    return;
+  }
+  if (!isHostRole(await roleOf(loaded.row.groupId, req.user!.id))) {
+    res.status(403).json({ error: "Host only" });
+    return;
+  }
+
+  // Here the client HAS seen the roster, so sides come as slot ids.
+  const rawSides = Array.isArray(req.body?.sides) ? req.body.sides : null;
+  const ids = loaded.state.roster.map((p) => p.id);
+  const sides: Side[] = rawSides
+    ? rawSides.map((sd: any, i: number): Side => ({
+        id: sideIdAt(i),
+        name: defaultSideName(i),
+        memberIds: (Array.isArray(sd?.memberIds) ? sd.memberIds : []).map((x: unknown) => String(x)),
+      }))
+    : shuffleIntoSides(ids, Math.max(2, Number(req.body?.sideCount) || 2));
+
+  const placed = new Set(sides.flatMap((x) => x.memberIds));
+  if (placed.size !== ids.length) {
+    res.status(400).json({ error: "Every player has to be on a side" });
+    return;
+  }
+
+  const err = reshuffleSides(loaded.state, sides);
+  if (err) {
+    res.status(400).json({ error: err });
+    return;
+  }
+  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
 
 // ---------- singles: start the next match (FFA only) ----------
@@ -277,9 +382,13 @@ pingPongRouter.post("/pingpong/:eventId/start-match", requireAuth, async (req: A
     res.status(403).json({ error: "Only the host starts matches (open scoring is off)" });
     return;
   }
-  const ok = startFfaMatch(loaded.state, String(req.body?.aId ?? ""), String(req.body?.bId ?? ""));
+  const ok = startFfaMatch(
+    loaded.state,
+    String(req.body?.aSideId ?? req.body?.aId ?? ""),
+    String(req.body?.bSideId ?? req.body?.bId ?? ""),
+  );
   if (!ok) {
-    res.status(400).json({ error: "Pick two different players; finish the current match first" });
+    res.status(400).json({ error: "Pick two different sides; finish the current match first" });
     return;
   }
   res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
@@ -309,15 +418,17 @@ pingPongRouter.post("/pingpong/:eventId/record", requireAuth, async (req: Authed
     return;
   }
 
-  const winnerId = String(req.body?.winnerId ?? "");
+  // The client sends a SIDE id. In a singles session that is the side holding
+  // the one player, so the tap is unchanged from the outside.
+  const winnerSideId = String(req.body?.winnerSideId ?? req.body?.winnerId ?? "");
   const lp = req.body?.loserPoints;
   const loserPoints = lp == null || lp === "" ? null : Number(lp);
-  if (winnerId !== state.current.aId && winnerId !== state.current.bId) {
-    res.status(400).json({ error: "Winner must be one of the two playing" });
+  if (winnerSideId !== state.current.a.id && winnerSideId !== state.current.b.id) {
+    res.status(400).json({ error: "Winner must be one of the two sides playing" });
     return;
   }
 
-  const { completed } = recordGame(state, winnerId, loserPoints);
+  const { completed } = recordGame(state, winnerSideId, loserPoints);
 
   const origin = req.get("x-gn-client");
   let report: { recorded: number; guests: number } | null = null;

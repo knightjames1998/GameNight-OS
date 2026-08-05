@@ -112,6 +112,21 @@ export interface PackRuntimeConfig<S> {
   table: "game_sessions" | "smash_sessions";
   /** Everything the pack's session payload adds on top of the envelope. */
   extras: (state: S) => Record<string, unknown>;
+  /**
+   * Upgrade a state shape read out of jsonb, if the pack has changed one.
+   *
+   * A pack that changes its state shape has to deal with every session already
+   * persisted under the old one, and the failure is silent: an old row loads,
+   * the new code reads a field that is not there, and a live night quietly
+   * behaves as though nobody is playing. Doing it at the pack's own call sites
+   * means getting all of them, and Ping Pong alone reads state in eight places
+   * plus the guest backfill.
+   *
+   * So it happens HERE, at the two points where raw jsonb becomes S, and
+   * nowhere else. Optional: a pack whose shape has never changed passes
+   * nothing and pays nothing.
+   */
+  normalize?: (state: S) => S;
 }
 
 /**
@@ -121,7 +136,10 @@ export interface PackRuntimeConfig<S> {
  * never change for an existing pack, because ledger keys and game names orphan
  * history silently) are no longer retyped per pack.
  */
-export function packConfig(key: SessionPackKey): Omit<PackRuntimeConfig<unknown>, "extras"> {
+// `normalize` is omitted alongside `extras` because both are per-pack functions
+// over the pack's OWN state type, and a PackRuntimeConfig<unknown> version of
+// either is not assignable to PackRuntimeConfig<S>.
+export function packConfig(key: SessionPackKey): Omit<PackRuntimeConfig<unknown>, "extras" | "normalize"> {
   const d = SESSION_PACKS[key];
   return {
     pack: d.ledger,
@@ -303,7 +321,9 @@ export interface MaterializeArgs {
 }
 
 export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<S> {
-  const { pack, gameName, wsType, keyPrefix, table, extras } = config;
+  const { pack, gameName, wsType, keyPrefix, table, extras, normalize } = config;
+  /** Identity when the pack has never changed its state shape. */
+  const upgrade = (state: S): S => (normalize ? normalize(state) : state);
   const ownTable = table === "smash_sessions";
 
   /**
@@ -351,7 +371,7 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
       ? (await db.select().from(smashSessions).where(whereSession(eventId)).limit(1))[0]
       : (await db.select().from(gameSessions).where(whereSession(eventId)).limit(1))[0];
     if (!row) return null;
-    return { row, state: row.state as unknown as S };
+    return { row, state: upgrade(row.state as unknown as S) };
   }
 
   async function saveState(
@@ -567,7 +587,7 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
           .select({ eventId: gameSessions.eventId, state: gameSessions.state })
           .from(gameSessions)
           .where(and(eq(gameSessions.groupId, groupId), eq(gameSessions.pack, pack)));
-    return rows.map((r) => ({ eventId: r.eventId, state: r.state as unknown as S }));
+    return rows.map((r) => ({ eventId: r.eventId, state: upgrade(r.state as unknown as S) }));
   }
 
   async function guestNames(

@@ -4,7 +4,16 @@ import { api } from "../api";
 import BackButton from "../BackButton";
 import { formatLabel } from "../formats";
 import { usePackSession, type PackCtx as Ctx } from "../usePackSession";
-import { SESSION_PACKS, recordGame, gameWins, type PpSessionState, type PpMatch } from "@gamenight/shared";
+import {
+  SESSION_PACKS,
+  recordGame,
+  gameWins,
+  sideLabel,
+  validateSides,
+  type PpSessionState,
+  type PpMatch,
+  type Side,
+} from "@gamenight/shared";
 import "./pingpong.css";
 
 type Mode = "koth" | "ffa";
@@ -12,9 +21,16 @@ type BestOf = 1 | 3 | 5 | 7;
 type Format = "free" | "bestof" | "koth";
 
 interface Slot { id: string; kind: "member" | "guest"; userId: string | null; name: string }
-interface Game { winnerId: string; loserPoints: number | null }
-interface Match { idx: number; aId: string; bId: string; games: Game[]; winnerId: string | null; at: string | null }
-interface Koth { kingId: string | null; queue: string[]; reign: number; bestReign: { playerId: string; reign: number } | null }
+interface Game { winnerSideId: string; loserPoints: number | null }
+// A match holds SNAPSHOTS of the two sides that played it, so a completed match
+// still knows who was on it after the host reshuffles.
+interface Match { idx: number; a: Side; b: Side; games: Game[]; winnerSideId: string | null; at: string | null }
+interface Koth {
+  kingSideId: string | null;
+  queue: string[];
+  reign: number;
+  bestReign: { sideId: string; memberIds: string[]; reign: number } | null;
+}
 interface PlayerStat {
   playerId: string; name: string; matches: number; wins: number; winRate: number;
   gameWins: number; gamesPlayed: number;
@@ -32,7 +48,10 @@ interface Session {
   current: Match | null;
   koth: Koth | null;
   needed: number;
-  summary: { players: PlayerStat[] };
+  /** The arrangement of sides in force. Singles is one side per player. */
+  sides: Side[];
+  doubles: boolean;
+  summary: { players: PlayerStat[]; bestReign: { sideId: string; memberIds: string[]; reign: number } | null };
 }
 export default function PingPongPage() {
   const eventId = new URLSearchParams(window.location.search).get("event") ?? "";
@@ -68,7 +87,7 @@ export default function PingPongPage() {
         </div>
         <div>
           <div className="pp-brand">Ping <em>Pong</em></div>
-          <div className="pp-sub">King of the Hill &amp; Singles</div>
+          <div className="pp-sub">Singles and doubles, one tap a game</div>
         </div>
 
         {err && <p className="pp-err">{err}</p>}
@@ -109,6 +128,12 @@ function SetupOrWaiting({
   const [length, setLength] = useState<BestOf>(3);
   const [roster, setRoster] = useState<{ userId: string | null; name: string }[]>([]);
   const [guest, setGuest] = useState("");
+  // Singles is one side per player and is what every night was before sides
+  // existed, so it stays the default and costs the host nothing.
+  const [teams, setTeams] = useState(false);
+  // Side membership by ROSTER INDEX, because slot ids are minted by the server
+  // and this screen has never seen them.
+  const [assign, setAssign] = useState<number[][]>([[], []]);
 
   useEffect(() => {
     if (ctx && roster.length === 0) setRoster(ctx.prefill.map((p) => ({ userId: p.userId, name: p.name })));
@@ -134,8 +159,46 @@ function SetupOrWaiting({
     if (n) setRoster([...roster, { userId: null, name: n }]);
     setGuest("");
   };
-  const removeAt = (i: number) => setRoster(roster.filter((_, j) => j !== i));
+  const removeAt = (i: number) => {
+    setRoster(roster.filter((_, j) => j !== i));
+    // Indices shift when somebody is removed, so the assignment has to shift
+    // with them or it silently points at the wrong people.
+    setAssign((a) => a.map((side) => side.filter((n) => n !== i).map((n) => (n > i ? n - 1 : n))));
+  };
   const notAdded = ctx.members.filter((m) => !roster.some((r) => r.userId === m.userId));
+
+  const placed = new Set(assign.flat());
+  const unplaced = roster.map((_, i) => i).filter((i) => !placed.has(i));
+  const putOn = (sideIdx: number, playerIdx: number) =>
+    setAssign((a) => a.map((side, i) => (i === sideIdx ? [...side, playerIdx] : side.filter((n) => n !== playerIdx))));
+  const takeOff = (playerIdx: number) =>
+    setAssign((a) => a.map((side) => side.filter((n) => n !== playerIdx)));
+  const addSide = () => setAssign((a) => (a.length < 8 ? [...a, []] : a));
+  const dropSide = (i: number) =>
+    setAssign((a) => (a.length > 2 ? a.filter((_, j) => j !== i) : a));
+  // Deal at random, distributing the remainder rather than dropping anybody.
+  const shuffle = () =>
+    setAssign((a) => {
+      const idx = roster.map((_, i) => i);
+      for (let i = idx.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [idx[i], idx[j]] = [idx[j]!, idx[i]!];
+      }
+      const next: number[][] = a.map(() => []);
+      idx.forEach((n, i) => next[i % next.length]!.push(n));
+      return next;
+    });
+
+  // The primitive owns what is valid, so this screen cannot drift from the
+  // server's answer. `even` is a FACT: uneven sides are warned about, never
+  // blocked, because five into two is a real thing a crew does.
+  const asSides: Side[] = assign.map((members, i) => ({
+    id: String.fromCharCode(97 + i),
+    name: `Side ${String.fromCharCode(65 + i)}`,
+    memberIds: members.map(String),
+  }));
+  const check = validateSides(asSides);
+  const teamsReady = !teams || (check.error === null && unplaced.length === 0);
 
   return (
     <>
@@ -202,14 +265,87 @@ function SetupOrWaiting({
         <p className="pp-hint" style={{ marginTop: 8 }}>Guests play, but lifetime stats only count crew members.</p>
       </div>
 
+      <div className="pp-card">
+        <div className="pp-row">
+          <span style={{ flex: 1 }} className="pp-name">Doubles</span>
+          <button
+            className={`gn-toggle ${teams ? "gn-toggle--on" : "gn-toggle--off"}`}
+            aria-pressed={teams}
+            onClick={() => setTeams(!teams)}
+          >
+            {teams ? "ON" : "OFF"}
+          </button>
+        </div>
+        <p className="pp-hint">
+          {teams
+            ? "Put everybody on a side. Sides hold the table together and rotate together."
+            : "Off means singles: everybody plays for themselves, exactly as before."}
+        </p>
+
+        {teams && (
+          <>
+            {assign.map((members, i) => (
+              <div key={i} style={{ marginTop: 10 }}>
+                <div className="pp-lab" style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Side {String.fromCharCode(65 + i)} ({members.length})</span>
+                  {assign.length > 2 && <button className="pp-textbtn" onClick={() => dropSide(i)}>remove</button>}
+                </div>
+                <div className="pp-seg">
+                  {members.length === 0 && <span className="pp-hint">nobody yet</span>}
+                  {members.map((n) => (
+                    <button key={n} className="on" onClick={() => takeOff(n)}>{roster[n]?.name} &times;</button>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {unplaced.length > 0 && (
+              <>
+                <div className="pp-lab" style={{ marginTop: 12 }}>Not on a side yet</div>
+                {unplaced.map((n) => (
+                  <div className="pp-row" key={n}>
+                    <span className="pp-name" style={{ flex: 1 }}>{roster[n]?.name}</span>
+                    <div className="pp-seg" style={{ flex: "0 0 auto", marginTop: 0 }}>
+                      {assign.map((_, i) => (
+                        <button key={i} onClick={() => putOn(i, n)}>{String.fromCharCode(65 + i)}</button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button className="pp-btn pp-btn--ghost" onClick={shuffle} disabled={roster.length < 2}>🎲 Shuffle</button>
+              <button className="pp-btn pp-btn--ghost" onClick={addSide} disabled={assign.length >= 8}>+ Side</button>
+            </div>
+
+            {check.error && unplaced.length === 0 && <p className="pp-err">{check.error}</p>}
+            {/* UNEVEN IS ALLOWED AND WARNED, NEVER BLOCKED. The app records what
+                the night did rather than refereeing it. */}
+            {!check.error && !check.even && unplaced.length === 0 && (
+              <p className="pp-hint" style={{ marginTop: 8 }}>
+                ⚠️ Uneven sides ({check.sizes.join(" v ")}). That is allowed; the result records the same way.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
       <button
         className="pp-btn"
         style={{ marginTop: 12 }}
-        disabled={busy || roster.length < 2}
-        onClick={() => onStart({ format, bestOf: length, roster })}
+        disabled={busy || roster.length < 2 || !teamsReady}
+        onClick={() =>
+          onStart({ format, bestOf: length, roster, ...(teams ? { sides: assign } : {}) })
+        }
       >
         {roster.length < 2
           ? "Add at least 2 players"
+          : teams && unplaced.length > 0
+          ? `${unplaced.length} still to put on a side`
+          : teams && check.error
+          ? check.error
           : `Start ${formatLabel(format)}`}
       </button>
     </>
@@ -242,15 +378,20 @@ function LivePlay({
   const cur = session.current;
   const freePlay = session.bestOf === 1;
   const wins = cur ? gameWins(cur as unknown as PpMatch) : { a: 0, b: 0 };
+  /** A side's label: its members' names, which is what a room calls a pair. */
+  const label = (side: Side | undefined) =>
+    side ? sideLabel(side, (id) => nameOf.get(id)) : "";
+  const labelById = (sideId: string | null | undefined) =>
+    label(session.sides.find((x) => x.id === sideId));
 
-  function tapWinner(winnerId: string) {
+  function tapWinner(winnerSideId: string) {
     const lp = pointsDraft.trim() === "" ? null : Number(pointsDraft);
     setPointsDraft("");
-    call(`/api/pingpong/${eventId}/record`, { winnerId, loserPoints: lp }, (s) => {
+    call(`/api/pingpong/${eventId}/record`, { winnerSideId, loserPoints: lp }, (s) => {
       // Optimistic: apply the same pure engine step to a clone so the tap
       // paints instantly; the server response reconciles.
       const clone: Session = structuredClone(s);
-      recordGame(clone as unknown as PpSessionState, winnerId, lp);
+      recordGame(clone as unknown as PpSessionState, winnerSideId, lp);
       return clone;
     });
   }
@@ -273,17 +414,17 @@ function LivePlay({
           {canScore ? (
             <>
               <div className="pp-vs">
-                <button className="pp-fighter" disabled={busy} onClick={() => tapWinner(cur.aId)}>
-                  <div className="pp-fighter__n">{nameOf.get(cur.aId)}</div>
-                  {session.mode === "koth" && session.koth?.kingId === cur.aId && (
-                    <div className="pp-pill pp-pill--king" style={{ marginTop: 6, display: "inline-block" }}>👑 king</div>
+                <button className="pp-fighter" disabled={busy} onClick={() => tapWinner(cur.a.id)}>
+                  <div className="pp-fighter__n">{label(cur.a)}</div>
+                  {session.mode === "koth" && session.koth?.kingSideId === cur.a.id && (
+                    <div className="pp-pill pp-pill--king" style={{ marginTop: 6, display: "inline-block" }}>👑 holding</div>
                   )}
                 </button>
                 <div className="pp-vsbadge">VS</div>
-                <button className="pp-fighter" disabled={busy} onClick={() => tapWinner(cur.bId)}>
-                  <div className="pp-fighter__n">{nameOf.get(cur.bId)}</div>
-                  {session.mode === "koth" && session.koth?.kingId === cur.bId && (
-                    <div className="pp-pill pp-pill--king" style={{ marginTop: 6, display: "inline-block" }}>👑 king</div>
+                <button className="pp-fighter" disabled={busy} onClick={() => tapWinner(cur.b.id)}>
+                  <div className="pp-fighter__n">{label(cur.b)}</div>
+                  {session.mode === "koth" && session.koth?.kingSideId === cur.b.id && (
+                    <div className="pp-pill pp-pill--king" style={{ marginTop: 6, display: "inline-block" }}>👑 holding</div>
                   )}
                 </button>
               </div>
@@ -302,7 +443,7 @@ function LivePlay({
               </div>
               {session.mode === "ffa" && (
                 <button className="pp-textbtn" style={{ marginTop: 8 }} onClick={() => { setPickA(""); setPickB(""); setShowPicker(true); }}>
-                  Change players
+                  {session.doubles ? "Change sides" : "Change players"}
                 </button>
               )}
             </>
@@ -314,10 +455,11 @@ function LivePlay({
             <div style={{ marginTop: 10 }}>
               <div className="pp-lab">This match</div>
               {cur.games.map((g, i) => {
-                const loserId = g.winnerId === cur.aId ? cur.bId : cur.aId;
+                const won = g.winnerSideId === cur.a.id ? cur.a : cur.b;
+                const lost = g.winnerSideId === cur.a.id ? cur.b : cur.a;
                 return (
                   <div className="pp-row" key={i}>
-                    <span style={{ flex: 1 }}>{nameOf.get(g.winnerId)} def {nameOf.get(loserId)}</span>
+                    <span style={{ flex: 1 }}>{label(won)} def {label(lost)}</span>
                     {g.loserPoints != null && <span className="pp-hint">{g.loserPoints} pts</span>}
                   </div>
                 );
@@ -333,19 +475,19 @@ function LivePlay({
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
             <select className="pp-select" value={pickA} onChange={(e) => setPickA(e.target.value)}>
-              <option value="">Player 1</option>
-              {session.roster.map((p) => <option key={p.id} value={p.id} disabled={p.id === pickB}>{p.name}</option>)}
+              <option value="">{session.doubles ? "Side 1" : "Player 1"}</option>
+              {session.sides.map((sd) => <option key={sd.id} value={sd.id} disabled={sd.id === pickB}>{label(sd)}</option>)}
             </select>
             <select className="pp-select" value={pickB} onChange={(e) => setPickB(e.target.value)}>
-              <option value="">Player 2</option>
-              {session.roster.map((p) => <option key={p.id} value={p.id} disabled={p.id === pickA}>{p.name}</option>)}
+              <option value="">{session.doubles ? "Side 2" : "Player 2"}</option>
+              {session.sides.map((sd) => <option key={sd.id} value={sd.id} disabled={sd.id === pickA}>{label(sd)}</option>)}
             </select>
           </div>
           <button
             className="pp-btn"
             style={{ marginTop: 10 }}
             disabled={busy || !pickA || !pickB || pickA === pickB}
-            onClick={() => { call(`/api/pingpong/${eventId}/start-match`, { aId: pickA, bId: pickB }); setPickA(""); setPickB(""); setShowPicker(false); }}
+            onClick={() => { call(`/api/pingpong/${eventId}/start-match`, { aSideId: pickA, bSideId: pickB }); setPickA(""); setPickB(""); setShowPicker(false); }}
           >
             Start match
           </button>
@@ -360,7 +502,7 @@ function LivePlay({
       {session.mode === "koth" && session.koth && session.koth.queue.length > 1 && (
         <div className="pp-card">
           <div className="pp-h">Up next</div>
-          <p className="pp-hint">{session.koth.queue.slice(1).map((id) => nameOf.get(id)).join(", ")}</p>
+          <p className="pp-hint">{session.koth.queue.slice(1).map((id) => labelById(id)).join(" · ")}</p>
         </div>
       )}
 
@@ -381,6 +523,12 @@ function LivePlay({
             </div>
           ))
         )}
+        {session.mode === "koth" && session.summary.bestReign && session.summary.bestReign.reign >= 2 && (
+          <p className="pp-hint" style={{ marginTop: 10 }}>
+            👑 Longest hold tonight: <strong>{session.summary.bestReign.memberIds.map((id) => nameOf.get(id)).join(" + ")}</strong>
+            {" "}with {session.summary.bestReign.reign} in a row.
+          </p>
+        )}
       </div>
 
       {/* Host controls */}
@@ -397,6 +545,9 @@ function LivePlay({
               {session.openScoring ? "ON" : "OFF"}
             </button>
           </div>
+          {session.doubles && (
+            <Reshuffle eventId={eventId} session={session} busy={busy} call={call} nameOf={nameOf} />
+          )}
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
             <button
               className="pp-btn pp-btn--ghost"
@@ -409,11 +560,117 @@ function LivePlay({
           </div>
           {!freePlay && cur && cur.games.length > 0 && wins.a !== wins.b && (
             <p className="pp-hint" style={{ marginTop: 8 }}>
-              Ending now records this match for {nameOf.get(wins.a > wins.b ? cur.aId : cur.bId)} ({Math.max(wins.a, wins.b)}&ndash;{Math.min(wins.a, wins.b)}).
+              Ending now records this match for {label(wins.a > wins.b ? cur.a : cur.b)} ({Math.max(wins.a, wins.b)}&ndash;{Math.min(wins.a, wins.b)}).
             </p>
           )}
         </div>
       )}
     </>
+  );
+}
+
+// ---------- Reshuffle the sides mid-night ----------
+//
+// Sides are FIXED for the night by default (James's call) and this is the
+// explicit way out of that. It applies from the NEXT match on: every match
+// already played keeps its own snapshot of who was on it, so the night's
+// history stays true, and in KOTH the ladder restarts because a queue of sides
+// that no longer exist is not a queue. The screen says both of those things
+// out loud, because a control that silently resets a ladder is a control
+// nobody will trust twice.
+
+function Reshuffle({
+  eventId,
+  session,
+  busy,
+  call,
+  nameOf,
+}: {
+  eventId: string;
+  session: Session;
+  busy: boolean;
+  call: (path: string, body?: unknown) => Promise<void>;
+  nameOf: Map<string, string>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<string[][]>([]);
+
+  const start = () => {
+    setDraft(session.sides.map((sd) => [...sd.memberIds]));
+    setOpen(true);
+  };
+
+  const placed = new Set(draft.flat());
+  const loose = session.roster.map((p) => p.id).filter((id) => !placed.has(id));
+  const asSides: Side[] = draft.map((memberIds, i) => ({
+    id: String.fromCharCode(97 + i),
+    name: `Side ${String.fromCharCode(65 + i)}`,
+    memberIds,
+  }));
+  const check = validateSides(asSides);
+  const ready = check.error === null && loose.length === 0;
+
+  const putOn = (sideIdx: number, playerId: string) =>
+    setDraft((d) => d.map((side, i) => (i === sideIdx ? [...side, playerId] : side.filter((x) => x !== playerId))));
+  const takeOff = (playerId: string) => setDraft((d) => d.map((side) => side.filter((x) => x !== playerId)));
+
+  if (!open) {
+    return (
+      <button className="pp-textbtn" style={{ marginTop: 8 }} onClick={start} disabled={busy}>
+        🔀 Reshuffle sides
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--pp-line)" }}>
+      <div className="pp-lab">New sides, from the next match on</div>
+      {draft.map((members, i) => (
+        <div key={i} style={{ marginTop: 8 }}>
+          <div className="pp-lab">Side {String.fromCharCode(65 + i)}</div>
+          <div className="pp-seg">
+            {members.length === 0 && <span className="pp-hint">nobody yet</span>}
+            {members.map((id) => (
+              <button key={id} className="on" onClick={() => takeOff(id)}>{nameOf.get(id)} &times;</button>
+            ))}
+          </div>
+        </div>
+      ))}
+      {loose.length > 0 && (
+        <>
+          <div className="pp-lab" style={{ marginTop: 10 }}>Not on a side</div>
+          {loose.map((id) => (
+            <div className="pp-row" key={id}>
+              <span className="pp-name" style={{ flex: 1 }}>{nameOf.get(id)}</span>
+              <div className="pp-seg" style={{ flex: "0 0 auto", marginTop: 0 }}>
+                {draft.map((_, i) => (
+                  <button key={i} onClick={() => putOn(i, id)}>{String.fromCharCode(65 + i)}</button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+      {!check.error && !check.even && loose.length === 0 && (
+        <p className="pp-hint" style={{ marginTop: 8 }}>⚠️ Uneven sides ({check.sizes.join(" v ")}). Allowed.</p>
+      )}
+      <p className="pp-hint" style={{ marginTop: 8 }}>
+        Matches already played keep the sides they were played with.
+        {session.mode === "koth" ? " The queue restarts from the new sides." : ""}
+      </p>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <button className="pp-btn pp-btn--ghost" onClick={() => setOpen(false)}>Cancel</button>
+        <button
+          className="pp-btn"
+          disabled={busy || !ready}
+          onClick={() => {
+            void call(`/api/pingpong/${eventId}/sides`, { sides: draft.map((memberIds) => ({ memberIds })) });
+            setOpen(false);
+          }}
+        >
+          {loose.length > 0 ? `${loose.length} still to place` : "Use these sides"}
+        </button>
+      </div>
+    </div>
   );
 }

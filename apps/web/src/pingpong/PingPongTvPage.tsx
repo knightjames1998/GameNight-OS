@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { SESSION_PACKS } from "@gamenight/shared";
+import { SESSION_PACKS, sideLabel, type Side } from "@gamenight/shared";
 import { api } from "../api";
 import BackButton from "../BackButton";
 import { usePackLive } from "../useLiveUpdates";
 import "./pingpong.css";
 
 interface Slot { id: string; name: string }
-interface Game { winnerId: string }
-interface Match { aId: string; bId: string; games: Game[]; winnerId: string | null }
+interface Game { winnerSideId: string }
+interface Match { a: Side; b: Side; games: Game[]; winnerSideId: string | null }
 interface PlayerStat { playerId: string; name: string; matches: number; wins: number; gameWins: number; currentStreak: number; longestReign: number }
 interface TvSession {
   status: string;
@@ -18,8 +18,10 @@ interface TvSession {
   roster: Slot[];
   matches: Match[];
   current: Match | null;
-  koth: { kingId: string | null } | null;
-  summary: { players: PlayerStat[] };
+  koth: { kingSideId: string | null; queue: string[] } | null;
+  sides: Side[];
+  doubles: boolean;
+  summary: { players: PlayerStat[]; bestReign: { memberIds: string[]; reign: number } | null };
 }
 
 // Route param on /pingpong/tv/:eventId, or a prop when the event TV route
@@ -58,21 +60,24 @@ export default function PingPongTvPage({ eventId: propEventId }: { eventId?: str
   const wins = cur
     ? cur.games.reduce(
         (acc, g) => {
-          if (g.winnerId === cur.aId) acc.a++;
-          else if (g.winnerId === cur.bId) acc.b++;
+          if (g.winnerSideId === cur.a.id) acc.a++;
+          else if (g.winnerSideId === cur.b.id) acc.b++;
           return acc;
         },
         { a: 0, b: 0 },
       )
     : { a: 0, b: 0 };
   const players = session.summary.players.filter((p) => p.matches > 0);
+  /** A side reads as its members' names, which is what a room calls a pair. */
+  const label = (side: Side | undefined) => (side ? sideLabel(side, (id) => nameOf.get(id)) : "");
+  const labelById = (id: string) => label(session.sides.find((x) => x.id === id));
 
   return (
     <div className="pp-tv">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div className="pp-tv__brand">Ping Pong</div>
         <div className="pp-tv__muted" style={{ fontSize: "2.4vmin" }}>
-          {session.mode === "koth" ? "King of the Hill" : "Singles"} · {session.bestOf === 1 ? "free play" : `best of ${session.bestOf}`} · {session.matches.length} {session.bestOf === 1 ? "games" : "matches"}
+            {session.mode === "koth" ? "King of the Hill" : session.doubles ? "Doubles" : "Singles"} · {session.bestOf === 1 ? "free play" : `best of ${session.bestOf}`} · {session.matches.length} {session.bestOf === 1 ? "games" : "matches"}
         </div>
       </div>
 
@@ -83,16 +88,22 @@ export default function PingPongTvPage({ eventId: propEventId }: { eventId?: str
           </div>
           <div className="pp-tv__vs">
             <span className="pp-tv__pl">
-              {nameOf.get(cur.aId)} {session.mode === "koth" && session.koth?.kingId === cur.aId ? "👑" : ""}
+              {label(cur.a)} {session.mode === "koth" && session.koth?.kingSideId === cur.a.id ? "👑" : ""}
             </span>
             <span className="pp-tv__sc">{session.bestOf === 1 ? "VS" : `${wins.a} - ${wins.b}`}</span>
             <span className="pp-tv__pl">
-              {nameOf.get(cur.bId)} {session.mode === "koth" && session.koth?.kingId === cur.bId ? "👑" : ""}
+              {label(cur.b)} {session.mode === "koth" && session.koth?.kingSideId === cur.b.id ? "👑" : ""}
             </span>
           </div>
         </div>
       ) : (
         <div className="pp-tv__now"><span className="pp-tv__muted" style={{ fontSize: "3vmin" }}>Between matches</span></div>
+      )}
+
+      {session.mode === "koth" && session.koth && session.koth.queue.length > 1 && (
+        <div className="pp-tv__muted" style={{ fontSize: "2.2vmin", marginTop: "1vmin" }}>
+          Up next: {session.koth.queue.slice(1, 3).map(labelById).join(" · ")}
+        </div>
       )}
 
       <div className="pp-tv__grid">
@@ -109,6 +120,14 @@ export default function PingPongTvPage({ eventId: propEventId }: { eventId?: str
               <span>{session.bestOf === 1 ? `${p.gameWins}W` : `${p.wins}W · ${p.gameWins}g`}</span>
             </div>
           ))}
+          {session.mode === "koth" && session.summary.bestReign && session.summary.bestReign.reign >= 2 && (
+            <div className="pp-tv__line">
+              <span className="pp-tv__muted">👑 Longest hold</span>
+              <span className="pp-tv__muted">
+                {session.summary.bestReign.memberIds.map((id) => nameOf.get(id)).join(" + ")} · {session.summary.bestReign.reign}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
