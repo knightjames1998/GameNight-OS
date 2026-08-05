@@ -420,8 +420,19 @@ function MarioPartyPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
 const PING_PONG_GAME_NAME = "Ping Pong";
 const MARIO_KART_GAME_NAME = "Mario Kart";
 
+/** Wins/played for one half of the singles/doubles split. */
+interface PpTally {
+  matches: number;
+  matchWins: number;
+  gameWins: number;
+  gamesPlayed: number;
+}
+
 interface PpStats {
   matches: number;
+  /** Derived from side IS NOT NULL, never from a label. */
+  doublesMatches: number;
+  singlesMatches: number;
   formats: string[];
   byPlayer: {
     userId: string;
@@ -430,6 +441,8 @@ interface PpStats {
     matchWins: number;
     gameWins: number;
     gamesPlayed: number;
+    singles: PpTally;
+    doubles: PpTally;
     byFormat: { format: string; wins: number; played: number }[];
   }[];
 }
@@ -457,12 +470,46 @@ function PingPongPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
     data.byPlayer.map((p) => [p.userId, <> &middot; {p.gameWins} game wins</>]),
   );
 
+  // THE SPLIT IS DERIVED, NOT LABELLED: a row with a non-null `side` was a
+  // doubles match, so this axis is orthogonal to the bo{N} format labels and
+  // costs the ledger nothing. Only shown once a crew has actually played some
+  // doubles, so a singles-only crew's panel reads exactly as it did before.
+  const hasDoubles = data.doublesMatches > 0;
+  const rate = (t: PpTally) => (t.matches ? Math.round((t.matchWins / t.matches) * 100) : 0);
+
   return (
     <div className="space-y-2">
       <p className="gn-hint">
         Wins are MATCH wins. Single-game wins count every individual game, including the four inside a won best of seven and each free-play game.
       </p>
       <PlayerRows rows={rows} open={open} setOpen={setOpen} extras={extras} />
+
+      {hasDoubles && (
+        <section style={{ marginTop: 24 }}>
+          {packHead("Singles and doubles", "#ff9a4d")}
+          <p className="gn-hint" style={{ marginBottom: 8 }}>
+            {data.singlesMatches} singles &middot; {data.doublesMatches} doubles. The two add up to the {data.matches} total
+            above: every match is in exactly one of them.
+          </p>
+          <ul className="space-y-1">
+            {data.byPlayer.map((p) => (
+              <li key={p.userId} className="gn-card" style={{ padding: "10px 16px" }}>
+                <div className="font-bold truncate">{p.name}</div>
+                <div className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
+                  {p.singles.matches > 0 && (
+                    <>singles <span style={{ color: "var(--gn-ink)" }}>{p.singles.matchWins}</span>/{p.singles.matches} ({rate(p.singles)}%)</>
+                  )}
+                  {p.singles.matches > 0 && p.doubles.matches > 0 && " · "}
+                  {p.doubles.matches > 0 && (
+                    <>doubles <span style={{ color: "var(--gn-ink)" }}>{p.doubles.matchWins}</span>/{p.doubles.matches} ({rate(p.doubles)}%)</>
+                  )}
+                  {p.singles.matches === 0 && p.doubles.matches === 0 && "no matches"}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

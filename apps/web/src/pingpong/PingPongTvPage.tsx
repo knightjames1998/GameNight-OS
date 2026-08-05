@@ -85,6 +85,9 @@ export default function PingPongTvPage({ eventId: propEventId }: { eventId?: str
         <div className="pp-tv__now">
           <div className="pp-tv__muted" style={{ fontSize: "2.4vmin", textTransform: "uppercase", letterSpacing: "0.3vmin" }}>
             {session.bestOf === 1 ? "On the table · free play" : `On the table · first to ${session.needed}`}
+            {session.mode === "koth" && session.koth && session.koth.queue.length > 1
+              ? ` · next ${session.koth.queue.slice(1, 3).map(labelById).join(", ")}`
+              : ""}
           </div>
           <div className="pp-tv__vs">
             <span className="pp-tv__pl">
@@ -100,15 +103,16 @@ export default function PingPongTvPage({ eventId: propEventId }: { eventId?: str
         <div className="pp-tv__now"><span className="pp-tv__muted" style={{ fontSize: "3vmin" }}>Between matches</span></div>
       )}
 
-      {session.mode === "koth" && session.koth && session.koth.queue.length > 1 && (
-        <div className="pp-tv__muted" style={{ fontSize: "2.2vmin", marginTop: "1vmin" }}>
-          Up next: {session.koth.queue.slice(1, 3).map(labelById).join(" · ")}
-        </div>
-      )}
-
       <div className="pp-tv__grid">
         <div className="pp-tv__panel">
-          <h3>Standings</h3>
+          <h3 style={{ display: "flex", justifyContent: "space-between", gap: "2vmin" }}>
+            <span>Standings</span>
+            {session.mode === "koth" && session.summary.bestReign && session.summary.bestReign.reign >= 2 && (
+              <span style={{ fontWeight: 400, opacity: 0.8 }}>
+                👑 {session.summary.bestReign.memberIds.map((id) => nameOf.get(id)).join(" + ")} &times;{session.summary.bestReign.reign}
+              </span>
+            )}
+          </h3>
           {players.length === 0 && <div className="pp-tv__muted">No matches yet</div>}
           {players.map((p) => (
             <div className="pp-tv__line" key={p.playerId}>
@@ -120,14 +124,6 @@ export default function PingPongTvPage({ eventId: propEventId }: { eventId?: str
               <span>{session.bestOf === 1 ? `${p.gameWins}W` : `${p.wins}W · ${p.gameWins}g`}</span>
             </div>
           ))}
-          {session.mode === "koth" && session.summary.bestReign && session.summary.bestReign.reign >= 2 && (
-            <div className="pp-tv__line">
-              <span className="pp-tv__muted">👑 Longest hold</span>
-              <span className="pp-tv__muted">
-                {session.summary.bestReign.memberIds.map((id) => nameOf.get(id)).join(" + ")} · {session.summary.bestReign.reign}
-              </span>
-            </div>
-          )}
         </div>
       </div>
 

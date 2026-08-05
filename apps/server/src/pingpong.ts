@@ -551,6 +551,13 @@ pingPongRouter.get("/groups/:id/pingpong-stats", requireAuth, async (req: Authed
       meta: matchParticipants.meta,
       label: matches.label,
       matchId: matchParticipants.matchId,
+      // DOUBLES IS DERIVED, NEVER LABELLED. Within this pack a non-null side
+      // already means the match had team structure, so the split is a read on
+      // the column the primitive writes anyway: no new matches.label value, no
+      // new format string, and the bo{N} labels do not move. That is what makes
+      // this safe to get wrong. A mislabelled row would be unrecoverable
+      // history; a derived split is a query anyone can change their mind about.
+      side: matchParticipants.side,
     })
     .from(matchParticipants)
     .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
@@ -558,7 +565,11 @@ pingPongRouter.get("/groups/:id/pingpong-stats", requireAuth, async (req: Authed
     .where(and(eq(matches.groupId, groupId), eq(matches.gameId, game.id), eq(matches.status, "completed")));
 
   const matchIds = new Set<string>();
+  const doublesMatchIds = new Set<string>();
   const formatsSeen = new Set<string>();
+  /** Wins/played, counted the same way for each half of the split. */
+  type Tally = { matches: number; matchWins: number; gameWins: number; gamesPlayed: number };
+  const newTally = (): Tally => ({ matches: 0, matchWins: 0, gameWins: 0, gamesPlayed: 0 });
   const byUser = new Map<
     string,
     {
@@ -568,6 +579,8 @@ pingPongRouter.get("/groups/:id/pingpong-stats", requireAuth, async (req: Authed
       matchWins: number;
       gameWins: number;
       gamesPlayed: number;
+      singles: Tally;
+      doubles: Tally;
       byFormat: Map<string, { wins: number; played: number }>;
     }
   >();
@@ -586,12 +599,23 @@ pingPongRouter.get("/groups/:id/pingpong-stats", requireAuth, async (req: Authed
         matchWins: 0,
         gameWins: 0,
         gamesPlayed: 0,
+        singles: newTally(),
+        doubles: newTally(),
         byFormat: new Map<string, { wins: number; played: number }>(),
       };
     p.matches++;
     if (r.isWinner) p.matchWins++;
     p.gameWins += meta.gameWins ?? 0;
     p.gamesPlayed += meta.gamesPlayed ?? 0;
+
+    // The split. The two halves sum to the unsplit totals by construction,
+    // because every row goes in exactly one of them.
+    const half = r.side ? p.doubles : p.singles;
+    if (r.side) doublesMatchIds.add(r.matchId);
+    half.matches++;
+    if (r.isWinner) half.matchWins++;
+    half.gameWins += meta.gameWins ?? 0;
+    half.gamesPlayed += meta.gamesPlayed ?? 0;
     const f = p.byFormat.get(fmt) ?? { wins: 0, played: 0 };
     f.played++;
     if (r.isWinner) f.wins++;
@@ -611,9 +635,17 @@ pingPongRouter.get("/groups/:id/pingpong-stats", requireAuth, async (req: Authed
       matchWins: p.matchWins,
       gameWins: p.gameWins,
       gamesPlayed: p.gamesPlayed,
+      singles: p.singles,
+      doubles: p.doubles,
       byFormat: formats.map((f) => ({ format: f, ...(p.byFormat.get(f) ?? { wins: 0, played: 0 }) })),
     }))
     .sort((a, b) => b.gameWins - a.gameWins || b.matchWins - a.matchWins);
 
-  res.json({ matches: matchIds.size, formats, byPlayer });
+  res.json({
+    matches: matchIds.size,
+    doublesMatches: doublesMatchIds.size,
+    singlesMatches: matchIds.size - doublesMatchIds.size,
+    formats,
+    byPlayer,
+  });
 });

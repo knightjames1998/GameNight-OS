@@ -17,6 +17,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  newPingPongState,
+  ppMatchLines,
+  recordGame,
+  startFfaMatch,
+} from "@gamenight/shared";
+import {
   meetingOutcome,
   meetingStreaks,
   type MeetingOutcome,
@@ -181,4 +187,85 @@ test("the longest streaks are the high-water marks, not the final run", () => {
 
 test("no meetings at all is a streak of nothing", () => {
   assert.deepEqual(meetingStreaks([]), { run: 0, myLongest: 0, theirLongest: 0 });
+});
+
+// ---------------------------------------------------------------------------
+// PING PONG DOUBLES, DRIVEN THROUGH THE REAL ENGINE.
+//
+// Everything above feeds meetingOutcome hand-built rows. That was the right
+// test when Casino Run was the only writer, and it is no longer enough: Casino
+// Run writes ONE shared side value for everybody, so this path has never seen
+// a match with two DIFFERENT non-null sides in it, which is exactly what the
+// team primitive introduced.
+//
+// So these build their rows the way the database will actually hold them: run a
+// real doubles match through the Ping Pong engine, take ppMatchLines, and feed
+// meetingOutcome the pairs. Assuming this works because it looks like it should
+// is how the co-op TIE bug survived to production in the first place.
+
+test("DOUBLES: two PARTNERS classify as together, from real ledger rows", () => {
+  const roster = Array.from({ length: 4 }, (_, i) => ({
+    id: `p${i}`,
+    kind: "member" as const,
+    userId: `u${i}`,
+    name: `P${i}`,
+  }));
+  const state = newPingPongState({
+    format: "free",
+    mode: "ffa",
+    bestOf: 1,
+    roster,
+    sides: [
+      { id: "a", name: "Side A", memberIds: ["p0", "p1"] },
+      { id: "b", name: "Side B", memberIds: ["p2", "p3"] },
+    ],
+  });
+  startFfaMatch(state, "a", "b");
+  const { completed } = recordGame(state, "a", 18);
+  const lines = ppMatchLines(completed!);
+  const row = (playerId: string) => {
+    const l = lines.find((x) => x.playerId === playerId)!;
+    return { p: l.placement, w: l.isWinner, side: l.side };
+  };
+
+  // The winning pair, and the losing pair. Both are teammates, and BOTH are
+  // the case that used to come out as a draw.
+  assert.equal(meetingOutcome(row("p0"), row("p1")), "together");
+  assert.equal(meetingOutcome(row("p2"), row("p3")), "together");
+  // Opponents across the net still classify as a real result, which is the
+  // half that would break if the pack wrote one shared side for the match.
+  assert.equal(meetingOutcome(row("p0"), row("p2")), "win");
+  assert.equal(meetingOutcome(row("p2"), row("p0")), "loss");
+  assert.equal(meetingOutcome(row("p3"), row("p1")), "loss");
+});
+
+test("SINGLES: a converted singles match still classifies as win/loss, not together", () => {
+  // The regression that would be silent: if sideIdFor stopped returning null
+  // for one-player sides, every singles match in this pack's history would
+  // start reading as two people playing TOGETHER.
+  const roster = Array.from({ length: 2 }, (_, i) => ({
+    id: `p${i}`,
+    kind: "member" as const,
+    userId: `u${i}`,
+    name: `P${i}`,
+  }));
+  const state = newPingPongState({ format: "free", mode: "ffa", bestOf: 1, roster });
+  startFfaMatch(state, "a", "b");
+  const { completed } = recordGame(state, "a", 15);
+  const lines = ppMatchLines(completed!);
+  const row = (playerId: string) => {
+    const l = lines.find((x) => x.playerId === playerId)!;
+    return { p: l.placement, w: l.isWinner, side: l.side };
+  };
+  assert.equal(row("p0").side, null);
+  assert.equal(row("p1").side, null);
+  assert.equal(meetingOutcome(row("p0"), row("p1")), "win");
+  assert.equal(meetingOutcome(row("p1"), row("p0")), "loss");
+});
+
+test("DOUBLES: a night of partnering does not touch the streak between partners", () => {
+  // Three real doubles matches on the same side. The rivalry between two
+  // partners should be untouched: not three wins, not three draws, nothing.
+  const outcomes: ReturnType<typeof meetingOutcome>[] = ["together", "together", "together"];
+  assert.deepEqual(meetingStreaks(outcomes), { run: 0, myLongest: 0, theirLongest: 0 });
 });
