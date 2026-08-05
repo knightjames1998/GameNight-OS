@@ -247,6 +247,39 @@ export function titleSuggestions(recents: readonly string[]): string[] {
   return out;
 }
 
+// ---------- the ledger shape ----------
+//
+// MOVED HERE VERBATIM from materializeGame in apps/server/src/boardgame.ts,
+// unchanged, so that what one recorded game writes to the ledger is a PURE
+// function with no database anywhere near it. Same reason ppMatchLines moved:
+// the shared title-night extraction has to prove Board Game's rows are
+// byte-identical afterwards, and a row shape that can only be observed through
+// a Drizzle call cannot be pinned by a fixture.
+
+/** One participant row a recorded game produces, before the runtime sees it. */
+export interface BgLedgerLine {
+  playerId: string;
+  placement: number;
+  isWinner: boolean;
+  /**
+   * The optional typed score, as a NOTE. Deliberately not
+   * match_participants.score: that column is a ranking input where packs use it
+   * (Mario Party's stars decide the winner) and this must never be mistaken for
+   * one. Null when nobody typed a number.
+   */
+  meta: { score: number } | null;
+}
+
+/** The participant rows for one recorded game. */
+export function bgGameLines(game: BgGame): BgLedgerLine[] {
+  return game.lines.map((line) => ({
+    playerId: line.playerId,
+    placement: line.placement,
+    isWinner: line.isWinner,
+    meta: line.score === null ? null : { score: line.score },
+  }));
+}
+
 // ---------- derived night summary ----------
 
 export interface BgPlayerStat {

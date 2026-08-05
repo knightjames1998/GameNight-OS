@@ -40,6 +40,7 @@ import {
 } from "@gamenight/db";
 import {
   BOARD_GAME_MAX_PLAYERS,
+  bgGameLines,
   canonicalTitle,
   newBgState,
   placementsFromOrder,
@@ -130,12 +131,10 @@ async function materializeGame(
   sessionKey: string,
   linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
 ): Promise<{ recorded: number; guests: number }> {
-  const lines: LedgerLine[] = game.lines.map((line) => ({
-    playerId: line.playerId,
-    placement: line.placement,
-    isWinner: line.isWinner,
-    meta: line.score === null ? null : { score: line.score },
-  }));
+  // The row shape is a PURE function in the shared module (bgGameLines), so what
+  // a game writes can be pinned by a fixture with no database in the way. This
+  // file keeps the insert and nothing else.
+  const lines: LedgerLine[] = bgGameLines(game);
 
   return rt.materializeUnit({
     groupId,
