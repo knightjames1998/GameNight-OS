@@ -27,9 +27,10 @@ import {
   bgGameLines,
   canonicalTitle,
   newBgState,
-  placementsFromOrder,
+  recordTnGame,
+  tnSideIdOf,
   summarizeBgNight,
-  titleSuggestions,
+  tnTitleSuggestions,
   validateBgOrder,
   type BgGame,
   type BgPlayer,
@@ -44,34 +45,56 @@ const players = (n: number): BgPlayer[] =>
     name: `P${i}`,
   }));
 
-/** Record a game the way the server's route does: order in, game out. */
+/**
+ * Record a game the way the server's route does: a tapped order of PLAYERS in,
+ * a game out. The route now resolves each player to the side holding them,
+ * which in a free-for-all night is a side of one, so this helper does the same.
+ */
 function play(
   state: BgSessionState,
   title: string,
   order: { playerId: string; tiedWithAbove?: boolean; score?: number | null }[],
 ): BgGame {
-  const game: BgGame = {
-    idx: state.games.length,
+  return recordTnGame(
+    state,
     title,
-    lines: placementsFromOrder(order),
-    at: "2026-08-05T20:00:00.000Z",
-  };
-  state.games.push(game);
-  state.nowPlaying = null;
-  return game;
+    order.map((e) => ({
+      sideId: tnSideIdOf(state, e.playerId)!,
+      tiedWithAbove: e.tiedWithAbove,
+      score: e.score ?? null,
+    })),
+  );
 }
 
 // ---------- the rows a recorded game writes ----------
+
+// TWO THINGS ABOUT THESE ROWS CHANGED IN THE EXTRACTION, and both are stated
+// here rather than quietly absorbed, because a pinned fixture that gets edited
+// without explanation is worth nothing.
+//
+//   1. `side: null` is now written explicitly instead of being absent. THE
+//      DATABASE ROW IS IDENTICAL: participantRows sets row.side = null for an
+//      explicit null and leaves the column at its NULL default when the field
+//      is absent. Both are NULL in the column, which is what "no team
+//      structure" has always meant here.
+//   2. A row WITH a typed score now also records the GRAIN it was typed at.
+//      That is additive and deliberate: it is the thing the session brief asked
+//      to store, because a score that does not say whether it belonged to a
+//      player or a side is a number nobody can interpret in a year, and it is
+//      cheap now and impossible retroactively. Rows with NO score are
+//      byte-identical: meta stays null and carries no grain at all.
+//
+// Everything else below is unchanged from what the pre-extraction pack produced.
 
 test("PINNED: a clean four-player game writes four rows, no score, no side", () => {
   const s = newBgState({ roster: players(4) });
   const g = play(s, "Catan", [{ playerId: "p0" }, { playerId: "p1" }, { playerId: "p2" }, { playerId: "p3" }]);
   assert.equal(g.title, "Catan");
   assert.deepEqual(bgGameLines(g), [
-    { playerId: "p0", placement: 1, isWinner: true, meta: null },
-    { playerId: "p1", placement: 2, isWinner: false, meta: null },
-    { playerId: "p2", placement: 3, isWinner: false, meta: null },
-    { playerId: "p3", placement: 4, isWinner: false, meta: null },
+    { playerId: "p0", placement: 1, isWinner: true, side: null, meta: null },
+    { playerId: "p1", placement: 2, isWinner: false, side: null, meta: null },
+    { playerId: "p2", placement: 3, isWinner: false, side: null, meta: null },
+    { playerId: "p3", placement: 4, isWinner: false, side: null, meta: null },
   ]);
 });
 
@@ -83,9 +106,9 @@ test("PINNED: a typed score rides in meta, and an absent one is null not zero", 
     { playerId: "p2" },
   ]);
   assert.deepEqual(bgGameLines(g), [
-    { playerId: "p0", placement: 1, isWinner: true, meta: { score: 92 } },
-    { playerId: "p1", placement: 2, isWinner: false, meta: { score: 0 } },
-    { playerId: "p2", placement: 3, isWinner: false, meta: null },
+    { playerId: "p0", placement: 1, isWinner: true, side: null, meta: { score: 92, grain: "player" } },
+    { playerId: "p1", placement: 2, isWinner: false, side: null, meta: { score: 0, grain: "player" } },
+    { playerId: "p2", placement: 3, isWinner: false, side: null, meta: null },
   ]);
 });
 
@@ -190,7 +213,9 @@ test("PINNED: the curated list, exactly as it shipped", () => {
 });
 
 test("PINNED: canonicalization resolves recents first, then the curated list", () => {
-  const suggestions = titleSuggestions(["Settlers of Catan"]);
+  // Renamed by the extraction (the layer takes the curated list as an
+  // argument so two packs cannot collide on one exported name). Same values.
+  const suggestions = tnTitleSuggestions(["Settlers of Catan"], BOARD_GAME_TITLES);
   assert.equal(suggestions[0], "Settlers of Catan");
   assert.deepEqual(canonicalTitle("  settlers   of CATAN ", suggestions), {
     title: "Settlers of Catan",

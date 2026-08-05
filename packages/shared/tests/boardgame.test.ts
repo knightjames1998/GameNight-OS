@@ -25,7 +25,7 @@ import {
   normalizeTitle,
   placementsFromOrder,
   summarizeBgNight,
-  titleSuggestions,
+  tnTitleSuggestions,
   validateBgOrder,
   validateFfa,
   validateFfaSize,
@@ -185,7 +185,7 @@ test("the crew's own recents beat the curated list", () => {
   // The crew has been writing "Settlers of Catan" all year. The starter list
   // says "Catan". Their spelling wins, because it is the one their history is
   // already recorded under.
-  const suggestions = titleSuggestions(["Settlers of Catan"]);
+  const suggestions = tnTitleSuggestions(["Settlers of Catan"], BOARD_GAME_TITLES);
   assert.equal(suggestions[0], "Settlers of Catan");
   assert.deepEqual(canonicalTitle("settlers of CATAN", suggestions), {
     title: "Settlers of Catan",
@@ -194,7 +194,7 @@ test("the crew's own recents beat the curated list", () => {
 });
 
 test("titleSuggestions de-duplicates case-insensitively and keeps recents first", () => {
-  const suggestions = titleSuggestions(["catan", "Wingspan", "Catan"]);
+  const suggestions = tnTitleSuggestions(["catan", "Wingspan", "Catan"], BOARD_GAME_TITLES);
   assert.deepEqual(suggestions.slice(0, 2), ["catan", "Wingspan"]);
   // The curated "Catan" and "Wingspan" do not appear a second time.
   assert.equal(suggestions.filter((t) => t.toLowerCase() === "catan").length, 1);
@@ -261,7 +261,10 @@ test("Smash's placement validation is unchanged by the new argument", () => {
 // ---------- order validation ----------
 
 test("a finish order must be at least two players", () => {
-  assert.equal(validateBgOrder(order("p0"), roster(4)), "Need at least 2 players in a game");
+  // The wording gained the pack's own noun in the extraction, because the layer
+  // is shared and "a game" reads wrong for a pack whose unit is a hand. The
+  // rule is unchanged.
+  assert.equal(validateBgOrder(order("p0"), roster(4)), "Need at least 2 players in a board game");
 });
 
 test("a player not in the session is rejected", () => {

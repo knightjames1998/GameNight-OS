@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import BackButton from "../BackButton";
 import { usePackSession, type PackCtx } from "../usePackSession";
-import { SESSION_PACKS, BOARD_GAME_MAX_PLAYERS, titleSuggestions } from "@gamenight/shared";
+import { SESSION_PACKS, BOARD_GAME_MAX_PLAYERS, BOARD_GAME_CONFIG, tnTitleSuggestions } from "@gamenight/shared";
 import "./boardgame.css";
 
 /**
@@ -224,7 +224,10 @@ function LivePlay({
   // The crew's recents first, then the curated starter list. Same order the
   // server canonicalizes against, so what the picker offers and what the ledger
   // stores can never be two different spellings of one title.
-  const suggestions = useMemo(() => titleSuggestions(ctx?.recentTitles ?? []), [ctx?.recentTitles]);
+  const suggestions = useMemo(
+    () => tnTitleSuggestions(ctx?.recentTitles ?? [], BOARD_GAME_CONFIG.titles),
+    [ctx?.recentTitles],
+  );
 
   return (
     <>

@@ -43,10 +43,13 @@ import {
   bgGameLines,
   canonicalTitle,
   newBgState,
-  placementsFromOrder,
+  recordTnGame,
+  tnSideIdOf,
+  validateTnOrder,
+  currentTnSides,
+  BOARD_GAME_CONFIG,
   summarizeBgNight,
-  titleSuggestions,
-  validateBgOrder,
+  tnTitleSuggestions,
   type BgGame,
   type BgOrderEntry,
   type BgPlayer,
@@ -314,7 +317,7 @@ boardGameRouter.post("/boardgame/:eventId/now-playing", requireAuth, async (req:
     // Canonicalized here too, not only on record: whatever the TV shows for the
     // next hour is the spelling everybody in the room reads, and if it differs
     // from the one that lands in the ledger the crew has been shown a lie.
-    const known = titleSuggestions(await crewTitles(loaded.row.groupId));
+    const known = tnTitleSuggestions(await crewTitles(loaded.row.groupId), BOARD_GAME_CONFIG.titles);
     loaded.state.nowPlaying = canonicalTitle(raw, known).title;
   }
   res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
@@ -348,41 +351,48 @@ boardGameRouter.post("/boardgame/:eventId/record", requireAuth, async (req: Auth
   // CANONICALIZATION ON ENTRY, server-side. The crew's own recents come first,
   // then the curated starter list, so an existing spelling always wins and only
   // a genuine miss creates a new title.
-  const known = titleSuggestions(await crewTitles(row.groupId));
+  const known = tnTitleSuggestions(await crewTitles(row.groupId), BOARD_GAME_CONFIG.titles);
   const { title } = canonicalTitle(rawTitle, known);
 
-  const slotIds = new Set(state.roster.map((p) => p.id));
+  // The client taps PLAYERS in a free-for-all night and SIDES in a partnership
+  // one. Both arrive as an order over sides here, because a free-for-all
+  // session's sides are one player each, so there is one code path rather than
+  // two that can disagree about what a placement means.
+  const num = (v: unknown) => {
+    const n = Number(v);
+    return v === null || v === undefined || v === "" || !Number.isFinite(n) ? null : n;
+  };
   const raw = Array.isArray(req.body?.order) ? req.body.order : [];
   const order: BgOrderEntry[] = raw
-    .filter((e: any) => slotIds.has(String(e?.playerId)))
     .map((e: any) => {
-      const n = Number(e?.score);
+      // A player id is accepted and resolved to the side holding them, which is
+      // what every client sent before sides existed here.
+      const sideId = e?.sideId ? String(e.sideId) : tnSideIdOf(state, String(e?.playerId ?? ""));
+      if (!sideId) return null;
+      const memberScores: Record<string, number | null> = {};
+      if (e?.memberScores && typeof e.memberScores === "object") {
+        for (const [k, v] of Object.entries(e.memberScores)) memberScores[String(k)] = num(v);
+      }
       return {
-        playerId: String(e.playerId),
+        sideId,
         tiedWithAbove: !!e?.tiedWithAbove,
         // A score is optional, and an absent one is absent rather than zero:
         // storing 0 would claim somebody scored nothing.
-        score: e?.score === null || e?.score === undefined || e?.score === "" || !Number.isFinite(n) ? null : n,
-      };
-    });
+        score: num(e?.score),
+        ...(Object.keys(memberScores).length ? { memberScores } : {}),
+      } as BgOrderEntry;
+    })
+    .filter((e: BgOrderEntry | null): e is BgOrderEntry => e !== null);
 
-  const err = validateBgOrder(order, state.roster);
+  const err = validateTnOrder(order, state, BOARD_GAME_CONFIG);
   if (err) {
     res.status(400).json({ error: err });
     return;
   }
 
-  const game: BgGame = {
-    idx: state.games.length,
-    title,
-    // The tapped order IS the placement. Nothing here sorts by score, and the
-    // reasoning for that lives on placementsFromOrder.
-    lines: placementsFromOrder(order),
-    at: new Date().toISOString(),
-  };
-  state.games.push(game);
-  // The game is over, so nothing is on the table until the host says otherwise.
-  state.nowPlaying = null;
+  // The tapped order IS the placement. Nothing here sorts by score; the
+  // reasoning lives at the top of titlenight.ts.
+  const game: BgGame = recordTnGame(state, title, order);
 
   const gameId = await rt.ensureGame(row.groupId);
   const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster, state.sessionKey);

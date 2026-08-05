@@ -215,14 +215,44 @@ export function singletonSides(playerIds: readonly string[]): Side[] {
  * is byte-identical to what the pack wrote before sides existed.
  */
 export function placementsFromSideOrder(order: readonly Side[]): SideLine[] {
+  return placementsFromRankedSides(order.map((side) => ({ side })));
+}
+
+/** A side in a finish order, which may have finished LEVEL with the one above. */
+export interface RankedSide {
+  side: Side;
+  tiedWithAbove?: boolean;
+}
+
+/**
+ * The same rule, for a finish order that can contain TIES between sides.
+ *
+ * `placementsFromSideOrder` is this with every flag false, so there is one
+ * implementation and two entry points rather than two rules that can drift.
+ *
+ * A tie here is competition ranking over SIDES: two sides level at the top are
+ * both placement 1 and the next side is placement 3, and every member of a tied
+ * side carries its placement. That composes the two rules at the top of this
+ * file rather than contradicting them. The free-for-all case a title-night pack
+ * records is exactly this with singleton sides: a tapped order of individuals,
+ * ties allowed, `side` null on every row because nothing has more than one
+ * member.
+ */
+export function placementsFromRankedSides(order: readonly RankedSide[]): SideLine[] {
+  const sides = order.map((o) => o.side);
   const lines: SideLine[] = [];
-  for (const [i, side] of order.entries()) {
-    for (const playerId of side.memberIds) {
+  const placements: number[] = [];
+  for (const [i, entry] of order.entries()) {
+    // Competition ranking: a tie takes the placement above it, and the next
+    // untied row takes its own 1-based position, which is what leaves the gap
+    // (1, 1, 3) rather than closing it up (1, 1, 2).
+    placements[i] = i > 0 && entry.tiedWithAbove ? placements[i - 1]! : i + 1;
+    for (const playerId of entry.side.memberIds) {
       lines.push({
         playerId,
-        placement: i + 1,
-        isWinner: i === 0,
-        side: sideIdFor(order, playerId),
+        placement: placements[i]!,
+        isWinner: placements[i] === 1,
+        side: sideIdFor(sides, playerId),
       });
     }
   }

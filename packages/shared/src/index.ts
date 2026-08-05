@@ -149,7 +149,10 @@ export * from "./roulette.js";
 export * from "./craps.js";
 // The co-op one. Its own state module, deliberately not settleCash.
 export * from "./casinorun.js";
-// The tabletop one. No engine at all: a tapped order and a title.
+// The TITLE-NIGHT LAYER, shared by every pack whose night is a sequence of
+// named games with a tapped finish order. Extracted from Board Game when Card
+// table arrived as the second example.
+export * from "./titlenight.js";
 export * from "./boardgame.js";
 // The team primitive: sides, and what a side result means for placement.
 // Not a pack. Ping Pong is its first consumer; Card table, Party games and
