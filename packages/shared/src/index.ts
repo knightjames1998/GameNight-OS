@@ -151,4 +151,8 @@ export * from "./craps.js";
 export * from "./casinorun.js";
 // The tabletop one. No engine at all: a tapped order and a title.
 export * from "./boardgame.js";
+// The team primitive: sides, and what a side result means for placement.
+// Not a pack. Ping Pong is its first consumer; Card table, Party games and
+// Social deduction are queued behind it.
+export * from "./teams.js";
 export * from "./modifiers.js";
