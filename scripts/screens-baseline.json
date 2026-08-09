@@ -73,10 +73,32 @@
   "startLabel": null,
   "startEnabled": null
  },
+ "pickerAfterRemove": {
+  "sides": [
+   {
+    "side": "A",
+    "count": 2,
+    "body": "remove Ben × Cal ×"
+   },
+   {
+    "side": "B",
+    "count": 2,
+    "body": "remove Dee × Eli ×"
+   },
+   {
+    "side": "C",
+    "count": 0,
+    "body": "remove nobody yet"
+   }
+  ],
+  "warning": null,
+  "startLabel": null,
+  "startEnabled": null
+ },
  "pickerShuffle": {
   "counts": [
    1,
-   2,
+   1,
    2
   ],
   "startEnabled": true

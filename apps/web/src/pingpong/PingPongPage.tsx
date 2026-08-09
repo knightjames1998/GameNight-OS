@@ -14,6 +14,7 @@ import {
   type PpMatch,
   type Side,
 } from "@gamenight/shared";
+import { TeamPicker, dropRosterIndex, teamPickerStatus } from "../teams/TeamPicker";
 import "./pingpong.css";
 
 type Mode = "koth" | "ffa";
@@ -163,41 +164,13 @@ function SetupOrWaiting({
     setRoster(roster.filter((_, j) => j !== i));
     // Indices shift when somebody is removed, so the assignment has to shift
     // with them or it silently points at the wrong people.
-    setAssign((a) => a.map((side) => side.filter((n) => n !== i).map((n) => (n > i ? n - 1 : n))));
+    setAssign((a) => dropRosterIndex(a, i));
   };
   const notAdded = ctx.members.filter((m) => !roster.some((r) => r.userId === m.userId));
 
-  const placed = new Set(assign.flat());
-  const unplaced = roster.map((_, i) => i).filter((i) => !placed.has(i));
-  const putOn = (sideIdx: number, playerIdx: number) =>
-    setAssign((a) => a.map((side, i) => (i === sideIdx ? [...side, playerIdx] : side.filter((n) => n !== playerIdx))));
-  const takeOff = (playerIdx: number) =>
-    setAssign((a) => a.map((side) => side.filter((n) => n !== playerIdx)));
-  const addSide = () => setAssign((a) => (a.length < 8 ? [...a, []] : a));
-  const dropSide = (i: number) =>
-    setAssign((a) => (a.length > 2 ? a.filter((_, j) => j !== i) : a));
-  // Deal at random, distributing the remainder rather than dropping anybody.
-  const shuffle = () =>
-    setAssign((a) => {
-      const idx = roster.map((_, i) => i);
-      for (let i = idx.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [idx[i], idx[j]] = [idx[j]!, idx[i]!];
-      }
-      const next: number[][] = a.map(() => []);
-      idx.forEach((n, i) => next[i % next.length]!.push(n));
-      return next;
-    });
-
-  // The primitive owns what is valid, so this screen cannot drift from the
-  // server's answer. `even` is a FACT: uneven sides are warned about, never
-  // blocked, because five into two is a real thing a crew does.
-  const asSides: Side[] = assign.map((members, i) => ({
-    id: String.fromCharCode(97 + i),
-    name: `Side ${String.fromCharCode(65 + i)}`,
-    memberIds: members.map(String),
-  }));
-  const check = validateSides(asSides);
+  // The picker owns the sides, and the primitive owns what is valid, so this
+  // screen cannot drift from the answer the server will give it.
+  const { unplaced, check } = teamPickerStatus(assign, roster.length);
   const teamsReady = !teams || (check.error === null && unplaced.length === 0);
 
   return (
@@ -282,54 +255,7 @@ function SetupOrWaiting({
             : "Off means singles: everybody plays for themselves, exactly as before."}
         </p>
 
-        {teams && (
-          <>
-            {assign.map((members, i) => (
-              <div key={i} style={{ marginTop: 10 }}>
-                <div className="pp-lab" style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Side {String.fromCharCode(65 + i)} ({members.length})</span>
-                  {assign.length > 2 && <button className="pp-textbtn" onClick={() => dropSide(i)}>remove</button>}
-                </div>
-                <div className="pp-seg">
-                  {members.length === 0 && <span className="pp-hint">nobody yet</span>}
-                  {members.map((n) => (
-                    <button key={n} className="on" onClick={() => takeOff(n)}>{roster[n]?.name} &times;</button>
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            {unplaced.length > 0 && (
-              <>
-                <div className="pp-lab" style={{ marginTop: 12 }}>Not on a side yet</div>
-                {unplaced.map((n) => (
-                  <div className="pp-row" key={n}>
-                    <span className="pp-name" style={{ flex: 1 }}>{roster[n]?.name}</span>
-                    <div className="pp-seg" style={{ flex: "0 0 auto", marginTop: 0 }}>
-                      {assign.map((_, i) => (
-                        <button key={i} onClick={() => putOn(i, n)}>{String.fromCharCode(65 + i)}</button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </>
-            )}
-
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button className="pp-btn pp-btn--ghost" onClick={shuffle} disabled={roster.length < 2}>🎲 Shuffle</button>
-              <button className="pp-btn pp-btn--ghost" onClick={addSide} disabled={assign.length >= 8}>+ Side</button>
-            </div>
-
-            {check.error && unplaced.length === 0 && <p className="pp-err">{check.error}</p>}
-            {/* UNEVEN IS ALLOWED AND WARNED, NEVER BLOCKED. The app records what
-                the night did rather than refereeing it. */}
-            {!check.error && !check.even && unplaced.length === 0 && (
-              <p className="pp-hint" style={{ marginTop: 8 }}>
-                ⚠️ Uneven sides ({check.sizes.join(" v ")}). That is allowed; the result records the same way.
-              </p>
-            )}
-          </>
-        )}
+        {teams && <TeamPicker cx="pp" roster={roster} assign={assign} setAssign={setAssign} />}
       </div>
 
       <button

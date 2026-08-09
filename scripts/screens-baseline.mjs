@@ -218,6 +218,21 @@ async function main() {
   snap.pickerUneven = await readPicker();
   await click("+ Side"); await sleep(350);
   snap.pickerThree = await readPicker();
+
+  // REMOVING AN ASSIGNED PLAYER, which is the picker's one genuinely dangerous
+  // operation. Sides are held as ROSTER INDICES (slot ids are minted by the
+  // server and this screen has never seen one), so dropping the first player
+  // has to renumber every index above them. Get it wrong and the screen looks
+  // completely correct with the wrong two people on a side, and nothing errors.
+  // Ann is on side A, so A must lose exactly Ann and B must be untouched.
+  await evalJs(`(() => {
+    const row = [...document.querySelectorAll('.pp-row')].find(r => r.querySelector('.pp-name')?.textContent.trim() === 'Ann');
+    const b = row && [...row.querySelectorAll('button')].find(x => x.textContent.trim() === 'remove');
+    if (!b) return false; b.click(); return true;
+  })()`);
+  await sleep(400);
+  snap.pickerAfterRemove = await readPicker();
+
   await click("🎲 Shuffle"); await sleep(400);
   const sh = await readPicker();
   snap.pickerShuffle = { counts: sh.sides.map((x) => x.count).sort(), startEnabled: sh.startEnabled };
