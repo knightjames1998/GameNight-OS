@@ -1,0 +1,84 @@
+{
+ "bgSetup": "← Back\n🎪 Event\n📺 TV\nBOARD GAME\nPick the box, tap the finish order, done\nWho is playing (4/12)\nAnn\nremove\nBen\nremove\nCal\nremove\nDee\nremove\nADD A GUEST\nAdd\nGuests play, but lifetime stats only count crew members.\nYou have played\nSettlers of Catan, Wingspan\nStart the night",
+ "bgLive": "← Back\n🎪 Event\n📺 TV\nBOARD GAME\nPick the box, tap the finish order, done\nON THE TABLE\nAzul\nChange\nClear\nRecord a result\nWHAT DID YOU PLAY\nSettlers of Catan\nWingspan\nCatan\nTicket to Ride\nCarcassonne\nAzul\nMonopoly\nRisk\nScrabble\nClue\nPandemic\n7 Wonders\nRecording Azul, the game on the table.\nFINISH ORDER (TAP IN ORDER, FIRST PLACE FIRST)\n+ Ann\n+ Ben\n+ Cal\n+ Dee\nTap the winner first. Anybody who sat this one out just stays off the list.\nTap at least 2 players into the order\nTonight (2 games)\n♟ lead Ann\n1W / 2 · avg 2.5\nDee\n1W / 2 · avg 2.5\nBen\n0W / 2 · avg 2.5\nCal\n0W / 2 · avg 2.5\nPlayed: Catan (1), Wingspan (1)\nHost controls\nLet members record results\nOFF\n↶ Undo last\nEnd the night",
+ "bgTv4": {
+  "text": "BOARD GAME NIGHT\n2 games · 2 titles\nON THE TABLE\nAzul\nTONIGHT\nAnn\n1W / 2 · avg 2.5\nDee\n1W / 2 · avg 2.5\nBen\n0W / 2 · avg 2.5\nCal\n0W / 2 · avg 2.5\nWINGSPAN\n1 Dee\n92\n4 Ann\n← Back",
+  "backBottom": 732,
+  "pageBottom": 1080
+ },
+ "bgTv8": {
+  "text": "BOARD GAME NIGHT\n2 games · 2 titles\nON THE TABLE\nAzul\nTONIGHT\nAnn\n1W / 2 · avg 4.5\nHal\n1W / 2 · avg 4.5\nBen\n0W / 2 · avg 4.5\nCal\n0W / 2 · avg 4.5\nDee\n0W / 2 · avg 4.5\nEli\n0W / 2 · avg 4.5\nFay\n0W / 2 · avg 4.5\nGus\n0W / 2 · avg 4.5\nWINGSPAN\n1 Hal\n92\n8 Ann\n← Back",
+  "backBottom": 978,
+  "pageBottom": 1080
+ },
+ "bgTv12": {
+  "text": "BOARD GAME NIGHT\n2 games · 2 titles\nON THE TABLE\nAzul\nTONIGHT\nAnn\n1W / 2 · avg 6.5\nLou\n1W / 2 · avg 6.5\nBen\n0W / 2 · avg 6.5\nCal\n0W / 2 · avg 6.5\nDee\n0W / 2 · avg 6.5\nEli\n0W / 2 · avg 6.5\nFay\n0W / 2 · avg 6.5\nGus\n0W / 2 · avg 6.5\nHal\n0W / 2 · avg 6.5\nIvy\n0W / 2 · avg 6.5\nJo\n0W / 2 · avg 6.5\nKit\n0W / 2 · avg 6.5\nWINGSPAN\n1 Lou\n92\n12 Ann\n← Back",
+  "backBottom": 1224,
+  "pageBottom": 1256
+ },
+ "bgPanel": "← Back\n🏆 Leaderboard\n7 board games\nNothing recorded yet. Finish a bracket or a Beerio Kart night and the crew's records show up here. Guests don't count until they're linked to a member.\nAll\nBoard Game\nPlayers\n1\nAnn\n3\nwins\n▾\n7 played · 43% win rate · avg finish 1.9 · 3 titles · avg 1.9\nTitles played\nMost played: Catan (4 games across 3 titles)\nCatan\n4 played · Ann 3W\nWingspan\n2 played · Ben 2W\nAzul\n1 played · Cal 1W\nWins by title\nCatan\nAnn 3 · Ben 1\nWingspan\nBen 2\nAzul\nCal 1",
+ "pickerOpen": {
+  "sides": [
+   {
+    "side": "A",
+    "count": 0,
+    "body": "nobody yet"
+   },
+   {
+    "side": "B",
+    "count": 0,
+    "body": "nobody yet"
+   }
+  ],
+  "warning": null,
+  "startLabel": "5 still to put on a side",
+  "startEnabled": false
+ },
+ "pickerUneven": {
+  "sides": [
+   {
+    "side": "A",
+    "count": 3,
+    "body": "Ann × Ben × Cal ×"
+   },
+   {
+    "side": "B",
+    "count": 2,
+    "body": "Dee × Eli ×"
+   }
+  ],
+  "warning": "3 v 2",
+  "startLabel": "Start King of the Hill",
+  "startEnabled": true
+ },
+ "pickerThree": {
+  "sides": [
+   {
+    "side": "A",
+    "count": 3,
+    "body": "remove Ann × Ben × Cal ×"
+   },
+   {
+    "side": "B",
+    "count": 2,
+    "body": "remove Dee × Eli ×"
+   },
+   {
+    "side": "C",
+    "count": 0,
+    "body": "remove nobody yet"
+   }
+  ],
+  "warning": null,
+  "startLabel": null,
+  "startEnabled": null
+ },
+ "pickerShuffle": {
+  "counts": [
+   1,
+   2,
+   2
+  ],
+  "startEnabled": true
+ }
+}

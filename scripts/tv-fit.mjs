@@ -62,14 +62,30 @@ const money = (n, mods) => {
     balance: { ok: true, delta: 0 }, warning: null,
   } } };
 };
+// UPDATED 2026-08-09 to the post-doubles shape. Ping Pong's TV moved to SIDES on
+// 2026-08-05 and this payload stayed on the old aId/bId/kingId one, so from that
+// day both ping pong cases rendered the short "waiting" state and measured
+// nothing while continuing to pass. The `rendered` assertion below is what makes
+// that fail loudly next time; this is the fix for the instance.
 const pingpong = (n) => {
-  const r = Array.from({ length: n }, (_, i) => ({ id: "p" + i, name: "Player Nameiskindalong " + (i + 1) }));
+  const r = Array.from({ length: n }, (_, i) => ({ id: "p" + i, kind: "member", userId: "u" + i, name: "Player Nameiskindalong " + (i + 1) }));
+  const sides = r.map((p, i) => ({ id: String.fromCharCode(97 + i), name: "Side", memberIds: [p.id] }));
+  const match = (i) => ({
+    idx: i, a: sides[i % n], b: sides[(i + 1) % n],
+    games: [{ winnerSideId: sides[i % n].id, loserPoints: 17 }],
+    winnerSideId: sides[i % n].id, at: "2026-08-09T20:00:00Z",
+  });
   return { session: {
     status: "live", mode: "koth", bestOf: 3, needed: 2, roster: r,
-    matches: Array.from({ length: 8 }, (_, i) => ({ aId: r[i % n].id, bId: r[(i + 1) % n].id, games: [{ winnerId: r[i % n].id }], winnerId: r[i % n].id })),
-    current: { aId: r[0].id, bId: r[1].id, games: [{ winnerId: r[0].id }], winnerId: null },
-    koth: { kingId: r[0].id },
-    summary: { players: r.map((p, i) => ({ playerId: p.id, name: p.name, matches: 9, wins: 9 - i, gameWins: 20 - i, currentStreak: i % 3, longestReign: i % 5 })) },
+    sides, doubles: false,
+    sideSets: [{ fromIdx: 0, sides }],
+    matches: Array.from({ length: 8 }, (_, i) => match(i)),
+    current: { idx: -1, a: sides[0], b: sides[1], games: [{ winnerSideId: sides[0].id, loserPoints: 12 }], winnerSideId: null, at: null },
+    koth: { kingSideId: sides[0].id, queue: sides.slice(1).map((x) => x.id) },
+    summary: {
+      players: r.map((p, i) => ({ playerId: p.id, name: p.name, matches: 9, wins: 9 - i, gameWins: 20 - i, currentStreak: i % 3, longestReign: i % 5 })),
+      bestReign: { sideId: sides[0].id, memberIds: [r[0].id], reign: 4 },
+    },
   } };
 };
 
@@ -96,6 +112,26 @@ const crun = (n) => {
   } } };
 };
 
+// BOARD GAME shipped a TV on 2026-08-04 and was never added here, which is the
+// gap this harness exists to close: a pack with a TV that nothing measures is a
+// pack whose fit is nobody's job. It seats TWELVE, so the twelve case is
+// reachable rather than theoretical.
+const boardgame = (n) => {
+  const r = Array.from({ length: n }, (_, i) => ({ id: "p" + i, kind: "member", userId: "u" + i, name: "Player Nameiskindalong " + (i + 1) }));
+  const sides = r.map((p, i) => ({ id: String.fromCharCode(97 + i), name: "Side", memberIds: [p.id] }));
+  const lines = r.map((p, i) => ({ playerId: p.id, placement: i + 1, isWinner: i === 0, side: null, score: i === 0 ? 92 : null }));
+  return { session: {
+    status: "live", groupId: "g1", openScoring: false, nowPlaying: "Ticket to Ride",
+    roster: r, sideSets: [{ fromIdx: 0, sides }], grain: "player",
+    games: Array.from({ length: 4 }, (_, g) => ({ idx: g, title: ["Catan", "Wingspan", "Azul", "7 Wonders"][g], at: "2026-08-09T20:0" + g + ":00Z", grain: "player", sides, lines })),
+    summary: {
+      players: r.map((p, i) => ({ playerId: p.id, name: p.name, games: 4, wins: 4 - i > 0 ? 4 - i : 0, avgPlacement: i + 1 })),
+      titles: [{ title: "Catan", games: 1 }, { title: "Wingspan", games: 1 }, { title: "Azul", games: 1 }, { title: "7 Wonders", games: 1 }],
+      last: { title: "7 Wonders", lines: lines.map((l, i) => ({ name: r[i].name, placement: l.placement, score: l.score })) },
+    },
+  } };
+};
+
 let PAYLOAD = money(4, []);
 on.set("Fetch.requestPaused", ({ requestId, request }) => {
   const p = new URL(request.url).pathname;
@@ -120,7 +156,8 @@ await send("Fetch.enable", { patterns: [{ urlPattern: "*" }] });
 // The rail's own width is read off the live document rather than assumed, so a
 // theme that widens it, or a future overlay of any kind, is caught by the same
 // check.
-const MEASURE = `(()=>{
+const MEASURE = (PROOF) => `(()=>{
+  const PROOF = ${JSON.stringify(PROOF)};
   const railW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gn-rail-w')) || 0;
   const vh = window.innerHeight, vw = window.innerWidth;
   const covered = [];
@@ -150,7 +187,11 @@ const MEASURE = `(()=>{
     );
     if (into > 0) covered.push((el.className || el.tagName).toString().slice(0, 34) + ' by ' + Math.round(into));
   }
-  const back = document.querySelector('.cg-textbtn, .pp-textbtn, .cg-tv__back');
+  // EVERY BackButton emits .gn-textbtn as its base class, so this is the one
+  // hook that cannot go stale. It used to be a hardcoded list of per-pack class
+  // names, which silently reported "no button" for any pack nobody remembered
+  // to add, which is the same shape of miss this whole file exists to catch.
+  const back = document.querySelector('.gn-textbtn, .cg-tv__back');
   const bb = back ? back.getBoundingClientRect() : null;
   return {
     railW,
@@ -161,40 +202,59 @@ const MEASURE = `(()=>{
     // clearance, positive is a control with wood painted over it.
     backIntoRail: bb ? Math.round(bb.bottom - (vh - railW)) : null,
     covered: covered.slice(0, 6),
-    rendered: !!document.querySelector('.cg-tv__line, .pp-tv__panel, .crun-tv, .cg-tv'),
+    rendered: !!document.querySelector(PROOF),
   };
 })()`;
 
 let seeder = null;
-async function measure(theme, route, payload) {
+async function measure(theme, route, payload, proof) {
   PAYLOAD = payload;
   if (seeder) await send("Page.removeScriptToEvaluateOnNewDocument", { identifier: seeder });
   ({ identifier: seeder } = (await send("Page.addScriptToEvaluateOnNewDocument", { source: `try{localStorage.setItem("gamenight.pref.theme","${theme}")}catch(e){}` })).result);
   await send("Page.navigate", { url: `http://127.0.0.1:${PORT}${route}` });
   await sleep(2300);
-  return await ev(MEASURE);
+  return await ev(MEASURE(proof));
 }
 
 const CASES = [
-  ["money board  4 seats", "/blackjack/tv/x", money(4, [])],
-  ["money board  6 seats", "/blackjack/tv/x", money(6, [])],
-  ["money board  8 seats", "/blackjack/tv/x", money(8, [])],
-  ["money board 12 seats", "/blackjack/tv/x", money(12, [])],
-  ["money board 12 + 5 mods", "/blackjack/tv/x", money(12, ["m1", "m2", "m3", "m4", "m5"])],
-  ["ping pong    6 players", "/pingpong/tv/x", pingpong(6)],
-  ["ping pong    7 players", "/pingpong/tv/x", pingpong(7)],
-  ["casino run   6 mid-run", "/casinorun/tv/x", crun(6)],
-  ["casino run  12 mid-run", "/casinorun/tv/x", crun(12)],
+  ["money board  4 seats", "/blackjack/tv/x", money(4, []), ".cg-tv__line"],
+  ["money board  6 seats", "/blackjack/tv/x", money(6, []), ".cg-tv__line"],
+  ["money board  8 seats", "/blackjack/tv/x", money(8, []), ".cg-tv__line"],
+  ["money board 12 seats", "/blackjack/tv/x", money(12, []), ".cg-tv__line"],
+  ["money board 12 + 5 mods", "/blackjack/tv/x", money(12, ["m1", "m2", "m3", "m4", "m5"]), ".cg-tv__line"],
+  ["ping pong    6 players", "/pingpong/tv/x", pingpong(6), ".pp-tv__panel"],
+  ["ping pong    7 players", "/pingpong/tv/x", pingpong(7), ".pp-tv__panel"],
+  ["casino run   6 mid-run", "/casinorun/tv/x", crun(6), ".crun-tv"],
+  ["casino run  12 mid-run", "/casinorun/tv/x", crun(12), ".crun-tv"],
+  ["board game   4 players", "/boardgame/tv/x", boardgame(4), ".bg-tv__panel"],
+  ["board game   8 players", "/boardgame/tv/x", boardgame(8), ".bg-tv__panel"],
+  ["board game  12 players", "/boardgame/tv/x", boardgame(12), ".bg-tv__panel"],
 ];
 
 // A case that is ALREADY over before any rail exists cannot be made to pass by
 // anything in a theme, so it is named rather than allowed to fail the run.
-const KNOWN = new Set(["ping pong    7 players"]);
+// BOARD GAME AT TWELVE joined this list on 2026-08-09, the day it was first
+// measured: it shipped a TV on 08-04 and was never added here, which is how a
+// pack with a TV ends up with a fit nobody owns. It seats twelve, so this is
+// reachable rather than theoretical, and it is over by 176px with the back
+// button 144px into the rail. Logged in BACKLOG under BUGS.
+//
+// NOT FIXED HERE, and the reason is the extraction rather than the clock: Board
+// Game's and Card Table's TVs are about to become ONE component, so the density
+// ladder this needs gets built once for both packs in its own session instead of
+// twice. A fit ladder has been its own session every time (the money board's,
+// which is the worked example) and this is no different.
+//
+// THE EXEMPTION IS BY NAME AND STAYS THAT WAY. A new pack does not get added to
+// this set: if Card Table's TV does not fit, that is a new bug in new code and
+// it fails the run.
+const KNOWN = new Set(["ping pong    7 players", "board game  12 players"]);
 let newOverlaps = 0;
+let stale = 0;
 console.log("case                      theme     rail  lowest  backBtm  vs 1080      back v rail   covered by the rail");
 for (const theme of ["arcade", "tabletop"]) {
-  for (const [label, route, payload] of CASES) {
-    const m = await measure(theme, route, payload);
+  for (const [label, route, payload, proof] of CASES) {
+    const m = await measure(theme, route, payload, proof);
     const over = m.lowest - 1080;
     const back = m.backIntoRail === null ? "no button"
       : m.backIntoRail > 0 ? `UNDER by ${m.backIntoRail}` : `clear by ${-m.backIntoRail}`;
@@ -202,12 +262,22 @@ for (const theme of ["arcade", "tabletop"]) {
       `  ${label.padEnd(24)}${theme.padEnd(10)}${String(m.railW + "px").padEnd(6)}${String(m.lowest).padEnd(8)}` +
       `${String(m.backBottom).padEnd(9)}${(over > 0 ? "OVER by " + over : "fits").padEnd(13)}${back.padEnd(14)}${m.covered.join(" | ") || "nothing"}`,
     );
+    // A PAYLOAD THE PAGE REJECTS RENDERS THE SHORT WAITING STATE, which fits
+    // trivially and measures nothing. That was written down at the top of this
+    // file and then not enforced: `rendered` was computed and never read, so
+    // when Ping Pong's TV moved to sides on 2026-08-05 and this file's payload
+    // stayed on the old aId/bId shape, both ping pong cases quietly stopped
+    // measuring a scoreboard and kept passing. Now a stale payload FAILS.
+    if (!m.rendered) { console.log(`      ^ DID NOT RENDER: payload is stale for ${route} (looked for ${proof})`); stale++; }
     if ((m.covered.length || (m.backIntoRail ?? -1) > 0) && !KNOWN.has(label)) newOverlaps++;
   }
 }
 console.log(
-  newOverlaps === 0
+  newOverlaps === 0 && stale === 0
     ? "\nPASS  no fixed overlay covers anything a TV layout placed (Ping Pong past six players excepted, and logged)"
-    : `\nFAIL  ${newOverlaps} case(s) have painted content under a fixed overlay`,
+    : [
+        newOverlaps ? `FAIL  ${newOverlaps} case(s) have painted content under a fixed overlay` : "",
+        stale ? `FAIL  ${stale} case(s) never rendered: the payload no longer matches the page` : "",
+      ].filter(Boolean).join("\n"),
 );
-chrome.kill("SIGKILL"); preview.kill("SIGKILL"); process.exit(newOverlaps === 0 ? 0 : 1);
+chrome.kill("SIGKILL"); preview.kill("SIGKILL"); process.exit(newOverlaps === 0 && stale === 0 ? 0 : 1);
