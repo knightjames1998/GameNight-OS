@@ -57,11 +57,49 @@ function bgSession(n) {
   })).sort((a, b) => b.wins - a.wins);
   return {
     status: "live", groupId: "g1", openScoring: false, nowPlaying: "Azul",
-    roster: rs, sideSets: [{ fromIdx: 0, sides }], grain: "player", games,
+    // `sides` is the arrangement IN FORCE, flattened out of the sideSets log by
+    // the server's extras. The record form taps sides rather than players (on a
+    // free-for-all night they are the same thing), so a stub without it renders
+    // the error boundary, which is what happened the first time this ran after
+    // the field was added.
+    roster: rs, sides, sideSets: [{ fromIdx: 0, sides }], grain: "player", games,
     summary: {
       players,
       titles: [{ title: "Catan", games: 1 }, { title: "Wingspan", games: 1 }],
       last: { title: "Wingspan", lines: [{ name: NAMES[n - 1], placement: 1, score: 92 }, { name: NAMES[0], placement: n, score: null }] },
+    },
+  };
+}
+
+/**
+ * A live CARD TABLE night mid-Euchre: four players in two pairs, one hand
+ * recorded. The pack's whole reason for existing is that the arrangement here
+ * is NOT one side per player, so a stub that shipped singletons would prove
+ * nothing about the pack that ships partnerships.
+ */
+function ctSession() {
+  const rs = roster(4);
+  const sides = [
+    { id: "a", name: "Side A", memberIds: [rs[0].id, rs[2].id] },
+    { id: "b", name: "Side B", memberIds: [rs[1].id, rs[3].id] },
+  ];
+  const line = (i, place) => ({ playerId: rs[i].id, placement: place, isWinner: place === 1, side: place === 1 ? "a" : "b", score: null });
+  const games = [{
+    idx: 0, title: "Euchre", at: "2026-08-09T20:00:00.000Z", grain: "side", sides,
+    lines: [line(0, 1), line(2, 1), line(1, 2), line(3, 2)],
+  }];
+  return {
+    status: "live", groupId: "g1", openScoring: false, nowPlaying: "Euchre",
+    roster: rs, sides, sideSets: [{ fromIdx: 0, sides }], grain: "side", games,
+    summary: {
+      players: [
+        { playerId: rs[0].id, name: rs[0].name, games: 1, wins: 1, avgPlacement: 1 },
+        { playerId: rs[2].id, name: rs[2].name, games: 1, wins: 1, avgPlacement: 1 },
+        { playerId: rs[1].id, name: rs[1].name, games: 1, wins: 0, avgPlacement: 2 },
+        { playerId: rs[3].id, name: rs[3].name, games: 1, wins: 0, avgPlacement: 2 },
+      ],
+      titles: [{ title: "Euchre", games: 1 }],
+      last: { title: "Euchre", lines: [{ name: "Ann + Cal", placement: 1, score: null }, { name: "Ben + Dee", placement: 2, score: null }] },
     },
   };
 }
@@ -131,6 +169,7 @@ async function main() {
   await S("Fetch.enable", { patterns: [{ urlPattern: "*/api/*" }] });
 
   let bgPayload = null;
+  let ctPayload = null;
   let ppPayload = null;
   let rosterN = 4;
   ws.addEventListener("message", async (ev) => {
@@ -140,11 +179,13 @@ async function main() {
     const u = request.url;
     let body = {};
     if (u.includes("/api/boardgame-context/")) body = ctx(rosterN);
+    else if (u.includes("/api/cardtable-context/")) body = ctx(4, ["Euchre"]);
     else if (u.includes("/api/pingpong-context/")) body = ctx(5);
     else if (u.includes("/api/auth/me")) body = { user: { id: "u0", displayName: "Ann" } };
     else if (u.includes("/boardgame-stats")) body = bgStats;
     else if (u.includes("/stats")) body = groupStats;
     else if (u.includes("boardgame/")) body = { session: bgPayload };
+    else if (u.includes("cardtable/")) body = { session: ctPayload };
     else if (u.includes("pingpong/")) body = { session: ppPayload };
     await cdp(ws, "Fetch.fulfillRequest", {
       requestId, responseCode: 200,
@@ -193,6 +234,28 @@ async function main() {
   await evalJs(`(() => { const t=[...document.querySelectorAll('button.gn-tab')].find(b=>b.textContent.trim()==='Board Game'); if(t) t.click(); return !!t; })()`);
   await sleep(900);
   snap.bgPanel = await text();
+
+  // ---- Card Table: setup, a live Euchre night in pairs, its TV ----
+  ctPayload = null;
+  await view(390, 844);
+  await goto(`${ORIGIN}/cardtable?event=e1`);
+  snap.ctSetup = await text();
+
+  ctPayload = ctSession();
+  await goto(`${ORIGIN}/cardtable?event=e1`);
+  snap.ctLive = await text();
+
+  await view(1920, 1080);
+  await goto(`${ORIGIN}/cardtable/tv/e1`);
+  snap.ctTv = await evalJs(`(() => {
+    const back = [...document.querySelectorAll('button, a')].find(b => /back|←/i.test(b.textContent));
+    const r = back ? back.getBoundingClientRect() : null;
+    return {
+      text: document.body.innerText.replace(/\\s+$/gm,'').trim(),
+      backBottom: r ? Math.round(r.bottom + window.scrollY) : null,
+      pageBottom: Math.round(document.documentElement.getBoundingClientRect().height),
+    };
+  })()`);
 
   // ---- Ping Pong's team picker ----
   ppPayload = null;
@@ -252,6 +315,7 @@ async function main() {
     writeFileSync(OUT, out + "\n");
     console.log(`wrote ${Object.keys(snap).length} snapshots`);
     for (const n of [4, 8, 12]) console.log(`  bgTv${n}: back ${snap[`bgTv${n}`].backBottom}px, page ${snap[`bgTv${n}`].pageBottom}px`);
+    console.log(`  ctTv:  back ${snap.ctTv.backBottom}px, page ${snap.ctTv.pageBottom}px`);
   }
   chrome.kill("SIGKILL"); killAll();
   process.exit(0);

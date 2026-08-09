@@ -1,0 +1,153 @@
+/* ============================================================
+   Card Table pack theme: a card FACE. Cream stock, black pips,
+   suit red, laid on a dark table under a low lamp.
+
+   Distinct from the packs it sits nearest, which matters because
+   two of them draw the same screens: Board Game is walnut and
+   brass, the casino group is oxblood and green baize, Ping Pong
+   is green felt and an orange ball. This one is the only pack in
+   the app whose CARDS ARE LIGHT, which is the point and also the
+   whole risk (below).
+
+   The STRUCTURE lives in ../titlenight/titlenight.css. This file
+   is the palette, the backdrops, and the mapping of the palette
+   onto the layer's --tn-* tokens.
+
+   TWO LAYERS OF TOKEN, on purpose. The --ct-* names say what a
+   colour IS in this pack's own terms (a card's face, the pips,
+   the suit red), and the --tn-* names say what it DOES in the
+   shared screens. Ping Pong's stage 4 pass established the shape;
+   it is what lets the Tabletop block below re-treat the pack by
+   moving five values rather than twenty.
+
+   ------------------------------------------------------------
+   THE REAL RISK IS THAT CREAM IS A LIGHT SURFACE IN A DARK SHELL,
+   and it is not a matter of taste: every shell colour that lands
+   on a card here was chosen to print on something dark. Three of
+   them would have failed silently, so all three are measured
+   rather than eyeballed, in apps/server/tests/theme-contrast.test.ts:
+
+     - the ERROR line. --gn-danger is a pale pink for a dark card
+       and is nearly invisible on cream. The layer now reads
+       --tn-danger, and this pack sets a deep red.
+     - the CONFIRM button. The shell's neon teal fights paper, so
+       the layer reads --tn-go and this pack sets a bottle green.
+     - the HOST TOGGLE, which is a shell component rather than the
+       layer's, and paints its own ink from --gn-yes / --gn-no.
+       Scoped overrides at the bottom of this file, on the toggle
+       itself so nothing can leak.
+
+   The bottle green was #1d7a45 first and measured 4.47 against
+   the cream, three hundredths under AA. That is exactly the kind
+   of miss eyeballing produces and a number does not.
+   ============================================================ */
+
+.ct-root,
+.ct-tv {
+  /* ---- the pack's own palette ---- */
+  --ct-face:       #f2ead8;  /* a card's face: the cards, the panels */
+  --ct-face-lit:   #fbf6e9;  /* the same stock, catching the lamp: inputs */
+  --ct-face-shade: #e4d9c0;  /* the same stock in shadow: pills, ghost buttons */
+  --ct-ink:        #17140f;  /* the pips. Text on a card face */
+  --ct-ink-dim:    #5c5445;  /* the small print on a card */
+  --ct-rule:       #cdbfa2;  /* the hairline between two rows on one card */
+  --ct-edge:       #b9a983;  /* the card's own edge */
+  --ct-red:        #b3202c;  /* THE SUIT RED. Identity. Not themed. */
+  --ct-red-ink:    #fff6ee;  /* ink printed on the red */
+  --ct-red-sh:     #7d1620;  /* the red button's bevel */
+  --ct-red-lit:    #e8515c;  /* the red at TV distance, on a dark room */
+  --ct-black:      #17140f;  /* the black suit: the placement chip */
+  --ct-black-ink:  #f2ead8;  /* cream printed on the black */
+  --ct-baize:      #14110d;  /* the table the cards are laid on */
+  --ct-baize-lit:  #3a1418;  /* the lamp over it */
+  --ct-baize-tv:   #100e0a;  /* the TV runs a shade deeper than the phone */
+  --ct-danger:     #8c1220;  /* an error, printed on a card face */
+  --ct-go:         #17673a;  /* the confirm fill. Bottle green, not neon */
+  --ct-go-ink:     #f2ead8;
+  --ct-go-sh:      #0e4526;
+  --ct-tv-ink:     #f4ecd8;
+  --ct-tv-muted:   #b6a583;
+  --ct-tv-line:    #5c2a30;
+
+  /* ---- what each one DOES in the shared screens ---- */
+  --tn-accent: var(--ct-red);
+  --tn-accent-ink: var(--ct-red-ink);
+  --tn-accent-sh: var(--ct-red-sh);
+  --tn-mark: var(--ct-black);
+  --tn-mark-ink: var(--ct-black-ink);
+  --tn-line: var(--ct-edge);
+  --tn-rule: var(--ct-rule);
+  --tn-ink: var(--ct-ink);
+  --tn-dim: var(--ct-ink-dim);
+  --tn-display: var(--ct-face);
+  --tn-surface: var(--ct-face-shade);
+  --tn-card: var(--ct-face);
+  --tn-raise: var(--ct-face-shade);
+  --tn-sunken: var(--ct-face-lit);
+  --tn-danger: var(--ct-danger);
+  --tn-go: var(--ct-go);
+  --tn-go-ink: var(--ct-go-ink);
+  --tn-go-sh: var(--ct-go-sh);
+  /* The brand glow is the lamp on the table, not a neon: a card table is lit
+     from above by one bulb, and this pack is the quiet one in the app. */
+  --tn-glow: rgba(179, 32, 44, 0.35);
+}
+
+/* A TOKEN BLOCK STAYS PURE TOKENS, with the backdrop in its own rule. Not
+   style: theme-sweep's rule pass hoists a pack's tokens onto its probe only
+   when the block declares nothing but custom properties. */
+.ct-tv {
+  --tn-accent: var(--ct-red-lit);
+  --tn-tv-ink: var(--ct-tv-ink);
+  --tn-tv-muted: var(--ct-tv-muted);
+  --tn-tv-panel: rgba(0, 0, 0, 0.35);
+  --tn-tv-line: var(--ct-tv-line);
+  --tn-tv-rule: rgba(244, 236, 216, 0.12);
+  --tn-tv-glow: rgba(232, 81, 92, 0.45);
+  /* At TV distance the black suit disappears into the room, so the rank number
+     is the red's lighter companion instead. */
+  --tn-mark: var(--ct-red-lit);
+}
+
+.ct-root {
+  background:
+    radial-gradient(110% 70% at 50% -5%, var(--ct-baize-lit) 0%, transparent 58%),
+    linear-gradient(180deg, var(--ct-baize), #0b0907);
+}
+
+.ct-tv {
+  background: radial-gradient(120% 80% at 50% 0%, var(--ct-baize-lit), var(--ct-baize-tv));
+}
+
+/* THE HOST TOGGLE IS THE SHELL'S COMPONENT WEARING THIS PACK'S PAINT. It reads
+   --gn-yes and --gn-no directly and paints them as TEXT over a 16% tint, both
+   tuned for a dark card: on cream they measure 3.4 and 3.1, well under AA.
+   Scoped to the toggle itself rather than to .ct-root, so nothing else inside
+   the pack can pick up a re-pointed shell token by accident. */
+.ct-root .gn-toggle {
+  --gn-yes: var(--ct-go);
+  --gn-no: #a3121f;
+  --gn-p1: #a3121f;
+}
+
+/* ============================================================
+   TABLETOP. The re-treatment, not a repaint: a deck of cards is a
+   deck of cards under any light, so the FACE, the PIPS and the
+   SUIT RED do not move (DECISION LOG, stage 4: identity belongs
+   to the pack). What moves is the table under them, which stops
+   being neutral black and becomes the theme's warm timber, and
+   the stock, which warms half a step to sit on it.
+   ============================================================ */
+:root[data-theme="tabletop"] .ct-root,
+:root[data-theme="tabletop"] .ct-tv {
+  --ct-face:       #f0e6d0;
+  --ct-face-lit:   #f9f2e2;
+  --ct-face-shade: #e0d4b6;
+  --ct-rule:       #c8b995;
+  --ct-edge:       #b09b70;
+  --ct-baize:      #1e1710;
+  --ct-baize-lit:  #45201c;
+  --ct-baize-tv:   #171009;
+  --ct-tv-muted:   #b39d76;
+  --ct-tv-line:    #5e3128;
+}

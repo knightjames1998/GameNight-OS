@@ -1049,6 +1049,10 @@ function CasinoRunPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
 
 // The generic aggregator names the Board Game pack's game this.
 const BOARD_GAME_GAME_NAME = "Board Game";
+// And the Card Table pack's. Two tabs on purpose: "good at board games" and
+// "good at card games" are different claims, and one shared panel is what lets
+// them be two tabs without being two implementations.
+const CARD_TABLE_GAME_NAME = "Card Table";
 
 interface TnStats {
   games: number;
@@ -1187,6 +1191,19 @@ function BoardGamePanel(props: PackPanelProps) {
   );
 }
 
+function CardTablePanel(props: PackPanelProps) {
+  return (
+    <TitleNightPanel
+      {...props}
+      route="cardtable"
+      // The suit red, lightened for a dark panel: the pack's own #b3202c is a
+      // card-face colour and this heading prints on the shell's dark card.
+      accent="#e8515c"
+      empty="No card games recorded yet. Deal a night and it fills in here."
+    />
+  );
+}
+
 export default function StatsPage() {
   const { id } = useParams();
   const [open, setOpen] = useState<string | null>(null);
@@ -1232,6 +1249,8 @@ export default function StatsPage() {
                 ? `${count} casino ${count === 1 ? "run" : "runs"}`
                 : tab === BOARD_GAME_GAME_NAME
                 ? `${count} board ${count === 1 ? "game" : "games"}`
+                : tab === CARD_TABLE_GAME_NAME
+                ? `${count} card ${count === 1 ? "game" : "games"}`
                 : `${count} ${count === 1 ? "result" : "results"}${active ? ` of ${active.name}` : " across all game modes"}`}
             </p>
           )}
@@ -1280,6 +1299,8 @@ export default function StatsPage() {
           <CasinoRunPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : tab === BOARD_GAME_GAME_NAME && id ? (
           <BoardGamePanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
+        ) : tab === CARD_TABLE_GAME_NAME && id ? (
+          <CardTablePanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : (
           <PlayerRows rows={shown ?? []} open={open} setOpen={setOpen} showByGame={tab === null} />
         )}

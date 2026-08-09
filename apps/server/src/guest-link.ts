@@ -32,6 +32,7 @@ import { guestNamesRoulette, creditGuestRoulette } from "./roulette.js";
 import { guestNamesCraps, creditGuestCraps } from "./craps.js";
 import { guestNamesCasinoRun, creditGuestCasinoRun } from "./casinorun.js";
 import { guestNamesBoardGame, creditGuestBoardGame } from "./boardgame.js";
+import { guestNamesCardTable, creditGuestCardTable } from "./cardtable.js";
 import { guestNamesBeerio, creditGuestBeerio } from "./beerio-gn.js";
 
 export const guestLinkRouter = Router();
@@ -47,6 +48,7 @@ const nameAdapters = [
   guestNamesCraps,
   guestNamesCasinoRun,
   guestNamesBoardGame,
+  guestNamesCardTable,
   guestNamesBeerio,
 ];
 
@@ -67,6 +69,7 @@ const creditAdapters: {
   { key: SESSION_PACKS.craps.ledger, credit: creditGuestCraps },
   { key: SESSION_PACKS.casinorun.ledger, credit: creditGuestCasinoRun },
   { key: SESSION_PACKS.boardgame.ledger, credit: creditGuestBoardGame },
+  { key: SESSION_PACKS.cardtable.ledger, credit: creditGuestCardTable },
   { key: "beerio", credit: creditGuestBeerio },
 ];
 

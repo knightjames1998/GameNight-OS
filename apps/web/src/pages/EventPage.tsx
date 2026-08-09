@@ -514,7 +514,7 @@ function eventGames(
       if (pack === "mariokart" && format === "beerio") return navigate(`/beerio?event=${id}`);
       if (pack === "tournament") return;
       // One-format packs carry no format suffix.
-      if (pack === "marioparty" || pack === "blackjack" || pack === "roulette" || pack === "craps" || pack === "boardgame") return navigate(`/${pack}?event=${id}`);
+      if (pack === "marioparty" || pack === "blackjack" || pack === "roulette" || pack === "craps" || pack === "boardgame" || pack === "cardtable") return navigate(`/${pack}?event=${id}`);
       navigate(`/${pack}?event=${id}&format=${format}`);
     },
   });

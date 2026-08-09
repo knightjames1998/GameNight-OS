@@ -679,3 +679,111 @@ test("PING PONG'S IDENTITY SURVIVES THE THEME, and its material does not", () =>
     assert.notEqual(PP_ARCADE[t], PP_TABLETOP[t], `${t} carries Arcade's value under Tabletop`);
   }
 });
+
+// ---------------------------------------------------------------------------
+// CARD TABLE, and the reason it gets a block here on the day it ships rather
+// than when the Tabletop pass reaches it.
+//
+// EVERY OTHER PACK IN THIS APP HAS DARK CARDS. Card Table's are cream, because
+// a card face is cream, and that inverts the assumption behind every shell
+// colour that lands on one: --gn-danger is a pale pink tuned to print on a dark
+// card and all but vanishes on paper, and the shell's confirm teal is a neon
+// that fights it. Both were tokenised in the layer for this reason and both are
+// measured below.
+//
+// The numbers here are WCAG AA (4.5) rather than the shell's parity numbers,
+// because there is no shipped Arcade value to hold parity with: this pack has
+// no history to protect yet.
+
+const CT_CSS = readFileSync(path.join(ROOT, "apps/web/src/cardtable/cardtable.css"), "utf8");
+const CT_ARCADE = packTokens(CT_CSS, ".ct-root,");
+const CT_TABLETOP = packTokens(CT_CSS, ':root[data-theme="tabletop"] .ct-root,');
+
+/**
+ * Text against the surface it actually sits on, and every -ink against the fill
+ * it is printed on.
+ *
+ * The two shell components are in here by name. --ct-go-ink prints on the
+ * pack's own confirm fill, and the HOST TOGGLE is the shell's component wearing
+ * this pack's paint: it draws its label in --gn-yes / --gn-no over a 16% tint
+ * of the same colour, so its ink is measured against the plain card face. That
+ * is a hair stricter than the truth (the tint darkens the cream slightly) and
+ * stricter is the right side to be wrong on.
+ */
+const CT_PAIRS: [string, string][] = [
+  ["--ct-ink", "--ct-face"],
+  ["--ct-ink-dim", "--ct-face"],
+  ["--ct-ink", "--ct-face-lit"],
+  ["--ct-ink", "--ct-face-shade"],
+  ["--ct-ink-dim", "--ct-face-shade"],
+  ["--ct-red", "--ct-face"],
+  ["--ct-danger", "--ct-face"],
+  ["--ct-red-ink", "--ct-red"],
+  ["--ct-black-ink", "--ct-black"],
+  ["--ct-go-ink", "--ct-go"],
+  // The brand lettering, on the table rather than on a card.
+  ["--ct-face", "--ct-baize"],
+  // The TV is a dark room again, so it is its own set.
+  ["--ct-tv-ink", "--ct-baize-tv"],
+  ["--ct-tv-muted", "--ct-baize-tv"],
+  ["--ct-red-lit", "--ct-baize-tv"],
+];
+
+/** The host toggle's two inks, which the pack re-points on the toggle itself. */
+const CT_TOGGLE = packTokens(CT_CSS, ".ct-root .gn-toggle");
+
+function ctValue(themePack: Record<string, string>, token: string) {
+  const raw = themePack[token] ?? CT_ARCADE[token]!;
+  // The mapping layer is var(--ct-*) indirection; resolve one hop.
+  const m = /^var\((--[a-z0-9-]+)\)$/.exec(raw);
+  return m ? themePack[m[1]!] ?? CT_ARCADE[m[1]!]! : raw;
+}
+
+const CT_BLOCKS: [string, Record<string, string>][] = [
+  ["arcade", CT_ARCADE],
+  ["tabletop", CT_TABLETOP],
+];
+
+test("CARD TABLE clears WCAG AA in both themes", () => {
+  const failures: string[] = [];
+  for (const [name, pack] of CT_BLOCKS) {
+    for (const [fg, bg] of CT_PAIRS) {
+      const ratio = contrast(ctValue(pack, fg), ctValue(pack, bg));
+      if (ratio < 4.5) failures.push(`${name}: ${fg} on ${bg} = ${ratio} (needs 4.5)`);
+    }
+  }
+  assert.deepEqual(failures, [], "pack contrast below AA:\n  " + failures.join("\n  "));
+});
+
+test("CARD TABLE'S HOST TOGGLE clears AA on a cream card, in both themes", () => {
+  // The specific miss this exists for: the toggle is the SHELL's component and
+  // reads --gn-yes / --gn-no directly, so it is invisible to a pack's own token
+  // list. On cream those two shell values measure 3.4 and 3.1, under AA and
+  // nothing errors. The pack re-points them on the toggle itself.
+  const failures: string[] = [];
+  for (const [name, pack] of CT_BLOCKS) {
+    for (const token of ["--gn-yes", "--gn-no"]) {
+      const raw = CT_TOGGLE[token];
+      assert.ok(raw, `the toggle must re-point ${token} or it prints the shell's dark-card value`);
+      const m = /^var\((--[a-z0-9-]+)\)$/.exec(raw);
+      const fg = m ? pack[m[1]!] ?? CT_ARCADE[m[1]!]! : raw;
+      const ratio = contrast(fg, ctValue(pack, "--ct-face"));
+      if (ratio < 4.5) failures.push(`${name}: toggle ${token} on the card face = ${ratio} (needs 4.5)`);
+    }
+  }
+  assert.deepEqual(failures, [], "toggle contrast below AA:\n  " + failures.join("\n  "));
+});
+
+test("CARD TABLE'S IDENTITY SURVIVES THE THEME, and its material does not", () => {
+  // A deck of cards is a deck of cards under any light. The suit red and the
+  // pips are identity and stay put; the TABLE under the cards is material and
+  // stops being neutral black under Tabletop.
+  for (const t of ["--ct-red", "--ct-red-ink", "--ct-red-sh", "--ct-red-lit", "--ct-ink", "--ct-black"]) {
+    assert.ok(t in CT_ARCADE, `${t} should be declared on the pack root`);
+    assert.ok(!(t in CT_TABLETOP), `${t} is identity and must NOT be redeclared under Tabletop`);
+  }
+  for (const t of ["--ct-baize", "--ct-baize-lit", "--ct-face", "--ct-edge"]) {
+    assert.ok(t in CT_TABLETOP, `${t} is material and must be re-treated under Tabletop`);
+    assert.notEqual(CT_ARCADE[t], CT_TABLETOP[t], `${t} carries Arcade's value under Tabletop`);
+  }
+});

@@ -66,6 +66,12 @@ const SHIPPED = {
   // per-title breakdown lives on matches.label, and a games row per title would
   // split this pack into a leaderboard tab per board game.
   boardgame: { ledger: "boardgame", gameName: "Board Game", keyPrefix: "bg", wsType: "boardgame_updated", table: "game_sessions", route: "boardgame" },
+  // The other title-night one. Pinned the day it shipped (2026-08-09). It runs
+  // on Board Game's engine, screens and routes and is still its OWN pack: a
+  // separate ledger and a separate games row, because "good at board games" and
+  // "good at card games" are different claims and one row per pack is what
+  // keeps a leaderboard tab meaningful.
+  cardtable: { ledger: "cardtable", gameName: "Card Table", keyPrefix: "ct", wsType: "cardtable_updated", table: "game_sessions", route: "cardtable" },
 } as const;
 
 test("every pack's shipped identifiers are unchanged", () => {
@@ -92,7 +98,7 @@ test("the registry holds exactly the session packs, in order", () => {
   // ORDER IS SHIP ORDER, and it is asserted rather than incidental: this list
   // feeds the event TV's tiebreak, so a new pack inserted ABOVE a live one
   // would silently re-rank the live one. Append; never insert.
-  assert.deepEqual(SESSION_PACK_KEYS, ["smash", "mariokart", "marioparty", "pingpong", "blackjack", "roulette", "craps", "casinorun", "boardgame"]);
+  assert.deepEqual(SESSION_PACK_KEYS, ["smash", "mariokart", "marioparty", "pingpong", "blackjack", "roulette", "craps", "casinorun", "boardgame", "cardtable"]);
 });
 
 test("Ping Pong's ledger key is pingpong, not ping_pong", () => {

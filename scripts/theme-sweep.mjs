@@ -87,6 +87,7 @@ const ROUTES = [
   // had: a pack nobody added is a pack no harness covers, and this one was
   // about to have every class name on both its screens replaced.
   "/boardgame", "/boardgame/tv/x",
+  "/cardtable", "/cardtable/tv/x",
   "/join/ABCD",
   "/nope",
 ];
@@ -114,6 +115,8 @@ const RULE_ROUTES = [
   // a route that imports it has been visited.
   "/boardgame",
   "/boardgame/tv/x",
+  "/cardtable",
+  "/cardtable/tv/x",
   "/beerio",
 ];
 

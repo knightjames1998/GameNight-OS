@@ -197,8 +197,19 @@ export const PACKS: PackSpec[] = [
     group: "boardcard",
     // One format. A board game night is a sequence of board games, and the
     // TITLE is not a format: it is a label on the result, so it never appears
-    // here. Card table joins this group as its own tile when it lands.
+    // here. Card table is the tile below, in the same group.
     formats: [{ key: "night", label: "♟️ Game night", sub: "one result per board game" }],
+  },
+  {
+    key: "cardtable",
+    name: S.cardtable.name,
+    emoji: S.cardtable.emoji,
+    cabClass: "gn-cab--ct",
+    group: "boardcard",
+    // One format, for the same reason Board Game has one: the TITLE is a label
+    // on the result rather than a format. Whether a night is partnerships is
+    // not a format either; the title sets that and the host overrides it.
+    formats: [{ key: "night", label: "♠️ Card night", sub: "one result per card game" }],
   },
   {
     key: "tournament",

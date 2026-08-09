@@ -24,6 +24,7 @@ import { rouletteRouter, rouletteTvRouter } from "./roulette.js";
 import { crapsRouter, crapsTvRouter } from "./craps.js";
 import { casinoRunRouter, casinoRunTvRouter } from "./casinorun.js";
 import { boardGameRouter, boardGameTvRouter } from "./boardgame.js";
+import { cardTableRouter, cardTableTvRouter } from "./cardtable.js";
 import { statsRouter } from "./stats.js";
 import { guestLinkRouter } from "./guest-link.js";
 import { setupWebSockets } from "./ws.js";
@@ -79,6 +80,7 @@ app.use("/api/tv", rouletteTvRouter); // public: big-screen money board for Roul
 app.use("/api/tv", crapsTvRouter); // public: big-screen money board + shooter for Craps
 app.use("/api/tv", casinoRunTvRouter); // public: big-screen bank + quota for Casino Run
 app.use("/api/tv", boardGameTvRouter); // public: big-screen title + standings for Board Game
+app.use("/api/tv", cardTableTvRouter); // public: big-screen title + standings for Card Table
 app.use("/api", beerioRouter); // public: sessions/hof for the Beerio pack
 app.use("/api", beerioGnRouter); // authed per-route: GameNight binding for the pack
 app.use("/api", quickPlayRouter);
@@ -92,6 +94,7 @@ app.use("/api", rouletteRouter); // authed per-route: Roulette cash game + stats
 app.use("/api", crapsRouter); // authed per-route: Craps cash game + stats
 app.use("/api", casinoRunRouter); // authed per-route: Casino Run co-op legs + stats
 app.use("/api", boardGameRouter); // authed per-route: Board Game night + stats
+app.use("/api", cardTableRouter); // authed per-route: Card Table night + stats
 app.use("/api", statsRouter);
 app.use("/api", eventsRouter);
 app.use("/api", bracketsRouter);

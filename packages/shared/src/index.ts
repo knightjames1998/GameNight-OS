@@ -154,6 +154,7 @@ export * from "./casinorun.js";
 // table arrived as the second example.
 export * from "./titlenight.js";
 export * from "./boardgame.js";
+export * from "./cardtable.js";
 // The team primitive: sides, and what a side result means for placement.
 // Not a pack. Ping Pong is its first consumer; Card table, Party games and
 // Social deduction are queued behind it.

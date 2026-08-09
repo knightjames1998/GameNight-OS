@@ -116,13 +116,13 @@ const crun = (n) => {
 // gap this harness exists to close: a pack with a TV that nothing measures is a
 // pack whose fit is nobody's job. It seats TWELVE, so the twelve case is
 // reachable rather than theoretical.
-const boardgame = (n) => {
+const titlenight = (n) => {
   const r = Array.from({ length: n }, (_, i) => ({ id: "p" + i, kind: "member", userId: "u" + i, name: "Player Nameiskindalong " + (i + 1) }));
   const sides = r.map((p, i) => ({ id: String.fromCharCode(97 + i), name: "Side", memberIds: [p.id] }));
   const lines = r.map((p, i) => ({ playerId: p.id, placement: i + 1, isWinner: i === 0, side: null, score: i === 0 ? 92 : null }));
   return { session: {
     status: "live", groupId: "g1", openScoring: false, nowPlaying: "Ticket to Ride",
-    roster: r, sideSets: [{ fromIdx: 0, sides }], grain: "player",
+    roster: r, sides, sideSets: [{ fromIdx: 0, sides }], grain: "player",
     games: Array.from({ length: 4 }, (_, g) => ({ idx: g, title: ["Catan", "Wingspan", "Azul", "7 Wonders"][g], at: "2026-08-09T20:0" + g + ":00Z", grain: "player", sides, lines })),
     summary: {
       players: r.map((p, i) => ({ playerId: p.id, name: p.name, games: 4, wins: 4 - i > 0 ? 4 - i : 0, avgPlacement: i + 1 })),
@@ -226,9 +226,16 @@ const CASES = [
   ["ping pong    7 players", "/pingpong/tv/x", pingpong(7), ".pp-tv__panel"],
   ["casino run   6 mid-run", "/casinorun/tv/x", crun(6), ".crun-tv"],
   ["casino run  12 mid-run", "/casinorun/tv/x", crun(12), ".crun-tv"],
-  ["board game   4 players", "/boardgame/tv/x", boardgame(4), ".tn-tv__panel"],
-  ["board game   8 players", "/boardgame/tv/x", boardgame(8), ".tn-tv__panel"],
-  ["board game  12 players", "/boardgame/tv/x", boardgame(12), ".tn-tv__panel"],
+  ["board game   4 players", "/boardgame/tv/x", titlenight(4), ".tn-tv__panel"],
+  ["board game   8 players", "/boardgame/tv/x", titlenight(8), ".tn-tv__panel"],
+  ["board game  12 players", "/boardgame/tv/x", titlenight(12), ".tn-tv__panel"],
+  // Card Table draws the SAME TV component, so the interesting case is not
+  // whether the layout fits (it is the same layout) but whether the pack's own
+  // theme changed the density. Twelve is the one that matters and it is the one
+  // Board Game is already over at, so a passing four and eight here with a
+  // failing twelve would be the expected shape rather than a surprise.
+  ["card table   4 players", "/cardtable/tv/x", titlenight(4), ".tn-tv__panel"],
+  ["card table   8 players", "/cardtable/tv/x", titlenight(8), ".tn-tv__panel"],
 ];
 
 // A case that is ALREADY over before any rail exists cannot be made to pass by

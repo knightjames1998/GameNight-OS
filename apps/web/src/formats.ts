@@ -33,6 +33,7 @@ export const FORMAT_LABEL: Record<string, string> = {
   // this pack has one format and many titles, which is the opposite of the
   // casino group's one format across many packs.
   boardgame: "Board game",
+  cardtable: "Card game",
   other: "Other",
 };
 

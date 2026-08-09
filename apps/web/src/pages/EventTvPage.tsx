@@ -35,6 +35,7 @@ const RouletteTvPage = lazy(() => import("../roulette/RouletteTvPage"));
 const CrapsTvPage = lazy(() => import("../craps/CrapsTvPage"));
 const CasinoRunTvPage = lazy(() => import("../casinorun/CasinoRunTvPage"));
 const BoardGameTvPage = lazy(() => import("../boardgame/BoardGameTvPage"));
+const CardTableTvPage = lazy(() => import("../cardtable/CardTableTvPage"));
 const TvPage = lazy(() => import("./TvPage"));
 const BeerioTvPage = lazy(() => import("../beerio/BeerioTvPage"));
 
@@ -68,6 +69,7 @@ const PACK_TV: Record<SessionPackKey, (eventId: string) => JSX.Element> = {
   craps: (id) => <CrapsTvPage eventId={id} />,
   casinorun: (id) => <CasinoRunTvPage eventId={id} />,
   boardgame: (id) => <BoardGameTvPage eventId={id} />,
+  cardtable: (id) => <CardTableTvPage eventId={id} />,
 };
 
 export default function EventTvPage() {

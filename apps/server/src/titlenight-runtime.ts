@@ -39,14 +39,19 @@ import {
 import {
   applyTitleShape,
   canonicalTitle,
+  currentTnSides,
   newTnState,
   recordTnGame,
+  reshuffleTnSides,
   summarizeTnNight,
   tnGameLines,
   tnSideIdOf,
   tnTitleSuggestions,
+  validateSides,
   validateTnOrder,
   SESSION_PACKS,
+  SIDE_IDS,
+  type Side,
   type SessionPackKey,
   type TitleNightConfig,
   type TnGame,
@@ -98,7 +103,12 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
 
   const rt = createPackRuntime<TnSessionState>({
     ...packConfig(def.key),
-    extras: (state) => ({ summary: summarizeTnNight(state) }),
+    extras: (state) => ({
+      summary: summarizeTnNight(state),
+      // The arrangement IN FORCE, flattened out of the sideSets log, because
+      // every screen wants the current one and none of them wants the history.
+      sides: currentTnSides(state),
+    }),
   });
 
   // ---------- titles the crew has already used ----------
@@ -465,6 +475,61 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
     const view = await rt.saveState(loaded, "live", origin);
     broadcast({ type: "leaderboard_updated", eventId }, origin);
     res.json(view);
+  });
+
+  // ---------- the host overrides the shape ----------
+
+  // THE TITLE SETS A STARTING POSITION, NEVER A RULE (James, 2026-08-05).
+  // Three-handed euchre exists and partnership rummy exists, so this is the
+  // route that keeps the auto-applied default from being the app refereeing
+  // somebody's kitchen table.
+  //
+  // Games already recorded keep their own side snapshots, so the night's
+  // history stays true across a rearrangement; the engine handles that
+  // boundary, and a rearrangement with no games under it yet replaces rather
+  // than stacks.
+  router.post(`/${route}/:eventId/sides`, requireAuth, async (req: AuthedRequest, res) => {
+    const eventId = String(req.params.eventId);
+    const loaded = await rt.loadState(eventId);
+    if (!loaded) {
+      res.status(404).json({ error: "No session" });
+      return;
+    }
+    const role = await roleOf(loaded.row.groupId, req.user!.id);
+    if (!role) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    if (!isHostRole(role) && !loaded.state.openScoring) {
+      res.status(403).json({ error: "Only the host sets the sides (open scoring is off)" });
+      return;
+    }
+
+    const raw = Array.isArray(req.body?.sides) ? req.body.sides : [];
+    const sides: Side[] = raw.map((s: any, i: number) => ({
+      id: SIDE_IDS[i] ?? String(i),
+      name: `Side ${String.fromCharCode(65 + i)}`,
+      memberIds: (Array.isArray(s?.memberIds) ? s.memberIds : []).map(String),
+    }));
+    // The primitive owns what is valid, so the screen and the server cannot
+    // give two different answers. UNEVEN IS NOT AN ERROR: `check.even` is a
+    // fact the client warns about, never a reason to refuse.
+    const check = validateSides(sides);
+    if (check.error) {
+      res.status(400).json({ error: check.error });
+      return;
+    }
+    const err = reshuffleTnSides(
+      loaded.state,
+      sides,
+      // The grain follows the shape, the same rule everywhere else.
+      sides.some((s) => s.memberIds.length > 1) ? "side" : "player",
+    );
+    if (err) {
+      res.status(400).json({ error: err });
+      return;
+    }
+    res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
   });
 
   router.post(`/${route}/:eventId/open-scoring`, requireAuth, async (req: AuthedRequest, res) => {

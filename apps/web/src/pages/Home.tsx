@@ -125,7 +125,7 @@ function Groups({
       if (pack === "tournament") return;
       // Mario Party, the cash packs and Board Game have one format each, so
       // they carry no format suffix.
-      if (pack === "marioparty" || pack === "blackjack" || pack === "roulette" || pack === "craps" || pack === "boardgame") return startSession(pack);
+      if (pack === "marioparty" || pack === "blackjack" || pack === "roulette" || pack === "craps" || pack === "boardgame" || pack === "cardtable") return startSession(pack);
       startSession(pack, `&format=${format}`);
     },
     tournamentFormats: [

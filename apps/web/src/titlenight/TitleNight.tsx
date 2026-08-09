@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { tnTitleSuggestions, type TitleNightConfig } from "@gamenight/shared";
+import { tnTitleSuggestions, type Side, type TitleNightConfig } from "@gamenight/shared";
 import type { PackCtx } from "../usePackSession";
+import { TeamPicker, teamPickerStatus } from "../teams/TeamPicker";
 import "./titlenight.css";
 
 // The TITLE-NIGHT group's screens: everything Board Game and Card Table do
@@ -57,6 +58,8 @@ export interface TnSessionView {
   openScoring: boolean;
   nowPlaying: string | null;
   roster: TnSlot[];
+  /** The arrangement in force. One player each is free-for-all. */
+  sides: Side[];
   games: { idx: number; title: string; lines: TnLineView[]; at: string }[];
   summary: TnSummaryView;
 }
@@ -280,6 +283,13 @@ export function TitleNightLive({
         )}
       </div>
 
+      {/* THE TITLE SETS A STARTING POSITION, NEVER A RULE. Only a pack that
+          declares partnership defaults gets this control, which keeps Board
+          Game's screen exactly as it shipped: with no partnerships table there
+          is nothing to override, and a "sides" card on a free-for-all pack
+          would be a control that does nothing most nights. */}
+      {canScore && config.partnerships && <SidesOverride at={at} session={session} busy={busy} call={call} />}
+
       {canHost && (
         <div className="tn-card">
           <div className="tn-h">Host controls</div>
@@ -379,9 +389,105 @@ function OnTheTable({
   );
 }
 
+// ---------- The host overrides the shape ----------
+
+/**
+ * Rearrange the table by hand.
+ *
+ * A TITLE SETS A STARTING POSITION AND NEVER A RULE (James, 2026-08-05). The
+ * server auto-applies Euchre's pairs the moment somebody says Euchre is out,
+ * and this is the screen that keeps that from being the app refereeing a
+ * kitchen table: three-handed euchre exists, partnership rummy exists, and a
+ * crew that wants a five-hand round of Hearts in pairs can have it.
+ *
+ * It works in ROSTER INDICES because that is what the shared picker speaks, so
+ * this maps ids in and ids back out. The picker being shared is why this is
+ * forty lines instead of a third copy of the one inside Ping Pong.
+ */
+function SidesOverride({
+  at,
+  session,
+  busy,
+  call,
+}: {
+  at: (path: string) => string;
+  session: TnSessionView;
+  busy: boolean;
+  call: TnCall;
+}) {
+  const [open, setOpen] = useState(false);
+  const [assign, setAssign] = useState<number[][]>([]);
+
+  const idAt = (i: number) => session.roster[i]?.id;
+  const indexOf = new Map(session.roster.map((p, i) => [p.id, i]));
+  const partnership = session.sides.some((s) => s.memberIds.length > 1);
+
+  const start = () => {
+    // Seeded from what is in force, so the common edit is moving one person
+    // rather than building the table again.
+    setAssign(
+      partnership
+        ? session.sides.map((s) => s.memberIds.map((id) => indexOf.get(id)).filter((n): n is number => n !== undefined))
+        : [[], []],
+    );
+    setOpen(true);
+  };
+
+  const { unplaced, ready } = teamPickerStatus(assign, session.roster.length);
+
+  if (!open) {
+    return (
+      <div className="tn-card">
+        <div className="tn-lab">Sides</div>
+        <p className="tn-hint" style={{ marginTop: 4 }}>
+          {partnership
+            ? session.sides.map((s) => s.memberIds.map((id) => session.roster.find((p) => p.id === id)?.name ?? "?").join(" + ")).join("  v  ")
+            : "Everybody for themselves. A partnership title puts the table into pairs on its own."}
+        </p>
+        <button className="tn-btn tn-btn--ghost" style={{ marginTop: 10 }} disabled={busy} onClick={start}>
+          {partnership ? "Change sides" : "Set sides by hand"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="tn-card">
+      <div className="tn-lab">New sides, from the next game on</div>
+      <TeamPicker cx="tn" roster={session.roster} assign={assign} setAssign={setAssign} />
+      <p className="tn-hint" style={{ marginTop: 8 }}>
+        Games already recorded keep the sides they were played with.
+      </p>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <button className="tn-btn tn-btn--ghost" onClick={() => setOpen(false)}>Cancel</button>
+        <button
+          className="tn-btn"
+          disabled={busy || !ready}
+          onClick={() => {
+            void call(at("sides"), {
+              sides: assign.map((members) => ({ memberIds: members.map(idAt).filter(Boolean) })),
+            });
+            setOpen(false);
+          }}
+        >
+          {unplaced.length > 0 ? `${unplaced.length} still to place` : "Use these sides"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ---------- Record a game ----------
 
-/** The whole scoring interaction: tap people into the finish order, confirm. */
+/**
+ * The whole scoring interaction: tap the table into the finish order, confirm.
+ *
+ * IT TAPS SIDES, NOT PLAYERS, and on a free-for-all night that is the same
+ * thing: a side of one is a player, its label is that player's name, and the
+ * screen is identical to the one Board Game shipped. On a partnership night it
+ * is the only thing that works, because tapping both halves of a Euchre pair
+ * into an order is not an order, it is the same side twice.
+ */
 function RecordGame({
   session,
   suggestions,
@@ -396,19 +502,28 @@ function RecordGame({
   onRecord: (payload: unknown) => void;
 }) {
   const [title, setTitle] = useState("");
-  const [order, setOrder] = useState<{ playerId: string; tiedWithAbove: boolean }[]>([]);
+  const [order, setOrder] = useState<{ sideId: string; tiedWithAbove: boolean }[]>([]);
   const [scores, setScores] = useState<Record<string, string>>({});
 
   // The title defaults to whatever is on the table, so the common night is one
   // tap when the box comes out and none at all when the game ends.
   const effectiveTitle = (title || session.nowPlaying || "").trim();
 
-  const nameOf = useMemo(
-    () => new Map(session.roster.map((p) => [p.id, p.name])),
-    [session.roster],
-  );
-  const inOrder = new Set(order.map((o) => o.playerId));
-  const remaining = session.roster.filter((p) => !inOrder.has(p.id));
+  const labelOf = useMemo(() => {
+    const names = new Map(session.roster.map((p) => [p.id, p.name]));
+    return new Map(
+      session.sides.map((s) => [
+        s.id,
+        s.memberIds.map((id) => names.get(id)).filter(Boolean).join(" + ") || s.name,
+      ]),
+    );
+  }, [session.roster, session.sides]);
+  const inOrder = new Set(order.map((o) => o.sideId));
+  const remaining = session.sides.filter((s) => !inOrder.has(s.id));
+  // What the button calls the things being tapped. On a free-for-all night a
+  // side IS a player, and saying "sides" there would be the layer's vocabulary
+  // leaking onto a screen where it means nothing.
+  const noun = session.sides.some((s) => s.memberIds.length > 1) ? "sides" : "players";
 
   // Competition ranking, computed here only so the screen can SHOW it. The
   // server recomputes it from the same order; this never travels.
@@ -423,9 +538,9 @@ function RecordGame({
     onRecord({
       title: effectiveTitle,
       order: order.map((o) => ({
-        playerId: o.playerId,
+        sideId: o.sideId,
         tiedWithAbove: o.tiedWithAbove,
-        score: scores[o.playerId] ?? null,
+        score: scores[o.sideId] ?? null,
       })),
     });
     setTitle("");
@@ -457,9 +572,9 @@ function RecordGame({
       <div className="tn-lab" style={{ marginTop: 14 }}>Finish order (tap in order, first place first)</div>
       {remaining.length > 0 && (
         <div className="tn-seg">
-          {remaining.map((p) => (
-            <button key={p.id} onClick={() => setOrder([...order, { playerId: p.id, tiedWithAbove: false }])}>
-              + {p.name}
+          {remaining.map((s) => (
+            <button key={s.id} onClick={() => setOrder([...order, { sideId: s.id, tiedWithAbove: false }])}>
+              + {labelOf.get(s.id)}
             </button>
           ))}
         </div>
@@ -467,9 +582,9 @@ function RecordGame({
       {order.length === 0 && <p className="tn-hint" style={{ marginTop: 8 }}>Tap the winner first. Anybody who sat this one out just stays off the list.</p>}
 
       {order.map((o, i) => (
-        <div className="tn-row" key={o.playerId}>
+        <div className="tn-row" key={o.sideId}>
           <span className={`tn-place ${placements[i] === 1 ? "tn-place--win" : ""}`}>{placements[i]}</span>
-          <span className="tn-name" style={{ flex: 1 }}>{nameOf.get(o.playerId) ?? "?"}</span>
+          <span className="tn-name" style={{ flex: 1 }}>{labelOf.get(o.sideId) ?? "?"}</span>
           {i > 0 && (
             <button
               className={`tn-tie ${o.tiedWithAbove ? "on" : ""}`}
@@ -486,8 +601,8 @@ function RecordGame({
             type="number"
             inputMode="numeric"
             placeholder="score"
-            value={scores[o.playerId] ?? ""}
-            onChange={(e) => setScores((s) => ({ ...s, [o.playerId]: e.target.value }))}
+            value={scores[o.sideId] ?? ""}
+            onChange={(e) => setScores((sc) => ({ ...sc, [o.sideId]: e.target.value }))}
           />
           <button className="tn-textbtn" onClick={() => setOrder(order.filter((_, j) => j !== i))}>x</button>
         </div>
@@ -500,7 +615,7 @@ function RecordGame({
       )}
 
       <button className="tn-btn" style={{ marginTop: 14 }} disabled={busy || !ready} onClick={record}>
-        {!effectiveTitle ? "Pick what you played" : order.length < 2 ? "Tap at least 2 players into the order" : "Record it"}
+        {!effectiveTitle ? "Pick what you played" : order.length < 2 ? `Tap at least 2 ${noun} into the order` : "Record it"}
       </button>
     </div>
   );

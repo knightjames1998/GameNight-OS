@@ -98,6 +98,16 @@
   --tn-tv-panel: rgba(0, 0, 0, 0.32);
   --tn-tv-line: var(--gn-line);
   --tn-tv-rule: rgba(255, 255, 255, 0.1);
+  /* THE ERROR LINE AND THE CONFIRM BUTTON ARE TOKENS, not the shell's colours
+     read directly, because a pack's card is not guaranteed to be dark. Both
+     shell values are tuned to print on a dark surface: --gn-danger is a pale
+     pink that all but vanishes on a light card, and the confirm teal is a neon
+     that fights a paper one. They default to the shell, so the pack that
+     shipped first is unaffected. */
+  --tn-danger: var(--gn-danger);
+  --tn-go: var(--gn-p2);
+  --tn-go-ink: var(--gn-p2-ink);
+  --tn-go-sh: var(--gn-p2-sh);
 }
 
 .tn-root {
@@ -151,7 +161,7 @@
 .tn-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5); }
 .tn-btn:disabled { opacity: 0.5; }
 .tn-btn--ghost { background: var(--tn-raise); color: var(--tn-ink); border: 1px solid var(--tn-line); box-shadow: none; }
-.tn-btn--go { background: var(--gn-p2); color: var(--gn-p2-ink); box-shadow: 0 4px 0 var(--gn-p2-sh); }
+.tn-btn--go { background: var(--tn-go); color: var(--tn-go-ink); box-shadow: 0 4px 0 var(--tn-go-sh); }
 
 .tn-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--tn-rule); }
 .tn-row:first-child { border-top: none; }
@@ -180,7 +190,7 @@
 .tn-now {
   font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 22px; color: var(--tn-accent);
 }
-.tn-err { color: var(--gn-danger); font-size: 13px; margin-top: 8px; }
+.tn-err { color: var(--tn-danger); font-size: 13px; margin-top: 8px; }
 .tn-textbtn { background: none; border: none; color: var(--tn-dim); font-weight: 700; cursor: pointer; padding: 6px 0; }
 .tn-textbtn:hover { color: var(--tn-ink); }
 

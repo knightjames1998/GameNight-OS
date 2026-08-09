@@ -17,6 +17,13 @@
   "pageBottom": 1256
  },
  "bgPanel": "← Back\n🏆 Leaderboard\n7 board games\nNothing recorded yet. Finish a bracket or a Beerio Kart night and the crew's records show up here. Guests don't count until they're linked to a member.\nAll\nBoard Game\nPlayers\n1\nAnn\n3\nwins\n▾\n7 played · 43% win rate · avg finish 1.9 · 3 titles · avg 1.9\nTitles played\nMost played: Catan (4 games across 3 titles)\nCatan\n4 played · Ann 3W\nWingspan\n2 played · Ben 2W\nAzul\n1 played · Cal 1W\nWins by title\nCatan\nAnn 3 · Ben 1\nWingspan\nBen 2\nAzul\nCal 1",
+ "ctSetup": "← Back\n🎪 Event\n📺 TV\nCARD TABLE\nDeal, tap the finish order, done\nWho is playing (4/12)\nAnn\nremove\nBen\nremove\nCal\nremove\nDee\nremove\nADD A GUEST\nAdd\nGuests play, but lifetime stats only count crew members.\nYou have played\nEuchre\nStart the night",
+ "ctLive": "← Back\n🎪 Event\n📺 TV\nCARD TABLE\nDeal, tap the finish order, done\nON THE TABLE\nEuchre\nChange\nClear\nRecord a result\nWHAT DID YOU PLAY\nEuchre\nSpades\nHearts\nCribbage\nRummy\nGin\nUno\nPresident\nRecording Euchre, the game on the table.\nFINISH ORDER (TAP IN ORDER, FIRST PLACE FIRST)\n+ Ann + Cal\n+ Ben + Dee\nTap the winner first. Anybody who sat this one out just stays off the list.\nTap at least 2 sides into the order\nTonight (1 game)\n♠ lead Ann\n1W / 1 · avg 1.0\nCal\n1W / 1 · avg 1.0\nBen\n0W / 1 · avg 2.0\nDee\n0W / 1 · avg 2.0\nPlayed: Euchre (1)\nSIDES\nAnn + Cal v Ben + Dee\nChange sides\nHost controls\nLet members record results\nOFF\n↶ Undo last\nEnd the night",
+ "ctTv": {
+  "text": "CARD TABLE\n1 game · 1 title\nON THE TABLE\nEuchre\nTONIGHT\nAnn\n1W / 1 · avg 1.0\nCal\n1W / 1 · avg 1.0\nBen\n0W / 1 · avg 2.0\nDee\n0W / 1 · avg 2.0\nEUCHRE\n1 Ann + Cal\n2 Ben + Dee\n← Back",
+  "backBottom": 732,
+  "pageBottom": 1080
+ },
  "pickerOpen": {
   "sides": [
    {

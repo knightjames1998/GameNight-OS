@@ -200,6 +200,27 @@ export const SESSION_PACKS = {
     emoji: "\u{265F}\u{FE0F}", // ♟️
     quickTitle: "Board game night",
   },
+  // THE OTHER TITLE-NIGHT ONE. Same evening as Board Game with a different box
+  // on the table, and it runs on the same engine, the same screens and the same
+  // routes (packages/shared/src/titlenight.ts,
+  // apps/server/src/titlenight-runtime.ts).
+  //
+  // A SEPARATE PACK RATHER THAN A BOARD GAME FORMAT, deliberately: "good at
+  // board games" and "good at card games" are different claims about a person,
+  // and one `games` row per pack is what keeps a leaderboard tab meaningful.
+  // Half its titles are partnership games, which is what the team primitive and
+  // the title-driven default shape were built for.
+  cardtable: {
+    ledger: "cardtable",
+    gameName: "Card Table",
+    keyPrefix: "ct",
+    route: "cardtable",
+    wsType: "cardtable_updated",
+    table: "game_sessions",
+    name: "Card Table",
+    emoji: "\u{2660}\u{FE0F}", // ♠️
+    quickTitle: "Card table night",
+  },
 } as const satisfies Record<string, SessionPackDef>;
 
 /**
