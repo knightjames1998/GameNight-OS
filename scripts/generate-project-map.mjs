@@ -13,42 +13,43 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-08-04 at the START of the Board Game pack session, because the three felt
-// sessions handed the counter over at 3. This pass:
-//   - Zone 1's tabletop item ABSORBED all three of them (the felt tile and the rail, the
-//     materials pass, the room and card-alpha pass) instead of growing three more items.
-//     Third redraw running to make that call, and for the same reason each time: the map
-//     renders ideas, and "the shell is a table" is one idea. It keeps (NEW) because it
-//     took new shipped work this pass rather than merely surviving one.
-//   - ZONE 5 SHRANK FOR THE FIRST TIME, 12 items to 9. The four FIXED entries from
-//     2026-08-02 have now been drawn on two consecutive redraws, which is what "age out
-//     after a couple of redraws" means, and every one has its permanent record in the
-//     DECISION LOG. In exchange it took one real OPEN: the felt does not reach the PACKS.
-//   - Zone 4 took the modifier wall's cut at three, in FEATURES since 2026-08-02 and
-//     never drawn. Found by reading the headings against the zone, not by memory.
-//   - NO ROW MOVED. Row 2 stays at 840 with zone 5 needing 566 of it. Deliberate: a pack
-//     lands in zone 2 and four backlog items land in zone 3 within the hour, so shrinking
-//     now would only mean regrowing next pass. Canvas 1560x2080, unchanged.
+// Redrawn 2026-08-09 at the START of the Card Table session, because the counter
+// read 3. This pass:
+//   - ZONE 2 TOOK THREE, all (NEW): the Board Game pack, the team primitive with Ping Pong
+//     doubles as its proof, and the title-night layer. That is three shipped sessions and
+//     they are three genuinely different ideas, so unlike the tabletop run they are NOT
+//     folded into one item.
+//   - ROW 1 GREW, 1120 -> 1400, because zone 2 went from 17 items to 20 and was over.
+//     1320 was measured first and left zone 2 with 56px, which is less than the 58px an
+//     item costs, and CARD TABLE LANDS IN THAT ZONE at the next redraw. Raised
+//     pre-emptively for the same reason every previous raise was: the fix is mechanical
+//     and the trap would otherwise land on whoever adds the next line. Row 2 moved down by
+//     the same 280 so the columns stay aligned. Zone 1 lost its (NEW) highlight: no shell
+//     work landed this time.
+//   - Zone 3 went from 4 items to 7 and its numbered three are now Card Table, Social
+//     deduction and Poker. The team primitive left it by shipping; Tabletop stage 4 is
+//     still last, where James put it on 2026-08-04.
+//   - Zone 4 took the team retrofits and the title-night follow-ups, compressed to three
+//     items because the map renders IDEAS rather than backlog lines.
+//   - Zone 5 took the rail safe-area regression as FIXED. Three OPEN, six Watch, one FIXED.
 //
-// The 2026-08-03 pass, kept short: zone 1's tabletop item became ONE item covering the
-// whole shell plus the Ping Pong pilot; zone 3's became STAGE 4, THE REMAINING EIGHT
-// PACKS; zone 5 took Ping Pong's TV fit and the unthemed share cards; ROW 2 GREW
-// 720 -> 840, because zone 5 needed 764 of a 720px zone and 800 would have left 36px,
-// under the 58px an item costs.
+// The 2026-08-04 pass, kept short: zone 1's tabletop item absorbed the three felt sessions
+// and kept (NEW); zone 5 SHRANK for the first time, 12 items to 9, when the four FIXED
+// entries from 08-02 aged out after two redraws; zone 4 took the modifier wall's cut at
+// three; no row moved.
 //
-// Earlier passes, kept short: 2026-08-02 twice (stage 1 into zone 1; four zone-5 items
-// went FIXED and a fifth Watch trap landed; row 1 990 -> 1120 and row 2 530 -> 660 then
-// 660 -> 720, row 2's first growth in six passes, and the pass that learned a row is
-// THREE zones, not two), 2026-07-30 (zone 2 took roulette, craps and stakes; row 1
-// 920 -> 990) and 2026-07-29 (zone 2 took Smashdown, the series rows and blackjack;
-// row 1 860 -> 920).
+// Earlier passes, kept short: 2026-08-03 (zone 1's tabletop item became one item; row 2 grew
+// 720 -> 840), 2026-08-02 twice (stage 1 into zone 1; row 1 990 -> 1120 and row 2 530 -> 660
+// then 660 -> 720, the pass that learned a row is THREE zones, not two), 2026-07-30 (zone 2
+// took roulette, craps and stakes; row 1 920 -> 990) and 2026-07-29 (zone 2 took Smashdown,
+// the series rows and blackjack; row 1 860 -> 920).
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
-// each 480 wide, row 1 y=95 h=1120, row 2 y=1240 h=840. Items 440x40, 46px
+// each 480 wide, row 1 y=95 h=1400, row 2 y=1520 h=840. Items 440x40, 46px
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
-    x: 40, y: 95, h: 1120,
+    x: 40, y: 95, h: 1400,
     title: "SHIPPED — FOUNDATION", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Auth: 6-digit codes + links + passwords" },
@@ -67,11 +68,11 @@ const ZONES = [
       { t: "One TV button per night: /e/:id/tv auto-follows" },
       { t: "One pack registry: SESSION_PACKS, one entry per pack" },
       { t: "Pack picker groups: Nintendo / Casino / Bar / Other" },
-      { t: "TABLETOP THEME, SHELL COMPLETE: 73 tokens, warm-dark palette, real felt tile + rail, translucent cards, woodtype face, Ping Pong pilot (NEW)", bg: "#c3fae8", h: 88 },
+      { t: "TABLETOP THEME, SHELL COMPLETE: 73 tokens, warm-dark palette, real felt tile + rail, translucent cards, woodtype face, Ping Pong pilot", h: 88 },
     ],
   },
   {
-    x: 560, y: 95, h: 1120,
+    x: 560, y: 95, h: 1400,
     title: "SHIPPED — GAME PACKS", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Beerio Kart: full replica, predictions, TV" },
@@ -91,22 +92,31 @@ const ZONES = [
       { t: "Stakes: real vs play money. Wins unify, only money splits", h: 52 },
       { t: "Declarative modifiers: house rules DISPLAYED and RECORDED, never computed", h: 70 },
       { t: "CASINO RUN: co-op pack, one shared bank, staged quotas, simulated ladders, tokens", h: 70 },
+      { t: "BOARD GAME: one row per game played, title on the label, tapped order, canonicalized titles, seats 12 (NEW)", bg: "#c3fae8", h: 70 },
+      { t: "THE TEAM PRIMITIVE (teams.ts) + PING PONG DOUBLES: sides, 1,1,2,2 placement, pair ladder, singles pinned byte-identical (NEW)", bg: "#c3fae8", h: 88 },
+      { t: "TITLE-NIGHT LAYER extracted from Board Game: the ENGINE half, screens still to come (NEW)", bg: "#c3fae8", h: 70 },
     ],
   },
   {
-    x: 1080, y: 95, h: 1120,
+    x: 1080, y: 95, h: 1400,
     title: "NEXT UP (queued)", zoneBg: "#fff3bf", header: "#b45309", itemBg: "#ffd8a8",
     items: [
-      { t: "1. Poker (cash engine PLUS a tournament format)", sw: 2, h: 52 },
-      { t: "2. Smash Tournament format (bracket + fighters)", sw: 2, h: 52 },
-      { t: "3. Tabletop theme STAGE 4: the remaining 8 packs", sw: 2, h: 52 },
-      { t: "More packs: board games, darts" },
+      { t: "1. CARD TABLE (screens extraction + the pack itself)", sw: 2, h: 52 },
+      { t: "2. Social deduction (the only pack left needing an engine)", sw: 2, h: 52 },
+      { t: "3. Poker (cash engine PLUS a tournament format)", sw: 2, h: 52 },
+      { t: "4. Smash Tournament format (bracket + fighters)", h: 52 },
+      { t: "5. Party games (Board Game plus a side)", h: 52 },
+      { t: "Tabletop theme STAGE 4: the remaining 9 packs (LAST, James 08-04)", h: 52 },
+      { t: "More packs: darts" },
     ],
   },
   {
-    x: 40, y: 1240, h: 840,
+    x: 40, y: 1520, h: 840,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
+      { t: "PARTNER STATS: who you win most with (the primitive's missing payoff)", h: 52 },
+      { t: "Team retrofits: Smash 2v2 battles; team entrants on the bracket", h: 52 },
+      { t: "Title-night follow-ups: Board Game defaults; co-op titles (Pandemic)", h: 52 },
       { t: "Revisit the modifier wall's cut at three (the room exists now)", h: 52 },
       { t: "Unified event TV + single active pack" },
       { t: "Detailed personal stats block on Home" },
@@ -118,7 +128,7 @@ const ZONES = [
     ],
   },
   {
-    x: 560, y: 1240, h: 840,
+    x: 560, y: 1520, h: 840,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
       { t: "OPEN: the felt does not reach the PACKS (no pack root mounts .gn-app / .gn-tv)", h: 52 },
@@ -130,10 +140,11 @@ const ZONES = [
       { t: "Watch: drizzle push can no-op in CI, check build log", bg: "#fff3bf", h: 52 },
       { t: "Watch: color-mix's opaque fallback on pre-2023 browsers (shell-wide since stage 1)", bg: "#fff3bf", h: 52 },
       { t: "Watch: the canvas share cards follow NO theme (16 hardcoded colours, JS not CSS)", bg: "#fff3bf", h: 52 },
+      { t: "FIXED: the rail respects the safe area again (invisible on a desktop)", bg: "#b2f2bb", h: 52 },
     ],
   },
   {
-    x: 1080, y: 1240, h: 840,
+    x: 1080, y: 1520, h: 840,
     title: "IDEAS — NOT SOLIDIFIED", zoneBg: "#e5dbff", header: "#6d28d9", itemBg: "#d0bfff",
     items: [
       { t: "Draft night mode (snake drafts, TV board)" },

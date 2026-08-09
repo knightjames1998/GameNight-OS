@@ -12,8 +12,8 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-04 (start of the Board Game pack session)
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-08-09 (start of the Card Table session)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -36,51 +36,38 @@ anyone's memory of how many sessions have happened.
 
     HISTORY, which is safe to write down because it is about passes that already
     happened rather than about what to do next:
-      - 2026-08-02, stage 2's pass. Zone 1 took the theme's stage 1; zone 2 lost its two
-        (NEW) highlights; zone 5 took the money board fix, the three review findings and
-        a fifth Watch trap. Row 2 grew 660 -> 720, row 1 did not. That pass also learned
-        that a row is THREE zones, not two: its first attempt raised FEATURES and BUG
-        FIXES and left IDEAS behind, which reading the generated file back caught.
       - 2026-08-03, the felt + rail pass. Zone 1's tabletop item became ONE item covering
-        the whole shell; zone 3's tabletop item became STAGE 4, THE REMAINING EIGHT
-        PACKS; zone 5 took Ping Pong's TV fit and the unthemed share cards. Row 2 grew
-        720 -> 840 because zone 5 was genuinely over (764px of a 720px zone) rather than
-        merely tight.
-      - 2026-08-04, this pass. Below.
+        the whole shell; zone 3's became STAGE 4; row 2 grew 720 -> 840 because zone 5 was
+        genuinely over rather than merely tight.
+      - 2026-08-04, the Board Game pass. Zone 5 SHRANK for the first time, 12 items to 9,
+        when the four FIXED entries from 08-02 aged out after two consecutive redraws. Zone
+        4 took the modifier wall's cut at three, which had been in FEATURES since 08-02 and
+        had never been drawn. No row moved.
+      - 2026-08-09, this pass. Below.
 
     What this pass changed beyond the counter:
-      - THE THREE SESSIONS SINCE THE LAST REDRAW WERE ALL ONE IDEA, so zone 1's tabletop
-        item absorbed them rather than growing three more: the felt tile and the rail,
-        the materials pass that made the screen match the approved render, and the room
-        and card-alpha pass. Same call the last two redraws made, for the same reason:
-        the map renders ideas, and "the shell is a table" is one idea. It keeps (NEW),
-        because it took new shipped work this pass rather than merely surviving.
-      - ZONE 5 SHRANK RATHER THAN GREW, for the first time. The four FIXED items from
-        2026-08-02 (the money board, the co-op TIE, Casino Run's undo, the three
-        cosmetic ones) have now been rendered on two consecutive redraws, which is what
-        "age out after a couple of redraws" means, and every one of them has its
-        permanent record in the DECISION LOG. They are gone from BUGS and off the map.
-        Zone 5 gained one genuine OPEN in exchange: the felt does not reach the PACKS.
-        Three OPEN and six Watch traps now, nine items against twelve.
-      - Zone 4 took the modifier wall's cut at three, which has been in FEATURES since
-        2026-08-02 and had never been drawn. Drift found by reading the headings against
-        the zone rather than trusting the last pass.
-      - NO ROW MOVED. Row 2 stays at 840 with zone 5 now needing 566px of it, and that
-        slack is deliberate rather than an oversight: the next pack ships into zone 2 and
-        the four backlog items this session writes land in zone 3, so shrinking row 2 now
-        would only mean regrowing it next pass. Canvas 1560x2080, closing panorama
-        1600x2130, both unchanged.
+      - ZONE 2 TOOK THREE ITEMS, all marked (NEW): the Board Game pack, the team primitive
+        with Ping Pong doubles as its proof, and the title-night layer. Three shipped
+        sessions rendered as three items, NOT folded into one the way the tabletop run was,
+        because these are three genuinely different ideas rather than three passes at one.
+      - ROW 1 GREW, 1120 -> 1400, and row 2 moved down by the same 280. Zone 2 was over at
+        1120 with 20 items. 1320 was measured first and left it 56px, which is less than
+        the 58px an item costs, and CARD TABLE LANDS IN THAT ZONE at the next redraw, so it
+        went to 1400 for 136px of headroom. Raised pre-emptively for the reason every
+        previous raise was: the fix is mechanical and the trap otherwise lands on whoever
+        adds the next line.
+      - Zone 1 LOST its (NEW) highlight. No shell work landed since the last pass, so the
+        tabletop item is no longer new; it is just true.
+      - Zone 3 went from 4 items to 7, and its numbered three changed completely rather
+        than shifting by one: Card Table, Social deduction, Poker. The team primitive left
+        by shipping, and Tabletop stage 4 is still last where James put it on 08-04.
+      - Zone 4 took the three team retrofits and the two title-night follow-ups, compressed
+        into three items, because the map renders IDEAS and five backlog lines here are
+        three ideas.
+      - Zone 5 took the rail safe-area regression as FIXED. Three OPEN, six Watch, one
+        FIXED. Canvas 1560x2360.
     Zone heights checked against their contents by reading the generated file back, not
     by hand.
-
-    AFTER THIS REDRAW, on the same day, two things changed that the map does NOT yet show,
-    which is the ordinary state of the map between passes and is what the counter is for.
-    Both land in zone 3 and one of them is not a simple addition, so the next pass should
-    read the headings rather than diffing against the drawing: Board Game shipped (zone 2),
-    and NEXT UP WAS REORDERED WHOLESALE, not appended to. Its numbered three are now the
-    team primitive, Card table and Social deduction; Tabletop stage 4 left the numbered
-    three entirely and is now last. A pass that renumbers the top three in place, which is
-    what the reconcile step literally says, would get zone 3 wrong.
 
 ## MAP PROTOCOL
 How and when the Excalidraw project map gets redrawn. Written so any session reproduces
@@ -113,7 +100,7 @@ another reference section does not change the map; adding or renaming one of the
 above does, and must update this table in the same commit.
 
 **Layout (fixed, so redraws are stable):** 3 columns x 2 rows. Columns at x=40, 560, 1080,
-each 480 wide. Row 1 at y=95 (height 1120), row 2 at y=1240 (height 840). Zone header text
+each 480 wide. Row 1 at y=95 (height 1400), row 2 at y=1520 (height 840). Zone header text
 15px below zone top, fontSize 22. Items 440 wide, 40 tall, 46px step, first item 50px below
 zone top; give a taller box (52-70) to any item whose label wraps past one line. Row 1 grew
 from 540 to 730 on 2026-07-27 (SHIPPED FOUNDATION reached 14 items and overflowed its
@@ -122,8 +109,9 @@ to a three-line box and left only 10px of slack, from 800 to 860 on the third 07
 pass, when the two newly rendered shipped sessions needed exactly the 92px of slack zone 1
 had left, from 860 to 920 on 2026-07-29, when zone 1's remaining 42px was 4px short of
 the 46px one more item costs, from 920 to 990 on 2026-07-30, when zone 2 took three
-multi-line casino items in one pass, and from 990 to 1120 on 2026-08-02, when zone 2 took
-declarative modifiers and Casino Run. Each time it was raised pre-emptively rather than
+multi-line casino items in one pass, from 990 to 1120 on 2026-08-02, when zone 2 took
+declarative modifiers and Casino Run, and from 1120 to 1400 on 2026-08-09, when zone 2 took
+the Board Game pack, the team primitive and the title-night layer in one pass. Each time it was raised pre-emptively rather than
 waiting for the next entry to overflow it, since the fix is mechanical and the trap would
 have landed on whoever added the next line.
 ROW 2 GREW FOR THE FIRST TIME on 2026-08-02, 530 to 660: it had been a fixed height through
@@ -150,7 +138,7 @@ they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb).
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x2130 at the current zone heights). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
+on a panorama covering the full canvas (1600x2410 at the current zone heights). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 
 **Reconcile step (do this before drawing):** move finished items from NEXT UP into the right
 SHIPPED section with a one-line summary and date; renumber the top three of NEXT UP; move
