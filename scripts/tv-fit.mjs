@@ -226,9 +226,9 @@ const CASES = [
   ["ping pong    7 players", "/pingpong/tv/x", pingpong(7), ".pp-tv__panel"],
   ["casino run   6 mid-run", "/casinorun/tv/x", crun(6), ".crun-tv"],
   ["casino run  12 mid-run", "/casinorun/tv/x", crun(12), ".crun-tv"],
-  ["board game   4 players", "/boardgame/tv/x", boardgame(4), ".bg-tv__panel"],
-  ["board game   8 players", "/boardgame/tv/x", boardgame(8), ".bg-tv__panel"],
-  ["board game  12 players", "/boardgame/tv/x", boardgame(12), ".bg-tv__panel"],
+  ["board game   4 players", "/boardgame/tv/x", boardgame(4), ".tn-tv__panel"],
+  ["board game   8 players", "/boardgame/tv/x", boardgame(8), ".tn-tv__panel"],
+  ["board game  12 players", "/boardgame/tv/x", boardgame(12), ".tn-tv__panel"],
 ];
 
 // A case that is ALREADY over before any rail exists cannot be made to pass by

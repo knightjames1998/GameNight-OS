@@ -1050,7 +1050,7 @@ function CasinoRunPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
 // The generic aggregator names the Board Game pack's game this.
 const BOARD_GAME_GAME_NAME = "Board Game";
 
-interface BgStats {
+interface TnStats {
   games: number;
   titles: number;
   byPlayer: {
@@ -1073,28 +1073,43 @@ interface BgStats {
 }
 
 /**
- * The Board Game panel. Everything below the shared player list is per TITLE,
- * and every one of those groupings is `matches.label`: there is ONE `games` row
- * for this pack, never a row per title, because a row per title would split the
- * pack into a leaderboard tab per board game.
+ * The TITLE-NIGHT panel, shared by Board Game and Card Table. Everything below
+ * the shared player list is per TITLE, and every one of those groupings is
+ * `matches.label`: there is ONE `games` row per pack, never a row per title,
+ * because a row per title would split a pack into a leaderboard tab per board
+ * game.
  *
  * Which is also why the titles have to be canonicalized on the way in. These
  * sections ARE the spelling: "Catan" and "catan" would sit here as two titles,
  * two champions and two histories, and nothing anywhere would have errored.
+ *
+ * The two packs stay two tabs on purpose. "Good at board games" and "good at
+ * card games" are different claims, and one shared panel is what lets them be
+ * two tabs without being two implementations.
  */
-function BoardGamePanel({ groupId, rows, open, setOpen }: PackPanelProps) {
-  const { data, error } = useCachedApi<BgStats>(
-    `group:${groupId}:boardgame`,
-    `/api/groups/${groupId}/boardgame-stats`,
+function TitleNightPanel({
+  groupId,
+  rows,
+  open,
+  setOpen,
+  route,
+  accent,
+  empty,
+}: PackPanelProps & {
+  /** The pack's route segment: drives both the cache key and the endpoint. */
+  route: string;
+  accent: string;
+  empty: string;
+}) {
+  const { data, error } = useCachedApi<TnStats>(
+    `group:${groupId}:${route}`,
+    `/api/groups/${groupId}/${route}-stats`,
   );
 
   if (!data && error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
   if (!data) return <StatsSkeleton />;
-  if (data.games === 0) {
-    return <p className="gn-hint">No board games recorded yet. Play a night and it fills in here.</p>;
-  }
+  if (data.games === 0) return <p className="gn-hint">{empty}</p>;
 
-  const accent = "#e0a54a";
   const head = (label: string) => packHead(label, accent);
 
   // How many different titles somebody has played is the one per-player number
@@ -1158,6 +1173,17 @@ function BoardGamePanel({ groupId, rows, open, setOpen }: PackPanelProps) {
         </ul>
       </section>
     </div>
+  );
+}
+
+function BoardGamePanel(props: PackPanelProps) {
+  return (
+    <TitleNightPanel
+      {...props}
+      route="boardgame"
+      accent="#e0a54a"
+      empty="No board games recorded yet. Play a night and it fills in here."
+    />
   );
 }
 

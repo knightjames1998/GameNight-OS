@@ -1,0 +1,207 @@
+/* ============================================================
+   The TITLE-NIGHT group's structural stylesheet.
+
+   Board Game and Card Table draw the same setup screen, the same
+   "on the table" card, the same tapped finish order and the same
+   TV. This file owns the STRUCTURE of all of it; each pack's own
+   css owns only its BACKDROP, its brand lettering, and the token
+   values below.
+
+   Every colour here reads a --tn-* token, and every token has a
+   fallback to a shared --gn-* arcade token, so a pack that sets
+   nothing still renders in the app's own palette and a theme
+   switch moves it with everything else. A pack customises by
+   re-pointing tokens on its root:
+
+     .ct-root, .ct-tv { --tn-accent: #b3202c; ... }
+
+   THIS IS THE CASINO GROUP'S SPLIT, applied a second time, and
+   for the same reason. casino.css says it out loud: blackjack
+   shipped alone with all of this inline and stayed that way until
+   ROULETTE was actually being built. Board Game shipped alone on
+   2026-08-04 with all of this inline in boardgame.css, and it
+   stayed that way until Card Table was actually being built.
+   Extracting on one example is guessing at what generalises.
+
+   THE CLASS NAMES MOVED, THE PIXELS DID NOT, and that is a
+   measured claim rather than an intention: scripts/theme-sweep.mjs
+   captured every resolved colour on both screens before and after,
+   and it caught two places where the first attempt at this file
+   was wrong. Board Game's PAGE ink is the app's own --gn-ink and
+   only its TV is parchment, so ink and dim are page tokens while
+   the TV carries its own pair. Collapsing those into one token
+   repainted every line of body copy on the page and nothing
+   errored.
+
+   THE TOKEN LIST IS LONGER THAN IT LOOKS IT SHOULD BE, on
+   purpose. A card border and a row rule are both "a line" and
+   they are different colours; a pill and a ghost button are both
+   "raised" and they are different fills. Collapsing them would
+   have been tidier and would have changed the screen.
+   ============================================================ */
+
+/* THE DEFAULTS SIT IN :where() SO A PACK ALWAYS WINS, whatever order the two
+   stylesheets happen to land in. `.bg-root { --tn-accent: ... }` and
+   `.tn-root { --tn-accent: ... }` have the SAME specificity, so with a plain
+   selector here the winner would be decided by import order: a pack whose css
+   was imported first would silently render in the default palette. That is a
+   whole-screen failure with no error anywhere, so it is designed out rather
+   than relied upon. :where() is specificity zero, so any pack selector beats
+   it. */
+:where(.tn-root, .tn-tv) {
+  /* The pack's accent: the colour of a won game, a selected title and the
+     primary button. Gold is the default because it is the app's own. */
+  --tn-accent: var(--gn-gold);
+  --tn-accent-ink: #2a1c08;
+  --tn-accent-sh: #9c6f21;
+  /* The second signal, used only by the "tied" toggle and the TV's rank
+     number: it must never be mistaken for the accent at a glance. */
+  --tn-mark: var(--gn-p2);
+  --tn-mark-ink: var(--gn-p2-ink);
+  /* A BORDER around a thing, and a RULE between two things. Different jobs
+     and, in every pack so far, different colours. */
+  --tn-line: var(--gn-line);
+  --tn-rule: var(--gn-line);
+  --tn-ink: var(--gn-ink);
+  --tn-dim: var(--gn-dim);
+  /* The pack's own lettering, which is not the body ink: display type sits on
+     the backdrop rather than on a card. */
+  --tn-display: var(--gn-ink);
+  /* --gn-surf-solid, not --gn-surf: under Tabletop the shell's card became a
+     translucent darkening of the felt, and a card stacked on a pack's own
+     backdrop needs to be opaque or the backdrop bleeds through the text. */
+  --tn-surface: var(--gn-surf-solid);
+  --tn-card: var(--gn-surf-solid);
+  /* A GHOST BUTTON is raised off the card; a PILL or a placement chip is a
+     token laid on it. Two fills, and a pack can want them different. */
+  --tn-raise: var(--gn-raise);
+  --tn-chip: var(--gn-raise);
+  --tn-chip-ink: var(--gn-ink);
+  /* An INPUT sits below the card it is in rather than level with it, so it is
+     its own token: a pack whose card is light needs this lighter still, and
+     a pack whose card is dark needs it darker. */
+  --tn-sunken: var(--gn-bg);
+  --tn-glow: rgba(224, 165, 74, 0.45);
+  /* The TV's brand glow is its OWN token rather than a second value for
+     --tn-glow. A pack that set one token twice (once for the page, once for
+     the TV) is ambiguous to any tool that reads the stylesheet without a
+     document: theme-sweep's rule probe hoists every token block onto one
+     element, so the second value silently won and the page's brand measured
+     as the TV's. Disjoint names make the file mean one thing. */
+  --tn-tv-glow: var(--tn-glow);
+  /* The TV is a different room: it is read across it rather than held, so its
+     ink and its muted are the pack's own rather than the shell's. */
+  --tn-tv-ink: var(--gn-ink);
+  --tn-tv-muted: var(--gn-dim);
+  /* A TV panel floats on the pack's backdrop rather than sitting on a card,
+     so its fill and its rules are separate tokens from the page's. */
+  --tn-tv-panel: rgba(0, 0, 0, 0.32);
+  --tn-tv-line: var(--gn-line);
+  --tn-tv-rule: rgba(255, 255, 255, 0.1);
+}
+
+.tn-root {
+  min-height: 100dvh;
+  color: var(--tn-ink);
+  font-family: Nunito, system-ui, sans-serif;
+}
+.tn-wrap { max-width: 30rem; margin: 0 auto; padding: 16px 16px 56px; }
+.tn-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+
+.tn-brand {
+  font-family: var(--gn-font-display);
+  font-size: 30px; letter-spacing: 1px; line-height: 1; color: var(--tn-display);
+  text-transform: uppercase;
+  text-shadow: 0 0 16px var(--tn-glow), 2px 3px 0 rgba(0, 0, 0, 0.55);
+}
+.tn-brand em { color: var(--tn-accent); font-style: normal; }
+.tn-sub { color: var(--tn-dim); font-size: 13px; margin-top: 2px; }
+
+.tn-card {
+  background: var(--tn-card);
+  border: 1px solid var(--tn-line);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+.tn-card + .tn-card { margin-top: 12px; }
+.tn-h { font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 16px; margin: 0 0 10px; }
+.tn-lab { color: var(--tn-dim); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+.tn-hint { color: var(--tn-dim); font-size: 13px; }
+
+.tn-seg { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.tn-seg button {
+  flex: 0 1 auto; min-width: 84px; padding: 9px 10px; border-radius: 999px;
+  border: 1px solid var(--tn-line); background: var(--tn-surface); color: var(--tn-dim);
+  font-weight: 700; font-size: 13px; cursor: pointer;
+}
+.tn-seg button.on { background: var(--tn-accent); color: var(--tn-accent-ink); border-color: var(--tn-accent); }
+
+.tn-input, .tn-select {
+  width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--tn-line);
+  /* 16px min avoids iOS Safari's zoom-on-focus that leaves the app enlarged. */
+  background: var(--tn-sunken); color: var(--tn-ink); font-size: 16px;
+}
+
+.tn-btn {
+  width: 100%; padding: 13px; border-radius: 12px; border: none; cursor: pointer;
+  font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 16px;
+  background: var(--tn-accent); color: var(--tn-accent-ink); box-shadow: 0 4px 0 var(--tn-accent-sh);
+}
+.tn-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5); }
+.tn-btn:disabled { opacity: 0.5; }
+.tn-btn--ghost { background: var(--tn-raise); color: var(--tn-ink); border: 1px solid var(--tn-line); box-shadow: none; }
+.tn-btn--go { background: var(--gn-p2); color: var(--gn-p2-ink); box-shadow: 0 4px 0 var(--gn-p2-sh); }
+
+.tn-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--tn-rule); }
+.tn-row:first-child { border-top: none; }
+.tn-name { font-weight: 700; }
+.tn-meta { color: var(--tn-dim); font-size: 12px; }
+.tn-pill { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: var(--tn-chip); color: var(--tn-dim); }
+.tn-pill--lead { background: var(--tn-accent); color: var(--tn-accent-ink); }
+
+/* The tapped finish order. The number is the placement, and a tied row shows
+   the SAME number as the row above it, which is the whole visual explanation
+   of competition ranking. */
+.tn-place {
+  width: 30px; height: 30px; flex: none; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 14px;
+  background: var(--tn-chip); color: var(--tn-chip-ink);
+}
+.tn-place--win { background: var(--tn-accent); color: var(--tn-accent-ink); }
+.tn-tie {
+  border: 1px solid var(--tn-line); background: var(--tn-surface); color: var(--tn-dim);
+  border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.tn-tie.on { background: var(--tn-mark); color: var(--tn-mark-ink); border-color: var(--tn-mark); }
+.tn-score { width: 68px; text-align: center; padding: 7px; font-size: 16px; }
+
+.tn-now {
+  font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 22px; color: var(--tn-accent);
+}
+.tn-err { color: var(--gn-danger); font-size: 13px; margin-top: 8px; }
+.tn-textbtn { background: none; border: none; color: var(--tn-dim); font-weight: 700; cursor: pointer; padding: 6px 0; }
+.tn-textbtn:hover { color: var(--tn-ink); }
+
+/* TV mode.
+   A title night has LONG GAPS between results, so this screen spends most of
+   its life between games. That is the primary state here, not the empty one:
+   the standings and the last result carry it, and the title slot says what is
+   on the table when there is one and says so plainly when there is not. */
+.tn-tv {
+  min-height: 100dvh;
+  color: var(--tn-tv-ink);
+  padding: calc(3vmin + env(safe-area-inset-top, 0px)) calc(4vmin + env(safe-area-inset-right, 0px)) calc(3vmin + env(safe-area-inset-bottom, 0px)) calc(4vmin + env(safe-area-inset-left, 0px));
+}
+.tn-tv__brand { font-family: var(--gn-font-display); font-size: 5.4vmin; text-transform: uppercase; text-shadow: 0 0 20px var(--tn-tv-glow); }
+.tn-tv__muted { color: var(--tn-tv-muted); }
+.tn-tv__label { font-size: 2.6vmin; letter-spacing: 0.6px; text-transform: uppercase; color: var(--tn-tv-muted); }
+.tn-tv__title { font-family: Fredoka, sans-serif; font-weight: 700; font-size: 9vmin; line-height: 1.05; color: var(--tn-accent); }
+.tn-tv__title--idle { font-size: 5.6vmin; color: var(--tn-tv-muted); }
+.tn-tv__grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 2vmin; margin-top: 2.6vmin; }
+.tn-tv__panel { background: var(--tn-tv-panel); border: 1px solid var(--tn-tv-line); border-radius: 8px; padding: 2.2vmin; }
+.tn-tv__panel h3 { font-size: 2.4vmin; color: var(--tn-accent); margin: 0 0 1.2vmin; text-transform: uppercase; letter-spacing: 0.5px; }
+.tn-tv__line { display: flex; justify-content: space-between; gap: 2vmin; font-size: 2.8vmin; padding: 0.7vmin 0; border-top: 1px solid var(--tn-tv-rule); }
+.tn-tv__line:first-of-type { border-top: none; }
+.tn-tv__rank { color: var(--tn-mark); font-weight: 700; }

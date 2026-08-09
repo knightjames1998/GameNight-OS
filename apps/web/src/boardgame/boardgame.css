@@ -9,120 +9,70 @@
    scoreboard; it is meant to read like the table the box is
    sitting on.
 
+   The STRUCTURE lives in ../titlenight/titlenight.css. This file
+   is the backdrop, the brand glow and the --tn-* tokens, which is
+   all a title-night pack's stylesheet should ever be. Every value
+   below is the one this pack shipped with on 2026-08-04: the
+   extraction moved the class names, not the pixels, and
+   scripts/theme-sweep.mjs is what proves it.
+
+   THE PAGE'S INK IS THE SHELL'S, THE TV'S IS PARCHMENT, and that
+   asymmetry is the pack as it shipped rather than an oversight to
+   tidy up here. Body copy on the page reads --gn-ink and --gn-dim;
+   only the brand lettering, the placement chip and the whole TV
+   are parchment. The first draft of the extraction collapsed the
+   two and repainted every line of copy on the page, which is what
+   the sweep exists to catch.
+
    Not tokenised for the Tabletop theme yet, deliberately: stage 4
    converts the packs one at a time and this one joins that queue
-   (see BACKLOG, NEXT UP item 3). Under Arcade it reads as walnut,
-   which is honest for a board game pack; making it read as
-   SOMETHING ELSE under a walnut shell is exactly the identity
-   problem stage 4 has to settle for the casino group first.
+   (see BACKLOG). Under Arcade it reads as walnut, which is honest
+   for a board game pack; making it read as SOMETHING ELSE under a
+   walnut shell is exactly the identity problem stage 4 has to
+   settle for the casino group first.
    ============================================================ */
 
+.bg-root,
+.bg-tv {
+  --tn-accent: #e0a54a;
+  --tn-accent-ink: #2a1c08;
+  --tn-accent-sh: #9c6f21;
+  --tn-mark: #5fb28a;
+  --tn-mark-ink: #0d2419;
+  --tn-line: #5a422c;
+  --tn-rule: #45311f;
+  --tn-display: #f4e7cf;
+  --tn-surface: #241a11;
+  --tn-card: linear-gradient(180deg, #33241a, #261b12);
+  --tn-raise: #33241a;
+  --tn-chip: #45311f;
+  --tn-chip-ink: #f4e7cf;
+  --tn-sunken: #1c130c;
+  --tn-glow: rgba(224, 165, 74, 0.45);
+}
+
+/* A TOKEN BLOCK STAYS PURE TOKENS, with the backdrop in its own rule below.
+   Not style: scripts/theme-sweep.mjs's rule pass hoists a pack's tokens onto
+   its probe only when the block declares nothing BUT custom properties, so a
+   block that also carries `background` is skipped entirely and every rule that
+   reads those tokens is then measured against the layer's defaults. That
+   produced a page of false differences on 2026-08-09 and would just as easily
+   have hidden a real one. */
+.bg-tv {
+  --tn-tv-ink: #f4e7cf;
+  --tn-tv-muted: #c2ab8a;
+  --tn-tv-panel: rgba(0, 0, 0, 0.32);
+  --tn-tv-line: #6b4f31;
+  --tn-tv-rule: rgba(244, 231, 207, 0.1);
+  --tn-tv-glow: rgba(224, 165, 74, 0.5);
+}
+
 .bg-root {
-  min-height: 100dvh;
   background:
     radial-gradient(110% 70% at 50% -5%, #4a3520 0%, transparent 60%),
     linear-gradient(180deg, #241a11, #16100a);
-  color: var(--gn-ink);
-  font-family: Nunito, system-ui, sans-serif;
-}
-.bg-wrap { max-width: 30rem; margin: 0 auto; padding: 16px 16px 56px; }
-
-.bg-brand {
-  font-family: var(--gn-font-display);
-  font-size: 30px; letter-spacing: 1px; line-height: 1; color: #f4e7cf;
-  text-transform: uppercase;
-  text-shadow: 0 0 16px rgba(224, 165, 74, 0.45), 2px 3px 0 rgba(0, 0, 0, 0.55);
-}
-.bg-brand em { color: #e0a54a; font-style: normal; }
-.bg-sub { color: var(--gn-dim); font-size: 13px; margin-top: 2px; }
-
-.bg-card {
-  background: linear-gradient(180deg, #33241a, #261b12);
-  border: 1px solid #5a422c;
-  border-radius: 14px;
-  padding: 14px;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
-}
-.bg-card + .bg-card { margin-top: 12px; }
-.bg-h { font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 16px; margin: 0 0 10px; }
-.bg-lab { color: var(--gn-dim); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
-.bg-hint { color: var(--gn-dim); font-size: 13px; }
-
-.bg-seg { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-.bg-seg button {
-  flex: 0 1 auto; min-width: 84px; padding: 9px 10px; border-radius: 999px;
-  border: 1px solid #5a422c; background: #241a11; color: var(--gn-dim);
-  font-weight: 700; font-size: 13px; cursor: pointer;
-}
-.bg-seg button.on { background: #e0a54a; color: #2a1c08; border-color: #e0a54a; }
-
-.bg-input, .bg-select {
-  width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #5a422c;
-  /* 16px min avoids iOS Safari's zoom-on-focus that leaves the app enlarged. */
-  background: #1c130c; color: var(--gn-ink); font-size: 16px;
 }
 
-.bg-btn {
-  width: 100%; padding: 13px; border-radius: 12px; border: none; cursor: pointer;
-  font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 16px;
-  background: #e0a54a; color: #2a1c08; box-shadow: 0 4px 0 #9c6f21;
-}
-.bg-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5); }
-.bg-btn:disabled { opacity: 0.5; }
-.bg-btn--ghost { background: #33241a; color: var(--gn-ink); border: 1px solid #5a422c; box-shadow: none; }
-.bg-btn--go { background: var(--gn-p2); color: var(--gn-p2-ink); box-shadow: 0 4px 0 var(--gn-p2-sh); }
-
-.bg-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid #45311f; }
-.bg-row:first-child { border-top: none; }
-.bg-name { font-weight: 700; }
-.bg-meta { color: var(--gn-dim); font-size: 12px; }
-.bg-pill { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: #45311f; color: var(--gn-dim); }
-.bg-pill--lead { background: #e0a54a; color: #2a1c08; }
-
-/* The tapped finish order. The number is the placement, and a tied row shows
-   the SAME number as the row above it, which is the whole visual explanation
-   of competition ranking. */
-.bg-place {
-  width: 30px; height: 30px; flex: none; border-radius: 999px;
-  display: flex; align-items: center; justify-content: center;
-  font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 14px;
-  background: #45311f; color: #f4e7cf;
-}
-.bg-place--win { background: #e0a54a; color: #2a1c08; }
-.bg-tie {
-  border: 1px solid #5a422c; background: #241a11; color: var(--gn-dim);
-  border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700; cursor: pointer;
-}
-.bg-tie.on { background: #5fb28a; color: #0d2419; border-color: #5fb28a; }
-.bg-score { width: 68px; text-align: center; padding: 7px; font-size: 16px; }
-
-.bg-now {
-  font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 22px; color: #e0a54a;
-}
-.bg-err { color: var(--gn-danger); font-size: 13px; margin-top: 8px; }
-.bg-textbtn { background: none; border: none; color: var(--gn-dim); font-weight: 700; cursor: pointer; padding: 6px 0; }
-.bg-textbtn:hover { color: var(--gn-ink); }
-.bg-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-
-/* TV mode.
-   A board game night has LONG GAPS between results, so this screen spends most
-   of its life between games. That is the primary state here, not the empty one:
-   the standings and the last result carry it, and the title slot says what is
-   on the table when there is one and says so plainly when there is not. */
 .bg-tv {
-  min-height: 100dvh;
   background: radial-gradient(120% 80% at 50% 0%, #4a3520, #120c07);
-  color: #f4e7cf;
-  padding: calc(3vmin + env(safe-area-inset-top, 0px)) calc(4vmin + env(safe-area-inset-right, 0px)) calc(3vmin + env(safe-area-inset-bottom, 0px)) calc(4vmin + env(safe-area-inset-left, 0px));
 }
-.bg-tv__brand { font-family: var(--gn-font-display); font-size: 5.4vmin; text-transform: uppercase; text-shadow: 0 0 20px rgba(224, 165, 74, 0.5); }
-.bg-tv__muted { color: #c2ab8a; }
-.bg-tv__label { font-size: 2.6vmin; letter-spacing: 0.6px; text-transform: uppercase; color: #c2ab8a; }
-.bg-tv__title { font-family: Fredoka, sans-serif; font-weight: 700; font-size: 9vmin; line-height: 1.05; color: #e0a54a; }
-.bg-tv__title--idle { font-size: 5.6vmin; color: #c2ab8a; }
-.bg-tv__grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 2vmin; margin-top: 2.6vmin; }
-.bg-tv__panel { background: rgba(0, 0, 0, 0.32); border: 1px solid #6b4f31; border-radius: 8px; padding: 2.2vmin; }
-.bg-tv__panel h3 { font-size: 2.4vmin; color: #e0a54a; margin: 0 0 1.2vmin; text-transform: uppercase; letter-spacing: 0.5px; }
-.bg-tv__line { display: flex; justify-content: space-between; gap: 2vmin; font-size: 2.8vmin; padding: 0.7vmin 0; border-top: 1px solid rgba(244, 231, 207, 0.1); }
-.bg-tv__line:first-of-type { border-top: none; }
-.bg-tv__rank { color: #5fb28a; font-weight: 700; }

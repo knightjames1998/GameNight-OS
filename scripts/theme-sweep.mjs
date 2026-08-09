@@ -82,6 +82,11 @@ const ROUTES = [
   "/roulette", "/roulette/tv/x",
   "/craps", "/craps/tv/x",
   "/casinorun", "/casinorun/tv/x",
+  // Added 2026-08-09 with the title-night screens extraction. Board Game
+  // shipped on 08-04 and was never listed here, which is the same gap tv-fit
+  // had: a pack nobody added is a pack no harness covers, and this one was
+  // about to have every class name on both its screens replaced.
+  "/boardgame", "/boardgame/tv/x",
   "/join/ABCD",
   "/nope",
 ];
@@ -104,6 +109,11 @@ const RULE_ROUTES = [
   "/roulette",
   "/craps",
   "/casinorun",
+  // Both, because the page and the TV import the same shared stylesheet but
+  // set different tokens on it, and the rule pass only sees a stylesheet once
+  // a route that imports it has been visited.
+  "/boardgame",
+  "/boardgame/tv/x",
   "/beerio",
 ];
 
@@ -535,6 +545,27 @@ const COLLECT_RULES = (props) => `(async () => {
 // ------------------------------------------------------------------ capture
 
 async function capture(outFile, theme) {
+  // A LEFTOVER PREVIEW SERVES A STALE BUNDLE AND THIS HARNESS CANNOT TELL.
+  // `pnpm exec vite preview` is pnpm -> node -> vite, and killing the pnpm
+  // process leaves the grandchild holding the port. The next run's own preview
+  // then fails --strictPort, the readiness probe below finds :PORT answering
+  // anyway, and the capture measures the PREVIOUS build while reporting
+  // success. That produced a byte-identical before/after pair on 2026-08-09
+  // and an "IDENTICAL. Nothing moved." on a run where every class name in the
+  // pack had in fact been replaced, which is the most expensive kind of green.
+  // So: refuse to start on an occupied port, and kill the whole process group
+  // on the way out.
+  try {
+    const r = await fetch(`http://127.0.0.1:${PORT}/`, { signal: AbortSignal.timeout(1500) });
+    if (r.ok) {
+      console.error(
+        `something already serves :${PORT}. It would serve a STALE bundle and this run would ` +
+          `report a false IDENTICAL. Kill it and re-run.`,
+      );
+      process.exit(2);
+    }
+  } catch {}
+
   console.log("building apps/web ...");
   await run("pnpm", ["--filter", "@gamenight/web", "build"], ROOT);
 
@@ -542,8 +573,13 @@ async function capture(outFile, theme) {
   const preview = spawn(
     "pnpm",
     ["--filter", "@gamenight/web", "exec", "vite", "preview", "--port", String(PORT), "--strictPort"],
-    { cwd: ROOT, stdio: "ignore" },
+    { cwd: ROOT, stdio: "ignore", detached: true },
   );
+  const killPreview = () => {
+    try { process.kill(-preview.pid, "SIGKILL"); } catch {}
+    try { preview.kill("SIGKILL"); } catch {}
+  };
+  process.on("exit", killPreview);
 
   console.log("launching chromium ...");
   const chrome = spawn(
@@ -666,7 +702,7 @@ async function capture(outFile, theme) {
   } finally {
     try { cdp?.close(); } catch { /* already gone */ }
     chrome.kill("SIGKILL");
-    preview.kill("SIGKILL");
+    killPreview();
   }
 }
 
