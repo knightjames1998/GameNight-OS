@@ -37,6 +37,7 @@ import {
   eq,
 } from "@gamenight/db";
 import {
+  applyTitleShape,
   canonicalTitle,
   newTnState,
   recordTnGame,
@@ -348,6 +349,13 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
       // differs from the one that lands in the ledger the crew has been shown
       // a lie.
       loaded.state.nowPlaying = canonicalTitle(raw, await known(loaded.row.groupId)).title;
+      // THE TITLE SETS THE SHAPE. Tapping Euchre puts the table into pairs and
+      // tapping Hearts puts it back; both guards live in the engine, and the
+      // canonical spelling is what gets looked up, so "euchre" and "Euchre"
+      // reach the same default. Server-side rather than in the client, because
+      // the same tap arrives from the page and from a stale tab, and a shape
+      // that depended on which one would be a shape nobody could reason about.
+      applyTitleShape(loaded.state, config, loaded.state.nowPlaying);
     }
     res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
   });

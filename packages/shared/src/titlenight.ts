@@ -36,6 +36,7 @@
 
 import {
   placementsFromRankedSides,
+  shuffleIntoSides,
   singletonSides,
   sideIdFor,
   type Side,
@@ -204,6 +205,78 @@ export function reshuffleTnSides(state: TnSessionState, sides: Side[], grain?: S
   else state.sideSets.push(entry);
   if (grain) state.grain = grain;
   return null;
+}
+
+// ---------- the title sets the shape ----------
+
+/** What an auto-applied title change actually did. */
+export interface TitleShapeChange {
+  /** How many sides the title asked for. 1 is free-for-all. */
+  shape: TitleShape;
+  /** The arrangement now in force. */
+  sides: Side[];
+  /** The grain that came with it: it follows the shape. */
+  grain: ScoreGrain;
+}
+
+/**
+ * Put the sides into the shape the title implies, when the host says what is on
+ * the table. Returns what changed, or null when nothing did.
+ *
+ * THE POINT IS THAT NOBODY HAS TO KNOW THIS EXISTS. Somebody taps Euchre and
+ * the screen is already asking who is partnered with whom; they tap Hearts and
+ * it is back to everybody for themselves. A default that has to be found in a
+ * menu is a default that does not get used, and the alternative is a crew
+ * recording four hands of Euchre as a free-for-all and only noticing in the
+ * stats a month later.
+ *
+ * TWO GUARDS, and both exist to stop this being the feature that undoes the
+ * host's work.
+ *
+ *   1. IT FIRES ONLY WHEN THE SIDE COUNT DIFFERS. A host who has already put
+ *      four people into two specific pairs and then taps Euchre keeps their
+ *      pairs: the title wanted two sides and there are two sides, so there is
+ *      nothing to decide. Without this, naming the game you were already
+ *      playing would silently reshuffle the table.
+ *   2. GOING BACK TO FREE-FOR-ALL IS DETERMINISTIC. Partnerships to
+ *      free-for-all is `singletonSides` in roster order, never a shuffle. The
+ *      arrangement it produces is the only one that means "no teams", so
+ *      randomising it would be theatre, and a host who taps Hearts and then
+ *      Euchre and then Hearts again gets the same screen back both times.
+ *
+ * Only ever called when the host sets what is ON THE TABLE, never when a
+ * result is recorded: the record form can carry its own title, and rearranging
+ * the table at the moment a game is submitted would change the sides the game
+ * was just played under.
+ *
+ * A CLEARED TITLE CHANGES NOTHING. "Between games" is where a title night
+ * spends most of its evening, and dissolving the partnerships every time the
+ * box goes back in the middle of the table would be absurd.
+ */
+export function applyTitleShape(
+  state: TnSessionState,
+  config: TitleNightConfig,
+  title: string | null | undefined,
+  rng: () => number = Math.random,
+): TitleShapeChange | null {
+  if (!title || !title.trim()) return null;
+
+  const shape = defaultShapeForTitle(config, title);
+  const ids = state.roster.map((p) => p.id);
+  // Free-for-all is one side per player, so its "count" is the roster size.
+  // WITH TWO PLAYERS THE TWO SHAPES ARE THE SAME ARRANGEMENT, and this falls
+  // out rather than being special-cased: two singletons is two sides, so the
+  // guard below sees no difference and leaves the table alone.
+  const target = shape <= 1 ? ids.length : Math.max(2, Math.min(shape, Math.max(2, ids.length)));
+  if (currentTnSides(state).length === target) return null;
+
+  const sides = shape <= 1 ? singletonSides(ids) : shuffleIntoSides(ids, shape, rng);
+  // The grain follows the shape, the same rule `newTnState` uses, so there is
+  // one thing to learn rather than two.
+  const grain: ScoreGrain = sides.some((s) => s.memberIds.length > 1) ? "side" : "player";
+  // Cannot fail: every id came out of this session's own roster.
+  reshuffleTnSides(state, sides, grain);
+  return { shape, sides, grain };
 }
 
 // ---------- validation ----------
