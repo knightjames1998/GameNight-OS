@@ -58,8 +58,13 @@ const TYPES = [...PACK_WS_TYPES, "event_session_changed"];
  * is a COMPILE ERROR, which is the same trick prefetch.ts uses and for the same
  * reason. Caught 2026-07-30 when Casino Run shipped and the event TV quietly
  * rendered a ping pong board for it.
+ *
+ * NULL IS A REAL ANSWER: a pack with no TV view yet. It falls through to the
+ * Lobby below, which is the honest screen for "there is nothing here to show"
+ * and is exactly what a missing entry USED to do silently. Writing it out keeps
+ * the Record exhaustive, so a pack is still a decision rather than an omission.
  */
-const PACK_TV: Record<SessionPackKey, (eventId: string) => JSX.Element> = {
+const PACK_TV: Record<SessionPackKey, ((eventId: string) => JSX.Element) | null> = {
   smash: (id) => <SmashTvPage eventId={id} />,
   mariokart: (id) => <MarioKartTvPage eventId={id} />,
   marioparty: (id) => <MarioPartyTvPage eventId={id} />,
@@ -70,6 +75,12 @@ const PACK_TV: Record<SessionPackKey, (eventId: string) => JSX.Element> = {
   casinorun: (id) => <CasinoRunTvPage eventId={id} />,
   boardgame: (id) => <BoardGameTvPage eventId={id} />,
   cardtable: (id) => <CardTableTvPage eventId={id} />,
+  // Social Deduction's TV is its own pass. It has a constraint no other TV in
+  // this app has: a public UUID-keyed route that shows who is alive and who is
+  // out while never leaking a role before reveal, on a screen the whole room is
+  // looking at. Until it exists the night falls to the Lobby, which shows the
+  // standings rather than somebody else's scoreboard.
+  deduction: null,
 };
 
 export default function EventTvPage() {

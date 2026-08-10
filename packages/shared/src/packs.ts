@@ -221,6 +221,26 @@ export const SESSION_PACKS = {
     emoji: "\u{2660}\u{FE0F}", // ♠️
     quickTitle: "Card table night",
   },
+  // THE SECRET ONE. The first pack whose session state contains something the
+  // other players at the table must not read, which is why it does NOT run on
+  // the title-night layer despite also being a sequence of named games: that
+  // layer keeps its sides in session state, and this pack's factions cannot be
+  // there while a game is undecided. See packages/shared/src/deduction.ts.
+  //
+  // ONE `games` ROW, NEVER ONE PER TITLE, the same call Board Game made: the
+  // title (Werewolf, Secret Hitler, ...) goes on matches.label, and a row per
+  // title would split this pack into a leaderboard tab per box on the shelf.
+  deduction: {
+    ledger: "deduction",
+    gameName: "Social Deduction",
+    keyPrefix: "sd",
+    route: "deduction",
+    wsType: "deduction_updated",
+    table: "game_sessions",
+    name: "Social Deduction",
+    emoji: "\u{1F43A}", // 🐺
+    quickTitle: "Social deduction night",
+  },
 } as const satisfies Record<string, SessionPackDef>;
 
 /**

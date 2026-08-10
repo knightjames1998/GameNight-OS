@@ -25,6 +25,11 @@ import { crapsRouter, crapsTvRouter } from "./craps.js";
 import { casinoRunRouter, casinoRunTvRouter } from "./casinorun.js";
 import { boardGameRouter, boardGameTvRouter } from "./boardgame.js";
 import { cardTableRouter, cardTableTvRouter } from "./cardtable.js";
+// No TV router yet: the Social Deduction TV has a constraint no other TV in
+// this app has (a public UUID-keyed route that shows alive/dead while never
+// leaking a role before reveal) and it gets its own pass. When it lands it
+// mounts with the other /api/tv routers ABOVE the authed ones, never here.
+import { deductionRouter } from "./deduction.js";
 import { statsRouter } from "./stats.js";
 import { guestLinkRouter } from "./guest-link.js";
 import { setupWebSockets } from "./ws.js";
@@ -95,6 +100,7 @@ app.use("/api", crapsRouter); // authed per-route: Craps cash game + stats
 app.use("/api", casinoRunRouter); // authed per-route: Casino Run co-op legs + stats
 app.use("/api", boardGameRouter); // authed per-route: Board Game night + stats
 app.use("/api", cardTableRouter); // authed per-route: Card Table night + stats
+app.use("/api", deductionRouter); // authed per-route: Social Deduction night + the two role routes
 app.use("/api", statsRouter);
 app.use("/api", eventsRouter);
 app.use("/api", bracketsRouter);

@@ -155,6 +155,12 @@ export * from "./casinorun.js";
 export * from "./titlenight.js";
 export * from "./boardgame.js";
 export * from "./cardtable.js";
+// SOCIAL DEDUCTION. Its OWN state module, deliberately not the title-night
+// layer: that layer keeps the sides in session state and re-deriving them per
+// game would fight its reshuffle log, and roles must not be in session state at
+// all. It still reuses the team primitive's placement rule and the three pure
+// title functions.
+export * from "./deduction.js";
 // The team primitive: sides, and what a side result means for placement.
 // Not a pack. Ping Pong is its first consumer; Card table, Party games and
 // Social deduction are queued behind it.

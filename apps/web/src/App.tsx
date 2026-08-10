@@ -54,6 +54,10 @@ const BoardGamePage = lazy(() => import("./boardgame/BoardGamePage"));
 const BoardGameTvPage = lazy(() => import("./boardgame/BoardGameTvPage"));
 const CardTablePage = lazy(() => import("./cardtable/CardTablePage"));
 const CardTableTvPage = lazy(() => import("./cardtable/CardTableTvPage"));
+// Social Deduction has no TV route yet, and no picker tile: its screen is
+// reachable by URL so it can be tested by hand, and its TV and its tile land
+// with its own design language.
+const DeductionPage = lazy(() => import("./deduction/DeductionPage"));
 
 function SmashSearchKeyed() {
   // /smash?event=A -> /smash?event=B is a same-route navigation and won't
@@ -105,6 +109,11 @@ function BoardGameSearchKeyed() {
 function CardTableSearchKeyed() {
   const location = useLocation();
   return <CardTablePage key={location.search} />;
+}
+
+function DeductionSearchKeyed() {
+  const location = useLocation();
+  return <DeductionPage key={location.search} />;
 }
 
 /**
@@ -242,6 +251,10 @@ export default function App() {
             <Route path="/boardgame/tv/:eventId" element={<BoardGameTvPage />} />
             <Route path="/cardtable" element={<CardTableSearchKeyed />} />
             <Route path="/cardtable/tv/:eventId" element={<CardTableTvPage />} />
+            {/* No /deduction/tv/:eventId yet. It is the one TV in this app that
+                has to show alive and dead without leaking a role before reveal,
+                on a public UUID-keyed route, and it gets its own pass. */}
+            <Route path="/deduction" element={<DeductionSearchKeyed />} />
             <Route path="/join/:code" element={<JoinPage me={me} />} />
           </Routes>
         </Suspense>

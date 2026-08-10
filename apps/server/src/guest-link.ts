@@ -33,6 +33,7 @@ import { guestNamesCraps, creditGuestCraps } from "./craps.js";
 import { guestNamesCasinoRun, creditGuestCasinoRun } from "./casinorun.js";
 import { guestNamesBoardGame, creditGuestBoardGame } from "./boardgame.js";
 import { guestNamesCardTable, creditGuestCardTable } from "./cardtable.js";
+import { guestNamesDeduction, creditGuestDeduction } from "./deduction.js";
 import { guestNamesBeerio, creditGuestBeerio } from "./beerio-gn.js";
 
 export const guestLinkRouter = Router();
@@ -49,6 +50,7 @@ const nameAdapters = [
   guestNamesCasinoRun,
   guestNamesBoardGame,
   guestNamesCardTable,
+  guestNamesDeduction,
   guestNamesBeerio,
 ];
 
@@ -70,6 +72,10 @@ const creditAdapters: {
   { key: SESSION_PACKS.casinorun.ledger, credit: creditGuestCasinoRun },
   { key: SESSION_PACKS.boardgame.ledger, credit: creditGuestBoardGame },
   { key: SESSION_PACKS.cardtable.ledger, credit: creditGuestCardTable },
+  // A guest who was dealt a role is credited exactly like anybody else: the
+  // backfill reopens the recorded game, which already carries the faction and
+  // the revealed role, so nothing about the secret half is involved here.
+  { key: SESSION_PACKS.deduction.ledger, credit: creditGuestDeduction },
   { key: "beerio", credit: creditGuestBeerio },
 ];
 

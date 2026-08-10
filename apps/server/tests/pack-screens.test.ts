@@ -43,6 +43,7 @@ const SCREENS = [
   "casinorun/CasinoRunPage.tsx",
   "boardgame/BoardGamePage.tsx",
   "cardtable/CardTablePage.tsx",
+  "deduction/DeductionPage.tsx",
   "smash/SmashPage.tsx",
   "mariokart/MarioKartPage.tsx",
   "marioparty/MarioPartyPage.tsx",

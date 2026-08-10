@@ -73,6 +73,7 @@ export const routes = {
   casinoRun: () => import("./casinorun/CasinoRunPage"),
   boardGame: () => import("./boardgame/BoardGamePage"),
   cardTable: () => import("./cardtable/CardTablePage"),
+  deduction: () => import("./deduction/DeductionPage"),
   quickPlay: () => import("./pages/QuickPlayPage"),
 } as const;
 
@@ -100,5 +101,10 @@ export const packRoute: Record<PackKey | "beerio", Importer> = {
   casinorun: routes.casinoRun,
   boardgame: routes.boardGame,
   cardtable: routes.cardTable,
+  // Social Deduction has no picker tile yet, so nothing looks this up today.
+  // It is here because the table is keyed by PackKey and the registry entry
+  // exists, which is the type doing exactly its job: the pack cannot be added
+  // and then quietly left out of the one file that makes its tap feel fast.
+  deduction: routes.deduction,
   tournament: routes.bracket,
 };
