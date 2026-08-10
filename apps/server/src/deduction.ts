@@ -42,10 +42,15 @@ import {
   canonicalTitle,
   compositionOf,
   dealRoles,
+  newSdBoard,
   newSdState,
+  normalizeSdState,
   recordSdGame,
+  sdAdvancePhase,
   sdGameLines,
+  sdSetOut,
   sdTitleDef,
+  sdTvView,
   summarizeSdNight,
   tnTitleSuggestions,
   validateComposition,
@@ -55,6 +60,7 @@ import {
   SESSION_PACKS,
   type SdFactionEntry,
   type SdGame,
+  type SdOutKind,
   type SdPlayer,
   type SdRoleCount,
   type SdSessionState,
@@ -79,6 +85,17 @@ const FORMAT = "deduction";
 
 export const deductionRouter = Router();
 
+/**
+ * The public big-screen read. Event UUID is the access key, the same idea as an
+ * invite link, because typing a password on a television is misery.
+ *
+ * MOUNTED WITH THE OTHER /api/tv ROUTERS, ABOVE the bare /api ones. Those apply
+ * requireAuth at ROUTER level, which runs for every request entering them even
+ * without a route match, so a TV router mounted below would 401 the whole
+ * public view with nothing to show for it.
+ */
+export const deductionTvRouter = Router();
+
 export const deductionRuntime = createPackRuntime<SdSessionState>({
   ...packConfig("deduction"),
   /**
@@ -89,6 +106,11 @@ export const deductionRuntime = createPackRuntime<SdSessionState>({
    * at the table. Nothing that maps a player to a role may appear in either.
    */
   extras: (state) => ({ summary: summarizeSdNight(state) }),
+  // Part A shipped without a board, so every session row already in the
+  // database lacks `boardEnabled`, `board` and `days`. This runs at the two
+  // points where raw jsonb becomes state, which is the whole reason the hook
+  // exists: doing it at the call sites means getting all of them.
+  normalize: normalizeSdState,
 });
 
 const rt = deductionRuntime;
@@ -179,6 +201,25 @@ deductionRouter.get(`/${route}-context/:eventId`, requireAuth, async (req: Authe
     return;
   }
   res.json({ ...ctx, recentTitles: await crewTitles(ctx.groupId) });
+});
+
+// ---------- the public TV ----------
+
+/**
+ * THE ONE SCREEN IN THIS APP WITH A SECRECY CONSTRAINT.
+ *
+ * It is public, UUID-keyed and unauthenticated, so anybody with the link can
+ * open it, including a player at the table on their own phone. It therefore
+ * does NOT serve the ordinary session payload: it serves `sdTvView`, a
+ * PROJECTION whose only reachable roles are the ones somebody has revealed and
+ * the ones on a game already recorded. Read that function's header before
+ * changing anything here, and note what this handler does not do: it never
+ * touches the secret store, so there is no code path with an unrevealed role in
+ * a variable it could accidentally serialize.
+ */
+deductionTvRouter.get(`/${route}/:eventId`, async (req, res) => {
+  const loaded = await rt.loadState(String(req.params.eventId));
+  res.json({ session: loaded ? sdTvView(loaded.state) : null });
 });
 
 // ---------- read live state ----------
@@ -331,6 +372,10 @@ deductionRouter.post(`/${route}/:eventId/deal`, requireAuth, async (req: AuthedR
   // what, and that is the object above, which never touches this state.
   state.nowPlaying = title;
   state.deal = { dealNo, title, at, composition: compositionOf(def, roles) };
+  // A DEAL OPENS A FRESH BOARD when the host has the board on, so nobody has to
+  // re-flip a toggle between games. The preference outlives a game; the board
+  // does not, because it belongs to the game it was tracking.
+  state.board = state.boardEnabled ? newSdBoard(state.roster, at) : null;
   res.json(await rt.saveState(loaded, "live", req.get("x-gn-client")));
 });
 
@@ -348,7 +393,132 @@ deductionRouter.post(`/${route}/:eventId/undeal`, requireAuth, async (req: Authe
   }
   await clearDeal(eventId);
   loaded.state.deal = null;
+  loaded.state.board = null;
   res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+});
+
+// ---------- the live moderator board ----------
+//
+// OPT-IN AND OFF BY DEFAULT (James, 2026-08-10: "we always lead with low
+// friction tracking"). Blackjack's tracker is the precedent and the rule comes
+// with it: the board being off never loses a stat the result form could have
+// captured. A night moderated entirely on paper still records the title, the
+// factions and the winner, which is everything win rate as village versus as
+// wolf needs. What the board buys on top is SURVIVAL and FIRST VOTED OUT, and
+// those are absent rather than zero without it, with deliberately no box to
+// type them into.
+//
+// EVERY ROUTE BELOW IS HOST ONLY, and not "host unless open scoring is on".
+// Open scoring lets a member record a RESULT, which is a claim about a game
+// everybody watched. The board is the moderator's instrument: it is the thing
+// they are holding while they run the game, and reveal reaches the secret store.
+
+/** Flip the board on or off. It flips mid-session, in both directions. */
+deductionRouter.post(`/${route}/:eventId/board`, requireAuth, async (req: AuthedRequest, res) => {
+  const eventId = String(req.params.eventId);
+  const loaded = await rt.loadState(eventId);
+  if (!loaded) {
+    res.status(404).json({ error: "No session" });
+    return;
+  }
+  const { state, row } = loaded;
+  if (!isHostRole(await roleOf(row.groupId, req.user!.id))) {
+    res.status(403).json({ error: "Only the host runs the board" });
+    return;
+  }
+
+  state.boardEnabled = !!req.body?.on;
+  if (!state.boardEnabled) {
+    // OFF DISCARDS NOTHING ALREADY RECORDED. Every finished game baked its
+    // outcomes onto its own lines at the moment it was recorded, so this only
+    // ends tracking for the game in progress.
+    state.board = null;
+  } else if (!state.board && state.deal) {
+    // ON PARTWAY THROUGH INVENTS NO HISTORY: a board started at day three opens
+    // at Night 1 with everybody alive, because the app was not watching and has
+    // nothing truthful to say about what it missed. The moderator taps the
+    // people who are already out.
+    state.board = newSdBoard(state.roster, new Date().toISOString());
+  }
+  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+});
+
+/** Night 1, Day 1, Night 2, Day 2. One tap. */
+deductionRouter.post(`/${route}/:eventId/phase`, requireAuth, async (req: AuthedRequest, res) => {
+  const eventId = String(req.params.eventId);
+  const loaded = await rt.loadState(eventId);
+  if (!loaded) {
+    res.status(404).json({ error: "No session" });
+    return;
+  }
+  if (!isHostRole(await roleOf(loaded.row.groupId, req.user!.id))) {
+    res.status(403).json({ error: "Only the host runs the board" });
+    return;
+  }
+  if (!loaded.state.board) {
+    res.status(409).json({ error: "The board is off" });
+    return;
+  }
+  sdAdvancePhase(loaded.state.board);
+  res.json(await rt.saveState(loaded, "live", req.get("x-gn-client")));
+});
+
+/**
+ * Put somebody out, bring them back, and REVEAL.
+ *
+ * ===========================================================================
+ * THE REVEAL IS THE ONE PLACE A ROLE CROSSES OUT OF THE SECRET STORE.
+ *
+ * Everywhere else in this pack the secret is read by exactly two routes and
+ * handed to exactly one viewer. Here it is read and written into SHARED,
+ * PUBLIC state, where the TV will show it to the room, and that is correct:
+ * revealing on death is what the game does out loud.
+ *
+ * Two things make it safe rather than merely intended:
+ *   1. THE CLIENT NEVER NAMES THE ROLE. It sends `reveal: true` and the server
+ *      looks the role up. A client that could name it could reveal a role that
+ *      was never dealt, and a client that had to name it would have to know it.
+ *   2. IT IS ONE WAY, per player. Bringing a mis-tapped player back does not
+ *      un-reveal, because the room has already read it off the big screen.
+ * ===========================================================================
+ */
+deductionRouter.post(`/${route}/:eventId/out`, requireAuth, async (req: AuthedRequest, res) => {
+  const eventId = String(req.params.eventId);
+  const loaded = await rt.loadState(eventId);
+  if (!loaded) {
+    res.status(404).json({ error: "No session" });
+    return;
+  }
+  const { state, row } = loaded;
+  if (!isHostRole(await roleOf(row.groupId, req.user!.id))) {
+    res.status(403).json({ error: "Only the host runs the board" });
+    return;
+  }
+  if (!state.board) {
+    res.status(409).json({ error: "The board is off" });
+    return;
+  }
+
+  const playerId = String(req.body?.playerId ?? "");
+  const raw = req.body?.kind;
+  const kind: SdOutKind | null = raw === "voted" ? "voted" : raw === "night" ? "night" : null;
+
+  let revealRoleId: string | null = null;
+  if (req.body?.reveal) {
+    // Read here, from the store, never from the request. A deal from a game
+    // already recorded is not this game's deal, so the dealNo has to match.
+    const stored = await loadDeal(eventId);
+    if (stored && state.deal && stored.dealNo === state.deal.dealNo) {
+      revealRoleId = stored.roles[playerId] ?? null;
+    }
+  }
+
+  const err = sdSetOut(state.board, playerId, kind, revealRoleId);
+  if (err) {
+    res.status(400).json({ error: err });
+    return;
+  }
+  res.json(await rt.saveState(loaded, "live", req.get("x-gn-client")));
 });
 
 // ---------- record a game: THE REVEAL ----------
@@ -476,6 +646,7 @@ deductionRouter.post(`/${route}/:eventId/complete`, requireAuth, async (req: Aut
   await clearDeal(eventId);
   loaded.state.nowPlaying = null;
   loaded.state.deal = null;
+  loaded.state.board = null;
   res.json(await rt.saveState(loaded, "completed", req.get("x-gn-client")));
 });
 

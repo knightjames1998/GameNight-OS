@@ -1,0 +1,199 @@
+/* ============================================================
+   SOCIAL DEDUCTION: the moonlit night.
+
+   THE DESIGN LANGUAGE IS THE NIGHT PHASE, because that is what
+   the whole genre is about: a room in the dark, one person
+   knowing something everybody else wants. Deep indigo ground,
+   moon silver for the living, cold slate for whoever is out, and
+   an ember red that appears ONLY on a revealed evil role. Chosen
+   by James, 2026-08-10, against two alternatives.
+
+   IT IS DELIBERATELY DARK AND DESATURATED, which is what keeps
+   it distinct from the packs already in the picker. Mario Kart's
+   blue is bright and saturated; Mario Party's purple carries
+   gold. Card Table's red and black on cream and Poker's green
+   felt are both reserved and are not referenced here.
+
+   EVERY COLOUR IN THIS FILE IS A TOKEN, and this file is listed
+   in apps/server/tests/copy-rules.test.ts's TOKENISED_CSS from
+   the commit that created it rather than from a later conversion
+   pass. That check reads a rule's SHAPE: a rule whose
+   declarations are all custom properties is a token block and
+   its literals are values; a literal anywhere else is caught.
+   So every structural rule below reads var() and nothing else,
+   and an alpha is color-mix(), never rgba().
+
+   Stage 4's per-pack conversion therefore has nothing to do
+   here, which is the point of writing it this way on day one.
+   ============================================================ */
+
+/* THE DEFAULTS SIT IN :where() SO A PACK RULE ALWAYS WINS, the same guard
+   titlenight.css documents: a plain selector here would have the same
+   specificity as the roots below and the winner would be decided by
+   stylesheet import order, which is a whole-screen failure with no error
+   anywhere. :where() is specificity zero. */
+:where(.sd-root, .sd-tv) {
+  /* The ground: near-black indigo, lighter toward the bottom, so a big screen
+     has somewhere for the eye to rest. */
+  --sd-ground-a: #0d1020;
+  --sd-ground-b: #161c33;
+  /* Moon silver. The living, and every line of body copy. */
+  --sd-ink: #dfe4f5;
+  /* Everything secondary: labels, counts, the day line. */
+  --sd-dim: #6f7899;
+  --sd-line: #2b3350;
+  --sd-panel: #141a2e;
+  /* The phase, the day count and the primary control. Cold, never warm: warmth
+     on this screen is reserved for a revealed evil. */
+  --sd-accent: #9db4ff;
+  --sd-accent-ink: #0d1020;
+  /* A REVEALED EVIL ROLE, and nothing else in the app uses this red. */
+  --sd-evil: #d8524f;
+  /* A revealed good role. */
+  --sd-good: #7fd6a8;
+  /* A revealed third party: neither side, and it should not read as either. */
+  --sd-solo: #e0b755;
+  /* Somebody who is out. Slate, and the tile it sits in. */
+  --sd-out: #39405c;
+  --sd-out-ink: #7a8299;
+  --sd-glow: #3a4a86;
+}
+
+/* TABLETOP. The shell's second theme moves the ground under everything, so a
+   pack that did not follow would be the one screen that did not change. Warmer
+   and lower contrast, the way the rest of Tabletop is, and still night. */
+:root[data-theme="tabletop"] .sd-root,
+:root[data-theme="tabletop"] .sd-tv {
+  --sd-ground-a: #14161d;
+  --sd-ground-b: #1e2029;
+  --sd-ink: #e6e2d6;
+  --sd-dim: #8a8474;
+  --sd-line: #34313c;
+  --sd-panel: #1a1c25;
+  --sd-accent: #b9a97e;
+  --sd-accent-ink: #14161d;
+  --sd-evil: #c4564a;
+  --sd-good: #83b58c;
+  --sd-solo: #c9a961;
+  --sd-out: #3a3742;
+  --sd-out-ink: #857f72;
+  --sd-glow: #4a4334;
+}
+
+/* ---- the page ---------------------------------------------- */
+/* The pack's BACKDROP only. Everything on top of it is the shell's own gn-*
+   layer, which is what keeps this page themeable for free and is what part A
+   shipped; the pack's identity is the ground it sits on and the lettering. */
+.sd-root {
+  background: linear-gradient(180deg, var(--sd-ground-a), var(--sd-ground-b));
+  min-height: 100dvh;
+  color: var(--sd-ink);
+}
+.sd-brand {
+  font-family: var(--gn-font-display), Fredoka, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: 0.4px;
+  color: var(--sd-ink);
+  text-shadow: 0 0 18px var(--sd-glow);
+}
+.sd-brand em { font-style: normal; color: var(--sd-accent); }
+.sd-sub { color: var(--sd-dim); font-size: 13px; margin-top: 2px; }
+
+/* A player's row on the host's board, mirroring the TV's tile states so the
+   moderator's phone and the big screen agree at a glance. */
+.sd-alive { color: var(--sd-ink); }
+.sd-dead { color: var(--sd-out-ink); text-decoration: line-through; }
+.sd-tag {
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: var(--gn-radius-pill);
+  white-space: nowrap;
+}
+.sd-tag--evil { background: color-mix(in srgb, var(--sd-evil) 18%, transparent); color: var(--sd-evil); }
+.sd-tag--good { background: color-mix(in srgb, var(--sd-good) 16%, transparent); color: var(--sd-good); }
+.sd-tag--solo { background: color-mix(in srgb, var(--sd-solo) 18%, transparent); color: var(--sd-solo); }
+.sd-tag--out { background: color-mix(in srgb, var(--sd-out) 45%, transparent); color: var(--sd-out-ink); }
+
+/* ---- the TV ------------------------------------------------ */
+/*
+   BUILT FOR TWENTY AT 1080p FROM THE FIRST COMMIT, which is not a nicety: this
+   pack's cap is 20, the largest in the app, and its TV shows every player at
+   once by design. Board Game's TV shipped 176px over a 1080p screen at twelve
+   and nobody measured it for five days, so the column count steps with the
+   roster (see DeductionTvPage) and scripts/tv-fit.mjs carries cases at the full
+   twenty rather than at a comfortable eight.
+
+   THE PADDING FOLDS IN THE SAFE-AREA INSETS ITSELF. A class rule beats the
+   shell's zero-specificity structural inset, so a TV that sets its own padding
+   and forgets these loses the notch on a phone mirroring to a screen.
+*/
+.sd-tv {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 1.6vmin;
+  background: linear-gradient(180deg, var(--sd-ground-a), var(--sd-ground-b));
+  color: var(--sd-ink);
+  padding:
+    calc(3vmin + env(safe-area-inset-top, 0px))
+    calc(3vmin + env(safe-area-inset-right, 0px))
+    calc(3vmin + env(safe-area-inset-bottom, 0px))
+    calc(3vmin + env(safe-area-inset-left, 0px));
+}
+.sd-tv__top { display: flex; justify-content: space-between; align-items: baseline; gap: 2vmin; }
+.sd-tv__brand {
+  font-family: var(--gn-font-display), Fredoka, system-ui, sans-serif;
+  font-size: 4.4vmin;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 22px var(--sd-glow);
+}
+.sd-tv__brand em { font-style: normal; color: var(--sd-accent); }
+.sd-tv__phase {
+  font-family: var(--gn-font-display), Fredoka, system-ui, sans-serif;
+  font-size: 3.4vmin;
+  color: var(--sd-accent);
+  white-space: nowrap;
+}
+.sd-tv__muted { color: var(--sd-dim); }
+.sd-tv__title { font-family: Fredoka, system-ui, sans-serif; font-weight: 700; font-size: 6.4vmin; line-height: 1.04; }
+.sd-tv__title--idle { font-size: 4.2vmin; color: var(--sd-dim); }
+.sd-tv__setup { font-size: 2.4vmin; color: var(--sd-dim); }
+
+/* The alive/dead board. Columns are set inline from the roster size, because
+   the step points are a layout decision the component makes and a media query
+   cannot see how many people are playing. */
+.sd-tv__board { display: grid; gap: 1.1vmin; }
+.sd-p {
+  background: var(--sd-panel);
+  border: 1px solid var(--sd-line);
+  border-radius: 8px;
+  padding: 1.1vmin 1.3vmin;
+  min-width: 0;
+}
+.sd-p--out { background: color-mix(in srgb, var(--sd-out) 30%, transparent); border-color: var(--sd-out); }
+.sd-p__name {
+  display: block;
+  font-size: 2.5vmin;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sd-p--out .sd-p__name { color: var(--sd-out-ink); text-decoration: line-through; }
+.sd-p__state { display: block; font-size: 1.8vmin; color: var(--sd-dim); margin-top: 0.3vmin; }
+/* A REVEALED ROLE, and the only place a role ever appears on this screen. */
+.sd-p__role { font-weight: 800; }
+.sd-p__role--evil { color: var(--sd-evil); }
+.sd-p__role--town { color: var(--sd-good); }
+.sd-p__role--solo { color: var(--sd-solo); }
+
+.sd-tv__foot { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; gap: 2vmin; }
+.sd-tv__standings { display: flex; flex-wrap: wrap; gap: 1.4vmin; font-size: 2.2vmin; min-width: 0; }
+.sd-tv__standing { color: var(--sd-dim); white-space: nowrap; }
+.sd-tv__standing b { color: var(--sd-ink); font-weight: 700; }
+.sd-tv__back { color: var(--sd-dim); flex-shrink: 0; }

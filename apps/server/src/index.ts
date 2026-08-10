@@ -25,11 +25,7 @@ import { crapsRouter, crapsTvRouter } from "./craps.js";
 import { casinoRunRouter, casinoRunTvRouter } from "./casinorun.js";
 import { boardGameRouter, boardGameTvRouter } from "./boardgame.js";
 import { cardTableRouter, cardTableTvRouter } from "./cardtable.js";
-// No TV router yet: the Social Deduction TV has a constraint no other TV in
-// this app has (a public UUID-keyed route that shows alive/dead while never
-// leaking a role before reveal) and it gets its own pass. When it lands it
-// mounts with the other /api/tv routers ABOVE the authed ones, never here.
-import { deductionRouter } from "./deduction.js";
+import { deductionRouter, deductionTvRouter } from "./deduction.js";
 import { statsRouter } from "./stats.js";
 import { guestLinkRouter } from "./guest-link.js";
 import { setupWebSockets } from "./ws.js";
@@ -86,6 +82,7 @@ app.use("/api/tv", crapsTvRouter); // public: big-screen money board + shooter f
 app.use("/api/tv", casinoRunTvRouter); // public: big-screen bank + quota for Casino Run
 app.use("/api/tv", boardGameTvRouter); // public: big-screen title + standings for Board Game
 app.use("/api/tv", cardTableTvRouter); // public: big-screen title + standings for Card Table
+app.use("/api/tv", deductionTvRouter); // public: big-screen alive/dead board for Social Deduction
 app.use("/api", beerioRouter); // public: sessions/hof for the Beerio pack
 app.use("/api", beerioGnRouter); // authed per-route: GameNight binding for the pack
 app.use("/api", quickPlayRouter);

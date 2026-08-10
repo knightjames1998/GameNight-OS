@@ -515,7 +515,143 @@ export interface SdGame {
   factions: { id: string; name: string; alignment: SdAlignment; memberIds: string[]; placement: number }[];
   /** Whether the app dealt this game, or the room did it on paper. */
   dealt: boolean;
+  /** How far the game got, or NULL when the board was off. Absent, never zero. */
+  days: number | null;
   at: string;
+}
+
+// ---------- the live moderator board ----------
+
+/**
+ * Night, then day, then night again. Numbered together as the room narrates
+ * them: Night 1, Day 1, Night 2, Day 2.
+ *
+ * The number advances on DAY TO NIGHT rather than on night to day, which is the
+ * one that looks backwards written down and is right at a table: a game opens
+ * on night one, and the day that follows is day one because it is the day that
+ * night produced.
+ */
+export type SdPhase = "night" | "day";
+
+/** How somebody left the table. */
+export type SdOutKind = "voted" | "night";
+
+export interface SdBoardPlayer {
+  playerId: string;
+  alive: boolean;
+  /** How they went out. Null while alive. */
+  out: SdOutKind | null;
+  /** The phase number they went out on. Null while alive. */
+  outDay: number | null;
+  /**
+   * Their role, PUBLIC FROM THE MOMENT IT IS SET, and it is the only role that
+   * may ever reach the TV before a game is recorded.
+   *
+   * ONE WAY. Bringing a mis-tapped player back to life does NOT clear this,
+   * because the room has already seen it on the big screen and a screen that
+   * un-revealed would be telling the table something untrue. The host is warned
+   * of that on the button rather than protected from it by a lie.
+   */
+  revealedRoleId: string | null;
+}
+
+export interface SdBoard {
+  /** 1-based. Night 1 is where a game opens. */
+  day: number;
+  phase: SdPhase;
+  players: SdBoardPlayer[];
+  /** Who left the table, in the order they left. First out is first. */
+  outOrder: string[];
+  /** When the board was switched on, so a mid-game start is legible. */
+  startedAt: string;
+}
+
+/** A fresh board: everybody alive, nothing revealed, Night 1. */
+export function newSdBoard(roster: readonly SdPlayer[], at: string): SdBoard {
+  return {
+    day: 1,
+    phase: "night",
+    players: roster.map((p) => ({
+      playerId: p.id,
+      alive: true,
+      out: null,
+      outDay: null,
+      revealedRoleId: null,
+    })),
+    outOrder: [],
+    startedAt: at,
+  };
+}
+
+/** Night 1, Day 1, Night 2, Day 2. Mutates and returns the board. */
+export function sdAdvancePhase(board: SdBoard): SdBoard {
+  if (board.phase === "night") board.phase = "day";
+  else {
+    board.phase = "night";
+    board.day++;
+  }
+  return board;
+}
+
+/**
+ * Put somebody out, or bring them back. Returns an error or null.
+ *
+ * `kind` null brings a player back, which exists because the board is tapped by
+ * a person moderating a game at the same time and a mis-tap has to be
+ * survivable. It restores life and clears the exit, and it deliberately does
+ * NOT clear a reveal: see SdBoardPlayer.revealedRoleId.
+ *
+ * `revealRoleId` is the one input to this whole module that comes out of the
+ * SECRET STORE. The server reads it there and passes it here; nothing in this
+ * file can reach a role on its own, which is what keeps the secret's readers
+ * countable.
+ */
+export function sdSetOut(
+  board: SdBoard,
+  playerId: string,
+  kind: SdOutKind | null,
+  revealRoleId?: string | null,
+): string | null {
+  const p = board.players.find((x) => x.playerId === playerId);
+  if (!p) return "That player is not on this board";
+
+  if (kind === null) {
+    p.alive = true;
+    p.out = null;
+    p.outDay = null;
+    board.outOrder = board.outOrder.filter((id) => id !== playerId);
+  } else {
+    p.alive = false;
+    p.out = kind;
+    p.outDay = board.day;
+    if (!board.outOrder.includes(playerId)) board.outOrder.push(playerId);
+  }
+  // A reveal is applied whichever way the tap went, and never undone.
+  if (revealRoleId) p.revealedRoleId = revealRoleId;
+  return null;
+}
+
+/** How many are still in. */
+export function sdAliveCount(board: SdBoard): number {
+  return board.players.filter((p) => p.alive).length;
+}
+
+/**
+ * What the board says about each player, for the ledger.
+ *
+ * FIRST VOTED OUT IS LITERAL: the first player the table VOTED out, so a night
+ * kill does not take it. That is what the stat is called and it is the one a
+ * crew argues about. A game where nobody was voted out gives it to nobody, and
+ * false is a real answer there because the board was on and the answer is known.
+ */
+export function sdBoardOutcomes(board: SdBoard): Record<string, { survived: boolean; votedOutFirst: boolean }> {
+  const kindOf = new Map(board.players.map((p) => [p.playerId, p.out]));
+  const firstVoted = board.outOrder.find((id) => kindOf.get(id) === "voted") ?? null;
+  const out: Record<string, { survived: boolean; votedOutFirst: boolean }> = {};
+  for (const p of board.players) {
+    out[p.playerId] = { survived: p.alive, votedOutFirst: p.playerId === firstVoted };
+  }
+  return out;
 }
 
 /**
@@ -533,6 +669,30 @@ export interface SdSessionState {
   roster: SdPlayer[];
   /** The setup the room was told. Never who has what. Null when nothing is dealt. */
   deal: SdDealSummary | null;
+  /**
+   * THE HOST'S PREFERENCE FOR THIS NIGHT, and it is OFF BY DEFAULT.
+   *
+   * We always lead with low friction tracking (James), so the board is opt-in
+   * and off is a real mode rather than a degraded one: a night moderated
+   * entirely on paper still records the title, the factions and the winner,
+   * which is everything the headline stat needs. What the board buys on top is
+   * survival and first voted out, and those are absent rather than zero without
+   * it.
+   *
+   * Separate from `board` below because they answer different questions. This
+   * one survives between games; `board` is the current game's and is rebuilt
+   * every deal.
+   */
+  boardEnabled: boolean;
+  /**
+   * The live board for the game in progress, or null.
+   *
+   * EVERYTHING IN IT IS PUBLIC. Alive and dead is what the room can see across
+   * the table, the day count is what the moderator says out loud, and a revealed
+   * role is one the room has already been told. That is what lets the board sit
+   * in shared state at all while the deal cannot: see the header.
+   */
+  board: SdBoard | null;
   games: SdGame[];
 }
 
@@ -543,7 +703,28 @@ export function newSdState(opts: { roster: SdPlayer[] }): SdSessionState {
     nowPlaying: null,
     roster: opts.roster,
     deal: null,
+    boardEnabled: false,
+    board: null,
     games: [],
+  };
+}
+
+/**
+ * Bring a state read out of jsonb up to the current shape.
+ *
+ * PART A SHIPPED WITHOUT A BOARD, so every session row written before this
+ * session has no `boardEnabled`, no `board` and no `days` on its games. The
+ * failure without this is silent rather than loud: an old row loads, a read of
+ * `state.board.players` throws inside a route that was working yesterday, or
+ * worse, a `games.map` renders `undefined` days into the TV. `createPackRuntime`
+ * runs it at the two points where raw jsonb becomes state and nowhere else.
+ */
+export function normalizeSdState(state: SdSessionState): SdSessionState {
+  return {
+    ...state,
+    boardEnabled: state.boardEnabled ?? false,
+    board: state.board ?? null,
+    games: (state.games ?? []).map((g) => ({ ...g, days: g.days ?? null })),
   };
 }
 
@@ -621,7 +802,14 @@ export function sdPlacements(
   order: readonly SdFactionEntry[],
   def: SdTitleDef,
   roles: SdRoleAssignment | null,
+  board?: SdBoard | null,
 ): SdLine[] {
+  // THE BOARD IS THE ONLY SOURCE for these two, and a missing board means NULL
+  // rather than false. There is deliberately no other input: the order the
+  // caller passes in could carry `survived` and this ignores it, because a box
+  // to type it into is a guess in the ledger and a `false` here would claim
+  // everybody died.
+  const outcome = board ? sdBoardOutcomes(board) : null;
   const sides = sdSidesFromOrder(order);
   const ranked: RankedSide[] = order.map((e, i) => ({
     side: sides[i]!,
@@ -644,9 +832,9 @@ export function sdPlacements(
       factionId,
       alignment: sdFaction(def, factionId)?.alignment ?? "solo",
       roleId: roles?.[l.playerId] ?? null,
-      // The board is part B. Absent, never zero; see SdLine.survived.
-      survived: null,
-      votedOutFirst: null,
+      // Absent, never zero; see SdLine.survived.
+      survived: outcome?.[l.playerId]?.survived ?? null,
+      votedOutFirst: outcome?.[l.playerId]?.votedOutFirst ?? null,
     };
   });
 }
@@ -670,7 +858,7 @@ export function recordSdGame(
   roles: SdRoleAssignment | null,
   at: string,
 ): SdGame {
-  const lines = sdPlacements(order, def, roles);
+  const lines = sdPlacements(order, def, roles, state.board);
   const placementOf = new Map(lines.map((l) => [l.playerId, l.placement]));
   const game: SdGame = {
     idx: state.games.length,
@@ -684,6 +872,7 @@ export function recordSdGame(
       placement: placementOf.get(e.memberIds[0] ?? "") ?? 0,
     })),
     dealt: !!roles && Object.keys(roles).length > 0,
+    days: state.board?.day ?? null,
     at,
   };
   state.games.push(game);
@@ -691,9 +880,115 @@ export function recordSdGame(
   // host says otherwise. Clearing the deal here is not tidying: the summary
   // describes a game that has finished, and leaving it up would have the screen
   // announce a setup nobody is playing.
+  //
+  // THE BOARD GOES WITH IT, and `boardEnabled` does not. The board belongs to
+  // the game that just ended and its outcomes are already baked into the lines
+  // above, so keeping it would have the TV showing a table of dead people from
+  // a game nobody is playing. The host's PREFERENCE survives, so the next deal
+  // opens a fresh board without anybody re-flipping a toggle.
   state.nowPlaying = null;
   state.deal = null;
+  state.board = null;
   return game;
+}
+
+// ---------- the TV projection ----------
+
+/**
+ * What the public TV route serves.
+ *
+ * ===========================================================================
+ * THIS IS THE ONE SCREEN IN THE APP WITH A SECRECY CONSTRAINT, and it is built
+ * as a PROJECTION rather than as a filter for exactly that reason.
+ *
+ * The TV is public, UUID-keyed and unauthenticated: anybody with the link can
+ * open it, including a player sitting at the table on their own phone. So an
+ * unrevealed role must be ABSENT FROM THIS PAYLOAD. Not hidden by CSS, not
+ * rendered face down with the value in the DOM, not filtered on the client.
+ *
+ * The only two roles this function can reach are:
+ *   1. `board.players[].revealedRoleId`, which is set only by a host tapping
+ *      reveal and is public from that moment, and
+ *   2. the roles on a RECORDED game, which are public because recording IS the
+ *      reveal.
+ * It never touches the secret store and it is never handed a deal, so there is
+ * no code path here that HAS an unrevealed role in a variable it could
+ * accidentally serialize.
+ *
+ * Guarded by apps/server/tests/deduction-secrecy.test.ts with the same three
+ * probes the session payload gets, and negative-controlled.
+ * ===========================================================================
+ */
+export interface SdTvPlayer {
+  playerId: string;
+  name: string;
+  alive: boolean;
+  out: SdOutKind | null;
+  outDay: number | null;
+  /** The role name, ONLY once revealed. Null otherwise, and absent by construction. */
+  revealed: string | null;
+  /** The revealed role's alignment, for the ink. Null until revealed. */
+  alignment: SdAlignment | null;
+}
+
+export interface SdTvView {
+  status: string;
+  title: string | null;
+  /** The setup the room was told. Counts only, never who has what. */
+  composition: { name: string; count: number }[] | null;
+  board: {
+    day: number;
+    phase: SdPhase;
+    alive: number;
+    outTotal: number;
+    players: SdTvPlayer[];
+  } | null;
+  /** The roster, for the nights the board is off and there is nobody to draw. */
+  roster: { playerId: string; name: string }[];
+  games: number;
+  summary: SdNightSummary;
+}
+
+export function sdTvView(state: SdSessionState): SdTvView {
+  const nameOf = new Map(state.roster.map((p) => [p.id, p.name]));
+  const def = sdTitleDef(state.deal?.title ?? state.nowPlaying);
+  const board = state.board;
+
+  return {
+    status: "live",
+    title: state.deal?.title ?? state.nowPlaying,
+    composition:
+      state.deal?.composition.map((c) => ({
+        name: sdRole(def, c.roleId)?.name ?? c.roleId,
+        count: c.count,
+      })) ?? null,
+    board: board
+      ? {
+          day: board.day,
+          phase: board.phase,
+          alive: sdAliveCount(board),
+          outTotal: board.players.length - sdAliveCount(board),
+          players: board.players.map((p) => {
+            // Resolved through the catalogue, so what reaches the screen is a
+            // display name for a role somebody chose to reveal, and `null`
+            // otherwise. There is no branch here that reads a deal.
+            const r = p.revealedRoleId ? sdRole(def, p.revealedRoleId) : undefined;
+            return {
+              playerId: p.playerId,
+              name: nameOf.get(p.playerId) ?? "?",
+              alive: p.alive,
+              out: p.out,
+              outDay: p.outDay,
+              revealed: r?.name ?? null,
+              alignment: r ? sdFaction(def, r.factionId)?.alignment ?? "solo" : null,
+            };
+          }),
+        }
+      : null,
+    roster: state.roster.map((p) => ({ playerId: p.id, name: p.name })),
+    games: state.games.length,
+    summary: summarizeSdNight(state),
+  };
 }
 
 // ---------- the ledger shape ----------

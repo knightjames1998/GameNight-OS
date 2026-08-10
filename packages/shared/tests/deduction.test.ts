@@ -21,8 +21,15 @@ import {
   dealRoles,
   factionsFromRoles,
   factionsInPlay,
+  newSdBoard,
   newSdState,
+  normalizeSdState,
   recordSdGame,
+  sdAdvancePhase,
+  sdAliveCount,
+  sdBoardOutcomes,
+  sdSetOut,
+  sdTvView,
   sdFaction,
   sdFactionOfRole,
   sdGameLines,
@@ -42,6 +49,7 @@ import {
   SESSION_PACKS,
   type SdFactionEntry,
   type SdPlayer,
+  type SdSessionState,
 } from "../src/index.js";
 
 const players = (n: number): SdPlayer[] =>
@@ -538,4 +546,278 @@ test("a summary of nothing is empty rather than zeroed", () => {
   assert.deepEqual(s.titles, []);
   assert.deepEqual(s.byAlignment, []);
   assert.equal(s.last, null);
+});
+
+// ---------- the live moderator board ----------
+
+const NIGHT = "2026-08-10T20:00:00.000Z";
+
+/** A session with the board on and a game dealt, which is the live shape. */
+function boardNight(n = 5): SdSessionState {
+  const state = newSdState({ roster: players(n) });
+  state.nowPlaying = "Werewolf";
+  state.boardEnabled = true;
+  state.board = newSdBoard(state.roster, NIGHT);
+  return state;
+}
+
+test("a fresh board opens on NIGHT 1 with everybody alive", () => {
+  const b = newSdBoard(players(7), NIGHT);
+  assert.equal(b.day, 1);
+  assert.equal(b.phase, "night");
+  assert.equal(sdAliveCount(b), 7);
+  assert.deepEqual(b.outOrder, []);
+  assert.ok(b.players.every((p) => p.alive && p.out === null && p.revealedRoleId === null));
+});
+
+test("the phase runs Night 1, Day 1, Night 2, Day 2", () => {
+  // The number advances on DAY TO NIGHT, which reads backwards and is right at
+  // a table: a game opens on night one, and the day that follows is day one
+  // because it is the day that night produced.
+  const b = newSdBoard(players(5), NIGHT);
+  const seen: string[] = [`${b.phase} ${b.day}`];
+  for (let i = 0; i < 3; i++) seen.push(`${sdAdvancePhase(b).phase} ${b.day}`);
+  assert.deepEqual(seen, ["night 1", "day 1", "night 2", "day 2"]);
+});
+
+test("going out records how and when, in the order it happened", () => {
+  const b = newSdBoard(players(5), NIGHT);
+  assert.equal(sdSetOut(b, "p3", "night"), null);
+  sdAdvancePhase(b); // day 1
+  assert.equal(sdSetOut(b, "p1", "voted"), null);
+
+  const p3 = b.players.find((p) => p.playerId === "p3")!;
+  assert.deepEqual([p3.alive, p3.out, p3.outDay], [false, "night", 1]);
+  const p1 = b.players.find((p) => p.playerId === "p1")!;
+  assert.deepEqual([p1.alive, p1.out, p1.outDay], [false, "voted", 1]);
+  assert.deepEqual(b.outOrder, ["p3", "p1"]);
+  assert.equal(sdAliveCount(b), 3);
+  assert.equal(sdSetOut(b, "nobody", "voted"), "That player is not on this board");
+});
+
+test("A MIS-TAP IS SURVIVABLE, but a REVEAL IS ONE WAY", () => {
+  // The board is tapped by somebody moderating a game at the same time, so
+  // bringing a player back has to work. Un-revealing does not: the room has
+  // already read it off the big screen, and a screen that took it back would be
+  // telling the table something untrue.
+  const b = newSdBoard(players(5), NIGHT);
+  sdSetOut(b, "p2", "voted", "werewolf");
+  assert.equal(b.players.find((p) => p.playerId === "p2")!.revealedRoleId, "werewolf");
+
+  assert.equal(sdSetOut(b, "p2", null), null);
+  const p2 = b.players.find((p) => p.playerId === "p2")!;
+  assert.deepEqual([p2.alive, p2.out, p2.outDay], [true, null, null]);
+  assert.deepEqual(b.outOrder, []);
+  assert.equal(p2.revealedRoleId, "werewolf", "a reveal must survive being brought back");
+});
+
+test("FIRST VOTED OUT IS LITERAL: a night kill does not take it", () => {
+  // The stat is called first VOTED out and it is the one a crew argues about.
+  // Somebody killed on night one was not voted for by anybody.
+  const b = newSdBoard(players(5), NIGHT);
+  sdSetOut(b, "p0", "night");
+  sdSetOut(b, "p4", "voted");
+  sdSetOut(b, "p1", "voted");
+  const o = sdBoardOutcomes(b);
+  assert.equal(o.p0!.votedOutFirst, false, "a night kill is not a vote");
+  assert.equal(o.p4!.votedOutFirst, true);
+  assert.equal(o.p1!.votedOutFirst, false);
+  assert.deepEqual(
+    Object.entries(o).map(([id, v]) => [id, v.survived]),
+    [["p0", false], ["p1", false], ["p2", true], ["p3", true], ["p4", false]],
+  );
+});
+
+test("a game where nobody was voted out gives it to nobody, and false is a real answer", () => {
+  const b = newSdBoard(players(5), NIGHT);
+  sdSetOut(b, "p0", "night");
+  const o = sdBoardOutcomes(b);
+  // The board was ON, so "nobody was voted out" is known rather than missing.
+  assert.ok(Object.values(o).every((v) => v.votedOutFirst === false));
+});
+
+test("THE BOARD IS THE ONLY SOURCE of survived and first voted out", () => {
+  const def = sdTitleDef("Werewolf");
+  const state = boardNight(5);
+  sdSetOut(state.board!, "p4", "voted", "villager");
+  sdSetOut(state.board!, "p3", "night");
+
+  const game = recordSdGame(
+    state,
+    "Werewolf",
+    [
+      { factionId: "wolves", memberIds: ["p0"] },
+      { factionId: "village", memberIds: ["p1", "p2", "p3", "p4"] },
+    ],
+    def,
+    null,
+    NIGHT,
+  );
+  const by = new Map(game.lines.map((l) => [l.playerId, l]));
+  assert.deepEqual([by.get("p0")!.survived, by.get("p0")!.votedOutFirst], [true, false]);
+  assert.deepEqual([by.get("p4")!.survived, by.get("p4")!.votedOutFirst], [false, true]);
+  assert.deepEqual([by.get("p3")!.survived, by.get("p3")!.votedOutFirst], [false, false]);
+  // The day count reached rides along, and is null when the board was off.
+  assert.equal(game.days, 1);
+  // Recording clears the board: its outcomes are already baked into the lines,
+  // and leaving it up would have the TV showing a table of dead people from a
+  // game nobody is playing.
+  assert.equal(state.board, null);
+  assert.equal(state.boardEnabled, true, "the host's preference outlives the game");
+});
+
+test("TURNING THE BOARD ON PARTWAY THROUGH INVENTS NO HISTORY", () => {
+  // 2.1, direction one. A night that started on paper and picks the board up at
+  // game three gets a board that opens at Night 1 with everybody alive, and the
+  // games already recorded keep their nulls.
+  const def = sdTitleDef("Werewolf");
+  const state = newSdState({ roster: players(5) });
+  const paper = recordSdGame(
+    state,
+    "Werewolf",
+    [
+      { factionId: "wolves", memberIds: ["p0"] },
+      { factionId: "village", memberIds: ["p1", "p2"] },
+    ],
+    def,
+    null,
+    NIGHT,
+  );
+  assert.ok(paper.lines.every((l) => l.survived === null && l.votedOutFirst === null));
+  assert.equal(paper.days, null);
+
+  state.boardEnabled = true;
+  state.board = newSdBoard(state.roster, NIGHT);
+  assert.equal(state.board.day, 1);
+  assert.equal(sdAliveCount(state.board), 5);
+  // And the game already in the log is untouched by the flip.
+  assert.ok(state.games[0]!.lines.every((l) => l.survived === null));
+});
+
+test("TURNING THE BOARD OFF DISCARDS NOTHING ALREADY RECORDED", () => {
+  // 2.1, direction two. The flip clears the live board and leaves every
+  // finished game exactly as it was, because the outcomes were baked onto the
+  // lines at the moment each game was recorded.
+  const def = sdTitleDef("Werewolf");
+  const state = boardNight(5);
+  sdSetOut(state.board!, "p2", "voted");
+  recordSdGame(
+    state,
+    "Werewolf",
+    [
+      { factionId: "wolves", memberIds: ["p0"] },
+      { factionId: "village", memberIds: ["p1", "p2"] },
+    ],
+    def,
+    null,
+    NIGHT,
+  );
+  const before = JSON.stringify(state.games);
+
+  state.boardEnabled = false;
+  state.board = null;
+  assert.equal(JSON.stringify(state.games), before, "a recorded game must not move when the board goes off");
+  assert.equal(state.games[0]!.lines.find((l) => l.playerId === "p2")!.votedOutFirst, true);
+
+  // And the NEXT game, played with the board off, is null again rather than
+  // inheriting the last one's answers.
+  const next = recordSdGame(
+    state,
+    "Werewolf",
+    [
+      { factionId: "village", memberIds: ["p1", "p2"] },
+      { factionId: "wolves", memberIds: ["p0"] },
+    ],
+    def,
+    null,
+    NIGHT,
+  );
+  assert.ok(next.lines.every((l) => l.survived === null && l.votedOutFirst === null));
+});
+
+test("a part A session row loads with a board-shaped hole filled in", () => {
+  // Part A shipped without a board, so every row already in the database lacks
+  // these three fields. The failure without this is silent rather than loud.
+  const legacy = {
+    sessionKey: "abc",
+    openScoring: false,
+    nowPlaying: null,
+    roster: players(3),
+    deal: null,
+    games: [{ idx: 0, title: "Werewolf", lines: [], factions: [], dealt: false, at: NIGHT }],
+  } as unknown as SdSessionState;
+  const up = normalizeSdState(legacy);
+  assert.equal(up.boardEnabled, false);
+  assert.equal(up.board, null);
+  assert.equal(up.games[0]!.days, null);
+  // And a current state passes through unchanged in every field that matters.
+  const now = boardNight(4);
+  assert.deepEqual(normalizeSdState(now), now);
+});
+
+// ---------- the TV projection ----------
+
+test("the TV projection carries the board, the setup counts and the standings", () => {
+  const state = boardNight(5);
+  state.deal = {
+    dealNo: 1,
+    title: "Werewolf",
+    at: NIGHT,
+    composition: [{ roleId: "villager", count: 4 }, { roleId: "werewolf", count: 1 }],
+  };
+  sdSetOut(state.board!, "p2", "voted", "villager");
+  sdAdvancePhase(state.board!);
+
+  const tv = sdTvView(state);
+  assert.equal(tv.title, "Werewolf");
+  assert.deepEqual(tv.composition, [{ name: "Villager", count: 4 }, { name: "Werewolf", count: 1 }]);
+  assert.equal(tv.board!.day, 1);
+  assert.equal(tv.board!.phase, "day");
+  assert.equal(tv.board!.alive, 4);
+  assert.equal(tv.board!.outTotal, 1);
+  assert.equal(tv.board!.players.length, 5);
+  const p2 = tv.board!.players.find((p) => p.playerId === "p2")!;
+  assert.deepEqual([p2.alive, p2.out, p2.revealed, p2.alignment], [false, "voted", "Villager", "town"]);
+});
+
+test("the TV projection says NOTHING about a player who has not been revealed", () => {
+  // The full scan lives in apps/server/tests/deduction-secrecy.test.ts, which
+  // runs the same three probes it runs on the session payload. What is pinned
+  // here is the shape: an unrevealed player carries nulls, not a role.
+  const state = boardNight(5);
+  const tv = sdTvView(state);
+  for (const p of tv.board!.players) {
+    assert.equal(p.revealed, null);
+    assert.equal(p.alignment, null);
+  }
+  // And the keys are pinned, so a field added to SdTvPlayer is a deliberate act
+  // rather than something that slips in behind a spread.
+  assert.deepEqual(Object.keys(tv.board!.players[0]!).sort(), [
+    "alignment",
+    "alive",
+    "name",
+    "out",
+    "outDay",
+    "playerId",
+    "revealed",
+  ]);
+});
+
+test("with the board off the TV still has a night to show", () => {
+  // Off is a real mode, not a degraded one: the roster, the title and the
+  // standings all still reach the screen.
+  const state = newSdState({ roster: players(6) });
+  state.nowPlaying = "Secret Hitler";
+  const tv = sdTvView(state);
+  assert.equal(tv.board, null);
+  assert.equal(tv.title, "Secret Hitler");
+  assert.equal(tv.roster.length, 6);
+  assert.equal(tv.composition, null);
+});
+
+test("the TV projection holds twenty players, which is this pack's cap", () => {
+  // The fit risk is real and it is measured in scripts/tv-fit.mjs at exactly
+  // this number. What is asserted here is only that the payload reaches it.
+  const state = boardNight(SD_MAX_PLAYERS);
+  assert.equal(sdTvView(state).board!.players.length, 20);
 });

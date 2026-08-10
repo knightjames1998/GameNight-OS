@@ -212,6 +212,22 @@ export const PACKS: PackSpec[] = [
     formats: [{ key: "night", label: "♠️ Card night", sub: "one result per card game" }],
   },
   {
+    key: "deduction",
+    name: S.deduction.name,
+    emoji: S.deduction.emoji,
+    cabClass: "gn-cab--sd",
+    // Board and card, with Board Game and Card Table. Werewolf, Secret Hitler
+    // and Avalon are literally card games out of a box, which is this group's
+    // existing meaning, and Party games joins it when it lands. Group is
+    // DISPLAY ONLY and safe to move later; see PACK_GROUPS.
+    group: "boardcard",
+    // One format, for the third time and the same reason: the TITLE is a label
+    // on the result rather than a format. Whether a night runs the live board
+    // is not a format either, it is a toggle inside the session that defaults
+    // off.
+    formats: [{ key: "night", label: "🐺 Deduction night", sub: "deal roles, argue, record the winners" }],
+  },
+  {
     key: "tournament",
     name: "Tournament",
     emoji: "🏆",

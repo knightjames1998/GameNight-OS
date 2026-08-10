@@ -119,6 +119,11 @@ const TOKENISED_CSS = [
   // would fail the build on the eight that have not been done, which is a
   // broken build rather than a useful signal.
   "apps/web/src/pingpong/pingpong.css",
+  // SOCIAL DEDUCTION joins on the commit that CREATED it rather than on a later
+  // conversion pass, which is what stage 4 has been doing one pack at a time.
+  // Writing a pack's stylesheet token-first costs nothing on the day and is the
+  // only way the list ever finishes.
+  "apps/web/src/deduction/deduction.css",
 ];
 
 /** A hex colour, or an rgb()/rgba() literal. */

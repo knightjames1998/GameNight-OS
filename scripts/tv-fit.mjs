@@ -132,6 +132,49 @@ const titlenight = (n) => {
   } };
 };
 
+// SOCIAL DEDUCTION seats TWENTY, the largest cap in the app, and its TV shows
+// every player at once by design. That makes it the most fit-hostile screen
+// anybody has built here, so it is measured AT TWENTY from the commit that
+// shipped it rather than at a comfortable eight. Board Game's TV was measured
+// at four and eight for five days and turned out to be 176px over at twelve.
+//
+// Mid-game on purpose: board on, a few people out, one revealed, which is the
+// state with the most ink on the screen.
+const deduction = (n) => {
+  const names = Array.from({ length: n }, (_, i) => "Player Nameiskindalong " + (i + 1));
+  const players = names.map((name, i) => {
+    const out = i % 4 === 1;
+    return {
+      playerId: "p" + i, name,
+      alive: !out,
+      out: out ? (i % 8 === 1 ? "voted" : "night") : null,
+      outDay: out ? 1 + (i % 3) : null,
+      // A REVEALED role on some of the dead, which is the only role that ever
+      // reaches this screen, and the longest string a tile has to hold.
+      revealed: out ? (i % 8 === 1 ? "Alpha Werewolf" : "Villager") : null,
+      alignment: out ? (i % 8 === 1 ? "evil" : "town") : null,
+    };
+  });
+  const alive = players.filter((p) => p.alive).length;
+  return { session: {
+    status: "live",
+    title: "Blood on the Clocktower",
+    composition: [{ name: "Villager", count: n - 3 }, { name: "Seer", count: 1 }, { name: "Alpha Werewolf", count: 2 }],
+    board: { day: 3, phase: "day", alive, outTotal: n - alive, players },
+    roster: names.map((name, i) => ({ playerId: "p" + i, name })),
+    games: 3,
+    summary: {
+      players: names.map((name, i) => ({
+        playerId: "p" + i, name, games: 3, wins: 3 - (i % 4),
+        townGames: 2, townWins: 1, evilGames: 1, evilWins: i % 2, soloGames: 0, soloWins: 0,
+      })),
+      titles: [{ title: "Werewolf", games: 2 }, { title: "Blood on the Clocktower", games: 1 }],
+      byAlignment: [{ alignment: "town", games: 20, wins: 8 }, { alignment: "evil", games: 6, wins: 3 }],
+      last: { title: "Werewolf", factions: [{ name: "Werewolves", placement: 1, names: names.slice(0, 2) }] },
+    },
+  } };
+};
+
 let PAYLOAD = money(4, []);
 on.set("Fetch.requestPaused", ({ requestId, request }) => {
   const p = new URL(request.url).pathname;
@@ -236,6 +279,14 @@ const CASES = [
   // failing twelve would be the expected shape rather than a surprise.
   ["card table   4 players", "/cardtable/tv/x", titlenight(4), ".tn-tv__panel"],
   ["card table   8 players", "/cardtable/tv/x", titlenight(8), ".tn-tv__panel"],
+  // The column count steps with the roster (2 / 3 / 4 / 5), so the interesting
+  // cases are the step boundaries and the cap. TWENTY IS THE ONE THAT MATTERS
+  // and it is the reason this pack was designed against a 1080p screen rather
+  // than measured after the fact.
+  ["deduction   6 players", "/deduction/tv/x", deduction(6), ".sd-p"],
+  ["deduction  12 players", "/deduction/tv/x", deduction(12), ".sd-p"],
+  ["deduction  16 players", "/deduction/tv/x", deduction(16), ".sd-p"],
+  ["deduction  20 players", "/deduction/tv/x", deduction(20), ".sd-p"],
 ];
 
 // A case that is ALREADY over before any rail exists cannot be made to pass by

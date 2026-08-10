@@ -29,11 +29,17 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   dealRoles,
+  newSdBoard,
   newSdState,
   recordSdGame,
+  sdSetOut,
   sdTitleDef,
+  sdTvView,
   suggestComposition,
   PACK_BY_LEDGER,
   SESSION_PACKS,
@@ -154,6 +160,12 @@ test("THE PUBLIC STATE HAS EXACTLY THESE KEYS, so a new field is a deliberate ac
   const { state } = liveNight();
   const session = payloadFor(state).session!;
   assert.deepEqual(Object.keys(session).sort(), [
+    // The live moderator board, added in part B. EVERYTHING IN IT IS PUBLIC:
+    // alive and dead is what the room can see across the table, the day count
+    // is what the moderator says out loud, and a revealed role is one the room
+    // has already been told. That is why it may sit here while the deal cannot.
+    "board",
+    "boardEnabled",
     "deal",
     "games",
     "groupId",
@@ -240,4 +252,276 @@ test("the pack's own identifiers are the ones the ledger already has", () => {
   assert.equal(deductionRuntime.table, "game_sessions");
   assert.equal(deductionRuntime.ledgerKey("e1", "sk1", 0), "sd:e1:sk1:0");
   assert.equal(deductionRuntime.ledgerKey("e1", undefined, 3), "sd:e1:3");
+});
+
+// ===========================================================================
+// THE TV, which is the likelier leak of the two.
+//
+// The session payload goes to authenticated members of the crew. The TV route
+// is PUBLIC, UUID-KEYED AND UNAUTHENTICATED: anybody with the link can open it,
+// including a player sitting at the table on their own phone, and its whole job
+// is showing the table. So it gets the same three probes the session payload
+// gets, and the same negative control.
+//
+// An unrevealed role must be ABSENT FROM THE PAYLOAD. Not hidden by CSS, not
+// rendered face down with the value in the DOM, not filtered on the client.
+// ===========================================================================
+
+/** A live night with the board on, mid-game, nothing revealed. */
+function tvNight() {
+  const def = sdTitleDef("Werewolf");
+  const roster = players(9);
+  const state = newSdState({ roster });
+  const composition = suggestComposition(def, 9);
+  const roles = dealRoles(composition, roster.map((p) => p.id), () => 0.5);
+  state.nowPlaying = "Werewolf";
+  state.deal = { dealNo: 1, title: "Werewolf", at: "2026-08-10T20:00:00.000Z", composition };
+  state.boardEnabled = true;
+  state.board = newSdBoard(roster, "2026-08-10T20:00:00.000Z");
+  return { def, roster, state, roles };
+}
+
+/**
+ * TWO KINDS OF NEEDLE, and keeping them apart is what makes this scan precise
+ * rather than noisy.
+ *
+ * A role ID ("werewolf", "villager") is an internal slug and appears NOWHERE in
+ * a correct TV payload: the projection resolves every role through the
+ * catalogue and emits display names. So an id anywhere is a leak, full stop,
+ * with nothing to blank out first.
+ *
+ * A role NAME ("Werewolf", "Villager") legitimately appears twice: in the
+ * announced setup, and on a player who has been revealed. It also COLLIDES with
+ * other public strings by design, because these games are named after their
+ * roles: the title is "Werewolf", the faction is "Werewolves", and both are
+ * things the room already knows. So names are scanned only where a leak would
+ * actually land, which is the board.
+ */
+function roleIds(roles: Record<string, string>): string[] {
+  return [...new Set(Object.values(roles))];
+}
+
+function roleNames(def: { roles: readonly { id: string; name: string }[] }, roles: Record<string, string>): string[] {
+  return roleIds(roles)
+    .map((id) => def.roles.find((r) => r.id === id)?.name)
+    .filter((n): n is string => !!n);
+}
+
+/**
+ * The board as a string, with the one field a role name belongs in blanked.
+ *
+ * `revealed` is a role the room has already been shown. Every other field on
+ * every player is scanned, which is what catches a role arriving somewhere
+ * nobody thought to check.
+ */
+function boardScannable(state: SdSessionState): string {
+  const tv = sdTvView(state) as Record<string, any>;
+  if (!tv.board) return "";
+  return JSON.stringify(tv.board.players.map((p: any) => ({ ...p, revealed: "<revealed on death>" })));
+}
+
+test("NO UNREVEALED ROLE REACHES THE PUBLIC TV PAYLOAD", () => {
+  const { def, state, roles } = tvNight();
+  const complaint =
+    "a role reached the PUBLIC TV payload before its reveal. Anybody with the event link can " +
+    "read that, including a player at the table. Read the header of sdTvView in " +
+    "packages/shared/src/deduction.ts before putting anything back.";
+
+  // A role ID anywhere in the payload is a leak with nothing to forgive: the
+  // projection emits display names, so an id has no legitimate home here.
+  assert.deepEqual(leaks(JSON.stringify(sdTvView(state)), roleIds(roles)), [], complaint);
+  // And no role NAME on the board outside the revealed slot.
+  assert.deepEqual(leaks(boardScannable(state), roleNames(def, roles)), [], complaint);
+});
+
+test("the TV maps no player to a role, by any route through the object", () => {
+  const { state, roles } = tvNight();
+  const full = JSON.stringify(sdTvView(state));
+  for (const [playerId, roleId] of Object.entries(roles)) {
+    assert.equal(full.includes(`"${playerId}":"${roleId}"`), false, `${playerId} is mapped to ${roleId}`);
+  }
+  // And per player: an unrevealed player's own object must mention no role at
+  // all, which is the check that survives the payload being reshaped.
+  const tv = sdTvView(state);
+  const needles = [...roleIds(roles), ...roleNames(sdTitleDef("Werewolf"), roles)];
+  for (const p of tv.board!.players) {
+    assert.deepEqual(leaks(JSON.stringify(p), needles), [], `${p.playerId}'s TV row gives their role away`);
+  }
+});
+
+test("THE TV PROJECTION IS A WHITELIST, so a field added to state never reaches the screen", () => {
+  // Found by writing the negative control below and watching it fail to leak.
+  // `sdTvView` does not spread the board, it REBUILDS each player out of seven
+  // named fields, so a role planted on the session state is dropped on the way
+  // out rather than filtered on the way in. That is the difference between this
+  // screen and the session payload, which DOES spread state (hence the key-list
+  // test above), and it is worth asserting rather than relying on.
+  const { state, roles } = tvNight();
+  const planted = {
+    ...state,
+    board: { ...state.board!, players: state.board!.players.map((p) => ({ ...p, roleId: roles[p.playerId] })) },
+  } as unknown as SdSessionState;
+  assert.deepEqual(leaks(JSON.stringify(sdTvView(planted)), roleIds(roles)), []);
+});
+
+test("the TV redaction scan can actually see a leaked role", () => {
+  // THE NEGATIVE CONTROL, and it plants the leak where a leak could actually
+  // come from: the PROJECTION'S OUTPUT. A future session edits `sdTvView` to
+  // "just include the role so the TV can colour the tiles", and every other
+  // test in this file stays green. These are the three shapes that edit takes.
+  const { def, state, roles } = tvNight();
+  const ids = roleIds(roles);
+  const names = roleNames(def, roles);
+  const tv = sdTvView(state) as Record<string, any>;
+
+  // 1. The whole deal, hung off the payload.
+  const whole = { ...tv, roles };
+  assert.ok(leaks(JSON.stringify(whole), ids).length > 0, "the scan did not catch the whole deal");
+
+  // 2. One player, in the internal id form.
+  const oneId = {
+    ...tv,
+    board: { ...tv.board, players: tv.board.players.map((p: any, i: number) => (i === 3 ? { ...p, roleId: roles[p.playerId] } : p)) },
+  };
+  assert.ok(leaks(JSON.stringify(oneId), ids).length > 0, "the scan did not catch a single planted role id");
+
+  // 3. One player, in the DISPLAY form, which the id scan cannot see and the
+  //    board name scan must. This is what a pre-rendered role tile looks like.
+  const oneName = tv.board.players.map((p: any, i: number) =>
+    i === 3 ? { ...p, revealed: "<revealed on death>", hint: def.roles.find((r) => r.id === roles[p.playerId])!.name } : { ...p, revealed: "<revealed on death>" },
+  );
+  assert.ok(leaks(JSON.stringify(oneName), names).length > 0, "the board name scan did not bite");
+
+  // And the mapping probe bites on the same plant.
+  assert.ok(JSON.stringify(whole).includes(`"${state.roster[3]!.id}":"${roles[state.roster[3]!.id]}"`));
+});
+
+test("REVEAL PUBLISHES ON THE TV, and only for the player revealed", () => {
+  // The one-way transition. Everybody else on the board is untouched by it,
+  // which is the property that makes reveal-on-death safe to show at all.
+  const { def, state, roles } = tvNight();
+  const victim = state.roster[3]!.id;
+  sdSetOut(state.board!, victim, "voted", roles[victim]);
+
+  const tv = sdTvView(state);
+  const shown = tv.board!.players.find((p) => p.playerId === victim)!;
+  assert.equal(shown.alive, false);
+  assert.equal(shown.revealed, def.roles.find((r) => r.id === roles[victim])!.name);
+  assert.ok(shown.alignment);
+
+  // Everybody else still says nothing, and both scans still pass.
+  for (const p of tv.board!.players) {
+    if (p.playerId === victim) continue;
+    assert.equal(p.revealed, null, `${p.playerId} was revealed by somebody else's death`);
+  }
+  assert.deepEqual(leaks(JSON.stringify(sdTvView(state)), roleIds(roles)), []);
+  assert.deepEqual(leaks(boardScannable(state), roleNames(def, roles)), []);
+});
+
+test("the TV carries no recorded game's lines, only the count and the standings", () => {
+  // A recorded game's roles ARE public, so this is not a secrecy rule: it is a
+  // payload-size and surface rule. The fewer places a role can appear, the
+  // fewer places the scans above have to reason about.
+  const { def, state, roles } = tvNight();
+  recordSdGame(
+    state,
+    "Werewolf",
+    [
+      { factionId: "wolves", memberIds: Object.keys(roles).filter((id) => roles[id] === "werewolf") },
+      { factionId: "village", memberIds: Object.keys(roles).filter((id) => roles[id] === "villager") },
+    ],
+    def,
+    roles,
+    "2026-08-10T20:40:00.000Z",
+  );
+  const tv = sdTvView(state);
+  assert.equal(tv.games, 1);
+  assert.equal(tv.board, null, "recording clears the board, so the TV stops showing a finished table");
+  assert.equal(Object.prototype.hasOwnProperty.call(tv, "lines"), false);
+});
+
+// ===========================================================================
+// PART A'S RESIDUAL RISK, closed.
+//
+// The secret store's safety rests on a real but until now UNPINNED invariant:
+// no GENERIC reader of game_sessions ever selects the `state` column. Today
+// none does. events.ts and tv.ts both read by eventId ALONE, across every
+// pack's row including the secret one, and both project
+// `{ pack, status, updatedAt }` and drop a row PACK_BY_LEDGER cannot resolve.
+//
+// But a future session adding `state` to either select would hand the deal to
+// the event detail payload, and EVERY OTHER TEST IN THIS FILE WOULD STAY GREEN,
+// because they all scan the pack's own payloads. This is the cheap check that
+// makes it "safe by construction" rather than "safe until somebody edits a
+// select".
+// ===========================================================================
+
+test("NO GENERIC READER OF game_sessions SELECTS THE state COLUMN", () => {
+  const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), "../src");
+
+  /**
+   * The two files allowed to read `state`, both of which key by PACK as well as
+   * by event, so neither can reach a row belonging to something else:
+   *   - pack-runtime.ts, which is how every pack loads its own session,
+   *   - deduction-secret.ts, which is the secret store itself.
+   * Any OTHER file reading game_sessions is reading across packs.
+   */
+  const KEYED_BY_PACK = new Set(["pack-runtime.ts", "deduction-secret.ts"]);
+
+  const offenders: string[] = [];
+  for (const name of readdirSync(SRC).filter((f) => f.endsWith(".ts"))) {
+    const src = readFileSync(path.join(SRC, name), "utf8");
+    if (!src.includes(".from(gameSessions)")) continue;
+    if (KEYED_BY_PACK.has(name)) continue;
+
+    // Every read in this file, with the projection that precedes it. Searched
+    // BACKWARD from each `.from(gameSessions)` to the NEAREST `.select(`,
+    // because a forward lazy match starts at the first select in the file and
+    // swallows everything in between, which made this report a comment three
+    // hundred lines away as a state read the first time it ran.
+    //
+    // A bare `.select()` is the dangerous one: it means ALL COLUMNS, which
+    // includes state, and it is exactly what somebody writes for "the row".
+    for (const hit of [...src.matchAll(/\.from\(gameSessions\)/g)]) {
+      const before = src.slice(0, hit.index);
+      const open = before.lastIndexOf(".select(");
+      if (open < 0) {
+        offenders.push(`${name}: reads game_sessions with no .select() this check can find`);
+        continue;
+      }
+      const projection = before.slice(open + ".select(".length).replace(/\)\s*$/, "").trim();
+      if (projection === "") offenders.push(`${name}: bare .select() reads every column, including state`);
+      else if (/\bstate\b/.test(projection)) offenders.push(`${name}: selects state across packs`);
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    "a generic reader of game_sessions would pull the SECRET STORE'S ROW along with every " +
+      "pack's. The secret row is keyed under a pack value no registry entry claims, which " +
+      "keeps it out of every payload precisely because nothing selects its state.\n  " +
+      offenders.join("\n  "),
+  );
+});
+
+test("the state-column check can actually see a select that reads state", () => {
+  // Same discipline as the redaction scans: prove the pattern bites, or it
+  // passes forever the day the code shape moves under it. The samples are the
+  // three shapes that matter, including a file with an EARLIER unrelated select
+  // in it, which is the case the first version of this check got wrong.
+  const projectionOf = (src: string): string | null => {
+    const i = src.indexOf(".from(gameSessions)");
+    if (i < 0) return null;
+    const open = src.slice(0, i).lastIndexOf(".select(");
+    return open < 0 ? null : src.slice(0, i).slice(open + ".select(".length).replace(/\)\s*$/, "").trim();
+  };
+  const noise = "const other = db.select({ id: events.id, state: events.state }).from(events);\n  ";
+  assert.ok(/\bstate\b/.test(projectionOf(noise + ".select({ state: gameSessions.state })\n.from(gameSessions)")!));
+  assert.equal(
+    /\bstate\b/.test(projectionOf(noise + ".select({ pack: gameSessions.pack })\n.from(gameSessions)")!),
+    false,
+    "an unrelated select on another table was dragged in",
+  );
+  assert.equal(projectionOf(".select()\n.from(gameSessions)"), "", "a bare select was not caught");
 });

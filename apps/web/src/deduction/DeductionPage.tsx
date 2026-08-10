@@ -12,6 +12,7 @@ import {
   type SdAlignment,
   type SdDealSummary,
   type SdNightSummary,
+  type SdBoard,
   type SdPlayer,
   type SdRoleCount,
   type SdTitleDef,
@@ -19,6 +20,7 @@ import {
 import { api } from "../api";
 import BackButton from "../BackButton";
 import { usePackSession, type PackCtx } from "../usePackSession";
+import "./deduction.css";
 
 // The Social Deduction page: set up the night, deal the roles, reveal, record.
 //
@@ -57,6 +59,8 @@ interface SdSessionView {
   nowPlaying: string | null;
   roster: SdPlayer[];
   deal: SdDealSummary | null;
+  boardEnabled: boolean;
+  board: SdBoard | null;
   games: { idx: number; title: string; at: string; factions: { name: string; placement: number; memberIds: string[] }[] }[];
   summary: SdNightSummary;
 }
@@ -99,7 +103,7 @@ export default function DeductionPage() {
 
   if (!eventId) {
     return (
-      <main className="gn-app">
+      <main className="gn-app sd-root">
         <div className="gn-wrap space-y-4">
           <p className="gn-hint">No event specified.</p>
           <BackButton />
@@ -109,7 +113,7 @@ export default function DeductionPage() {
   }
   if (loading) {
     return (
-      <main className="gn-app">
+      <main className="gn-app sd-root">
         <div className="gn-wrap">
           <p className="gn-hint">Loading...</p>
         </div>
@@ -118,7 +122,7 @@ export default function DeductionPage() {
   }
 
   return (
-    <main className="gn-app">
+    <main className="gn-app sd-root">
       <div className="gn-wrap space-y-4">
         <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
           <BackButton />
@@ -126,15 +130,18 @@ export default function DeductionPage() {
               history-based Back button cannot promise: somebody who opened a
               shared link in a fresh tab has no history to pop, so Back sends
               them home rather than to the event they were sent to. Standing
-              rule: every pack screen has both. There is no TV link yet, because
-              there is no TV yet, and a link to a screen that would show the
-              lobby is worse than no link. */}
+              rule: every pack screen has both. */}
           <Link to={`/e/${eventId}`} className="gn-textbtn">🎪 Event</Link>
+          {/* The NIGHT's TV address, not this pack's: it follows whatever is
+              being played, which is what a TV pointed at a night should do. */}
+          <Link to={`/e/${eventId}/tv`} className="gn-textbtn">📺 TV</Link>
         </div>
 
         <div>
-          <h1 className="gn-title text-2xl">{PACK.emoji} Social Deduction</h1>
-          <p className="gn-hint mt-1">Deal in secret, argue, record who won.</p>
+          <h1 className="sd-brand">
+            {PACK.emoji} Social <em>Deduction</em>
+          </h1>
+          <p className="sd-sub">Deal in secret, argue, record who won.</p>
         </div>
 
         {err && <p style={{ color: "var(--gn-danger)" }}>{err}</p>}
@@ -309,6 +316,8 @@ function Live({
       <MyRoleCard eventId={eventId} dealNo={session.deal?.dealNo ?? null} />
 
       {canHost && session.deal && <HostDealCard eventId={eventId} dealNo={session.deal.dealNo} />}
+
+      {canHost && <BoardCard at={at} session={session} busy={busy} call={call} />}
 
       {canScore ? (
         <RecordResult
@@ -917,6 +926,117 @@ function Standings({ session }: { session: SdSessionView }) {
               Last: {s.last.title}, won by {s.last.factions[0]?.name} ({s.last.factions[0]?.names.join(", ")}).
             </p>
           )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---------- the live moderator board ----------
+
+/**
+ * OPT-IN AND OFF BY DEFAULT (James: "we always lead with low friction
+ * tracking"). Blackjack's tracker is the precedent and the rule comes with it:
+ * the board being off never loses a stat the result form could have captured.
+ *
+ * So the copy has to be honest about the trade rather than selling the toggle.
+ * A night moderated on paper records the title, the factions and the winner,
+ * which is everything win rate as village versus as wolf needs. The board buys
+ * survival and first voted out, and those are ABSENT rather than zero without
+ * it, which is why there is deliberately no box anywhere on this page to type
+ * them into.
+ *
+ * HOST ONLY, and not "host unless open scoring is on". Open scoring lets a
+ * member record a RESULT, which is a claim about a game everybody watched. The
+ * board is the thing the moderator is holding while they run the game, and
+ * reveal reaches the secret store.
+ */
+function BoardCard({
+  at,
+  session,
+  busy,
+  call,
+}: {
+  at: (p: string) => string;
+  session: SdSessionView;
+  busy: boolean;
+  call: (path: string, body?: unknown) => Promise<void>;
+}) {
+  const board = session.board;
+  const nameOf = new Map(session.roster.map((p) => [p.id, p.name]));
+
+  return (
+    <div className="gn-card space-y-3">
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <h2 className="gn-h2" style={{ flex: 1 }}>
+          Live board
+        </h2>
+        <button
+          className={`gn-toggle ${session.boardEnabled ? "gn-toggle--on" : "gn-toggle--off"}`}
+          aria-pressed={session.boardEnabled}
+          disabled={busy}
+          onClick={() => call(at("board"), { on: !session.boardEnabled })}
+        >
+          {session.boardEnabled ? "ON" : "OFF"}
+        </button>
+      </div>
+
+      {!session.boardEnabled && (
+        <p className="gn-hint">
+          Off is a real way to run a night: the result form still records the title, who was on which faction and who
+          won, so win rate as village versus as wolf is unaffected. Turn this on to track who is out and when, which is
+          the only way survival and first voted out can be recorded at all.
+        </p>
+      )}
+
+      {session.boardEnabled && !board && (
+        <p className="gn-hint">The board starts at Night 1 when you deal.</p>
+      )}
+
+      {board && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ flex: 1 }}>
+              <b>{board.phase === "night" ? "Night" : "Day"} {board.day}</b>
+              <span className="gn-hint">
+                {" "}
+                &middot; {board.players.filter((p) => p.alive).length} of {board.players.length} in
+              </span>
+            </span>
+            <button className="gn-btn gn-btn--ghost" style={{ width: "auto", padding: "0 16px" }} disabled={busy} onClick={() => call(at("phase"))}>
+              {board.phase === "night" ? "Call the day" : "Call the night"}
+            </button>
+          </div>
+
+          {board.players.map((p) => (
+            <div key={p.playerId} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span className={p.alive ? "sd-alive" : "sd-dead"} style={{ flex: 1, minWidth: 90 }}>
+                {nameOf.get(p.playerId) ?? "?"}
+              </span>
+              {p.revealedRoleId && <span className="sd-tag sd-tag--out">revealed</span>}
+              {p.alive ? (
+                <>
+                  <button className="gn-actionbtn" disabled={busy} onClick={() => call(at("out"), { playerId: p.playerId, kind: "voted", reveal: true })}>
+                    voted out
+                  </button>
+                  <button className="gn-actionbtn" disabled={busy} onClick={() => call(at("out"), { playerId: p.playerId, kind: "night", reveal: true })}>
+                    killed
+                  </button>
+                </>
+              ) : (
+                <button className="gn-actionbtn" disabled={busy} onClick={() => call(at("out"), { playerId: p.playerId, kind: null })}>
+                  bring back
+                </button>
+              )}
+            </div>
+          ))}
+
+          <p className="gn-hint">
+            {/* One-way, and the copy says so rather than the app pretending
+                otherwise: the room has already read it off the big screen. */}
+            Putting somebody out reveals their role on the TV, and that cannot be taken back. Bringing them back fixes a
+            mis-tap but leaves the reveal standing, because the room has already seen it.
+          </p>
         </>
       )}
     </div>

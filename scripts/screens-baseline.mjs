@@ -104,6 +104,81 @@ function ctSession() {
   };
 }
 
+/**
+ * A live SOCIAL DEDUCTION night mid-game: nine players, dealt, the board on,
+ * two out and one of them revealed.
+ *
+ * WHAT MAKES THIS WORTH PINNING is not the layout, it is the SECRET. The page
+ * has three cards whose whole job is showing a role to exactly one person, and
+ * a snapshot of its rendered TEXT is the check that a role never appears where
+ * it should not: the session payload below carries no role at all, so any role
+ * word in the snapshot arrived from somewhere it should not have.
+ *
+ * The `deal` here is the SUMMARY, which is public by design (the moderator
+ * announces the setup out loud). Who has what is not in it, because it is not
+ * in the real payload either.
+ */
+function sdSession() {
+  const rs = roster(9);
+  const board = {
+    day: 2,
+    phase: "day",
+    startedAt: "2026-08-10T20:00:00.000Z",
+    outOrder: [rs[4].id, rs[7].id],
+    players: rs.map((p, i) => ({
+      playerId: p.id,
+      alive: i !== 4 && i !== 7,
+      out: i === 4 ? "voted" : i === 7 ? "night" : null,
+      outDay: i === 4 ? 1 : i === 7 ? 2 : null,
+      revealedRoleId: i === 4 ? "werewolf" : null,
+    })),
+  };
+  return {
+    status: "live", groupId: "g1", openScoring: false, nowPlaying: "Werewolf",
+    roster: rs,
+    deal: {
+      dealNo: 1, title: "Werewolf", at: "2026-08-10T20:00:00.000Z",
+      composition: [{ roleId: "villager", count: 7 }, { roleId: "werewolf", count: 2 }],
+    },
+    boardEnabled: true,
+    board,
+    games: [],
+    summary: {
+      players: rs.map((p, i) => ({
+        playerId: p.id, name: p.name, games: 1, wins: i < 2 ? 1 : 0,
+        townGames: 1, townWins: i < 2 ? 1 : 0, evilGames: 0, evilWins: 0, soloGames: 0, soloWins: 0,
+      })),
+      titles: [{ title: "Werewolf", games: 1 }],
+      byAlignment: [{ alignment: "town", games: 9, wins: 7 }],
+      last: null,
+    },
+  };
+}
+
+/** The same night as the PUBLIC TV sees it. Roles only where revealed. */
+function sdTv() {
+  const s = sdSession();
+  const nameOf = new Map(s.roster.map((p) => [p.id, p.name]));
+  return {
+    status: "live", title: "Werewolf",
+    composition: [{ name: "Villager", count: 7 }, { name: "Werewolf", count: 2 }],
+    board: {
+      day: 2, phase: "day",
+      alive: s.board.players.filter((p) => p.alive).length,
+      outTotal: 2,
+      players: s.board.players.map((p) => ({
+        playerId: p.playerId, name: nameOf.get(p.playerId),
+        alive: p.alive, out: p.out, outDay: p.outDay,
+        revealed: p.revealedRoleId === "werewolf" ? "Werewolf" : null,
+        alignment: p.revealedRoleId === "werewolf" ? "evil" : null,
+      })),
+    },
+    roster: s.roster.map((p) => ({ playerId: p.id, name: p.name })),
+    games: 0,
+    summary: s.summary,
+  };
+}
+
 const bgStats = {
   games: 7, titles: 3,
   byPlayer: [{ userId: "u0", name: "Ann", games: 7, wins: 3, winRate: 3 / 7, avgPlacement: 1.9, titles: 3 }],
@@ -171,6 +246,8 @@ async function main() {
   let bgPayload = null;
   let ctPayload = null;
   let ppPayload = null;
+  let sdPayload = null;
+  let sdTvPayload = null;
   let rosterN = 4;
   ws.addEventListener("message", async (ev) => {
     const m = JSON.parse(ev.data);
@@ -178,7 +255,12 @@ async function main() {
     const { requestId, request } = m.params;
     const u = request.url;
     let body = {};
-    if (u.includes("/api/boardgame-context/")) body = ctx(rosterN);
+    if (u.includes("/api/tv/deduction/")) body = { session: sdTvPayload };
+    else if (u.includes("/api/deduction-context/")) body = ctx(9, ["Werewolf"]);
+    else if (u.includes("/api/deduction/") && u.includes("/deal")) body = { dealNo: null, title: null, lines: [] };
+    else if (u.includes("/api/deduction/") && u.includes("/my-role")) body = { dealNo: null, title: null, playerId: null, role: null };
+    else if (u.includes("/api/deduction/")) body = { session: sdPayload };
+    else if (u.includes("/api/boardgame-context/")) body = ctx(rosterN);
     else if (u.includes("/api/cardtable-context/")) body = ctx(4, ["Euchre"]);
     else if (u.includes("/api/pingpong-context/")) body = ctx(5);
     else if (u.includes("/api/auth/me")) body = { user: { id: "u0", displayName: "Ann" } };
@@ -257,6 +339,32 @@ async function main() {
     };
   })()`);
 
+  // ---- Social Deduction: setup, a live dealt night with the board on, its TV ----
+  sdPayload = null;
+  await view(390, 844);
+  await goto(`${ORIGIN}/deduction?event=e1`);
+  snap.sdSetup = await text();
+
+  sdPayload = sdSession();
+  await goto(`${ORIGIN}/deduction?event=e1`);
+  snap.sdLive = await text();
+
+  sdTvPayload = sdTv();
+  await view(1920, 1080);
+  await goto(`${ORIGIN}/deduction/tv/e1`);
+  snap.sdTv = await evalJs(`(() => {
+    const back = [...document.querySelectorAll('button, a')].find(b => /back|←/i.test(b.textContent));
+    const r = back ? back.getBoundingClientRect() : null;
+    const grid = document.querySelector('.sd-tv__board');
+    return {
+      text: document.body.innerText.replace(/\\s+$/gm,'').trim(),
+      backBottom: r ? Math.round(r.bottom + window.scrollY) : null,
+      pageBottom: Math.round(document.documentElement.getBoundingClientRect().height),
+      tiles: document.querySelectorAll('.sd-p').length,
+      boardBottom: grid ? Math.round(grid.getBoundingClientRect().bottom) : null,
+    };
+  })()`);
+
   // ---- Ping Pong's team picker ----
   ppPayload = null;
   await view(390, 844);
@@ -316,6 +424,7 @@ async function main() {
     console.log(`wrote ${Object.keys(snap).length} snapshots`);
     for (const n of [4, 8, 12]) console.log(`  bgTv${n}: back ${snap[`bgTv${n}`].backBottom}px, page ${snap[`bgTv${n}`].pageBottom}px`);
     console.log(`  ctTv:  back ${snap.ctTv.backBottom}px, page ${snap.ctTv.pageBottom}px`);
+    console.log(`  sdTv:  back ${snap.sdTv.backBottom}px, page ${snap.sdTv.pageBottom}px, ${snap.sdTv.tiles} tiles ending ${snap.sdTv.boardBottom}px`);
   }
   chrome.kill("SIGKILL"); killAll();
   process.exit(0);

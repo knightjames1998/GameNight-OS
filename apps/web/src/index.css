@@ -197,6 +197,7 @@
   --gn-cab-crun-edge:  #3c2a63;  --gn-cab-crun-top:  #241541;  --gn-cab-crun-ink: #ffc93f;
   --gn-cab-bg-edge:    #5a422c;  --gn-cab-bg-top:    #2a1c12;  --gn-cab-bg-ink:   #e0a54a;
   --gn-cab-ct-edge:    #5c2a30;  --gn-cab-ct-top:    #2a1216;  --gn-cab-ct-ink:   #e8515c;
+  --gn-cab-sd-edge:    #2b3350;  --gn-cab-sd-top:    #10142a;  --gn-cab-sd-ink:   #9db4ff;
   /* Two cabinets do NOT land on --gn-surf and are preserved exactly as they
      shipped rather than quietly rounded to it. Mario Party's is 6/255 of red
      off --gn-surf and is almost certainly a typo for it; Casino Run's is a
@@ -492,6 +493,7 @@
   --gn-cab-crun-edge:  #382d4d;  --gn-cab-crun-top:  #21182d;
   --gn-cab-bg-edge:    #55401f;  --gn-cab-bg-top:    #271a0a;
   --gn-cab-ct-edge:    #5e3128;  --gn-cab-ct-top:    #29130f;
+  --gn-cab-sd-edge:    #2f3a52;  --gn-cab-sd-top:    #171a26;
   /* The two that do not land on --gn-surf keep the same near-miss they have
      under Arcade, rather than being quietly folded in here. If James decides
      Mario Party's is the typo it looks like, both themes should change in the
@@ -943,6 +945,8 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-cab--bg .gn-cab__name{color:var(--gn-cab-bg-ink)}
 .gn-cab--ct{border-color:var(--gn-cab-ct-edge);background:linear-gradient(180deg,var(--gn-cab-ct-top),var(--gn-surf-solid))}
 .gn-cab--ct .gn-cab__name{color:var(--gn-cab-ct-ink)}
+.gn-cab--sd{border-color:var(--gn-cab-sd-edge);background:linear-gradient(180deg,var(--gn-cab-sd-top),var(--gn-surf-solid))}
+.gn-cab--sd .gn-cab__name{color:var(--gn-cab-sd-ink)}
 
 /* Shared on/off pill toggle (the "let members record results" control in
    every pack). The label is the current state; green = on, red = off. */

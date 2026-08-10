@@ -88,6 +88,9 @@ const ROUTES = [
   // about to have every class name on both its screens replaced.
   "/boardgame", "/boardgame/tv/x",
   "/cardtable", "/cardtable/tv/x",
+  // Added 2026-08-10 with the pack, in the same commit, rather than five days
+  // later the way Board Game was.
+  "/deduction", "/deduction/tv/x",
   "/join/ABCD",
   "/nope",
 ];
@@ -117,6 +120,11 @@ const RULE_ROUTES = [
   "/boardgame/tv/x",
   "/cardtable",
   "/cardtable/tv/x",
+  // Both, for the same reason: the page and the TV import deduction.css and set
+  // different roots on it, and the rule pass only sees a stylesheet once a
+  // route that imports it has been visited.
+  "/deduction",
+  "/deduction/tv/x",
   "/beerio",
 ];
 

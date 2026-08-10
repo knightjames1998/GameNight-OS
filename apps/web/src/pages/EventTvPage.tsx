@@ -36,6 +36,7 @@ const CrapsTvPage = lazy(() => import("../craps/CrapsTvPage"));
 const CasinoRunTvPage = lazy(() => import("../casinorun/CasinoRunTvPage"));
 const BoardGameTvPage = lazy(() => import("../boardgame/BoardGameTvPage"));
 const CardTableTvPage = lazy(() => import("../cardtable/CardTableTvPage"));
+const DeductionTvPage = lazy(() => import("../deduction/DeductionTvPage"));
 const TvPage = lazy(() => import("./TvPage"));
 const BeerioTvPage = lazy(() => import("../beerio/BeerioTvPage"));
 
@@ -75,12 +76,7 @@ const PACK_TV: Record<SessionPackKey, ((eventId: string) => JSX.Element) | null>
   casinorun: (id) => <CasinoRunTvPage eventId={id} />,
   boardgame: (id) => <BoardGameTvPage eventId={id} />,
   cardtable: (id) => <CardTableTvPage eventId={id} />,
-  // Social Deduction's TV is its own pass. It has a constraint no other TV in
-  // this app has: a public UUID-keyed route that shows who is alive and who is
-  // out while never leaking a role before reveal, on a screen the whole room is
-  // looking at. Until it exists the night falls to the Lobby, which shows the
-  // standings rather than somebody else's scoreboard.
-  deduction: null,
+  deduction: (id) => <DeductionTvPage eventId={id} />,
 };
 
 export default function EventTvPage() {
