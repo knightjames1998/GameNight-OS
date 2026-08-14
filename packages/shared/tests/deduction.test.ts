@@ -21,6 +21,7 @@ import {
   dealRoles,
   factionsFromRoles,
   factionsInPlay,
+  canonicalRole,
   newSdBoard,
   newSdState,
   normalizeSdState,
@@ -28,6 +29,8 @@ import {
   sdAdvancePhase,
   sdAliveCount,
   sdBoardOutcomes,
+  sdDefWith,
+  sdRoleSlug,
   sdSetOut,
   sdTvView,
   sdFaction,
@@ -40,16 +43,21 @@ import {
   suggestComposition,
   suggestedEvilCount,
   summarizeSdNight,
+  typedRole,
   validateComposition,
   validateSdResult,
+  validateTypedRole,
   SD_DEFAULT_DEF,
   SD_MAX_PLAYERS,
   SD_TITLES,
   SD_TITLE_DEFS,
   SESSION_PACKS,
   type SdFactionEntry,
+  type SdCustomFaction,
+  type SdCustomRole,
   type SdPlayer,
   type SdSessionState,
+  type SdTitleDef,
 } from "../src/index.js";
 
 const players = (n: number): SdPlayer[] =>
@@ -94,6 +102,66 @@ test("the curated titles, exactly as they shipped", () => {
   ]);
 });
 
+/**
+ * EVERY ROLE ID SHIPPED BEFORE 2026-08-10, transcribed by hand from the
+ * catalogue as it stood.
+ *
+ * These are already written into `meta.role` on real ledger rows. Renaming one
+ * orphans that history with NOTHING ERRORING, exactly like a ledgerKey or a
+ * pack display name: the row stays, the lookup stops matching, and a
+ * win-rate-by-role surface quietly disagrees with the night it describes. ADD
+ * ONLY, NEVER RENAME (James, 2026-08-10: "keep the existing roles").
+ */
+const SHIPPED_ROLE_IDS: Record<string, string[]> = {
+  Werewolf: ["villager", "seer", "doctor", "hunter", "werewolf", "alpha", "tanner"],
+  Mafia: ["townsperson", "detective", "doctor", "mafioso", "godfather"],
+  Salem: ["townsperson", "sheriff", "doctor", "investigator", "mafioso", "godfather", "serialkiller", "jester"],
+  "Secret Hitler": ["liberal", "fascist", "hitler"],
+  Avalon: ["servant", "merlin", "percival", "minion", "assassin", "morgana", "mordred", "oberon"],
+  "Blood on the Clocktower": ["townsfolk", "outsider", "minion", "demon"],
+};
+
+test("EVERY PREVIOUSLY SHIPPED ROLE ID STILL RESOLVES, in the same title", () => {
+  // 3.1's guard, made mechanical. A role removed or renamed fails here rather
+  // than in a stats query nobody runs for a month.
+  for (const [title, ids] of Object.entries(SHIPPED_ROLE_IDS)) {
+    const def = sdTitleDef(title);
+    for (const id of ids) {
+      assert.ok(sdRole(def, id), `${title}: role id ${id} no longer resolves`);
+      assert.ok(sdFactionOfRole(def, id), `${title}: role id ${id} points at no faction`);
+    }
+  }
+});
+
+test("the catalogue gaps found on 2026-08-10 are filled", () => {
+  const wolf = sdTitleDef("Werewolf");
+  // Evil but not a wolf: both win WITH the wolves, so they sit on that faction.
+  assert.equal(sdFactionOfRole(wolf, "minion")?.id, "wolves");
+  assert.equal(sdFactionOfRole(wolf, "sorcerer")?.id, "wolves");
+
+  const salem = sdTitleDef("Salem");
+  // Each third party gets its OWN faction, the way the Jester already did.
+  assert.equal(sdFactionOfRole(salem, "witch")?.alignment, "solo");
+  assert.equal(sdFactionOfRole(salem, "witch")?.id, "witch");
+  assert.equal(sdFactionOfRole(salem, "executioner")?.alignment, "solo");
+
+  const botc = sdTitleDef("Blood on the Clocktower");
+  // THE FIFTH TYPE NEEDED TWO ENTRIES: a Traveller can be good or evil, and
+  // `role()` pins exactly one faction because a role whose faction floats
+  // cannot be ranked.
+  assert.equal(sdFactionOfRole(botc, "goodtraveller")?.alignment, "town");
+  assert.equal(sdFactionOfRole(botc, "eviltraveller")?.alignment, "evil");
+  assert.equal(botc.roles.length, 6);
+
+  // LEFT ALONE ON PURPOSE. Secret Hitler's three roles are the whole game,
+  // Avalon is complete for the base box, and Mafia is thin but coherent.
+  // Adding to these to look thorough is how a curated list turns into the
+  // rulebook this pack declined to become.
+  assert.equal(sdTitleDef("Secret Hitler").roles.length, 3);
+  assert.equal(sdTitleDef("Avalon").roles.length, 8);
+  assert.equal(sdTitleDef("Mafia").roles.length, 5);
+});
+
 test("every catalogue is internally consistent", () => {
   for (const def of [...SD_TITLE_DEFS, SD_DEFAULT_DEF]) {
     const factionIds = new Set(def.factions.map((f) => f.id));
@@ -111,7 +179,48 @@ test("every catalogue is internally consistent", () => {
     assert.equal(sdFactionOfRole(def, def.baselineEvil)?.alignment, "evil", `${def.title}: evil baseline`);
     // Two factions minimum, or there is nobody to find.
     assert.ok(def.factions.length >= 2, `${def.title}: needs at least two factions`);
+
+    // TYPING A CURATED ROLE'S NAME RETURNS THAT ROLE, never a second one. This
+    // is the half of 3.2 that has to hold for every entry in the catalogue,
+    // including the three whose shipped id does not equal their slug.
+    for (const r of def.roles) {
+      assert.equal(canonicalRole(r.name, def)?.id, r.id, `${def.title}: typing "${r.name}" misses ${r.id}`);
+      assert.equal(canonicalRole(r.name.toUpperCase(), def)?.id, r.id, `${def.title}: ${r.name} is case sensitive`);
+    }
   }
+});
+
+/**
+ * THE THREE ROLES WHOSE SHIPPED ID DOES NOT EQUAL THEIR NAME'S SLUG.
+ *
+ * They predate typed roles, so nothing could ever have been typed against them
+ * and no history can be split by them; `canonicalRole` matches by NAME first,
+ * so typing their names still lands on the shipped id. Every role added from
+ * 2026-08-10 on must slug cleanly, because a role typed BEFORE it is curated
+ * mints `sdRoleSlug(name)` and the curated entry has to agree with that or the
+ * two are different rows in the ledger.
+ */
+const SLUG_EXCEPTIONS = new Set(["Werewolf:alpha", "Avalon:servant", "Avalon:minion"]);
+
+test("A ROLE ID EQUALS ITS NAME'S SLUG, which is what makes type-then-curate unify", () => {
+  const offenders: string[] = [];
+  for (const def of [...SD_TITLE_DEFS, SD_DEFAULT_DEF]) {
+    for (const r of def.roles) {
+      const key = `${def.title}:${r.id}`;
+      if (SLUG_EXCEPTIONS.has(key)) continue;
+      if (sdRoleSlug(r.name) !== r.id) offenders.push(`${key} (slug of "${r.name}" is ${sdRoleSlug(r.name)})`);
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    "a curated role's id does not match its name's slug. A host who typed that name before " +
+      "it was curated got the slug, so these are two different roles in the ledger and one " +
+      "player's history is split across both.\n  " + offenders.join("\n  "),
+  );
+  // And the exceptions are real rather than a list somebody widened.
+  assert.equal(sdRoleSlug("Alpha Werewolf"), "alphawerewolf");
+  assert.notEqual(sdRoleSlug("Alpha Werewolf"), "alpha");
 });
 
 test("a title is matched case-folded, and anything else opens the default shape", () => {
@@ -820,4 +929,305 @@ test("the TV projection holds twenty players, which is this pack's cap", () => {
   // this number. What is asserted here is only that the payload reaches it.
   const state = boardNight(SD_MAX_PLAYERS);
   assert.equal(sdTvView(state).board!.players.length, 20);
+});
+
+// ---------- roles that are not on the list ----------
+
+test("the slug strips rather than hyphenates, which is what the shipped ids need", () => {
+  // "Serial Killer" is `serialkiller` in the shipped catalogue. A slug that
+  // produced `serial-killer` would split that role from itself the first time
+  // somebody typed the name.
+  assert.equal(sdRoleSlug("Serial Killer"), "serialkiller");
+  assert.equal(sdRoleSlug("  witch  "), "witch");
+  assert.equal(sdRoleSlug("WITCH"), "witch");
+  assert.equal(sdRoleSlug("Cult Leader!"), "cultleader");
+  assert.equal(sdRoleSlug("   "), "");
+});
+
+test("a typed role that names a CURATED role resolves to the curated id", () => {
+  const salem = sdTitleDef("Salem");
+  assert.deepEqual(canonicalRole("jester", salem), { id: "jester", name: "Jester", matched: true });
+  assert.deepEqual(canonicalRole("  SERIAL killer ", salem), {
+    id: "serialkiller",
+    name: "Serial Killer",
+    matched: true,
+  });
+  // Matched by ID too, for a host who types what they saw in a URL.
+  assert.equal(canonicalRole("serialkiller", salem)?.id, "serialkiller");
+  // And the three legacy ids, which only the NAME pass can reach.
+  assert.equal(canonicalRole("Alpha Werewolf", sdTitleDef("Werewolf"))?.id, "alpha");
+  assert.equal(canonicalRole("Minion of Mordred", sdTitleDef("Avalon"))?.id, "minion");
+  assert.equal(canonicalRole("Loyal Servant", sdTitleDef("Avalon"))?.id, "servant");
+
+  assert.equal(canonicalRole("", salem), null);
+  assert.equal(canonicalRole("   ", salem), null);
+});
+
+test("TYPE IT TONIGHT, CURATE IT LATER, AND IT IS THE SAME ROLE IN THE LEDGER", () => {
+  // The single most important property in this session. Salem had no Witch, so
+  // a host typed one. A later session adds Witch to the catalogue. Those two
+  // must be ONE role, not a typed row and a curated row splitting a player's
+  // history in half, and there is deliberately no separate namespace like
+  // `custom:Witch`, which would be that split dressed as tidiness.
+  //
+  // Modelled against a catalogue that does NOT have the role, which is exactly
+  // what Salem looked like this morning.
+  const before: SdTitleDef = {
+    ...sdTitleDef("Salem"),
+    roles: sdTitleDef("Salem").roles.filter((r) => r.id !== "witch"),
+    factions: sdTitleDef("Salem").factions.filter((f) => f.id !== "witch"),
+  };
+  assert.equal(sdRole(before, "witch"), undefined, "the fixture must not already have the role");
+
+  const typed = canonicalRole("Witch", before)!;
+  assert.equal(typed.matched, false, "it is a genuine miss before curation");
+  const idWhenTyped = typed.id;
+
+  // And now, against the catalogue as it actually ships today.
+  const after = sdTitleDef("Salem");
+  const curated = canonicalRole("Witch", after)!;
+  assert.equal(curated.matched, true);
+
+  assert.equal(
+    idWhenTyped,
+    curated.id,
+    "a role typed before it was curated must land on the SAME id, or that player's history splits",
+  );
+  assert.equal(idWhenTyped, "witch");
+  // Which is what makes the ledger unify: both nights wrote meta.role "witch".
+  assert.equal(sdRole(after, idWhenTyped)?.name, "Witch");
+});
+
+test("A TYPED ROLE MUST CARRY A FACTION, because a faction is what gets ranked", () => {
+  const salem = sdTitleDef("Salem");
+  assert.equal(validateTypedRole(salem, "", null, false), "Name the role");
+  assert.equal(validateTypedRole(salem, "Amnesiac", null, false), "Pick which faction this role wins with");
+  assert.equal(validateTypedRole(salem, "Amnesiac", "nosuchfaction", false), "That faction is not in this game");
+  assert.equal(validateTypedRole(salem, "Amnesiac", "town", false), null);
+  // A role that wins alone gets its own faction instead of picking one.
+  assert.equal(validateTypedRole(salem, "Amnesiac", null, true), null);
+});
+
+test("a typed role joins an existing faction, or brings its own solo one", () => {
+  const salem = sdTitleDef("Salem");
+
+  const joined = typedRole(salem, "Amnesiac", "town", false)!;
+  assert.deepEqual(joined.role, { id: "amnesiac", name: "Amnesiac", factionId: "town" });
+  assert.equal(joined.faction, null, "an existing faction is not re-created");
+
+  const alone = typedRole(salem, "Cult Leader", null, true)!;
+  assert.deepEqual(alone.role, { id: "cultleader", name: "Cult Leader", factionId: "cultleader" });
+  assert.deepEqual(alone.faction, { id: "cultleader", name: "Cult Leader", alignment: "solo" });
+
+  // Typing a role the title ALREADY has, as a solo, does not mint a second
+  // faction over the top of the curated one.
+  const already = typedRole(salem, "Jester", null, true)!;
+  assert.equal(already.role.id, "jester");
+  assert.equal(already.faction, null);
+
+  assert.equal(typedRole(salem, "", null, true), null);
+  assert.equal(typedRole(salem, "Amnesiac", "nosuchfaction", false), null);
+});
+
+test("the merged catalogue is ONE merge point, and a typed role cannot shadow a curated one", () => {
+  const salem = sdTitleDef("Salem");
+  const extraRoles: SdCustomRole[] = [
+    { id: "cultleader", name: "Cult Leader", factionId: "cultleader" },
+    // A typed role whose id already exists is DROPPED rather than allowed to
+    // shadow: the curated entry is the one with the faction the catalogue means.
+    { id: "jester", name: "Court Fool", factionId: "town" },
+  ];
+  const extraFactions: SdCustomFaction[] = [{ id: "cultleader", name: "Cult Leader", alignment: "solo" }];
+  const merged = sdDefWith(salem, extraRoles, extraFactions);
+
+  assert.equal(sdRole(merged, "cultleader")?.name, "Cult Leader");
+  assert.equal(sdFactionOfRole(merged, "cultleader")?.alignment, "solo");
+  assert.equal(sdRole(merged, "jester")?.name, "Jester", "a typed role must not shadow a curated one");
+  assert.equal(sdFactionOfRole(merged, "jester")?.id, "jester");
+  // Every curated role survives the merge.
+  assert.equal(merged.roles.length, salem.roles.length + 1);
+  assert.equal(merged.factions.length, salem.factions.length + 1);
+  // And merging nothing returns the def itself, so the common path allocates nothing.
+  assert.equal(sdDefWith(salem), salem);
+});
+
+test("a typed role deals, ranks and reaches the ledger like any other", () => {
+  const salem = sdTitleDef("Salem");
+  const made = typedRole(salem, "Cult Leader", null, true)!;
+  const def = sdDefWith(salem, [made.role], [made.faction!]);
+  const state = newSdState({ roster: players(5) });
+
+  const composition = [
+    { roleId: "townsperson", count: 4 },
+    { roleId: "cultleader", count: 1 },
+  ];
+  assert.equal(validateComposition(def, composition, 5), null);
+  const roles = dealRoles(composition, state.roster.map((p) => p.id), seeded(3));
+  assert.equal(Object.values(roles).filter((r) => r === "cultleader").length, 1);
+
+  const cultist = Object.keys(roles).find((id) => roles[id] === "cultleader")!;
+  assert.equal(factionsFromRoles(def, roles)[cultist], "cultleader");
+
+  state.deal = {
+    dealNo: 1,
+    title: "Salem",
+    at: NIGHT,
+    composition,
+    extraRoles: [made.role],
+    extraFactions: [made.faction!],
+  };
+  const game = recordSdGame(
+    state,
+    "Salem",
+    [
+      { factionId: "cultleader", memberIds: [cultist] },
+      { factionId: "town", memberIds: state.roster.map((p) => p.id).filter((id) => id !== cultist) },
+    ],
+    def,
+    roles,
+    NIGHT,
+  );
+  const line = sdGameLines(game).find((l) => l.playerId === cultist)!;
+  // The TYPED role reaches meta.role under the id a curated Cult Leader would
+  // have, which is the whole point.
+  assert.deepEqual(line.meta, {
+    faction: "cultleader",
+    alignment: "solo",
+    role: "cultleader",
+    survived: null,
+    votedOutFirst: null,
+  });
+  // And the game keeps the NAME, so a later stats surface can label it.
+  assert.deepEqual(game.extraRoles, [{ id: "cultleader", name: "Cult Leader", factionId: "cultleader" }]);
+});
+
+test("a session row from before typed roles existed loads with the new fields filled in", () => {
+  const legacy = {
+    sessionKey: "abc",
+    openScoring: false,
+    nowPlaying: "Salem",
+    roster: players(3),
+    boardEnabled: false,
+    board: null,
+    deal: { dealNo: 1, title: "Salem", at: NIGHT, composition: [{ roleId: "townsperson", count: 3 }] },
+    games: [{ idx: 0, title: "Salem", lines: [], factions: [], dealt: false, days: null, at: NIGHT }],
+  } as unknown as SdSessionState;
+  const up = normalizeSdState(legacy);
+  assert.deepEqual(up.deal!.extraRoles, []);
+  assert.deepEqual(up.deal!.extraFactions, []);
+  assert.deepEqual(up.games[0]!.extraRoles, []);
+});
+
+// ---------- shared wins ----------
+
+test("TWO FACTIONS SHARE A WIN AND THE LOSER IS THIRD: 1, 1, 3, never 1, 1, 2", () => {
+  // THE WITCH IS THE WORKED EXAMPLE. She survives and wins ALONGSIDE whoever
+  // kills the town, so two factions take placement 1 and the town is THIRD.
+  //
+  // Two placement rules live in this app and both are correct (teams.ts says so
+  // at its head): a TEAM result ranks sides 1..N, so a 2v2 is 1,1,2,2, and a
+  // GENUINE TIE uses competition ranking, which leaves the gap. A shared win is
+  // a tie between two SIDES, so the gap is right: there was no second place,
+  // there were two firsts. Closing it to 1,1,2 would quietly rewrite what a
+  // placement means in every row the other rule already wrote.
+  const def = sdTitleDef("Salem");
+  const order: SdFactionEntry[] = [
+    { factionId: "mafia", memberIds: ["p0", "p1"] },
+    { factionId: "witch", memberIds: ["p2"], tiedWithAbove: true },
+    { factionId: "town", memberIds: ["p3", "p4", "p5"] },
+  ];
+  const lines = sdPlacements(order, def, null);
+
+  assert.deepEqual(lines.map((l) => l.placement), [1, 1, 1, 3, 3, 3]);
+  assert.deepEqual(lines.map((l) => l.isWinner), [true, true, true, false, false, false]);
+  // The Witch is one player on her own faction and still carries a REAL side id,
+  // because the Mafia and the town both hold several: teams.ts's null rule.
+  assert.deepEqual(lines.map((l) => l.side), ["mafia", "mafia", "witch", "town", "town", "town"]);
+  assert.equal(lines.find((l) => l.playerId === "p2")!.alignment, "solo");
+});
+
+test("a shared win reaches the LEDGER as two winning factions and a third placement", () => {
+  const def = sdTitleDef("Salem");
+  const state = newSdState({ roster: players(6) });
+  const game = recordSdGame(
+    state,
+    "Salem",
+    [
+      { factionId: "mafia", memberIds: ["p0", "p1"] },
+      { factionId: "witch", memberIds: ["p2"], tiedWithAbove: true },
+      { factionId: "town", memberIds: ["p3", "p4", "p5"] },
+    ],
+    def,
+    { p0: "mafioso", p1: "godfather", p2: "witch", p3: "townsperson", p4: "sheriff", p5: "doctor" },
+    NIGHT,
+  );
+
+  const ledger = sdGameLines(game);
+  assert.deepEqual(ledger.map((l) => [l.placement, l.isWinner]), [
+    [1, true], [1, true], [1, true], [3, false], [3, false], [3, false],
+  ]);
+  assert.equal(ledger.find((l) => l.playerId === "p2")!.meta.role, "witch");
+  // The game's own snapshot agrees: two factions at 1, one at 3.
+  assert.deepEqual(
+    game.factions.map((f) => [f.id, f.placement]),
+    [["mafia", 1], ["witch", 1], ["town", 3]],
+  );
+});
+
+test("a shared win counts as a win for everybody on both factions in the night summary", () => {
+  const def = sdTitleDef("Salem");
+  const state = newSdState({ roster: players(6) });
+  recordSdGame(
+    state,
+    "Salem",
+    [
+      { factionId: "mafia", memberIds: ["p0", "p1"] },
+      { factionId: "witch", memberIds: ["p2"], tiedWithAbove: true },
+      { factionId: "town", memberIds: ["p3", "p4", "p5"] },
+    ],
+    def,
+    null,
+    NIGHT,
+  );
+  const s = summarizeSdNight(state);
+  const by = new Map(s.players.map((p) => [p.playerId, p]));
+  assert.deepEqual([by.get("p0")!.wins, by.get("p0")!.evilWins], [1, 1]);
+  assert.deepEqual([by.get("p2")!.wins, by.get("p2")!.soloWins], [1, 1]);
+  assert.equal(by.get("p3")!.wins, 0);
+  // Both alignments show a win; the town shows three losses.
+  assert.deepEqual(s.byAlignment, [
+    { alignment: "town", games: 3, wins: 0 },
+    { alignment: "evil", games: 2, wins: 2 },
+    { alignment: "solo", games: 1, wins: 1 },
+  ]);
+  // And the last-game panel puts both winners at the top.
+  assert.deepEqual(s.last!.factions.map((f) => [f.name, f.placement]), [
+    ["Mafia", 1], ["Witch", 1], ["Town", 3],
+  ]);
+});
+
+test("three factions sharing one win is 1, 1, 1, 4", () => {
+  // The rule generalises rather than being special-cased at two, which is what
+  // competition ranking means: the next untied side takes its own 1-based
+  // position.
+  const def = sdTitleDef("Salem");
+  const order: SdFactionEntry[] = [
+    { factionId: "mafia", memberIds: ["p0"] },
+    { factionId: "witch", memberIds: ["p1"], tiedWithAbove: true },
+    { factionId: "executioner", memberIds: ["p2"], tiedWithAbove: true },
+    { factionId: "town", memberIds: ["p3", "p4"] },
+  ];
+  assert.deepEqual(sdPlacements(order, def, null).map((l) => l.placement), [1, 1, 1, 4, 4]);
+});
+
+test("a tie flag on the FIRST faction is ignored rather than being an error", () => {
+  // Reachable from a client that sent an order starting with the flag set, and
+  // there is nothing above the first row to be level with.
+  const def = sdTitleDef("Salem");
+  const order: SdFactionEntry[] = [
+    { factionId: "mafia", memberIds: ["p0"], tiedWithAbove: true },
+    { factionId: "town", memberIds: ["p1", "p2"] },
+  ];
+  assert.equal(validateSdResult(order, newSdState({ roster: players(3) }), def), null);
+  assert.deepEqual(sdPlacements(order, def, null).map((l) => l.placement), [1, 2, 2]);
 });

@@ -149,9 +149,14 @@ const role = (id: string, name: string, factionId: string): SdRole => ({ id, nam
  * tail of optional roles, and Blood on the Clocktower has hundreds that change
  * per script, so listing them would be a rulebook this app has no business
  * maintaining and would be out of date by its second edition. What is here is
- * the roles a crew actually announces at the start of a game, which is all the
- * deal needs, and the host can deal a role that is not on the list by dealing
- * the baseline and saying the rest out loud, the way they already do.
+ * the roles a crew actually announces at the start of a game.
+ *
+ * A ROLE THAT IS NOT ON THE LIST IS TYPED, not approximated. The workaround
+ * this file used to document (deal the baseline and say the rest out loud) wrote
+ * a FALSE RECORD on purpose: a Salem Witch went into `meta.role` as a
+ * Townsperson, permanently, and any future win-rate-by-role surface reads that.
+ * Titles were built open so a gap produces NO record rather than a WRONG one,
+ * and `canonicalRole` below gives roles the same treatment.
  */
 export const SD_TITLE_DEFS: readonly SdTitleDef[] = [
   {
@@ -164,6 +169,13 @@ export const SD_TITLE_DEFS: readonly SdTitleDef[] = [
       role("hunter", "Hunter", "village"),
       role("werewolf", "Werewolf", "wolves"),
       role("alpha", "Alpha Werewolf", "wolves"),
+      // EVIL BUT NOT A WOLF. Both know the wolves and win with them, and neither
+      // is one: a seer reads them as human and the wolves do not wake with them.
+      // They sit on the wolves' FACTION because that is who they win with, which
+      // is the only question this model asks, and the difference the deal cares
+      // about is that they are not part of the wolf count.
+      role("minion", "Minion", "wolves"),
+      role("sorcerer", "Sorcerer", "wolves"),
       role("tanner", "Tanner", "tanner"),
     ],
     baselineTown: "villager",
@@ -189,6 +201,14 @@ export const SD_TITLE_DEFS: readonly SdTitleDef[] = [
       EVIL("mafia", "Mafia"),
       SOLO("serialkiller", "Serial Killer"),
       SOLO("jester", "Jester"),
+      // APPENDED 2026-08-10, never inserted, and each solo role gets its OWN
+      // faction the way the Jester already does. THE WITCH IS THE WORKED EXAMPLE
+      // OF A SHARED WIN: she survives and wins ALONGSIDE whoever kills the town,
+      // so her faction and the Mafia both take placement 1 and the town is
+      // THIRD. That is competition ranking over factions, and `tiedWithAbove`
+      // is how it is recorded.
+      SOLO("witch", "Witch"),
+      SOLO("executioner", "Executioner"),
     ],
     roles: [
       role("townsperson", "Townsperson", "town"),
@@ -199,6 +219,8 @@ export const SD_TITLE_DEFS: readonly SdTitleDef[] = [
       role("godfather", "Godfather", "mafia"),
       role("serialkiller", "Serial Killer", "serialkiller"),
       role("jester", "Jester", "jester"),
+      role("witch", "Witch", "witch"),
+      role("executioner", "Executioner", "executioner"),
     ],
     baselineTown: "townsperson",
     baselineEvil: "mafioso",
@@ -242,6 +264,14 @@ export const SD_TITLE_DEFS: readonly SdTitleDef[] = [
       role("outsider", "Outsider", "good"),
       role("minion", "Minion", "evil"),
       role("demon", "Demon", "evil"),
+      // THE FIFTH TYPE, AND IT NEEDS TWO ENTRIES RATHER THAN ONE. The
+      // Storyteller announces five types and only four were listed. Travellers
+      // can be good OR evil, and `role()` pins exactly one faction on purpose:
+      // a role whose faction floats cannot be ranked, because the result form
+      // ranks factions and every player's side is derived from their role. So
+      // the choice is made when the role is dealt rather than left open.
+      role("goodtraveller", "Good Traveller", "good"),
+      role("eviltraveller", "Evil Traveller", "evil"),
     ],
     baselineTown: "townsfolk",
     baselineEvil: "demon",
@@ -290,6 +320,166 @@ export function sdFactionOfRole(def: SdTitleDef, roleId: string): SdFaction | un
   return r ? sdFaction(def, r.factionId) : undefined;
 }
 
+// ---------- roles that are not on the list ----------
+//
+// ===========================================================================
+// TITLES WERE OPEN AND ROLES WERE CLOSED, AND BOTH REACH THE PERMANENT RECORD.
+//
+// A free-typed title always won and got SD_DEFAULT_DEF. There was no equivalent
+// for a role: the catalogue was closed per title, and the documented workaround
+// was to deal the baseline and say the rest out loud. Every ledger line carries
+// `meta.role`. So a Salem Witch was recorded as a Townsperson, permanently.
+// That is not a missing feature, it is a false record written on purpose.
+//
+// THE ONE RULE THAT MAKES THIS SAFE: A TYPED ROLE CANONICALIZES TO THE ID THE
+// CURATED ROLE WOULD HAVE. If a host types "Witch" tonight and a later session
+// adds Witch to the catalogue, those must be THE SAME ROLE IN THE LEDGER, not
+// two rows splitting one player's history across a typed one and a curated one.
+// There is deliberately no separate namespace like `custom:Witch`: that is the
+// split, dressed as tidiness. Same defence `canonicalTitle` already gives
+// titles, one level down.
+// ===========================================================================
+
+/**
+ * The id a role name mints: lower case, alphanumerics only.
+ *
+ * IT MUST MATCH THE CURATED IDS, which is why it strips rather than hyphenates:
+ * "Serial Killer" is `serialkiller` in the shipped catalogue, and a slug that
+ * produced `serial-killer` would mean a host who typed the name before it was
+ * curated had their history split from everybody who tapped it afterwards.
+ */
+export function sdRoleSlug(name: string): string {
+  return normalizeTitle(name).toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/** A role typed for one game, on top of the title's catalogue. */
+export interface SdCustomRole {
+  id: string;
+  name: string;
+  factionId: string;
+}
+
+/** A faction created for a typed role that wins alone. */
+export interface SdCustomFaction {
+  id: string;
+  name: string;
+  alignment: SdAlignment;
+}
+
+/**
+ * Resolve a typed role name against a title's catalogue.
+ *
+ * MATCHED BY NAME FIRST, THEN BY ID, and only a genuine miss mints a new id.
+ * The name pass is what keeps the three roles whose shipped id does not equal
+ * their slug working: "Alpha Werewolf" is `alpha`, "Loyal Servant" is `servant`
+ * and Avalon's "Minion of Mordred" is `minion`. Typing any of those has to
+ * return the id already in the ledger, never a second one.
+ *
+ * Returns null for an empty name.
+ */
+export function canonicalRole(raw: string, def: SdTitleDef): { id: string; name: string; matched: boolean } | null {
+  const name = normalizeTitle(raw);
+  if (!name) return null;
+  const folded = name.toLowerCase();
+  for (const r of def.roles) {
+    if (r.name.toLowerCase() === folded) return { id: r.id, name: r.name, matched: true };
+  }
+  const slug = sdRoleSlug(name);
+  for (const r of def.roles) {
+    if (r.id === slug) return { id: r.id, name: r.name, matched: true };
+  }
+  return { id: slug, name, matched: false };
+}
+
+/**
+ * Check a typed role before it can be dealt. Returns an error or null.
+ *
+ * A TYPED ROLE MUST CARRY A FACTION, and that is structural rather than
+ * fussy: `factionsFromRoles` derives every player's side from their role, and
+ * the result form ranks factions, so a role belonging to nothing cannot be
+ * ranked and the game it was dealt in could not be recorded.
+ *
+ * `soloFaction` is the escape hatch for a role that wins alone, which is most
+ * of what a host is typing: it mints a faction named after the role, exactly
+ * the shape the Jester and the Tanner already have in the catalogue.
+ */
+export function validateTypedRole(
+  def: SdTitleDef,
+  raw: string,
+  factionId: string | null,
+  soloFaction: boolean,
+): string | null {
+  const c = canonicalRole(raw, def);
+  if (!c) return "Name the role";
+  if (soloFaction) return null;
+  if (!factionId) return "Pick which faction this role wins with";
+  if (!sdFaction(def, factionId)) return "That faction is not in this game";
+  return null;
+}
+
+/**
+ * Turn a typed role into the pair the deal stores: the role, and the faction it
+ * needs if that faction does not exist yet.
+ *
+ * Returns null when the name is empty or, for the solo case, when the minted
+ * faction id would collide with a faction the title already has, which is the
+ * host typing the name of a faction rather than of a role.
+ */
+export function typedRole(
+  def: SdTitleDef,
+  raw: string,
+  factionId: string | null,
+  soloFaction: boolean,
+): { role: SdCustomRole; faction: SdCustomFaction | null } | null {
+  const c = canonicalRole(raw, def);
+  if (!c) return null;
+  if (!soloFaction) {
+    if (!factionId || !sdFaction(def, factionId)) return null;
+    return { role: { id: c.id, name: c.name, factionId }, faction: null };
+  }
+  // A solo faction takes the role's own id, which is what the catalogue already
+  // does for the Jester, the Tanner and the Witch: one third party, one faction.
+  const fid = c.id;
+  return {
+    role: { id: c.id, name: c.name, factionId: fid },
+    faction: sdFaction(def, fid) ? null : { id: fid, name: c.name, alignment: "solo" },
+  };
+}
+
+/**
+ * The catalogue for ONE GAME: the title's, plus whatever the host typed.
+ *
+ * ONE MERGE POINT, so nothing downstream has to know typed roles exist.
+ * `sdRole`, `sdFaction`, `factionsFromRoles`, `validateComposition`,
+ * `sdPlacements` and the TV projection all take a def and are unchanged.
+ *
+ * A typed role whose id already exists is DROPPED rather than allowed to
+ * shadow the curated one, which is the other half of the no-split rule: the
+ * curated entry is the one with the faction the catalogue intends.
+ */
+export function sdDefWith(
+  def: SdTitleDef,
+  extraRoles: readonly SdCustomRole[] = [],
+  extraFactions: readonly SdCustomFaction[] = [],
+): SdTitleDef {
+  if (extraRoles.length === 0 && extraFactions.length === 0) return def;
+  const haveRole = new Set(def.roles.map((r) => r.id));
+  const haveFaction = new Set(def.factions.map((f) => f.id));
+  const factions = [...def.factions];
+  for (const f of extraFactions) {
+    if (haveFaction.has(f.id)) continue;
+    haveFaction.add(f.id);
+    factions.push(f);
+  }
+  const roles = [...def.roles];
+  for (const r of extraRoles) {
+    if (haveRole.has(r.id)) continue;
+    haveRole.add(r.id);
+    roles.push({ id: r.id, name: r.name, factionId: r.factionId });
+  }
+  return { ...def, factions, roles };
+}
+
 // ---------- the deal ----------
 
 /** How many of one role are in the game. The public half of a deal. */
@@ -314,6 +504,17 @@ export interface SdDealSummary {
   title: string;
   at: string;
   composition: SdRoleCount[];
+  /**
+   * Roles the host typed for this game, on top of the title's catalogue.
+   *
+   * PUBLIC, exactly like the composition and for exactly the same reason: the
+   * moderator announces the setup out loud, and "there is a Witch in this one"
+   * is part of that. What is secret is who has it, and that mapping is not here
+   * or anywhere else in session state.
+   */
+  extraRoles: SdCustomRole[];
+  /** Factions those typed roles needed, for the ones that win alone. */
+  extraFactions: SdCustomFaction[];
 }
 
 /** The SECRET half: who has what. Never part of session state. See the header. */
@@ -517,6 +718,14 @@ export interface SdGame {
   dealt: boolean;
   /** How far the game got, or NULL when the board was off. Absent, never zero. */
   days: number | null;
+  /**
+   * The typed roles this game was played with, snapshotted.
+   *
+   * `meta.role` on the ledger carries the ID, which is the permanent record and
+   * is self-contained. This keeps the NAME too, so a future wins-by-role surface
+   * can label a typed role without needing the catalogue to have caught up.
+   */
+  extraRoles: SdCustomRole[];
   at: string;
 }
 
@@ -724,7 +933,13 @@ export function normalizeSdState(state: SdSessionState): SdSessionState {
     ...state,
     boardEnabled: state.boardEnabled ?? false,
     board: state.board ?? null,
-    games: (state.games ?? []).map((g) => ({ ...g, days: g.days ?? null })),
+    // Every session row written before typed roles existed lacks these three.
+    // The failure without the backfill is silent rather than loud: a `.map` over
+    // undefined throws inside a route that worked yesterday.
+    deal: state.deal
+      ? { ...state.deal, extraRoles: state.deal.extraRoles ?? [], extraFactions: state.deal.extraFactions ?? [] }
+      : null,
+    games: (state.games ?? []).map((g) => ({ ...g, days: g.days ?? null, extraRoles: g.extraRoles ?? [] })),
   };
 }
 
@@ -873,6 +1088,7 @@ export function recordSdGame(
     })),
     dealt: !!roles && Object.keys(roles).length > 0,
     days: state.board?.day ?? null,
+    extraRoles: state.deal?.extraRoles ?? [],
     at,
   };
   state.games.push(game);
@@ -951,7 +1167,14 @@ export interface SdTvView {
 
 export function sdTvView(state: SdSessionState): SdTvView {
   const nameOf = new Map(state.roster.map((p) => [p.id, p.name]));
-  const def = sdTitleDef(state.deal?.title ?? state.nowPlaying);
+  // THE MERGED def, so a typed role reaches the screen under its own name
+  // rather than falling back to its id. It still resolves only roles somebody
+  // chose to reveal; see this function's header.
+  const def = sdDefWith(
+    sdTitleDef(state.deal?.title ?? state.nowPlaying),
+    state.deal?.extraRoles,
+    state.deal?.extraFactions,
+  );
   const board = state.board;
 
   return {

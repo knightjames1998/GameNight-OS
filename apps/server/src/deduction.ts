@@ -48,16 +48,21 @@ import {
   recordSdGame,
   sdAdvancePhase,
   sdGameLines,
+  sdDefWith,
   sdSetOut,
   sdTitleDef,
   sdTvView,
   summarizeSdNight,
   tnTitleSuggestions,
+  typedRole,
   validateComposition,
   validateSdResult,
+  validateTypedRole,
   SD_MAX_PLAYERS,
   SD_TITLES,
   SESSION_PACKS,
+  type SdCustomFaction,
+  type SdCustomRole,
   type SdFactionEntry,
   type SdGame,
   type SdOutKind,
@@ -349,7 +354,35 @@ deductionRouter.post(`/${route}/:eventId/deal`, requireAuth, async (req: AuthedR
     return;
   }
   const { title } = canonicalTitle(rawTitle, await known(row.groupId));
-  const def = sdTitleDef(title);
+  const curated = sdTitleDef(title);
+
+  // ROLES THE HOST TYPED, canonicalized SERVER-SIDE against this title's
+  // catalogue. That is where it has to happen: the id is what reaches
+  // `meta.role` forever, so a client that minted its own would be one refactor
+  // away from splitting a player's history in two. `typedRole` returns the
+  // curated id when the typed name already names a curated role, so typing
+  // "Alpha Werewolf" cannot create a second Alpha Werewolf.
+  const rawTyped = Array.isArray(req.body?.typedRoles) ? req.body.typedRoles : [];
+  const extraRoles: SdCustomRole[] = [];
+  const extraFactions: SdCustomFaction[] = [];
+  for (const t of rawTyped.slice(0, SD_MAX_PLAYERS)) {
+    const name = String(t?.name ?? "").slice(0, 40);
+    const solo = !!t?.soloFaction;
+    const factionId = typeof t?.factionId === "string" ? t.factionId : null;
+    const bad = validateTypedRole(curated, name, factionId, solo);
+    if (bad) {
+      res.status(400).json({ error: bad });
+      return;
+    }
+    const made = typedRole(curated, name, factionId, solo);
+    if (!made) continue;
+    extraRoles.push(made.role);
+    if (made.faction) extraFactions.push(made.faction);
+  }
+
+  // ONE MERGE POINT: everything downstream takes a def and does not know that
+  // typed roles exist.
+  const def = sdDefWith(curated, extraRoles, extraFactions);
 
   const rawComposition = Array.isArray(req.body?.composition) ? req.body.composition : [];
   const composition: SdRoleCount[] = rawComposition
@@ -371,7 +404,18 @@ deductionRouter.post(`/${route}/:eventId/deal`, requireAuth, async (req: AuthedR
   // with the moderator saying the setup out loud. What is secret is who has
   // what, and that is the object above, which never touches this state.
   state.nowPlaying = title;
-  state.deal = { dealNo, title, at, composition: compositionOf(def, roles) };
+  // Only the typed roles that were actually DEALT ride along: a host who typed
+  // a Witch and then set her count back to zero did not play with one, and a
+  // summary that announced her would be describing a game nobody is playing.
+  const dealtRoleIds = new Set(Object.values(roles));
+  state.deal = {
+    dealNo,
+    title,
+    at,
+    composition: compositionOf(def, roles),
+    extraRoles: extraRoles.filter((r) => dealtRoleIds.has(r.id)),
+    extraFactions: extraFactions.filter((f) => extraRoles.some((r) => r.factionId === f.id && dealtRoleIds.has(r.id))),
+  };
   // A DEAL OPENS A FRESH BOARD when the host has the board on, so nobody has to
   // re-flip a toggle between games. The preference outlives a game; the board
   // does not, because it belongs to the game it was tracking.
@@ -547,7 +591,8 @@ deductionRouter.post(`/${route}/:eventId/record`, requireAuth, async (req: Authe
     return;
   }
   const { title } = canonicalTitle(rawTitle, await known(row.groupId));
-  const def = sdTitleDef(title);
+  // The MERGED def, so a faction the host typed can be ranked like any other.
+  const def = sdDefWith(sdTitleDef(title), state.deal?.extraRoles, state.deal?.extraFactions);
 
   const raw = Array.isArray(req.body?.order) ? req.body.order : [];
   const order: SdFactionEntry[] = raw

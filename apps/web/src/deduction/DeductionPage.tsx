@@ -2,10 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   compositionSize,
+  sdDefWith,
   sdTitleDef,
   suggestComposition,
+  typedRole,
   tnTitleSuggestions,
   validateComposition,
+  validateTypedRole,
   SD_MAX_PLAYERS,
   SD_TITLES,
   SESSION_PACKS,
@@ -476,6 +479,13 @@ function DealCard({
   const size = session.roster.length;
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [seeded, setSeeded] = useState("");
+  // Roles the host typed for this game. Held as what they TYPED rather than as
+  // a resolved role, because the server canonicalizes and is the authority: a
+  // client that minted its own ids would be one refactor away from splitting a
+  // player's history across a typed row and a curated one.
+  const [typed, setTyped] = useState<TypedDraft[]>([]);
+  const [draft, setDraft] = useState("");
+  const [draftFaction, setDraftFaction] = useState<string | null>(null);
 
   // Reseed from the suggestion whenever the title or the table changes, so the
   // host opens on a workable setup rather than a blank form. Their own edits
@@ -486,16 +496,48 @@ function DealCard({
     const next: Record<string, number> = {};
     for (const c of suggestComposition(def, size)) next[c.roleId] = c.count;
     setCounts(next);
+    setTyped([]);
     setSeeded(seed);
   }, [seed, seeded, def, size]);
 
-  const composition: SdRoleCount[] = def.roles
+  // ONE MERGE POINT on the client too, and it is the SAME function the server
+  // uses, so the counter list, the validation and the deal cannot disagree
+  // about what roles exist.
+  const made = useMemo(
+    () =>
+      typed
+        .map((t) => typedRole(def, t.name, t.factionId, t.factionId === null))
+        .filter((m): m is NonNullable<typeof m> => m !== null),
+    [typed, def],
+  );
+  const merged = useMemo(
+    () =>
+      sdDefWith(
+        def,
+        made.map((m) => m.role),
+        made.map((m) => m.faction).filter((f): f is NonNullable<typeof f> => f !== null),
+      ),
+    [def, made],
+  );
+
+  const composition: SdRoleCount[] = merged.roles
     .filter((r) => (counts[r.id] ?? 0) > 0)
     .map((r) => ({ roleId: r.id, count: counts[r.id]! }));
   const dealt = compositionSize(composition);
-  const problem = validateComposition(def, composition, size);
+  const problem = validateComposition(merged, composition, size);
   const bump = (roleId: string, by: number) =>
     setCounts((c) => ({ ...c, [roleId]: Math.max(0, (c[roleId] ?? 0) + by) }));
+
+  const draftProblem = draft.trim() ? validateTypedRole(def, draft, draftFaction, draftFaction === null) : null;
+  const addTyped = () => {
+    if (!draft.trim() || draftProblem) return;
+    const resolved = typedRole(def, draft, draftFaction, draftFaction === null);
+    setTyped([...typed, { name: draft.trim(), factionId: draftFaction }]);
+    // Open it at one, because a role you just typed is one you are dealing.
+    if (resolved) setCounts((c) => ({ ...c, [resolved.role.id]: Math.max(1, c[resolved.role.id] ?? 0) }));
+    setDraft("");
+    setDraftFaction(null);
+  };
 
   if (session.deal) {
     return (
@@ -522,11 +564,11 @@ function DealCard({
         The suggestion is a starting position, never a rule.
       </p>
 
-      {def.roles.map((r) => (
+      {merged.roles.map((r) => (
         <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ flex: 1 }}>
             {r.name}
-            <span className="gn-hint"> · {factionName(def, r.factionId)}</span>
+            <span className="gn-hint"> · {factionName(merged, r.factionId)}</span>
           </span>
           <button className="gn-actionbtn" aria-label={`one fewer ${r.name}`} onClick={() => bump(r.id, -1)}>
             &minus;
@@ -538,18 +580,91 @@ function DealCard({
         </div>
       ))}
 
+      {/* A ROLE THAT IS NOT ON THE LIST IS TYPED, NOT APPROXIMATED. The old
+          advice was to deal the baseline and say the rest out loud, which wrote
+          a false record on purpose: a Salem Witch went into the ledger as a
+          Townsperson, permanently. Typing it records what was actually played,
+          and the server canonicalizes the name so that a role typed tonight and
+          the same role added to the list later are ONE role rather than two. */}
+      <div className="gn-lab" style={{ marginTop: 12 }}>Not on the list</div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input
+          className="gn-input"
+          placeholder="Role name"
+          maxLength={40}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addTyped()}
+        />
+        <button
+          className="gn-btn gn-btn--ghost"
+          style={{ width: "auto", padding: "0 16px" }}
+          disabled={!draft.trim() || !!draftProblem}
+          onClick={addTyped}
+        >
+          Add
+        </button>
+      </div>
+      {draft.trim() && (
+        <>
+          {/* A TYPED ROLE MUST CARRY A FACTION, and that is structural rather
+              than fussy: every player's side is derived from their role and the
+              result form ranks factions, so a role belonging to nothing could
+              not be recorded at all. */}
+          <div className="gn-lab">Who do they win with</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {def.factions.map((f) => (
+              <button
+                key={f.id}
+                className={draftFaction === f.id ? "gn-chip gn-chip--stats" : "gn-actionbtn"}
+                onClick={() => setDraftFaction(f.id)}
+              >
+                {f.name}
+              </button>
+            ))}
+            <button
+              className={draftFaction === null ? "gn-chip gn-chip--stats" : "gn-actionbtn"}
+              onClick={() => setDraftFaction(null)}
+            >
+              Wins alone
+            </button>
+          </div>
+        </>
+      )}
+      {typed.length > 0 && (
+        <p className="gn-hint">
+          Typed this game: {typed.map((t) => t.name).join(", ")}.{" "}
+          <button className="gn-textbtn" onClick={() => setTyped([])}>clear</button>
+        </p>
+      )}
+
       <p className="gn-hint">
         {dealt} of {size} seats filled.
       </p>
       <button
         className="gn-btn gn-btn--go"
         disabled={busy || !!problem}
-        onClick={() => call(at("deal"), { title: def.title || session.nowPlaying || "", composition })}
+        onClick={() =>
+          call(at("deal"), {
+            title: def.title || session.nowPlaying || "",
+            composition,
+            // What the host TYPED, not what this screen resolved it to. The
+            // server does the canonicalization, because the id it mints is what
+            // reaches meta.role forever.
+            typedRoles: typed.map((t) => ({ name: t.name, factionId: t.factionId, soloFaction: t.factionId === null })),
+          })
+        }
       >
         {problem ?? "Deal"}
       </button>
     </div>
   );
+}
+
+/** A role as the host typed it. `factionId` null means it wins alone. */
+interface TypedDraft {
+  name: string;
+  factionId: string | null;
 }
 
 const factionName = (def: SdTitleDef, id: string) => def.factions.find((f) => f.id === id)?.name ?? id;
@@ -732,7 +847,18 @@ function RecordResult({
   const [prefilled, setPrefilled] = useState<number | null>(null);
 
   const effectiveTitle = (typedTitle || title).trim();
-  const effectiveDef = useMemo(() => (typedTitle.trim() ? sdTitleDef(typedTitle) : def), [typedTitle, def]);
+  // The MERGED def, so a faction the host typed can be ranked like any other.
+  // Without this a game dealt with a Cult Leader could not be recorded at all,
+  // because the form would have no chip to put them on.
+  const effectiveDef = useMemo(
+    () =>
+      sdDefWith(
+        typedTitle.trim() ? sdTitleDef(typedTitle) : def,
+        session.deal?.extraRoles,
+        session.deal?.extraFactions,
+      ),
+    [typedTitle, def, session.deal],
+  );
   const dealNo = session.deal?.dealNo ?? null;
 
   // Prefill once per deal, and only for a host, who is the only caller the deal
@@ -865,7 +991,11 @@ function RecordResult({
               aria-pressed={o.tiedWithAbove}
               onClick={() => setOrder(order.map((e, j) => (j === i ? { ...e, tiedWithAbove: !e.tiedWithAbove } : e)))}
             >
-              lost with the one above
+              {/* It used to read "lost with the one above", which was written
+                  when the top faction always won alone. The same flag is what
+                  records a SHARED WIN (a Witch winning alongside the Mafia), so
+                  the label follows the placement rather than assuming a loss. */}
+              {o.tiedWithAbove && placements[i] === 1 ? "shared the win" : "level with the one above"}
             </button>
           )}
           <button className="gn-textbtn" onClick={() => setOrder(order.filter((_, j) => j !== i))}>
@@ -875,8 +1005,9 @@ function RecordResult({
       ))}
       {order.length > 0 && (
         <p className="gn-hint">
-          Everybody on the winning faction wins together. A third party who stole it goes first, and the sides that lost
-          to them are marked as losing together.
+          Everybody on the winning faction wins together. TWO FACTIONS CAN SHARE A WIN: mark the second one level with
+          the first and both take 1st, which puts the faction that lost to them in 3rd rather than 2nd, because there
+          was no second place.
         </p>
       )}
 

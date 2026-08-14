@@ -33,14 +33,17 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  compositionOf,
   dealRoles,
   newSdBoard,
   newSdState,
   recordSdGame,
+  sdDefWith,
   sdSetOut,
   sdTitleDef,
   sdTvView,
   suggestComposition,
+  typedRole,
   PACK_BY_LEDGER,
   SESSION_PACKS,
   type SdPlayer,
@@ -78,7 +81,20 @@ function scannable(state: SdSessionState): string {
   const session = payload.session;
   // A fresh object rather than a mutation: `viewOf` spreads the state, so
   // `session.deal` is the very object the caller passed in.
-  if (session?.deal) session.deal = { ...(session.deal as object), composition: "<public setup>" };
+  //
+  // `extraRoles` and `extraFactions` are blanked for the SAME REASON as the
+  // composition: they are the announced setup for a role the catalogue does not
+  // have yet, so they carry role ids on purpose. They are a CATALOGUE rather
+  // than a mapping, and the key-list test asserts separately that no player id
+  // appears in either, which is the property that actually matters.
+  if (session?.deal) {
+    session.deal = {
+      ...(session.deal as object),
+      composition: "<public setup>",
+      extraRoles: "<public setup>",
+      extraFactions: "<public setup>",
+    };
+  }
   return JSON.stringify(payload);
 }
 
@@ -87,16 +103,40 @@ function leaks(json: string, needles: readonly string[]): string[] {
   return needles.filter((n) => n.length > 0 && json.includes(n));
 }
 
-/** A live night: nine players, dealt, mid-game, nothing recorded yet. */
-function liveNight() {
-  const def = sdTitleDef("Werewolf");
+/**
+ * A live night: nine players, dealt, mid-game, nothing recorded yet.
+ *
+ * THE DEAL IS BUILT THE WAY THE DEAL ROUTE BUILDS IT, field for field, and that
+ * matters more than it looks: these test files are NOT in the typecheck scope
+ * (`include: ["src"]`), so a hand-written deal literal that quietly omits a new
+ * field makes the key-list assertion below pass against a shape the server
+ * never serves. That happened once, on the pass that added typed roles.
+ *
+ * `extra` adds a typed role, which is the shape a host reaches for when the
+ * catalogue is missing one.
+ */
+function liveNight(extra?: { name: string; solo: boolean }) {
+  const curated = sdTitleDef("Werewolf");
+  const made = extra ? typedRole(curated, extra.name, null, extra.solo) : null;
+  const def = made ? sdDefWith(curated, [made.role], made.faction ? [made.faction] : []) : curated;
   const roster = players(9);
   const state = newSdState({ roster });
-  const composition = suggestComposition(def, 9);
+  const composition = made
+    ? [{ roleId: def.baselineTown, count: 6 }, { roleId: def.baselineEvil, count: 2 }, { roleId: made.role.id, count: 1 }]
+    : suggestComposition(def, 9);
   // A pinned deal, so the needles below are exactly what was dealt.
   const roles = dealRoles(composition, roster.map((p) => p.id), () => 0.5);
   state.nowPlaying = "Werewolf";
-  state.deal = { dealNo: 1, title: "Werewolf", at: "2026-08-10T20:00:00.000Z", composition };
+  state.deal = {
+    dealNo: 1,
+    title: "Werewolf",
+    at: "2026-08-10T20:00:00.000Z",
+    composition: compositionOf(def, roles),
+    extraRoles: made ? [made.role] : [],
+    extraFactions: made?.faction ? [made.faction] : [],
+  };
+  state.boardEnabled = true;
+  state.board = newSdBoard(roster, "2026-08-10T20:00:00.000Z");
   return { def, roster, state, roles };
 }
 
@@ -184,7 +224,21 @@ test("the public deal summary says the SETUP and never who has it", () => {
   // something the room already knows. What must not be there is the mapping.
   const { state } = liveNight();
   const deal = (payloadFor(state).session as { deal: Record<string, unknown> }).deal;
-  assert.deepEqual(Object.keys(deal).sort(), ["at", "composition", "dealNo", "title"]);
+  assert.deepEqual(Object.keys(deal).sort(), [
+    "at",
+    "composition",
+    "dealNo",
+    // The roles the host TYPED, and any faction they needed. Public for exactly
+    // the same reason the composition is: "there is a Witch in this one" is part
+    // of the setup the moderator announces. Neither carries a player.
+    "extraFactions",
+    "extraRoles",
+    "title",
+  ]);
+  // And neither of them mentions anybody: they are a catalogue, not a mapping.
+  const rosterIds = state.roster.map((p) => p.id);
+  const json = JSON.stringify([deal.extraRoles, deal.extraFactions]);
+  for (const id of rosterIds) assert.equal(json.includes(id), false, `${id} appears in the typed-role list`);
   assert.deepEqual(deal.composition, [
     { roleId: "villager", count: 7 },
     { roleId: "werewolf", count: 2 },
@@ -275,7 +329,14 @@ function tvNight() {
   const composition = suggestComposition(def, 9);
   const roles = dealRoles(composition, roster.map((p) => p.id), () => 0.5);
   state.nowPlaying = "Werewolf";
-  state.deal = { dealNo: 1, title: "Werewolf", at: "2026-08-10T20:00:00.000Z", composition };
+  state.deal = {
+    dealNo: 1,
+    title: "Werewolf",
+    at: "2026-08-10T20:00:00.000Z",
+    composition: compositionOf(def, roles),
+    extraRoles: [],
+    extraFactions: [],
+  };
   state.boardEnabled = true;
   state.board = newSdBoard(roster, "2026-08-10T20:00:00.000Z");
   return { def, roster, state, roles };
@@ -524,4 +585,63 @@ test("the state-column check can actually see a select that reads state", () => 
     "an unrelated select on another table was dragged in",
   );
   assert.equal(projectionOf(".select()\n.from(gameSessions)"), "", "a bare select was not caught");
+});
+
+// ---------- a typed role is still a role ----------
+
+test("A TYPED ROLE IS STILL A SECRET, on the session payload and on the TV", () => {
+  // The catalogue gap this session closed is about the RECORD being true, not
+  // about the role being less hidden. A host who types "Cult Leader" has dealt
+  // exactly one, and which player has it is as secret as any curated role.
+  const { def, state, roles } = liveNight({ name: "Cult Leader", solo: true });
+  assert.ok(Object.values(roles).includes("cultleader"), "the fixture must actually deal the typed role");
+
+  // The session payload: no role id anywhere outside the announced setup.
+  assert.deepEqual(
+    leaks(scannable(state), [...new Set(Object.values(roles))]),
+    [],
+    "a typed role reached the session payload of a live game",
+  );
+  const full = JSON.stringify(payloadFor(state));
+  for (const [playerId, roleId] of Object.entries(roles)) {
+    assert.equal(full.includes(`"${playerId}":"${roleId}"`), false, `${playerId} is mapped to ${roleId}`);
+  }
+
+  // The public TV: same two probes the curated roles get.
+  assert.deepEqual(leaks(JSON.stringify(sdTvView(state)), roleIds(roles)), [], "a typed role reached the TV payload");
+  assert.deepEqual(leaks(boardScannable(state), roleNames(def, roles)), []);
+});
+
+test("a typed role reaches the TV under its own NAME once revealed, not as an id", () => {
+  // The other half: the merge point has to reach the projection, or the one
+  // player who has it is shown a raw slug on the big screen.
+  const { state, roles } = liveNight({ name: "Cult Leader", solo: true });
+  const cultist = Object.keys(roles).find((id) => roles[id] === "cultleader")!;
+  sdSetOut(state.board!, cultist, "voted", "cultleader");
+
+  const shown = sdTvView(state).board!.players.find((p) => p.playerId === cultist)!;
+  assert.equal(shown.revealed, "Cult Leader");
+  assert.equal(shown.alignment, "solo");
+  // And the announced setup names it too, which is public.
+  assert.ok(sdTvView(state).composition!.some((c) => c.name === "Cult Leader"));
+});
+
+test("the typed-role secrecy scan can actually see a leak", () => {
+  // Negative control, planted in the projection's output the way the others are.
+  const { def, state, roles } = liveNight({ name: "Cult Leader", solo: true });
+  const tv = sdTvView(state) as Record<string, any>;
+  const leaky = { ...tv, roles };
+  assert.ok(leaks(JSON.stringify(leaky), roleIds(roles)).length > 0, "the id scan did not bite");
+  assert.ok(
+    JSON.stringify(leaky).includes(`"${Object.keys(roles)[0]}":"${Object.values(roles)[0]}"`),
+    "the mapping probe did not bite",
+  );
+  // And the DISPLAY form, planted on the board outside the `revealed` slot,
+  // which is the shape the id scan cannot see.
+  const nameLeak = tv.board.players.map((p: any, i: number) => ({
+    ...p,
+    revealed: "<revealed on death>",
+    ...(i === 0 ? { hint: def.roles.find((r) => r.id === roles[p.playerId])!.name } : {}),
+  }));
+  assert.ok(leaks(JSON.stringify(nameLeak), roleNames(def, roles)).length > 0, "the name scan did not bite");
 });

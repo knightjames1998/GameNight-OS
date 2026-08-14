@@ -155,6 +155,19 @@ function sdSession() {
   };
 }
 
+/**
+ * The same night BEFORE the host has dealt, which is where the DEAL FORM lives.
+ *
+ * Worth its own snapshot because the live stub above has a deal in place, so it
+ * renders the "Dealt" branch and never draws the form at all. The typed-role
+ * input shipped on 2026-08-10 and the baseline reported UNCHANGED, which is the
+ * harness saying it cannot see the screen rather than that the screen did not
+ * move.
+ */
+function sdUndealt() {
+  return { ...sdSession(), nowPlaying: "Salem", deal: null, board: null, boardEnabled: false };
+}
+
 /** The same night as the PUBLIC TV sees it. Roles only where revealed. */
 function sdTv() {
   const s = sdSession();
@@ -348,6 +361,11 @@ async function main() {
   sdPayload = sdSession();
   await goto(`${ORIGIN}/deduction?event=e1`);
   snap.sdLive = await text();
+
+  // The DEAL FORM, with the typed-role input on it.
+  sdPayload = sdUndealt();
+  await goto(`${ORIGIN}/deduction?event=e1`);
+  snap.sdDealForm = await text();
 
   sdTvPayload = sdTv();
   await view(1920, 1080);

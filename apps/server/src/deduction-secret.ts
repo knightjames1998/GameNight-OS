@@ -38,6 +38,7 @@
 
 import { getDb, gameSessions, and, eq } from "@gamenight/db";
 import {
+  sdDefWith,
   sdFaction,
   sdRole,
   sdTitleDef,
@@ -132,13 +133,21 @@ export interface DealLine {
 }
 
 /**
- * A dealt role, resolved against the title it was dealt under. Returns null for
- * a role the catalogue no longer has, which is survivable: the screen says
- * nothing rather than inventing a role.
+ * A dealt role, resolved against the catalogue the game was dealt under.
+ *
+ * THE MERGED def, not the curated one. A host who typed "Witch" dealt a real
+ * role, and looking it up in the title's shipped list alone would return
+ * nothing, so the one player who has it would be told they have no role in a
+ * game where they are the Witch. The typed roles live on the PUBLIC deal
+ * summary in session state, which is why this takes a state rather than a
+ * title: nothing secret is involved in naming a role, only in saying whose.
+ *
+ * Returns null for a role neither list has, which is survivable: the screen
+ * says nothing rather than inventing one.
  */
-function describe(title: string, roleId: string | undefined) {
+function describe(state: SdSessionState, title: string, roleId: string | undefined) {
   if (!roleId) return null;
-  const def = sdTitleDef(title);
+  const def = sdDefWith(sdTitleDef(title), state.deal?.extraRoles, state.deal?.extraFactions);
   const r = sdRole(def, roleId);
   if (!r) return null;
   const f = sdFaction(def, r.factionId);
@@ -198,7 +207,7 @@ export function registerSecretRoutes(router: Router, rt: PackRuntime<SdSessionSt
       dealNo: live?.dealNo ?? null,
       title: live?.title ?? null,
       playerId: slot?.id ?? null,
-      role: live && slot ? describe(live.title, live.roles[slot.id]) : null,
+      role: live && slot ? describe(loaded.state, live.title, live.roles[slot.id]) : null,
     };
     res.json(view);
   });
@@ -236,7 +245,7 @@ export function registerSecretRoutes(router: Router, rt: PackRuntime<SdSessionSt
     const nameOf = new Map(loaded.state.roster.map((p) => [p.id, p.name]));
     const lines: DealLine[] = [];
     for (const p of loaded.state.roster) {
-      const d = describe(live.title, live.roles[p.id]);
+      const d = describe(loaded.state, live.title, live.roles[p.id]);
       if (!d) continue;
       lines.push({
         playerId: p.id,
