@@ -12,8 +12,8 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-09 (start of the Card Table session)
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-08-10 (start of the role-catalogue session)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -43,31 +43,32 @@ anyone's memory of how many sessions have happened.
         when the four FIXED entries from 08-02 aged out after two consecutive redraws. Zone
         4 took the modifier wall's cut at three, which had been in FEATURES since 08-02 and
         had never been drawn. No row moved.
-      - 2026-08-09, this pass. Below.
+      - 2026-08-09, the Card Table pass. Zone 2 took three items (Board Game, the team
+        primitive, the title-night layer); row 1 grew 1120 -> 1400.
+      - 2026-08-10, this pass. Below.
 
     What this pass changed beyond the counter:
-      - ZONE 2 TOOK THREE ITEMS, all marked (NEW): the Board Game pack, the team primitive
-        with Ping Pong doubles as its proof, and the title-night layer. Three shipped
-        sessions rendered as three items, NOT folded into one the way the tabletop run was,
-        because these are three genuinely different ideas rather than three passes at one.
-      - ROW 1 GREW, 1120 -> 1400, and row 2 moved down by the same 280. Zone 2 was over at
-        1120 with 20 items. 1320 was measured first and left it 56px, which is less than
-        the 58px an item costs, and CARD TABLE LANDS IN THAT ZONE at the next redraw, so it
-        went to 1400 for 136px of headroom. Raised pre-emptively for the reason every
-        previous raise was: the fix is mechanical and the trap otherwise lands on whoever
-        adds the next line.
-      - Zone 1 LOST its (NEW) highlight. No shell work landed since the last pass, so the
-        tabletop item is no longer new; it is just true.
-      - Zone 3 went from 4 items to 7, and its numbered three changed completely rather
-        than shifting by one: Card Table, Social deduction, Poker. The team primitive left
-        by shipping, and Tabletop stage 4 is still last where James put it on 08-04.
-      - Zone 4 took the three team retrofits and the two title-night follow-ups, compressed
-        into three items, because the map renders IDEAS and five backlog lines here are
-        three ideas.
-      - Zone 5 took the rail safe-area regression as FIXED. Three OPEN, six Watch, one
-        FIXED. Canvas 1560x2360.
+      - ZONE 2 TOOK TWO, both (NEW): CARD TABLE and SOCIAL DEDUCTION. Deduction is ONE
+        item covering both of its parts, unlike the three separate items the 08-09 pass
+        drew, because part A and part B are two halves of one pack rather than three
+        different ideas. The three items from 08-09 lost their (NEW).
+      - ROW 1 GREW, 1400 -> 1600. Zone 2 went from 20 items to 22 and was 52px OVER. 1600
+        leaves it 106px, measured by reading the generated file back rather than by hand,
+        which is more than the 94px a large item costs, and POKER lands in that zone next.
+        Row 2 moved down by the same 200 so the columns stay aligned.
+      - ZONE 3 SHRANK, 7 items to 5, and its numbered three are now Poker, Smash
+        Tournament and Party games. Card Table and Social deduction both left by shipping.
+        Tabletop stage 4 is still last, where James put it on 08-04.
+      - ZONE 5 GAINED AN OPEN BUG THE LAST PASS COULD NOT HAVE DRAWN: Board Game's and
+        Card Table's shared TV is 176px over 1080p at twelve players. It was found ON
+        08-09, by the session that ran immediately AFTER that redraw, which is exactly the
+        case the reconcile step exists to catch. Four OPEN, six Watch, one FIXED.
+      - Zone 4 took the Tournament entrants gap (James, 08-10) and its title-night item
+        dropped "Board Game defaults", which closed as a FINDING on 08-09 rather than as
+        work. Row 2 stayed at 840: both zones that grew had the slack.
+      - Zone 1 unchanged. No shell work has landed since the tabletop pilot.
     Zone heights checked against their contents by reading the generated file back, not
-    by hand.
+    by hand. Canvas 1560x2560; panorama camera 1600x2610.
 
 ## MAP PROTOCOL
 How and when the Excalidraw project map gets redrawn. Written so any session reproduces

@@ -13,43 +13,44 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-08-09 at the START of the Card Table session, because the counter
-// read 3. This pass:
-//   - ZONE 2 TOOK THREE, all (NEW): the Board Game pack, the team primitive with Ping Pong
-//     doubles as its proof, and the title-night layer. That is three shipped sessions and
-//     they are three genuinely different ideas, so unlike the tabletop run they are NOT
-//     folded into one item.
-//   - ROW 1 GREW, 1120 -> 1400, because zone 2 went from 17 items to 20 and was over.
-//     1320 was measured first and left zone 2 with 56px, which is less than the 58px an
-//     item costs, and CARD TABLE LANDS IN THAT ZONE at the next redraw. Raised
-//     pre-emptively for the same reason every previous raise was: the fix is mechanical
-//     and the trap would otherwise land on whoever adds the next line. Row 2 moved down by
-//     the same 280 so the columns stay aligned. Zone 1 lost its (NEW) highlight: no shell
-//     work landed this time.
-//   - Zone 3 went from 4 items to 7 and its numbered three are now Card Table, Social
-//     deduction and Poker. The team primitive left it by shipping; Tabletop stage 4 is
-//     still last, where James put it on 2026-08-04.
-//   - Zone 4 took the team retrofits and the title-night follow-ups, compressed to three
-//     items because the map renders IDEAS rather than backlog lines.
-//   - Zone 5 took the rail safe-area regression as FIXED. Three OPEN, six Watch, one FIXED.
+// Redrawn 2026-08-10 at the START of the role-catalogue session, because the
+// counter read 3. This pass:
+//   - ZONE 2 TOOK TWO, both (NEW): CARD TABLE and SOCIAL DEDUCTION. Deduction is ONE item
+//     covering both of its parts, unlike the three separate items the 08-09 pass drew,
+//     because part A and part B are two halves of one pack rather than three different
+//     ideas. The three items from 08-09 lost their (NEW).
+//   - ROW 1 GREW, 1400 -> 1600, because zone 2 went from 20 items to 22 and was 52px OVER.
+//     1600 leaves it 106px, MEASURED BY READING THE GENERATED FILE BACK rather than by
+//     hand, which is more than the 94px a large item costs, and POKER lands in that zone
+//     next. Raised pre-emptively for the same reason every previous raise was. Row 2 moved
+//     down by the same 200 so the columns stay aligned.
+//   - Zone 3 SHRANK, 7 items to 5: Card Table and Social deduction both left by shipping.
+//     The numbered three are now Poker, Smash Tournament and Party games. Tabletop stage 4
+//     is still last, where James put it on 2026-08-04.
+//   - ZONE 5 GAINED AN OPEN BUG THE LAST PASS COULD NOT HAVE DRAWN: Board Game's and Card
+//     Table's shared TV is 176px over 1080p at twelve players. It was found ON 08-09, by
+//     the session that ran immediately AFTER that redraw, which is exactly the case the
+//     reconcile step exists to catch. Four OPEN, six Watch, one FIXED.
+//   - Zone 4 took the Tournament entrants gap (James, 08-10), and its title-night item
+//     dropped "Board Game defaults", which closed as a FINDING on 08-09 rather than as
+//     work. Row 2 stayed at 840: both zones that grew had the slack.
 //
-// The 2026-08-04 pass, kept short: zone 1's tabletop item absorbed the three felt sessions
-// and kept (NEW); zone 5 SHRANK for the first time, 12 items to 9, when the four FIXED
-// entries from 08-02 aged out after two redraws; zone 4 took the modifier wall's cut at
-// three; no row moved.
+// The 2026-08-09 pass, kept short: zone 2 took Board Game, the team primitive and the
+// title-night layer, all (NEW); row 1 grew 1120 -> 1400; zone 3's numbered three became
+// Card Table, Social deduction and Poker; zone 5 took the rail safe-area fix as FIXED.
 //
-// Earlier passes, kept short: 2026-08-03 (zone 1's tabletop item became one item; row 2 grew
-// 720 -> 840), 2026-08-02 twice (stage 1 into zone 1; row 1 990 -> 1120 and row 2 530 -> 660
-// then 660 -> 720, the pass that learned a row is THREE zones, not two), 2026-07-30 (zone 2
-// took roulette, craps and stakes; row 1 920 -> 990) and 2026-07-29 (zone 2 took Smashdown,
-// the series rows and blackjack; row 1 860 -> 920).
+// Earlier passes, kept short: 2026-08-04 (zone 1's tabletop item absorbed the three felt
+// sessions; zone 5 SHRANK for the first time, 12 to 9), 2026-08-03 (row 2 grew 720 -> 840),
+// 2026-08-02 twice (row 1 990 -> 1120, row 2 530 -> 660 then 660 -> 720, the pass that
+// learned a row is THREE zones, not two), 2026-07-30 (row 1 920 -> 990) and 2026-07-29
+// (row 1 860 -> 920).
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
-// each 480 wide, row 1 y=95 h=1400, row 2 y=1520 h=840. Items 440x40, 46px
+// each 480 wide, row 1 y=95 h=1600, row 2 y=1720 h=840. Items 440x40, 46px
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
-    x: 40, y: 95, h: 1400,
+    x: 40, y: 95, h: 1600,
     title: "SHIPPED — FOUNDATION", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Auth: 6-digit codes + links + passwords" },
@@ -72,7 +73,7 @@ const ZONES = [
     ],
   },
   {
-    x: 560, y: 95, h: 1400,
+    x: 560, y: 95, h: 1600,
     title: "SHIPPED — GAME PACKS", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Beerio Kart: full replica, predictions, TV" },
@@ -92,31 +93,32 @@ const ZONES = [
       { t: "Stakes: real vs play money. Wins unify, only money splits", h: 52 },
       { t: "Declarative modifiers: house rules DISPLAYED and RECORDED, never computed", h: 70 },
       { t: "CASINO RUN: co-op pack, one shared bank, staged quotas, simulated ladders, tokens", h: 70 },
-      { t: "BOARD GAME: one row per game played, title on the label, tapped order, canonicalized titles, seats 12 (NEW)", bg: "#c3fae8", h: 70 },
-      { t: "THE TEAM PRIMITIVE (teams.ts) + PING PONG DOUBLES: sides, 1,1,2,2 placement, pair ladder, singles pinned byte-identical (NEW)", bg: "#c3fae8", h: 88 },
-      { t: "TITLE-NIGHT LAYER extracted from Board Game: the ENGINE half, screens still to come (NEW)", bg: "#c3fae8", h: 70 },
+      { t: "BOARD GAME: one row per game played, title on the label, tapped order, canonicalized titles, seats 12", h: 70 },
+      { t: "THE TEAM PRIMITIVE (teams.ts) + PING PONG DOUBLES: sides, 1,1,2,2 placement, pair ladder, singles pinned byte-identical", h: 88 },
+      { t: "TITLE-NIGHT LAYER extracted from Board Game: engine, screens and routes, shared by two packs", h: 70 },
+      { t: "CARD TABLE: the pack that is a config file. 50-line router, partnership defaults on Euchre and Spades (NEW)", bg: "#c3fae8", h: 88 },
+      { t: "SOCIAL DEDUCTION (both parts): roles in a SEPARATE STORE so the session payload is public-safe by construction, factions with solo third parties, live moderator board, public TV that never leaks an unrevealed role, fits 20 at 1080p (NEW)", bg: "#c3fae8", h: 130 },
     ],
   },
   {
-    x: 1080, y: 95, h: 1400,
+    x: 1080, y: 95, h: 1600,
     title: "NEXT UP (queued)", zoneBg: "#fff3bf", header: "#b45309", itemBg: "#ffd8a8",
     items: [
-      { t: "1. CARD TABLE (screens extraction + the pack itself)", sw: 2, h: 52 },
-      { t: "2. Social deduction (the only pack left needing an engine)", sw: 2, h: 52 },
-      { t: "3. Poker (cash engine PLUS a tournament format)", sw: 2, h: 52 },
-      { t: "4. Smash Tournament format (bracket + fighters)", h: 52 },
-      { t: "5. Party games (Board Game plus a side)", h: 52 },
+      { t: "1. Poker (cash engine PLUS a tournament format)", sw: 2, h: 52 },
+      { t: "2. Smash Tournament format (bracket + fighters)", sw: 2, h: 52 },
+      { t: "3. Party games (Board Game plus a side)", sw: 2, h: 52 },
       { t: "Tabletop theme STAGE 4: the remaining 9 packs (LAST, James 08-04)", h: 52 },
       { t: "More packs: darts" },
     ],
   },
   {
-    x: 40, y: 1520, h: 840,
+    x: 40, y: 1720, h: 840,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
       { t: "PARTNER STATS: who you win most with (the primitive's missing payoff)", h: 52 },
+      { t: "Tournament entrants locked to yes-RSVP: no roster screen at all (James 08-10)", h: 52 },
       { t: "Team retrofits: Smash 2v2 battles; team entrants on the bracket", h: 52 },
-      { t: "Title-night follow-ups: Board Game defaults; co-op titles (Pandemic)", h: 52 },
+      { t: "Co-op titles (Pandemic): one side, everybody on it, win together", h: 52 },
       { t: "Revisit the modifier wall's cut at three (the room exists now)", h: 52 },
       { t: "Unified event TV + single active pack" },
       { t: "Detailed personal stats block on Home" },
@@ -128,12 +130,13 @@ const ZONES = [
     ],
   },
   {
-    x: 560, y: 1520, h: 840,
+    x: 560, y: 1720, h: 840,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
       { t: "OPEN: the felt does not reach the PACKS (no pack root mounts .gn-app / .gn-tv)", h: 52 },
       { t: "OPEN: Casino Run's TV has the same back-button blind spot the money board had", h: 52 },
       { t: "OPEN: Ping Pong's TV does not fit 1080p past SIX players (pre-existing)", h: 52 },
+      { t: "OPEN: Board Game / Card Table TV is 176px over 1080p at TWELVE players", h: 52 },
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
       { t: "Watch: countLastPlace IN list grows without bound", bg: "#fff3bf", h: 52 },
       { t: "Watch: ws hub broadcasts everything to everyone (no rooms)", bg: "#fff3bf", h: 52 },
@@ -144,13 +147,13 @@ const ZONES = [
     ],
   },
   {
-    x: 1080, y: 1520, h: 840,
+    x: 1080, y: 1720, h: 840,
     title: "IDEAS — NOT SOLIDIFIED", zoneBg: "#e5dbff", header: "#6d28d9", itemBg: "#d0bfff",
     items: [
       { t: "Draft night mode (snake drafts, TV board)" },
       { t: "Wager ledger (money allowed since 07-29)" },
       { t: "Achievements + custom crew badges" },
-      { t: "Beer pong pack (forces the team model)" },
+      { t: "Beer pong pack (the team primitive exists now)" },
       { t: "Pool pack (rides ping pong's KOTH engine)" },
       { t: "Cornhole and darts (poker is committed now)" },
       { t: "Capacitor native wrapper (push notifs)" },
