@@ -7,6 +7,7 @@ import {
   formatCents,
   formatCentsSigned,
   modifierById,
+  SESSION_PACKS,
   type CashModifierAgg,
 } from "@gamenight/shared";
 import { formatLabel, formatUnit } from "../formats";
@@ -52,7 +53,14 @@ interface StatsView {
 
 // The generic aggregator names the Smash pack's game this; the tab with
 // this label swaps the generic list for the character-rich panel below.
-const SMASH_GAME_NAME = "Smash Bros";
+//
+// FROM THE REGISTRY, NEVER TYPED. `gameName` is games.name, which is the JOIN
+// KEY the crew leaderboard groups its tabs on, so this constant and the value
+// the server writes have to be the same string or this pack's panel silently
+// stops rendering: the tab still appears, and the rich view under it does not.
+// All ten of these were hand-typed until 2026-08-15; see
+// apps/server/tests/pack-identifiers.test.ts, which is what found them.
+const SMASH_GAME_NAME = SESSION_PACKS.smash.gameName;
 
 interface SmashStats {
   games: number;
@@ -321,7 +329,7 @@ function SmashPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
   );
 }
 
-const MARIO_PARTY_GAME_NAME = "Mario Party";
+const MARIO_PARTY_GAME_NAME = SESSION_PACKS.marioparty.gameName;
 
 interface MpStats {
   games: number;
@@ -417,8 +425,8 @@ function MarioPartyPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
 }
 
 // The generic aggregator names the Ping Pong pack's game this.
-const PING_PONG_GAME_NAME = "Ping Pong";
-const MARIO_KART_GAME_NAME = "Mario Kart";
+const PING_PONG_GAME_NAME = SESSION_PACKS.pingpong.gameName;
+const MARIO_KART_GAME_NAME = SESSION_PACKS.mariokart.gameName;
 
 /** Wins/played for one half of the singles/doubles split. */
 interface PpTally {
@@ -514,10 +522,10 @@ function PingPongPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
   );
 }
 
-const BLACKJACK_GAME_NAME = "Blackjack";
-const ROULETTE_GAME_NAME = "Roulette";
-const CRAPS_GAME_NAME = "Craps";
-const CASINO_RUN_GAME_NAME = "Casino Run";
+const BLACKJACK_GAME_NAME = SESSION_PACKS.blackjack.gameName;
+const ROULETTE_GAME_NAME = SESSION_PACKS.roulette.gameName;
+const CRAPS_GAME_NAME = SESSION_PACKS.craps.gameName;
+const CASINO_RUN_GAME_NAME = SESSION_PACKS.casinorun.gameName;
 
 /**
  * The casino group's lifetime panel: MONEY, which no other pack has.
@@ -1048,11 +1056,11 @@ function CasinoRunPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
 }
 
 // The generic aggregator names the Board Game pack's game this.
-const BOARD_GAME_GAME_NAME = "Board Game";
+const BOARD_GAME_GAME_NAME = SESSION_PACKS.boardgame.gameName;
 // And the Card Table pack's. Two tabs on purpose: "good at board games" and
 // "good at card games" are different claims, and one shared panel is what lets
 // them be two tabs without being two implementations.
-const CARD_TABLE_GAME_NAME = "Card Table";
+const CARD_TABLE_GAME_NAME = SESSION_PACKS.cardtable.gameName;
 
 interface TnStats {
   games: number;

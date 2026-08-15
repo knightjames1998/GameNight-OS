@@ -1,4 +1,5 @@
 import { useParams } from "react-router-dom";
+import { SESSION_PACKS } from "@gamenight/shared";
 import { TitleNightTv } from "../titlenight/TitleNightTv";
 import { CARD_TABLE_COPY } from "./copy";
 import "./cardtable.css";
@@ -17,7 +18,7 @@ export default function CardTableTvPage({ eventId: propEventId }: { eventId?: st
       pack="cardtable"
       eventId={eventId}
       className="ct-tv"
-      brand="Card Table"
+      brand={SESSION_PACKS.cardtable.name}
       copy={CARD_TABLE_COPY}
       waitingHint="Waiting for the host to start the night."
     />
