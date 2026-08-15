@@ -12,8 +12,8 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-10 (start of the role-catalogue session)
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-08-15 (the bracketed-TV fit session)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -45,28 +45,37 @@ anyone's memory of how many sessions have happened.
         had never been drawn. No row moved.
       - 2026-08-09, the Card Table pass. Zone 2 took three items (Board Game, the team
         primitive, the title-night layer); row 1 grew 1120 -> 1400.
-      - 2026-08-10, this pass. Below.
+      - 2026-08-10, the role-catalogue pass. Zone 2 took Card Table and Social Deduction,
+        both (NEW); row 1 grew 1400 -> 1600; zone 3 shrank 7 items to 5; zone 5 took Board
+        Game's and Card Table's shared TV overflow as an OPEN bug.
+      - 2026-08-15, this pass. Below.
 
     What this pass changed beyond the counter:
-      - ZONE 2 TOOK TWO, both (NEW): CARD TABLE and SOCIAL DEDUCTION. Deduction is ONE
-        item covering both of its parts, unlike the three separate items the 08-09 pass
-        drew, because part A and part B are two halves of one pack rather than three
-        different ideas. The three items from 08-09 lost their (NEW).
-      - ROW 1 GREW, 1400 -> 1600. Zone 2 went from 20 items to 22 and was 52px OVER. 1600
-        leaves it 106px, measured by reading the generated file back rather than by hand,
-        which is more than the 94px a large item costs, and POKER lands in that zone next.
-        Row 2 moved down by the same 200 so the columns stay aligned.
-      - ZONE 3 SHRANK, 7 items to 5, and its numbered three are now Poker, Smash
-        Tournament and Party games. Card Table and Social deduction both left by shipping.
-        Tabletop stage 4 is still last, where James put it on 08-04.
-      - ZONE 5 GAINED AN OPEN BUG THE LAST PASS COULD NOT HAVE DRAWN: Board Game's and
-        Card Table's shared TV is 176px over 1080p at twelve players. It was found ON
-        08-09, by the session that ran immediately AFTER that redraw, which is exactly the
-        case the reconcile step exists to catch. Four OPEN, six Watch, one FIXED.
-      - Zone 4 took the Tournament entrants gap (James, 08-10) and its title-night item
-        dropped "Board Game defaults", which closed as a FINDING on 08-09 rather than as
-        work. Row 2 stayed at 840: both zones that grew had the slack.
-      - Zone 1 unchanged. No shell work has landed since the tabletop pilot.
+      - THE MERGE CAME FIRST, THE REDRAW SECOND, and that is a reading of the rule rather
+        than an exception to it. The counter reached 3 on a branch that was already written
+        and already verified; landing it was shipping finished work, not feature work
+        jumping the queue, and reconciling AFTER the merge drew the true state instead of
+        one that was about to change. The rule protects the redraw from a session's OWN
+        new work, which is what part 3 of this session (the fit ladder) waited for.
+      - ZONE 1 TOOK ONE, (NEW): the bracketed TVs' still-alive board and round strip. Zone
+        1 rather than zone 2 because that is the heading it lives under: it changes the
+        SHELL's /tv/:id as much as Beerio's TV, and the shared derivations are in
+        packages/shared. First shell item since the tabletop pilot.
+      - ZONE 2 UNCHANGED AT 22, and Card Table and Social Deduction lost their (NEW). That
+        is the whole job of a (NEW) marker: one redraw's worth.
+      - ZONE 5 SWAPPED ONE FOR ONE, still 11. It gained the bracketed-TV fit bug, which
+        the last pass could not have drawn because nothing had ever measured those two
+        screens, and lost the rail safe-area FIXED item, which was drawn on the 08-09 and
+        08-10 passes and aged out on schedule. Five OPEN, six Watch, none FIXED.
+      - NO ROW MOVED, and the first draft of this pass raised row 1 to 1700 before
+        measuring anything. Reading the generated file back caught it: zone 1's content
+        ends at 1141 in a zone ending at 1695, so 18 items leave it 554px, and zone 2 is
+        untouched on its 106. Nothing over, nothing tight. "Raise a row when a zone is
+        over; leave it when a zone is under" cuts both ways, and a row that moves on a pass
+        that did not need it drags every zone below it for no reader's benefit.
+      - ZONES 3, 4 AND 6 UNCHANGED. Nothing left NEXT UP: the numbered three are still
+        Poker, Smash Tournament and Party games, and this session's work came out of the
+        previous session's closeout rather than off the queue.
     Zone heights checked against their contents by reading the generated file back, not
     by hand. Canvas 1560x2560; panorama camera 1600x2610.
 
@@ -139,7 +148,10 @@ they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb).
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x2410 at the current zone heights). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
+on a panorama covering the full canvas (1600x2610 at the current zone heights; the canvas
+itself measures 1560x2560, read off the generated file rather than assumed. This line read
+2410 for four passes after the heights it describes had moved, which is why a redraw checks
+it against the file). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 
 **Reconcile step (do this before drawing):** move finished items from NEXT UP into the right
 SHIPPED section with a one-line summary and date; renumber the top three of NEXT UP; move

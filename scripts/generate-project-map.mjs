@@ -13,8 +13,37 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-08-10 at the START of the role-catalogue session, because the
-// counter read 3. This pass:
+// Redrawn 2026-08-15, because the counter read 3. THE MERGE CAME FIRST AND THE
+// REDRAW SECOND, deliberately: the alive-board branch was already written and
+// verified, so landing it was shipping finished work rather than feature work
+// jumping the rule, and reconciling AFTER it meant drawing the true state
+// instead of one about to change. This pass:
+//   - ZONE 1 TOOK ONE, (NEW): the bracketed TVs' still-alive board and round
+//     strip. It is zone 1 rather than zone 2 because the heading it lives under
+//     is SHIPPED — FOUNDATION: it changes the SHELL's /tv/:id as much as Beerio's
+//     TV, and the shared derivations sit in packages/shared.
+//   - ZONE 2 IS UNCHANGED AT 22 and Card Table and Social Deduction lost their
+//     (NEW), which is the whole job of a (NEW) marker: one redraw's worth.
+//   - ZONE 5 SWAPPED ONE FOR ONE, still 11. It gained the bracketed-TV fit bug,
+//     which the last pass could not have drawn because nothing had ever measured
+//     those two screens, and lost the rail safe-area FIXED item, which was drawn
+//     on the 08-09 and 08-10 passes and has now aged out on schedule.
+//   - NO ROW MOVED, and that is worth saying because the first draft of this pass
+//     raised row 1 to 1700 before measuring anything. MEASURED BY READING THE
+//     GENERATED FILE BACK, which is the 08-10 pass's lesson and which caught it:
+//     zone 1 ends at 1141 in a zone that ends at 1695, so 18 items leave it 554px,
+//     and zone 2 is untouched on 106px. Nothing is over and nothing is tight, so
+//     the height stays. "Raise a row when a zone is over; leave it when a zone is
+//     under" cuts both ways: a row that moves on a pass that did not need it drags
+//     every zone below it for no reader's benefit.
+//   - ZONES 3, 4 AND 6 ARE UNCHANGED. Nothing left NEXT UP: the numbered three
+//     are still Poker, Smash Tournament and Party games, and this session's work
+//     was never queued there, it came out of the previous one's closeout.
+//
+// The 2026-08-10 pass, kept short: zone 2 took Card Table and Social Deduction,
+// both (NEW); row 1 grew 1400 -> 1600; zone 3 shrank 7 items to 5; zone 5 took
+// Board Game's and Card Table's shared TV overflow as an OPEN bug. Its own
+// narrative, kept because it names the measure-the-file rule:
 //   - ZONE 2 TOOK TWO, both (NEW): CARD TABLE and SOCIAL DEDUCTION. Deduction is ONE item
 //     covering both of its parts, unlike the three separate items the 08-09 pass drew,
 //     because part A and part B are two halves of one pack rather than three different
@@ -70,6 +99,7 @@ const ZONES = [
       { t: "One pack registry: SESSION_PACKS, one entry per pack" },
       { t: "Pack picker groups: Nintendo / Casino / Bar / Other" },
       { t: "TABLETOP THEME, SHELL COMPLETE: 73 tokens, warm-dark palette, real felt tile + rail, translucent cards, woodtype face, Ping Pong pilot", h: 88 },
+      { t: "BRACKETED TVs: shared round order, a STILL-ALIVE board in place of latest results, and a round strip. Both TVs, one rule each (NEW)", bg: "#c3fae8", h: 88 },
     ],
   },
   {
@@ -96,8 +126,8 @@ const ZONES = [
       { t: "BOARD GAME: one row per game played, title on the label, tapped order, canonicalized titles, seats 12", h: 70 },
       { t: "THE TEAM PRIMITIVE (teams.ts) + PING PONG DOUBLES: sides, 1,1,2,2 placement, pair ladder, singles pinned byte-identical", h: 88 },
       { t: "TITLE-NIGHT LAYER extracted from Board Game: engine, screens and routes, shared by two packs", h: 70 },
-      { t: "CARD TABLE: the pack that is a config file. 50-line router, partnership defaults on Euchre and Spades (NEW)", bg: "#c3fae8", h: 88 },
-      { t: "SOCIAL DEDUCTION (both parts): roles in a SEPARATE STORE so the session payload is public-safe by construction, factions with solo third parties, live moderator board, public TV that never leaks an unrevealed role, fits 20 at 1080p (NEW)", bg: "#c3fae8", h: 130 },
+      { t: "CARD TABLE: the pack that is a config file. 50-line router, partnership defaults on Euchre and Spades", h: 88 },
+      { t: "SOCIAL DEDUCTION (both parts): roles in a SEPARATE STORE so the session payload is public-safe by construction, factions with solo third parties, live moderator board, public TV that never leaks an unrevealed role, fits 20 at 1080p", h: 130 },
     ],
   },
   {
@@ -137,13 +167,13 @@ const ZONES = [
       { t: "OPEN: Casino Run's TV has the same back-button blind spot the money board had", h: 52 },
       { t: "OPEN: Ping Pong's TV does not fit 1080p past SIX players (pre-existing)", h: 52 },
       { t: "OPEN: Board Game / Card Table TV is 176px over 1080p at TWELVE players", h: 52 },
+      { t: "OPEN: NEITHER bracketed TV fits 1080p, and never has (nothing measured them until 08-15)", h: 52 },
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
       { t: "Watch: countLastPlace IN list grows without bound", bg: "#fff3bf", h: 52 },
       { t: "Watch: ws hub broadcasts everything to everyone (no rooms)", bg: "#fff3bf", h: 52 },
       { t: "Watch: drizzle push can no-op in CI, check build log", bg: "#fff3bf", h: 52 },
       { t: "Watch: color-mix's opaque fallback on pre-2023 browsers (shell-wide since stage 1)", bg: "#fff3bf", h: 52 },
       { t: "Watch: the canvas share cards follow NO theme (16 hardcoded colours, JS not CSS)", bg: "#fff3bf", h: 52 },
-      { t: "FIXED: the rail respects the safe area again (invisible on a desktop)", bg: "#b2f2bb", h: 52 },
     ],
   },
   {
