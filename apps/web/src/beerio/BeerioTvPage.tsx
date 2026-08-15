@@ -15,6 +15,7 @@ import {
   BEERIO_QR_PX,
   type BeerioTvBand,
 } from "./band";
+import { racerLabel } from "./racer";
 import {
   buildBracket,
   compute,
@@ -236,7 +237,7 @@ function GpBoard({ state, preds }: { state: SavedState; preds: PredMap }) {
           </p>
           <PredictionBar
             options={rows.map((r) => ({
-              label: state.names[r.seed] || `Racer ${r.seed + 1}`,
+              label: racerLabel(r.seed + 1, state.names[r.seed]),
               color: state.colors?.[r.seed] ?? "var(--foam)",
               value: String(r.seed),
             }))}
@@ -265,7 +266,7 @@ function GpBoard({ state, preds }: { state: SavedState; preds: PredMap }) {
                 style={{ background: color }}
               />
               <span className="font-[Fredoka] font-bold text-[2.4vw] text-[var(--ink)] flex-1 truncate">
-                {state.names[r.seed] || `Racer ${r.seed + 1}`}
+                {racerLabel(r.seed + 1, state.names[r.seed])}
               </span>
               <span className="font-[Fredoka] text-[1.4vw] text-[var(--ink)] opacity-70">
                 {r.wins} {r.wins === 1 ? "win" : "wins"} &middot; {r.races} raced
@@ -409,7 +410,7 @@ function BracketBoard({
                 Champion
               </p>
               <p className="font-[Luckiest_Guy,cursive] text-[5vw] text-[var(--ink)] leading-tight mt-[0.5vw]">
-                {champ.name ?? `Racer ${champ.seed + 1}`}
+                {racerLabel(champ.seed, champ.name)}
               </p>
             </div>
           ) : (
@@ -476,7 +477,7 @@ function RacerChip({
 }) {
   // Bracket seeds are 1-based; the colors array is 0-based.
   const color = state.colors?.[seed - 1] ?? "var(--foam)";
-  const name = state.names[seed - 1]?.trim() || `Racer ${seed}`;
+  const name = racerLabel(seed, state.names[seed - 1]);
   const out = tone === "out";
   return (
     <span
@@ -552,7 +553,7 @@ function MatchCard({
     const real = isRealPlayer(c);
     // Bracket seeds are 1-based; the colors array is 0-based.
     const colorIdx = real ? c.seed - 1 : undefined;
-    const label = real ? (c.name ?? `Racer ${c.seed}`) : "TBD";
+    const label = real ? racerLabel(c.seed, c.name) : "TBD";
     const won = m.decided && m.winSlot === (side === "a" ? "A" : "B");
     const lost = m.decided && !won && real;
     return (

@@ -9,6 +9,9 @@ import { useState, useCallback, useEffect, useMemo, useRef, createContext, useCo
 import { createPortal } from "react-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from "lz-string";
+// The racer naming rule, stated once (./racer.ts). It lived inline at thirteen
+// sites in this file and four of them added 1 to an already 1-based seed.
+import { racerLabel } from "./racer";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1035,7 +1038,7 @@ function GrandPrix({names,realCount,gpLog,target,readOnly,onRecord,onUndo}:{
   names:string[];realCount:number;gpLog:number[][];target:number;readOnly:boolean;
   onRecord:(order:number[])=>void;onUndo:()=>void;
 }){
-  const nameOf=(seed:number)=>names[seed]?.trim()||`Racer ${seed+1}`;
+  const nameOf=(seed:number)=>racerLabel(seed+1,names[seed]);
   const gpColors=useContext(ColorsCtx);
   const colorOf=(seed:number)=>gpColors[seed]||PALETTE[seed%PALETTE.length];
   const total=gpTotalRaces(realCount,target);
@@ -1195,8 +1198,8 @@ export function bracketPlacements(M:Record<string,MatchResult>,names:string[]):P
   const isReal=(p:Competitor):p is Player=>p!==TBD&&p!==BYE;
   const champ=getChampion(M),runnerUp=getRunnerUp(M);
   if(!champ)return[];
-  const rows:PlacementRow[]=[{seed:champ.seed,name:champ.name??`Racer ${champ.seed}`,place:1}];
-  if(runnerUp)rows.push({seed:runnerUp.seed,name:runnerUp.name??`Racer ${runnerUp.seed}`,place:2});
+  const rows:PlacementRow[]=[{seed:champ.seed,name:racerLabel(champ.seed,champ.name),place:1}];
+  if(runnerUp)rows.push({seed:runnerUp.seed,name:racerLabel(runnerUp.seed,runnerUp.name),place:2});
   const placed=new Set(rows.map(r=>r.seed));
   // Everyone else: find the LB round where they took their final loss.
   const elim:{seed:number;name:string;round:number}[]=[];
@@ -1207,7 +1210,7 @@ export function bracketPlacements(M:Record<string,MatchResult>,names:string[]):P
     if(!isReal(m.loser))continue;
     if(placed.has(m.loser.seed))continue;
     const g=/^L(\d+)/.exec(m.def.grp);
-    elim.push({seed:m.loser.seed,name:m.loser.name??`Racer ${m.loser.seed}`,round:g?+g[1]:0});
+    elim.push({seed:m.loser.seed,name:racerLabel(m.loser.seed,m.loser.name),round:g?+g[1]:0});
   }
   elim.sort((a,b)=>b.round-a.round||a.seed-b.seed);
   let place=3,i=0;
@@ -2099,7 +2102,7 @@ export default function App(){
         const idx=gpLog.length;
         const heat=gpNextHeat(realCount,gpLog);
         predItems.push({key:`H:${idx}`,label:`Heat ${idx+1} · pick the winner`,
-          options:heat.map(s=>({v:String(s),name:names[s]?.trim()||`Racer ${s+1}`,color:colorOf(s)}))});
+          options:heat.map(s=>({v:String(s),name:racerLabel(s+1,names[s]),color:colorOf(s)}))});
       }
     }else{
       outer:
@@ -2112,8 +2115,8 @@ export default function App(){
           const a=m.a as Player,b=m.b as Player;
           const label=g.bracket==="gf"?(id==="GF2"?"Grand Final · Reset":"Grand Final"):`${g.title} · ${matchLabel(id)}`;
           predItems.push({key:`M:${id}`,label,options:[
-            {v:"A",name:a.name??`Racer ${a.seed}`,color:colorOf(a.seed-1)},
-            {v:"B",name:b.name??`Racer ${b.seed}`,color:colorOf(b.seed-1)},
+            {v:"A",name:racerLabel(a.seed,a.name),color:colorOf(a.seed-1)},
+            {v:"B",name:racerLabel(b.seed,b.name),color:colorOf(b.seed-1)},
           ]});
           if(predItems.length>=6)break outer;
         }
@@ -2142,7 +2145,7 @@ export default function App(){
   const tournamentComplete=isGP?gpDone:!!champ;
   let recapRows:{place:string;name:string;color:string;stat?:string}[]=[];
   if(gpDone){
-    recapRows=gpRows.map(r=>({place:ord(r.rank),name:names[r.seed]?.trim()||`Racer ${r.seed+1}`,color:colorOf(r.seed),stat:`${r.points} pts · ${r.wins} heat win${r.wins===1?"":"s"}`}));
+    recapRows=gpRows.map(r=>({place:ord(r.rank),name:racerLabel(r.seed+1,names[r.seed]),color:colorOf(r.seed),stat:`${r.points} pts · ${r.wins} heat win${r.wins===1?"":"s"}`}));
   }else if(champ){
     const wl:Record<number,{w:number;l:number}>={};
     for(const id in M){
@@ -2352,7 +2355,7 @@ export default function App(){
                     <button type="button" title="Tap to change kart color" onClick={()=>setPickerFor(pickerFor===i?null:i)} style={{touchAction:"manipulation",background:colorOf(i),color:textOn(colorOf(i))}}
                       className="absolute left-2 top-1/2 -translate-y-1/2 font-[Fredoka] font-bold text-[11px] border border-[var(--ink)] w-[20px] h-[20px] rounded-[5px] grid place-items-center z-10 cursor-pointer shadow-[0_1px_0_rgba(22,35,59,.3)]">{i+1}</button>
                     <input type="text" value={name} onChange={e=>handleNameChange(i,e.target.value)}
-                      placeholder={`Racer ${i+1}`} maxLength={18} autoComplete="off" style={{borderLeft:`5px solid ${colorOf(i)}`}}
+                      placeholder={racerLabel(i+1)} maxLength={18} autoComplete="off" style={{borderLeft:`5px solid ${colorOf(i)}`}}
                       className="w-full pl-8 pr-2 py-1.5 bg-white border-2 border-[var(--ink)] rounded-[8px] text-[var(--ink)] font-[Nunito] text-[12.5px] font-bold outline-none shadow-[0_2px_0_rgba(22,35,59,.1)] focus:shadow-[0_0_0_2px_var(--sun),0_2px_0_rgba(22,35,59,.1)] placeholder:text-[#A9B2C2]"/>
                     {!name.trim()&&<span className="absolute right-1.5 top-1/2 -translate-y-1/2 font-[Fredoka] font-bold text-[8.5px] text-white bg-[var(--coral)] border border-[var(--ink)] rounded-[3px] px-1 py-px pointer-events-none">BYE</span>}
                     {pickerFor===i&&(
@@ -2360,7 +2363,7 @@ export default function App(){
                         {PALETTE.map(c=>{
                           const owner=colors.findIndex((x,k)=>x===c&&k!==i&&k<playerCount);
                           return(
-                            <button key={c} type="button" onClick={()=>handleColorChange(i,c)} title={owner>=0?`Taken by Racer ${owner+1} — tap to swap`:"Pick this color"}
+                            <button key={c} type="button" onClick={()=>handleColorChange(i,c)} title={owner>=0?`Taken by ${racerLabel(owner+1)} — tap to swap`:"Pick this color"}
                               style={{background:c,color:textOn(c),touchAction:"manipulation"}}
                               className={`w-7 h-7 rounded-[6px] border-2 grid place-items-center font-[Fredoka] font-bold text-[10px] leading-none cursor-pointer ${colorOf(i)===c?"border-[var(--ink)] outline outline-2 outline-[var(--sun)]":"border-[var(--ink)] opacity-90 hover:opacity-100"}`}>{owner>=0?owner+1:colorOf(i)===c?i+1:""}</button>
                           );
@@ -2471,13 +2474,13 @@ export default function App(){
                   </div>
                   {champ?(
                     <div className="flex-1 min-w-[220px]">
-                      <ChampionChip label={`${champ.name?.trim()||`Racer ${champ.seed+1}`} is the Champion`} onClick={reopenBracketChamp}/>
+                      <ChampionChip label={`${racerLabel(champ.seed,champ.name)} is the Champion`} onClick={reopenBracketChamp}/>
                       <ChampionModal
                         open={bracketChampOpen} onClose={dismissBracketChamp} burstKey={bracketCelebKey} celebrate={bracketBurst>0}
                         kicker="🏆 Champion 🏆"
-                        name={champ.name?.trim()||`Racer ${champ.seed+1}`}
+                        name={racerLabel(champ.seed,champ.name)}
                         detail="Drinks are on the winner 🍺"
-                        podiumRows={runnerUp?[{label:"🥈 Runner-up",name:runnerUp.name?.trim()||`Racer ${runnerUp.seed+1}`,color:colorOf(runnerUp.seed-1)}]:[]}
+                        podiumRows={runnerUp?[{label:"🥈 Runner-up",name:racerLabel(runnerUp.seed,runnerUp.name),color:colorOf(runnerUp.seed-1)}]:[]}
                       />
                     </div>
                   ):(

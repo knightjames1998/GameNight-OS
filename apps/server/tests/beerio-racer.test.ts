@@ -2,8 +2,10 @@
 //
 // TWO HALVES. The first is a unit test of racerLabel, which is the rule stated
 // once. The second is a source scan asserting that no OTHER site states it
-// again, and that half FAILS ON ARRIVAL: it is the characterization of
-// AUDIT-2026-08.md MUST FIX 4, and phase 3 commit 3.6 flips it.
+// again. That half FAILED ON ARRIVAL on eighteen counts and was marked todo
+// until commit 3.6 routed every site through the helper: it is the
+// characterization of AUDIT-2026-08.md MUST FIX 4, written before the fix so
+// the fix had something to flip.
 //
 // WHY A SOURCE SCAN AND NOT A RENDER TEST. The defect is not in what any
 // function returns, it is in eighteen hand-written copies of one sentence, four
@@ -74,39 +76,34 @@ test("a name that is only punctuation is still a name", () => {
 
 // ---------- and nowhere else ----------
 
-test(
-  "THE RACER NAMING RULE IS WRITTEN IN EXACTLY ONE PLACE",
-  { todo: "fails on 18 hand-written copies, 4 of them wrong; flipped by phase 3 commit 3.6" },
-  () => {
-    const offenders: string[] = [];
-    for (const file of SCANNED) {
-      const text = readFileSync(path.join(BEERIO, file), "utf8");
-      const lines = text.split("\n");
-      lines.forEach((line, i) => {
-        // "Racer ${...}" anywhere in a template, not just at its start: one
-        // site embeds it mid-sentence as `Taken by Racer ${owner+1} ...`, and a
-        // pattern anchored on the backtick would walk straight past it. After
-        // 3.6 every one of these is a racerLabel() call instead.
-        if (/Racer \$\{/.test(line)) {
-          offenders.push(`  ${file}:${i + 1}  ${line.trim().slice(0, 100)}`);
-        }
-      });
-    }
-    assert.equal(
-      offenders.length,
-      0,
-      `${offenders.length} site(s) write the racer naming rule by hand instead of calling ` +
-        `racerLabel(). Four of them add 1 to an already 1-based Player.seed, which names ` +
-        `the wrong racer on the champion chip, the champion modal, the runner-up chip and ` +
-        `the TV's champion headline:\n${offenders.join("\n")}`,
-    );
-  },
-);
+test("THE RACER NAMING RULE IS WRITTEN IN EXACTLY ONE PLACE", () => {
+  const offenders: string[] = [];
+  for (const file of SCANNED) {
+    const text = readFileSync(path.join(BEERIO, file), "utf8");
+    text.split("\n").forEach((line, i) => {
+      // "Racer ${...}" anywhere in a template, not just at its start: one site
+      // embedded it mid-sentence as `Taken by Racer ${owner+1} ...`, and a
+      // pattern anchored on the backtick would have walked straight past it.
+      if (/Racer \$\{/.test(line)) {
+        offenders.push(`  ${file}:${i + 1}  ${line.trim().slice(0, 100)}`);
+      }
+    });
+  }
+  assert.equal(
+    offenders.length,
+    0,
+    `${offenders.length} site(s) write the racer naming rule by hand instead of calling ` +
+      `racerLabel(). The four that added 1 to an already 1-based Player.seed named the ` +
+      `wrong racer on the champion chip, the champion modal, the runner-up chip and the ` +
+      `TV's champion headline:\n${offenders.join("\n")}`,
+  );
+});
 
 test("the scan can actually see a hand-written label", () => {
-  // Negative control, in copy-rules.test.ts's style. A regex that has stopped
-  // matching would turn the check above into one that passes by seeing nothing,
-  // and it is marked todo, so nobody would notice it had gone quiet.
+  // Negative control, in copy-rules.test.ts's style, and it matters more here
+  // than usual: the check above now passes, so a regex that quietly stopped
+  // matching would look exactly like the rule still holding. It mattered while
+  // that check was marked todo too, for the same reason in reverse.
   assert.ok(/Racer \$\{/.test("  const label = `Racer ${champ.seed + 1}`;"), "misses a plain offender");
   assert.ok(/Racer \$\{/.test("title={`Taken by Racer ${owner+1} ok`}"), "misses a mid-sentence one");
   assert.equal(/Racer \$\{/.test("racerLabel(champ.seed, champ.name)"), false, "fires on the fix");
