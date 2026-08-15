@@ -24,29 +24,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { SERIES_LABEL, isSeriesSummary } from "@gamenight/shared";
-import { newAgg, feedAgg, finishAgg, type ResultRow } from "../src/stats.js";
+import { newAgg, feedAgg, finishAgg } from "../src/stats.js";
 import { rollupRecap, type RecapRow } from "../src/events.js";
 import { smashRuntime } from "../src/smash.js";
-
-let seq = 0;
-function result(over: Partial<ResultRow> = {}): ResultRow {
-  seq++;
-  return {
-    matchId: `m${seq}`,
-    placement: 1,
-    isWinner: true,
-    gameName: "Smash Bros",
-    character: "Fox",
-    playedAt: new Date(2026, 6, 28, 20, seq),
-    eventId: "e1",
-    label: null,
-    ...over,
-  };
-}
-
-/** The summary row one finished series writes: no character, label set. */
-const seriesResult = (over: Partial<ResultRow> = {}): ResultRow =>
-  result({ label: SERIES_LABEL, character: null, ...over });
+// The builder moved to result-fixture.ts when stats-agg.test.ts needed the same
+// shape. Two copies of a fixture drift, and two test files that disagree about
+// what a ledger row looks like can both stay green while doing it.
+import { result, seriesResult } from "./result-fixture.js";
 
 // ---------- the label itself ----------
 
