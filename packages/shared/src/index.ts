@@ -136,6 +136,10 @@ type WsEvent =
 // treats the message normally.
 export type WsMessage = WsEvent & { origin?: string };
 export * from "./packs.js";
+// The LEDGER FORMAT registry, beside the pack registry and for the same reason:
+// matches.format was read back by a label map on the client and a sort order on
+// the server, neither of which knew about the other, and both had drifted.
+export * from "./formats.js";
 export * from "./bracket.js";
 // The bracketed TVs' shared derivations (round order, the alive board, the
 // round strip). Beside the engine rather than in it: it reads what compute()

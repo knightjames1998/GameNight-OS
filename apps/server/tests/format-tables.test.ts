@@ -2,24 +2,25 @@
 // label and a place in the leaderboard's sort order.
 //
 // THE PROBLEM THIS EXISTS TO KILL. `matches.format` is written by twelve
-// different sites across nine pack files, and it is read back by two
-// hand-maintained tables that live nowhere near any of them:
+// different sites across nine pack files, and when this test was written it was
+// read back by two hand-maintained tables that had no connection to any of them
+// or to each other: FORMAT_LABEL in apps/web/src/formats.ts and FORMAT_ORDER,
+// a local const inside a route handler in apps/server/src/stats.ts.
 //
-//   apps/web/src/formats.ts   FORMAT_LABEL, the display name
-//   apps/server/src/stats.ts  FORMAT_ORDER, the sort order on the crew stats
-//                             screen's per-game format breakdown
+// A pack that shipped a new format key got a working ledger, working stats and
+// a working recap, and then printed its raw database spelling on a leaderboard,
+// because `formatLabel` falls back to the key and `FORMAT_ORDER.indexOf`
+// returns -1. Both failures are silent: nothing throws, no test goes red, and
+// the numbers are correct the whole time. That was not hypothetical, it was the
+// state of the tree the day this file was written, and this test failed on
+// arrival on eight counts. See AUDIT-2026-08.md, MUST FIX 2 and MUST FIX 3.
 //
-// Neither table has any connection to the write sites. A pack that ships a new
-// format key gets a working ledger, working stats and working recap, and then
-// prints its raw database spelling on a leaderboard, because `formatLabel`
-// falls back to the key and `FORMAT_ORDER.indexOf` returns -1. Both failures
-// are silent: nothing throws, no test goes red, the number is even correct.
-// The only symptom is a screen that reads "casino_run" where it should read
-// "Casino Run", and a sort order that puts six formats above the one the array
-// starts with.
-//
-// That is not hypothetical, it is the state of the tree the day this file was
-// written. See AUDIT-2026-08.md, MUST FIX 2 and MUST FIX 3.
+// Commit 3.1 collapsed both tables into packages/shared/src/formats.ts, so
+// there is one registry now and the label and the sort position of a format
+// arrive together. THIS TEST IS STILL THE THING THAT KEEPS IT HONEST: a
+// registry is only one source of truth while something checks it against the
+// write sites, and nothing about merging two lists stops a thirteenth format
+// being written by a pack that never touches the registry at all.
 //
 // THE EXPECTED SET IS DERIVED, NEVER HAND-LISTED, which is the whole point and
 // the reason this is a source scan rather than a fixture. A hand-written list
@@ -41,11 +42,11 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { FORMAT_LABEL } from "../../web/src/formats.js";
+import { FORMAT_ORDER } from "@gamenight/shared";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SERVER_SRC = path.join(HERE, "../src");
 const SHARED_SRC = path.join(HERE, "../../../packages/shared/src");
-const STATS_TS = path.join(SERVER_SRC, "stats.ts");
 
 /**
  * Format union types that do NOT reach matches.format, by name.
@@ -147,21 +148,16 @@ function writtenFormats(): Found[] {
 }
 
 /**
- * FORMAT_ORDER, read out of the source rather than imported.
+ * FORMAT_ORDER, imported.
  *
- * It is a local `const` inside the /groups/:id/stats handler, so there is
- * nothing to import. Scanning by NAME rather than by file means the check
- * survives the table being moved or exported, which is exactly what MUST FIX 3
- * is likely to do to it.
+ * It was scanned out of the source when this file was written, because it was
+ * then a local `const` inside the /groups/:id/stats handler with nothing to
+ * import. Commit 3.1 moved it into packages/shared/src/formats.ts alongside the
+ * labels, so importing it is now both possible and strictly better: a scan can
+ * only ever check the text somebody wrote, and this checks the value the server
+ * actually sorts on.
  */
-function formatOrder(): string[] {
-  const candidates = [...sources(SERVER_SRC), ...sources(SHARED_SRC)];
-  for (const file of candidates) {
-    const m = readFileSync(file, "utf8").match(/FORMAT_ORDER\s*(?::[^=]+)?=\s*\[([^\]]*)\]/);
-    if (m) return [...m[1]!.matchAll(/"([a-z_]+)"/g)].map((x) => x[1]!);
-  }
-  assert.fail("No FORMAT_ORDER array found in apps/server/src or packages/shared/src.");
-}
+const formatOrder = (): string[] => FORMAT_ORDER;
 
 // ---------- the scanner's own negative control ----------
 
@@ -192,13 +188,13 @@ test("FORMAT_ORDER is readable and is not empty", () => {
 
 // ---------- the two rules ----------
 //
-// Both of these FAIL ON ARRIVAL, deliberately, and are marked todo so the gate
-// stays green while the failure stays loud in the run output. They are the
-// characterization of MUST FIX 2 and MUST FIX 3, written before the fix so the
-// fix has something to flip. Phase 3 commit 3.1 removes both todo markers in
-// the same commit that completes the two tables.
+// Both of these FAILED ON ARRIVAL and were marked todo, which is what they were
+// written for: they are the characterization of MUST FIX 2 and MUST FIX 3, and
+// they existed before the fix so the fix had something to flip. Commit 3.1
+// removed the markers by making both true. They are ordinary tests now, and a
+// pack that ships a new format key turns them red on the day it lands.
 
-test("EVERY FORMAT THE SERVER WRITES HAS A DISPLAY LABEL", { todo: "fails on casino_run and deduction; flipped by phase 3 commit 3.1" }, () => {
+test("EVERY FORMAT THE SERVER WRITES HAS A DISPLAY LABEL", () => {
   const missing = [...new Map(writtenFormats().map((f) => [f.format, f.where]))]
     .filter(([format]) => !(format in FORMAT_LABEL))
     .map(([format, where]) => `  ${format}  written at ${where}`);
@@ -212,7 +208,7 @@ test("EVERY FORMAT THE SERVER WRITES HAS A DISPLAY LABEL", { todo: "fails on cas
   );
 });
 
-test("EVERY FORMAT THE SERVER WRITES HAS A PLACE IN THE SORT ORDER", { todo: "fails on six formats; flipped by phase 3 commit 3.1" }, () => {
+test("EVERY FORMAT THE SERVER WRITES HAS A PLACE IN THE SORT ORDER", () => {
   const order = formatOrder();
   const missing = [...new Map(writtenFormats().map((f) => [f.format, f.where]))]
     .filter(([format]) => !order.includes(format))

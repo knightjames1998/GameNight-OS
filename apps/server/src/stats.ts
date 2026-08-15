@@ -23,7 +23,7 @@ import {
   inArray,
   sql,
 } from "@gamenight/db";
-import { isSeriesSummary } from "@gamenight/shared";
+import { isSeriesSummary, formatOrderIndex } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 
 export const statsRouter = Router();
@@ -98,12 +98,15 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
     if (r.isWinner) cell.wins++;
     bucket.byUser.set(r.userId, cell);
   }
-  const FORMAT_ORDER = ["free", "ffa", "grandprix", "bestof", "koth", "board", "other"];
+  // The order comes from the shared ledger-format registry, which is also where
+  // the client reads its labels. This used to be a local array of seven keys,
+  // six short of what the packs actually write, and `indexOf` returning -1 for
+  // the six sorted every one of them ABOVE "free" rather than below "other".
   const formatsFor = (game: string) => {
     const byFmt = fmtByGame.get(game);
     if (!byFmt) return [];
     return [...byFmt.entries()]
-      .sort((a, b) => FORMAT_ORDER.indexOf(a[0]) - FORMAT_ORDER.indexOf(b[0]))
+      .sort((a, b) => formatOrderIndex(a[0]) - formatOrderIndex(b[0]))
       .map(([format, bucket]) => ({
         format,
         // Count of results (matches/races/sets/boards) played in this format.

@@ -1,62 +1,52 @@
-// One name per format, and one unit noun per format.
+// The client's door onto the shared ledger-format registry.
 //
-// This map existed THREE times: StatsPage, MyStatsPage and recap.tsx (as
-// FORMAT_NAME), with the unit noun duplicated twice alongside it. They agreed
-// today, which is exactly why it was worth fixing now: three copies that agree
-// are one edit away from two copies that do not, and the symptom would be the
-// same night described one way on the leaderboard and another on the recap
-// card.
+// WHAT THIS FILE USED TO BE. A hand-maintained FORMAT_LABEL map plus a
+// hand-maintained FORMAT_UNIT map, written here because three screens needed
+// them (StatsPage, MyStatsPage and recap.tsx, where it was a third copy called
+// FORMAT_NAME). Unifying those three was right and is why this file exists.
 //
-// SCOPE, deliberately: the TV views each compose their own title sentence
-// ("Grand Prix · Cup 2 (3/4)", "King of the Hill · free play · 6 games") and
-// those keep their own wording. They are not repetitions of this idea, they
-// are pack-specific copy that happens to contain a format name, and flattening
-// them into a lookup would lose the cup progress, the set count and the
-// best-of length that make each one useful on a big screen.
+// WHAT IT MISSED, and why the tables have now moved again. There was a FOURTH
+// copy of the same idea, on the other side of the wire: FORMAT_ORDER in
+// apps/server/src/stats.ts, sorting the same keys this file was naming. Two
+// tables over one set of strings, in two packages, with nothing connecting
+// them, is the shape the pack registry already exists to kill, and both had
+// drifted by the time anybody looked. See packages/shared/src/formats.ts.
+//
+// So the definitions live in packages/shared now and this file re-exports them.
+// It stays rather than being deleted because six modules import `formatLabel`
+// and `formatUnit` from "./formats" or "../formats", and a shim costs nothing
+// next to touching six files to say the same thing.
 
-/** The canonical display name for a stored format key. */
-export const FORMAT_LABEL: Record<string, string> = {
-  free: "Free Play",
-  ffa: "Free-for-all",
-  grandprix: "Grand Prix",
-  bestof: "Best Of",
-  koth: "King of the Hill",
-  // Game-as-unit like ffa, so no FORMAT_UNIT entry: a Smashdown series records
-  // one row per battle and the default "games" is the right noun for it.
-  smashdown: "Smashdown",
-  board: "Board night",
-  // The whole casino group records one row per SESSION, so they share one
-  // format key. The pack (games.name) is what tells blackjack from poker.
-  cash: "Cash game",
-  // One row per board game played, so the default "games" unit is right and
-  // there is no FORMAT_UNIT entry. The TITLE is on matches.label, not here:
-  // this pack has one format and many titles, which is the opposite of the
-  // casino group's one format across many packs.
-  boardgame: "Board game",
-  cardtable: "Card game",
-  other: "Other",
-};
+export {
+  FORMAT_ORDER,
+  LEDGER_FORMATS,
+  formatLabel,
+  formatOrderIndex,
+  formatUnit,
+  type LedgerFormatDef,
+} from "@gamenight/shared";
 
-/** Display name, falling back to the raw key so an unknown format still reads. */
-export const formatLabel = (f: string): string => FORMAT_LABEL[f] ?? f;
+import { LEDGER_FORMATS } from "@gamenight/shared";
 
 /**
- * What one recorded unit is CALLED in each format, which differs because the
- * ledger unit differs: a Grand Prix records races, a Best Of records sets, a
- * Mario Party night records boards. Plural; formatUnit singularizes.
+ * The canonical display name for a stored format key.
+ *
+ * Derived from the registry rather than declared, so it cannot fall behind it.
+ * Kept because it is a named export this file has always had; new code should
+ * call `formatLabel`, which handles the unknown-key fallback.
  */
-export const FORMAT_UNIT: Record<string, string> = {
-  grandprix: "races",
-  bestof: "sets",
-  board: "boards",
-  // A cash night's unit is the night. "8 games of blackjack" would be a lie
-  // about a ledger that holds one row per table.
-  cash: "sessions",
-  other: "results",
-};
+export const FORMAT_LABEL: Record<string, string> = Object.fromEntries(
+  LEDGER_FORMATS.map((f) => [f.key, f.label]),
+);
 
-/** "3 races", "1 set", "8 games". */
-export function formatUnit(f: string, n: number): string {
-  const base = FORMAT_UNIT[f] ?? "games";
-  return n === 1 ? base.replace(/s$/, "") : base;
-}
+/**
+ * What one recorded unit is CALLED in each format, plural. Only formats whose
+ * ledger unit is not a game have an entry; the rest fall back to "games" inside
+ * `formatUnit`.
+ *
+ * recap.tsx reads this map directly (it wants the plural noun without a count),
+ * which is why it is still exported rather than folded into formatUnit alone.
+ */
+export const FORMAT_UNIT: Record<string, string> = Object.fromEntries(
+  LEDGER_FORMATS.flatMap((f) => (f.unit ? [[f.key, f.unit]] : [])),
+);
