@@ -209,3 +209,123 @@
     opacity: 1 !important;
   }
 }
+
+/* ================= TV MODE: the density ladder =================
+   BeerioTvPage.tsx is OURS, not part of the vendored 1:1 port, and this block
+   is the metrics its ladder (band.ts) spends. Every number below is a variable
+   so a band is a dozen-line diff rather than a restated stylesheet, and the
+   base block IS the roomy band.
+
+   A television cannot be scrolled, so past 1080px is gone rather than below the
+   fold. This screen has never fitted one: measured 1561px before the alive
+   board shipped and 1662px at sixteen racers after it, against 561px of fixed
+   chrome that left a column 519px on a 1080px screen.
+
+   THE NAME FLOOR IS 1.25vw (24px at 1920x1080), the same physical size as the
+   shell TV's 2.2vmin and the casino money board's tightest band. --bt-nm and
+   --bt-chip are names a person reads from a couch and no band goes below it;
+   round titles, vote counts and group labels are recognised rather than read
+   and do go smaller. Enforced against this file by
+   apps/server/tests/bracket-tv-fit.test.ts. */
+.beerio-tv {
+  --bt-brand: 5.5vw;        /* the BEERIO KART wordmark */
+  --bt-brand-sh: 6px;       /* its hard shadow, which scales with it */
+  --bt-pill: 1.5vw;         /* the LIVE / room / format pill */
+  --bt-pill-pad: .5vw;
+  --bt-h2: 2vw;
+  --bt-h2-mb: 1vw;
+  --bt-shell-pad: 2vw;
+  --bt-shell-gap: 1.5vw;
+  --bt-board-gap: 1.2vw;
+
+  --bt-nm: 1.9vw;           /* an Up next racer name. FLOOR 1.25vw. */
+  --bt-row-pad: .7vw;
+  --bt-dot: 1.6vw;
+  --bt-card-gap: 1vw;
+
+  --bt-pb-l: 1vw;           /* the crowd-says label */
+  --bt-pb-bar: 1.4vw;       /* the bar itself */
+  --bt-pb-pad: 1.2vw;
+
+  --bt-chip: 1.6vw;         /* a racer name on the alive board. FLOOR 1.25vw. */
+  --bt-chip-pad: .4vw;
+  --bt-chip-padx: 1vw;
+  --bt-chip-dot: 1.3vw;
+  --bt-chip-gap: .7vw;
+  --bt-grp-gap: 1vw;
+  --bt-lbl: 1.2vw;
+  --bt-lbl-mb: .5vw;
+
+  --bt-st-nm: 1vw;          /* a round strip cell */
+  --bt-st-n: .9vw;
+  --bt-st-pad: .45vw;
+  --bt-st-top: .7vw;
+}
+.beerio-tv__shell { padding: calc(var(--bt-shell-pad) + env(safe-area-inset-top, 0px)) calc(var(--bt-shell-pad) + env(safe-area-inset-right, 0px)) calc(var(--bt-shell-pad) + env(safe-area-inset-bottom, 0px)) calc(var(--bt-shell-pad) + env(safe-area-inset-left, 0px)); gap: var(--bt-shell-gap); }
+.beerio-tv__brand { font-size: var(--bt-brand); text-shadow: var(--bt-brand-sh) var(--bt-brand-sh) 0 var(--ink); }
+.beerio-tv__pill { font-size: var(--bt-pill); padding: var(--bt-pill-pad) 1.5vw; }
+.beerio-tv__h2 { font-size: var(--bt-h2); margin-bottom: var(--bt-h2-mb); }
+.beerio-tv__cols { gap: var(--bt-board-gap); }
+
+.beerio-tvm__row { padding: var(--bt-row-pad) 1.2vw; gap: 1vw; }
+.beerio-tvm__nm { font-size: var(--bt-nm); }
+.beerio-tvm__dot { width: var(--bt-dot); height: var(--bt-dot); }
+.beerio-tv__deck { gap: var(--bt-card-gap); }
+
+.beerio-tvpb { padding: 0 var(--bt-pb-pad) calc(var(--bt-pb-pad) * .75); }
+.beerio-tvpb__l { font-size: var(--bt-pb-l); margin-bottom: .4vw; }
+.beerio-tvpb__bar { height: var(--bt-pb-bar); }
+.beerio-tvpb__pct { font-size: calc(var(--bt-pb-bar) * .64); }
+
+.beerio-tva { font-size: var(--bt-chip); padding: var(--bt-chip-pad) var(--bt-chip-padx); gap: .5vw; }
+.beerio-tva__dot { width: var(--bt-chip-dot); height: var(--bt-chip-dot); }
+.beerio-tv-alive { gap: var(--bt-grp-gap); }
+.beerio-tv-alive__row { gap: var(--bt-chip-gap); }
+.beerio-tv-alive__lbl { font-size: var(--bt-lbl); margin-bottom: var(--bt-lbl-mb); }
+
+.beerio-tv-strip { gap: .6vw; }
+.beerio-tvst { padding: var(--bt-st-pad) .7vw; border-top-width: var(--bt-st-top); }
+.beerio-tvst__nm { font-size: var(--bt-st-nm); }
+.beerio-tvst__n { font-size: var(--bt-st-n); }
+
+/* ---- The rungs ----
+   Measured, not scaled: each is what lands the worst state at that racer count
+   inside 1080px against the lowest painted pixel. The tight band spends
+   horizontal chip padding hardest because at sixteen racers with a 24-character
+   name the cliff is the chip WRAPPING to one per line, which doubles the board
+   and costs more than any font change buys back. */
+.beerio-tv[data-band="close"] {
+  --bt-brand: 4.4vw; --bt-brand-sh: 5px; --bt-pill: 1.3vw; --bt-pill-pad: .4vw;
+  --bt-h2: 1.7vw; --bt-h2-mb: .7vw; --bt-shell-pad: 1.6vw; --bt-shell-gap: 1vw;
+  --bt-board-gap: .9vw;
+  --bt-nm: 1.6vw; --bt-row-pad: .4vw; --bt-dot: 1.3vw; --bt-card-gap: .7vw;
+  --bt-pb-l: .8vw; --bt-pb-bar: 1vw; --bt-pb-pad: .8vw;
+  --bt-chip: 1.45vw; --bt-chip-pad: .3vw; --bt-chip-padx: .85vw;
+  --bt-chip-dot: 1.1vw; --bt-chip-gap: .55vw; --bt-grp-gap: .8vw;
+  --bt-lbl: 1.05vw; --bt-lbl-mb: .35vw;
+  --bt-st-nm: .9vw; --bt-st-n: .8vw; --bt-st-pad: .35vw; --bt-st-top: .55vw;
+}
+.beerio-tv[data-band="tight"] {
+  --bt-brand: 3.4vw; --bt-brand-sh: 4px; --bt-pill: 1.1vw; --bt-pill-pad: .3vw;
+  --bt-h2: 1.45vw; --bt-h2-mb: .5vw; --bt-shell-pad: 1.2vw; --bt-shell-gap: .7vw;
+  --bt-board-gap: .7vw;
+  --bt-nm: 1.35vw; --bt-row-pad: .28vw; --bt-dot: 1.05vw; --bt-card-gap: .5vw;
+  --bt-pb-l: .7vw; --bt-pb-bar: .85vw; --bt-pb-pad: .65vw;
+  --bt-chip: 1.25vw; --bt-chip-pad: .22vw; --bt-chip-padx: .6vw;
+  --bt-chip-dot: .9vw; --bt-chip-gap: .4vw; --bt-grp-gap: .6vw;
+  --bt-lbl: .95vw; --bt-lbl-mb: .25vw;
+  --bt-st-nm: .8vw; --bt-st-n: .72vw; --bt-st-pad: .28vw; --bt-st-top: .45vw;
+}
+/* The floor. The pack caps its roster at sixteen so nothing should reach here
+   through the app, which is exactly why it must not be the untested case. */
+.beerio-tv[data-band="packed"] {
+  --bt-brand: 3vw; --bt-brand-sh: 3px; --bt-pill: 1vw; --bt-pill-pad: .25vw;
+  --bt-h2: 1.35vw; --bt-h2-mb: .4vw; --bt-shell-pad: 1vw; --bt-shell-gap: .6vw;
+  --bt-board-gap: .6vw;
+  --bt-nm: 1.25vw; --bt-row-pad: .22vw; --bt-dot: .95vw; --bt-card-gap: .4vw;
+  --bt-pb-l: .65vw; --bt-pb-bar: .8vw; --bt-pb-pad: .55vw;
+  --bt-chip: 1.25vw; --bt-chip-pad: .18vw; --bt-chip-padx: .5vw;
+  --bt-chip-dot: .8vw; --bt-chip-gap: .35vw; --bt-grp-gap: .5vw;
+  --bt-lbl: .9vw; --bt-lbl-mb: .2vw;
+  --bt-st-nm: .75vw; --bt-st-n: .68vw; --bt-st-pad: .24vw; --bt-st-top: .4vw;
+}

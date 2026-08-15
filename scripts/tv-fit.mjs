@@ -187,18 +187,26 @@ const deduction = (n) => {
 // never a pack that forgot a step. It was the two screens nobody thought to
 // add. Same finding as Board Game's on 2026-08-09, in an older costume.
 //
-// MEASURED AT 8 AND AT 16. Sixteen is Beerio's MAX_PLAYERS, and it is the count
-// that puts eleven cells in the round strip and sixteen names on the alive
-// board, so it is the reachable worst case rather than a theoretical one.
+// MEASURED AT 4, 8, 12 AND 16, IN FOUR STATES EACH. The first pass measured two
+// counts in one state, which is how a band boundary lands in the wrong place
+// and nothing says so: a ladder proved at its endpoints and not in the middle
+// is a ladder proved nowhere. Sixteen is Beerio's MAX_PLAYERS and a realistic
+// full crew on the shell's bracket, whose entrants come off the yes-RSVP list
+// with no cap at all.
 //
-// Mid-bracket on purpose: two waves played, so the on-deck stack is full, the
-// alive board has all three of its groups populated, and the strip has done,
-// current and not-yet cells at once. An empty bracket measures the least ink
-// on any of the three.
-const WAVES = 2;
-const playWaves = (n, structure) => {
+// THE FOUR STATES ARE THE ONES A NIGHT ACTUALLY PASSES THROUGH, which is Casino
+// Run's lesson (its TV was pinned at one state and broke at another):
+//
+//   fresh   nothing played. Every first-round match is ready at once, so the
+//           on-deck column is at its fullest and the board is one group.
+//   mid     two waves in. All three alive groups populated, which is the
+//           board's worst state, and the strip has done / now / not-yet cells.
+//   late    everything but the last match. The board is nearly all struck out
+//           and the grand final's "needs 2" note is on the on-deck card.
+//   champ   somebody won. The champion panel takes over and the board is gone.
+const playN = (n, structure, waves) => {
   const results = {};
-  for (let w = 0; w < WAVES; w++) {
+  for (let w = 0; w < waves; w++) {
     const open = Object.values(computeBracket(n, structure, results).matches)
       .filter((m) => m.playable && m.active);
     if (open.length === 0) break;
@@ -206,12 +214,31 @@ const playWaves = (n, structure) => {
   }
   return results;
 };
+/** Play until only `leave` matches are still undecided, or to a champion. */
+const playDown = (n, structure, leave) => {
+  const results = {};
+  for (let guard = 0; guard < 400; guard++) {
+    const c = computeBracket(n, structure, results);
+    if (c.championSeed != null) return results;
+    const open = Object.values(c.matches).filter((m) => m.playable && m.active);
+    const undecided = Object.values(c.matches).filter((m) => m.active && !m.decided);
+    if (open.length === 0 || undecided.length <= leave) return results;
+    results[open[0].def.id] = "A";
+  }
+  return results;
+};
+const STATES = ["fresh", "mid", "late", "champ"];
+const resultsFor = (n, structure, state) =>
+  state === "fresh" ? {}
+  : state === "mid" ? playN(n, structure, 2)
+  : state === "late" ? playDown(n, structure, 1)
+  : playDown(n, structure, 0);
 
 // The shell's /tv/:id payload, built through the same serializer shape
 // apps/server/src/brackets.ts deriveView() emits.
-const bracketTv = (n, format = "double_elim") => {
+const bracketTv = (n, state = "mid", format = "double_elim") => {
   const structure = buildStructure(format, n);
-  const results = playWaves(n, structure);
+  const results = resultsFor(n, structure, state);
   const computed = computeBracket(n, structure, results);
   const slot = (s) =>
     s.kind === "player"
@@ -244,14 +271,17 @@ const bracketTv = (n, format = "double_elim") => {
 // page feeds to its OWN engine. THE MATCH IDS ARE THE SAME BY CONSTRUCTION —
 // packages/shared/src/bracket.ts is that engine generalized, so W{r}M{i} /
 // L{r}M{i} / GF and the seed order are identical for double elim — which is
-// why one results map serves both cases and why this fixture cannot drift into
-// naming matches the pack does not have.
+// why one results map serves both screens and why this fixture cannot drift
+// into naming matches the pack does not have.
+//
+// TWO SPECTATORS WHO VOTED ON EVERYTHING, because a card carrying its crowd
+// bars is the tallest an Up next card ever gets and those are up on exactly the
+// nights people are watching. A ladder tuned against a card with no votes would
+// be wrong when it matters most.
 const BEERIO_COLORS = ["#E5352B", "#3B7BE8", "#2FB969", "#FFC02E", "#9B59D0", "#FF7BAC", "#00B7C2", "#F2751A"];
-const beerioTv = (n) => {
+const beerioTv = (n, state = "mid") => {
   const structure = buildStructure("double_elim", n);
-  const results = playWaves(n, structure);
-  // Two spectators who voted on everything, so the on-deck cards carry their
-  // prediction bars: that is the tallest an Up next card ever gets.
+  const results = resultsFor(n, structure, state);
   const picks = Object.fromEntries(structure.defs.map((d) => [`M:${d.id}`, "A"]));
   return {
     state: {
@@ -396,15 +426,35 @@ const CASES = [
   ["deduction  12 players", "/deduction/tv/x", deduction(12), ".sd-p"],
   ["deduction  16 players", "/deduction/tv/x", deduction(16), ".sd-p"],
   ["deduction  20 players", "/deduction/tv/x", deduction(20), ".sd-p"],
-  // THE TWO BRACKETED TVs, added 2026-08-15 with the alive board and the round
-  // strip. Both are older than this harness and neither had ever been measured.
-  // The proof selector is a round-strip cell in each: it needs a real rounds
-  // payload to exist at all, so a stale fixture takes the waiting state and
-  // fails loudly rather than measuring a loading screen.
-  ["bracket tv   8 players", "/tv/x", bracketTv(8), ".gn-tvst"],
-  ["bracket tv  16 players", "/tv/x", bracketTv(16), ".gn-tvst"],
-  ["beerio tv    8 racers", "/beerio/tv/ABCD", beerioTv(8), ".beerio-tv-strip"],
-  ["beerio tv   16 racers", "/beerio/tv/ABCD", beerioTv(16), ".beerio-tv-strip"],
+  // THE TWO BRACKETED TVs, four counts by four states each. The proof selector
+  // is a round-strip cell: it needs a real rounds payload to exist at all, so a
+  // stale fixture takes the waiting state and fails loudly rather than quietly
+  // measuring a loading screen. The champion state has no strip on Beerio's
+  // side of the grid but does have one above it, so the same hook serves.
+  //
+  // BEERIO IS MEASURED IN ONE THEME ONLY, and that is not an oversight: the
+  // pack is permanently exempt from the Tabletop conversion (STANDING RULES /
+  // NEXT UP), so it paints identically under both and a second pass would cost
+  // sixteen navigations to prove nothing.
+  ...[4, 8, 12, 16].flatMap((n) =>
+    STATES.map((st) => [
+      `bracket tv ${String(n).padStart(2)} ${st.padEnd(5)}`, "/tv/x", bracketTv(n, st), ".gn-tvst",
+    ]),
+  ),
+  ...[4, 8, 12, 16].flatMap((n) =>
+    STATES.map((st) => [
+      `beerio tv  ${String(n).padStart(2)} ${st.padEnd(5)}`, "/beerio/tv/ABCD", beerioTv(n, st), ".beerio-tv-strip", ["arcade"],
+    ]),
+  ),
+  // OUT OF CONTRACT, REPORTED ANYWAY. The shell's bracket takes its entrants
+  // off the yes-RSVP list with no cap, so twenty-four is reachable even though
+  // the ladder was only measured to sixteen. It does not have to fit; it has to
+  // degrade at the tightest band rather than silently paint off the bottom.
+  ["bracket tv 24 mid  ", "/tv/x", bracketTv(24, "mid"), ".gn-tvst", ["arcade"]],
+  // Single elim is the other board shape, and its column is shorter (two groups
+  // rather than three), so it is measured at the count that binds rather than
+  // at every one.
+  ["bracket tv 16 single", "/tv/x", bracketTv(16, "mid", "single_elim"), ".gn-tvst", ["arcade"]],
 ];
 
 // A case that is ALREADY over before any rail exists cannot be made to pass by
@@ -427,9 +477,21 @@ const CASES = [
 const KNOWN = new Set(["ping pong    7 players", "board game  12 players"]);
 let newOverlaps = 0;
 let stale = 0;
+// THE FIT WAS REPORTED AND NEVER ENFORCED until 2026-08-15. This file has asked
+// two questions since the rail shipped, and only the SECOND one (is anything
+// covered) could fail the run: a case could print "OVER by 468" in the first
+// column and the script would still exit 0. That is the same shape of miss as
+// the `rendered` flag being computed and not read, and it is why four bracketed
+// cases could be added in one session, all four over, and the exit code said
+// nothing about it. Now a case that runs past 1080px fails unless it is named in
+// KNOWN, which is where the two pre-existing pack overflows already live.
+let overs = 0;
 console.log("case                      theme     rail  lowest  backBtm  vs 1080      back v rail   covered by the rail");
 for (const theme of ["arcade", "tabletop"]) {
-  for (const [label, route, payload, proof] of CASES) {
+  for (const [label, route, payload, proof, themes] of CASES) {
+    // A case may name the themes it is measured in. Only Beerio does, because
+    // it is permanently exempt from theming and paints identically in both.
+    if (themes && !themes.includes(theme)) continue;
     const m = await measure(theme, route, payload, proof);
     const over = m.lowest - 1080;
     const back = m.backIntoRail === null ? "no button"
@@ -446,14 +508,77 @@ for (const theme of ["arcade", "tabletop"]) {
     // measuring a scoreboard and kept passing. Now a stale payload FAILS.
     if (!m.rendered) { console.log(`      ^ DID NOT RENDER: payload is stale for ${route} (looked for ${proof})`); stale++; }
     if ((m.covered.length || (m.backIntoRail ?? -1) > 0) && !KNOWN.has(label)) newOverlaps++;
+    if (over > 0 && !KNOWN.has(label)) overs++;
   }
 }
+// ---- the negative control -------------------------------------------------
+//
+// EVERY FIT CLAIM IN THIS REPO THAT TURNED OUT TO BE FALSE PASSED A CHECK THAT
+// COULD NOT SEE THE FAULT. Ping Pong's payload went stale and both its cases
+// kept passing while measuring a waiting screen; the money board was measured
+// to a footer that was not the lowest thing on the page. So before this script
+// is allowed to report that the ladder works, it proves it can still see the
+// ladder NOT working: the band variables are pinned back to their base (roomy)
+// values on every band, which is exactly the pre-ladder screen, and the case
+// that binds hardest must go over. If it does not, the check has stopped
+// measuring something and says so instead of passing.
+// THE METRICS AS THEY SHIPPED ON 2026-08-15, before the ladder, restored on top
+// of every band. Not the current base block: that block IS the roomy rung and is
+// already denser than what shipped, so pinning to it proved almost nothing (it
+// put the binding case 18px over instead of 468, and Beerio's not at all). The
+// numbers below are read off the previous commit.
+//
+// THE SELECTORS ARE DOUBLED ON PURPOSE. `.gn-tv[data-band="tight"]` is one class
+// plus one attribute, so a plain `.gn-tv[data-band]` ties on specificity and
+// then loses or wins on source order, and a pack stylesheet arrives on a LAZY
+// CHUNK long after this style tag does. Beerio's control silently did nothing
+// the first time it ran, which is the whole reason a negative control is worth
+// having: it caught itself.
+const NEUTRALISE = `
+  .gn-tv.gn-tv[data-band]{
+    --gn-tv-nm:3vmin;--gn-tv-rt:1.7vmin;--gn-tv-row-pad:1.5vmin;--gn-tv-stack-gap:1.6vmin;
+    --gn-tv-note:1.7vmin;
+    --gn-tv-chip:2.4vmin;--gn-tv-chip-pad:.7vmin;--gn-tv-chip-padx:1.8vmin;--gn-tv-chip-gap:1.1vmin;
+    --gn-tv-grp-gap:2vmin;--gn-tv-lbl:1.7vmin;--gn-tv-lbl-mb:1vmin;
+    --gn-tv-strip-nm:1.5vmin;--gn-tv-strip-n:1.4vmin;--gn-tv-strip-pad:.8vmin;
+    --gn-tv-strip-mt:2.4vmin;--gn-tv-cols-mt:3vmin;--gn-tv-h2:3vmin;--gn-tv-h2-mb:1.8vmin;
+  }
+  .beerio-root.beerio-tv.beerio-tv[data-band]{
+    --bt-brand:5.5vw;--bt-brand-sh:6px;--bt-pill:1.5vw;--bt-pill-pad:.5vw;
+    --bt-h2:2vw;--bt-h2-mb:1vw;--bt-shell-pad:2vw;--bt-shell-gap:1.5vw;--bt-board-gap:1.2vw;
+    --bt-nm:1.9vw;--bt-row-pad:.7vw;--bt-dot:1.6vw;--bt-card-gap:1vw;
+    --bt-pb-l:1vw;--bt-pb-bar:1.4vw;--bt-pb-pad:1.2vw;
+    --bt-chip:1.6vw;--bt-chip-pad:.4vw;--bt-chip-padx:1vw;--bt-chip-dot:1.3vw;
+    --bt-chip-gap:.7vw;--bt-grp-gap:1vw;--bt-lbl:1.2vw;--bt-lbl-mb:.5vw;
+    --bt-st-nm:1vw;--bt-st-n:.9vw;--bt-st-pad:.45vw;--bt-st-top:.7vw;
+  }`;
+let control = 0;
+console.log("\nnegative control: the ladder pinned back to its base metrics, which must NOT fit");
+{
+  const inject = (await send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `addEventListener("DOMContentLoaded",()=>{const s=document.createElement("style");s.textContent=${JSON.stringify(NEUTRALISE)};document.head.appendChild(s)})`,
+  })).result.identifier;
+  for (const [label, route, payload, proof] of [
+    ["bracket tv 16 mid  ", "/tv/x", bracketTv(16, "mid"), ".gn-tvst"],
+    ["beerio tv  16 mid  ", "/beerio/tv/ABCD", beerioTv(16, "mid"), ".beerio-tv-strip"],
+  ]) {
+    const m = await measure("arcade", route, payload, proof);
+    const over = m.lowest - 1080;
+    console.log(`  ${label.padEnd(24)}${String(m.lowest).padEnd(8)}${over > 0 ? "OVER by " + over + "  (control holds)" : "FITS, so this check is blind"}`);
+    if (over <= 0) control++;
+  }
+  await send("Page.removeScriptToEvaluateOnNewDocument", { identifier: inject });
+}
+
+const ok = newOverlaps === 0 && stale === 0 && overs === 0 && control === 0;
 console.log(
-  newOverlaps === 0 && stale === 0
-    ? "\nPASS  no fixed overlay covers anything a TV layout placed (Ping Pong past six players excepted, and logged)"
+  ok
+    ? "\nPASS  every case fits 1080p and nothing is covered by a fixed overlay (Ping Pong past six and Board Game at twelve excepted, and logged in BUGS)"
     : [
+        overs ? `FAIL  ${overs} case(s) run past 1080px` : "",
         newOverlaps ? `FAIL  ${newOverlaps} case(s) have painted content under a fixed overlay` : "",
         stale ? `FAIL  ${stale} case(s) never rendered: the payload no longer matches the page` : "",
+        control ? `FAIL  ${control} negative control(s) FIT without the ladder, so this check cannot see the fault it exists for` : "",
       ].filter(Boolean).join("\n"),
 );
-chrome.kill("SIGKILL"); preview.kill("SIGKILL"); process.exit(newOverlaps === 0 && stale === 0 ? 0 : 1);
+chrome.kill("SIGKILL"); preview.kill("SIGKILL"); process.exit(ok ? 0 : 1);

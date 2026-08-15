@@ -1184,34 +1184,69 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 
 /* ---- TV "now playing" board (big screen) ----
    A full bracket tree is unreadable across a room, so the TV surfaces what
-   matters right now: the matchups on deck and the latest results, in type
-   sized to be read from the couch. Everything scales with vmin. */
-.gn-tv-cols{display:grid;grid-template-columns:1fr 1fr;gap:3vmin;flex:1;min-height:0;margin-top:3vmin}
+   matters right now: the night's shape, the matchups on deck and who is still
+   alive, in type sized to be read from the couch.
+
+   EVERY METRIC ON THIS SCREEN IS A VARIABLE, and the ladder in
+   apps/web/src/pages/tv-band.ts spends them by overriding a dozen of them per
+   band rather than by restating a hundred rules per band. The base block below
+   IS the roomy band; each [data-band] block after it is a diff. A television
+   cannot be scrolled, so a screen that runs past 1080px has not pushed content
+   below the fold, it has thrown it away, and this one never fitted at all until
+   2026-08-15.
+
+   THE NAME FLOOR IS 2.2vmin (23.8px at 1080p) and it is the money board's, not
+   a new one: --gn-tv-nm and --gn-tv-chip are names a person reads from a couch
+   and no band puts either below it. Everything else here (round titles, counts,
+   group labels) is recognised rather than read and goes smaller. Enforced by
+   apps/server/tests/bracket-tv-fit.test.ts against this file. */
+.gn-tv{
+  --gn-tv-nm: 2.5vmin;        /* an on-deck player name. FLOOR 2.2vmin. */
+  --gn-tv-rt: 1.5vmin;        /* the round title on a card */
+  --gn-tv-row-pad: 1vmin;     /* an on-deck row's vertical padding */
+  --gn-tv-stack-gap: 1.3vmin;
+  --gn-tv-note: 1.5vmin;      /* the grand-final "needs 2" explainer */
+  --gn-tv-chip: 2.4vmin;      /* a name on the alive board. FLOOR 2.2vmin. */
+  --gn-tv-chip-pad: .7vmin;
+  --gn-tv-chip-padx: 1.8vmin;
+  --gn-tv-chip-gap: 1.1vmin;
+  --gn-tv-grp-gap: 2vmin;
+  --gn-tv-lbl: 1.7vmin;
+  --gn-tv-lbl-mb: 1vmin;
+  --gn-tv-strip-nm: 1.5vmin;
+  --gn-tv-strip-n: 1.4vmin;
+  --gn-tv-strip-pad: .8vmin;
+  --gn-tv-strip-mt: 2.4vmin;
+  --gn-tv-cols-mt: 2.6vmin;
+  --gn-tv-h2: 3vmin;
+  --gn-tv-h2-mb: 1.6vmin;
+}
+.gn-tv-cols{display:grid;grid-template-columns:1fr 1fr;gap:3vmin;flex:1;min-height:0;margin-top:var(--gn-tv-cols-mt)}
 @media (max-width:860px){.gn-tv-cols{grid-template-columns:1fr}}
-.gn-tv-h2{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;color:var(--gn-ink);margin-bottom:1.8vmin;display:flex;align-items:baseline;gap:1.4vmin}
+.gn-tv-h2{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:var(--gn-tv-h2);color:var(--gn-ink);margin-bottom:var(--gn-tv-h2-mb);display:flex;align-items:baseline;gap:1.4vmin}
 .gn-tv-h2 span{font-size:1.9vmin;color:var(--gn-dim);font-weight:700}
-.gn-tv-stack{display:flex;flex-direction:column;gap:1.6vmin;min-height:0}
+.gn-tv-stack{display:flex;flex-direction:column;gap:var(--gn-tv-stack-gap);min-height:0}
 .gn-tvm{background:var(--gn-surf);border:3px solid var(--gn-line);border-radius:var(--gn-radius-card-tv);overflow:hidden}
 .gn-tvm--live{border-color:var(--gn-p2);box-shadow:0 0 3.2vmin color-mix(in srgb, var(--gn-p2) 20%, transparent)}
-.gn-tvm__rt{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:1.7vmin;letter-spacing:.18vmin;text-transform:uppercase;color:var(--gn-dim);padding:1vmin 1.8vmin 0}
-.gn-tvm__row{display:flex;align-items:center;justify-content:space-between;gap:1.5vmin;padding:1.5vmin 1.8vmin;font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;color:var(--gn-ink)}
+.gn-tvm__rt{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:var(--gn-tv-rt);letter-spacing:.18vmin;text-transform:uppercase;color:var(--gn-dim);padding:.7vmin 1.8vmin 0}
+.gn-tvm__row{display:flex;align-items:center;justify-content:space-between;gap:1.5vmin;padding:var(--gn-tv-row-pad) 1.8vmin;font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:var(--gn-tv-nm);color:var(--gn-ink)}
 .gn-tvm__row--win{color:var(--gn-p2);background:color-mix(in srgb, var(--gn-p2) 12%, transparent)}
 .gn-tvm__row--lose{color:var(--gn-dim);opacity:.6}
 .gn-tvm__row--lose .gn-tvm__nm{text-decoration:line-through}
 .gn-tvm__nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-.gn-tvm__seed{font-size:1.7vmin;color:var(--gn-faint);font-weight:800;flex-shrink:0}
+.gn-tvm__seed{font-size:1.5vmin;color:var(--gn-faint);font-weight:800;flex-shrink:0}
 .gn-tvm__vs{font-family:var(--gn-font-display);color:var(--gn-p1);font-size:2vmin;text-align:center;padding:.2vmin 0;letter-spacing:.1vmin}
 .gn-tvm__div{height:3px;background:var(--gn-line)}
 /* Grand-final "needs 2" clarity on the big screen. */
 .gn-tvm__needs2{
-  font-family:Fredoka, system-ui, sans-serif;font-weight:800;font-size:1.5vmin;letter-spacing:.1vmin;
+  font-family:Fredoka, system-ui, sans-serif;font-weight:800;font-size:1.4vmin;letter-spacing:.1vmin;
   text-transform:uppercase;color:var(--gn-gold);background:color-mix(in srgb, var(--gn-gold) 14%, transparent);
   border:.25vmin solid color-mix(in srgb, var(--gn-gold) 55%, transparent);border-radius:var(--gn-radius-pill);padding:.3vmin 1.1vmin;
   flex-shrink:0;white-space:nowrap;
 }
 .gn-tvm__note{
-  font-family:Nunito, system-ui, sans-serif;font-weight:700;font-size:1.7vmin;line-height:1.3;
-  color:var(--gn-gold);background:color-mix(in srgb, var(--gn-gold) 8%, transparent);padding:1vmin 1.8vmin;
+  font-family:Nunito, system-ui, sans-serif;font-weight:700;font-size:var(--gn-tv-note);line-height:1.3;
+  color:var(--gn-gold);background:color-mix(in srgb, var(--gn-gold) 8%, transparent);padding:.8vmin 1.8vmin;
   border-top:.25vmin dashed color-mix(in srgb, var(--gn-gold) 35%, transparent);
 }
 .gn-tv-empty{font-family:Fredoka,system-ui,sans-serif;font-weight:700;font-size:2.2vmin;color:var(--gn-dim);opacity:.7}
@@ -1222,16 +1257,16 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
    a background, so the band stays quiet under the columns that carry the
    reading. More than one cell is "now" in double elim and that is normal: a
    winners round and a losers round are routinely both open. */
-.gn-tv-strip{display:flex;gap:.8vmin;margin-top:2.4vmin;flex-shrink:0}
+.gn-tv-strip{display:flex;gap:.8vmin;margin-top:var(--gn-tv-strip-mt);flex-shrink:0}
 .gn-tvst{
   flex:1;min-width:0;background:var(--gn-surf);border:.25vmin solid var(--gn-line);
-  border-top:.7vmin solid var(--gn-line);border-radius:var(--gn-radius-card);padding:.8vmin 1.1vmin;
+  border-top:.7vmin solid var(--gn-line);border-radius:var(--gn-radius-card);padding:var(--gn-tv-strip-pad) 1.1vmin;
 }
 .gn-tvst__nm{
-  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:1.5vmin;color:var(--gn-ink);
+  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:var(--gn-tv-strip-nm);color:var(--gn-ink);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
-.gn-tvst__n{font-family:Nunito,system-ui,sans-serif;font-weight:700;font-size:1.4vmin;color:var(--gn-dim)}
+.gn-tvst__n{font-family:Nunito,system-ui,sans-serif;font-weight:700;font-size:var(--gn-tv-strip-n);color:var(--gn-dim)}
 .gn-tvst--done{opacity:.5}
 .gn-tvst--now{border-top-color:var(--gn-p2)}
 /* ---- The still-alive board ----
@@ -1239,21 +1274,60 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
    happened is already known to the room, and what a bracket night leaves open
    is who is still standing. Three groups on double elim, TWO on single (one
    loss is out there, so the middle group does not exist). */
-.gn-tv-alive{display:flex;flex-direction:column;gap:2vmin;min-height:0}
+.gn-tv-alive{display:flex;flex-direction:column;gap:var(--gn-tv-grp-gap);min-height:0}
 .gn-tv-alive__lbl{
-  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:1.7vmin;letter-spacing:.18vmin;
-  text-transform:uppercase;color:var(--gn-dim);margin-bottom:1vmin;
+  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:var(--gn-tv-lbl);letter-spacing:.18vmin;
+  text-transform:uppercase;color:var(--gn-dim);margin-bottom:var(--gn-tv-lbl-mb);
 }
 .gn-tv-alive__lbl span{color:var(--gn-faint)}
-.gn-tv-alive__row{display:flex;flex-wrap:wrap;gap:1.1vmin}
+.gn-tv-alive__row{display:flex;flex-wrap:wrap;gap:var(--gn-tv-chip-gap)}
 .gn-tva{
-  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:2.4vmin;color:var(--gn-ink);
+  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:var(--gn-tv-chip);color:var(--gn-ink);
   background:var(--gn-surf);border:.3vmin solid var(--gn-line);border-radius:var(--gn-radius-pill);
-  padding:.7vmin 1.8vmin;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  padding:var(--gn-tv-chip-pad) var(--gn-tv-chip-padx);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .gn-tva--clean{border-color:var(--gn-p2);color:var(--gn-p2)}
 .gn-tva--one{border-color:var(--gn-gold);color:var(--gn-gold)}
 .gn-tva--out{border-style:dashed;color:var(--gn-dim);text-decoration:line-through;opacity:.6}
+/* ---- The ladder ----
+   Three diffs off the base block above, spent by tv-band.ts. Each one is the
+   metrics MEASURED to land the worst state at that entrant count inside 1080px
+   against the lowest painted pixel, not a proportional shrink of the last.
+   --gn-tv-nm and --gn-tv-chip stop at 2.2vmin in every band, which is the floor
+   and is why the tighter bands spend padding and gaps rather than type. */
+.gn-tv[data-band="close"]{
+  --gn-tv-nm: 2.35vmin; --gn-tv-rt: 1.4vmin; --gn-tv-row-pad: .85vmin;
+  --gn-tv-stack-gap: 1.1vmin; --gn-tv-note: 1.4vmin;
+  --gn-tv-chip: 2.3vmin; --gn-tv-chip-pad: .5vmin; --gn-tv-chip-padx: 1.5vmin;
+  --gn-tv-chip-gap: .9vmin; --gn-tv-grp-gap: 1.5vmin;
+  --gn-tv-lbl: 1.6vmin; --gn-tv-lbl-mb: .7vmin;
+  --gn-tv-strip-nm: 1.4vmin; --gn-tv-strip-n: 1.3vmin; --gn-tv-strip-pad: .65vmin;
+  --gn-tv-strip-mt: 2vmin; --gn-tv-cols-mt: 2.2vmin;
+  --gn-tv-h2: 2.7vmin; --gn-tv-h2-mb: 1.3vmin;
+}
+.gn-tv[data-band="tight"]{
+  --gn-tv-nm: 2.2vmin; --gn-tv-rt: 1.3vmin; --gn-tv-row-pad: .7vmin;
+  --gn-tv-stack-gap: .9vmin; --gn-tv-note: 1.3vmin;
+  --gn-tv-chip: 2.2vmin; --gn-tv-chip-pad: .35vmin; --gn-tv-chip-padx: 1.2vmin;
+  --gn-tv-chip-gap: .7vmin; --gn-tv-grp-gap: 1.1vmin;
+  --gn-tv-lbl: 1.5vmin; --gn-tv-lbl-mb: .5vmin;
+  --gn-tv-strip-nm: 1.3vmin; --gn-tv-strip-n: 1.2vmin; --gn-tv-strip-pad: .5vmin;
+  --gn-tv-strip-mt: 1.6vmin; --gn-tv-cols-mt: 1.8vmin;
+  --gn-tv-h2: 2.4vmin; --gn-tv-h2-mb: 1vmin;
+}
+/* The floor of the ladder. Past sixteen entrants nothing was measured to fit
+   (see BUGS): this is the smallest there is, so a roster the bracket has no cap
+   on degrades here rather than at the roomiest metrics. */
+.gn-tv[data-band="packed"]{
+  --gn-tv-nm: 2.2vmin; --gn-tv-rt: 1.2vmin; --gn-tv-row-pad: .55vmin;
+  --gn-tv-stack-gap: .7vmin; --gn-tv-note: 1.2vmin;
+  --gn-tv-chip: 2.2vmin; --gn-tv-chip-pad: .25vmin; --gn-tv-chip-padx: 1vmin;
+  --gn-tv-chip-gap: .5vmin; --gn-tv-grp-gap: .8vmin;
+  --gn-tv-lbl: 1.4vmin; --gn-tv-lbl-mb: .35vmin;
+  --gn-tv-strip-nm: 1.2vmin; --gn-tv-strip-n: 1.1vmin; --gn-tv-strip-pad: .4vmin;
+  --gn-tv-strip-mt: 1.2vmin; --gn-tv-cols-mt: 1.4vmin;
+  --gn-tv-h2: 2.2vmin; --gn-tv-h2-mb: .8vmin;
+}
 /* The event TV lobby: the yes-RSVP list, sized to read from the couch before
    anything has been started. Wraps rather than scrolls, since nobody is there
    to scroll it. */

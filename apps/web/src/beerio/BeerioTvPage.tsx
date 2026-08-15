@@ -10,6 +10,12 @@ import {
   type StripRound,
 } from "@gamenight/shared";
 import {
+  beerioTvBand,
+  BEERIO_DECK_SLICE,
+  BEERIO_QR_PX,
+  type BeerioTvBand,
+} from "./band";
+import {
   buildBracket,
   compute,
   getChampion,
@@ -94,11 +100,17 @@ export default function BeerioTvPage({ code: propCode }: { code?: string }) {
   }
 
   const isGP = state.format?.mode === "gp";
-  return (
+  // Grand Prix is not a bracket and has no ladder: it draws a fixed number of
+  // standings rows and always has. The band is the bracket board's, computed
+  // there and lifted to the shell so the header and the page padding can spend
+  // it too, which is where a quarter of this screen's 1080px goes.
+  return isGP ? (
     <Shell>
-      <Header code={String(code)} joinUrl={joinUrl} isGP={isGP} />
-      {isGP ? <GpBoard state={state} preds={preds} /> : <BracketBoard state={state} preds={preds} />}
+      <Header code={String(code)} joinUrl={joinUrl} isGP band="roomy" />
+      <GpBoard state={state} preds={preds} />
     </Shell>
+  ) : (
+    <BracketBoard state={state} preds={preds} code={String(code)} joinUrl={joinUrl} />
   );
 }
 
@@ -123,21 +135,21 @@ function PredictionBar({
   const total = options.reduce((n, o) => n + (counts[o.value] ?? 0), 0);
   if (total === 0) return null;
   return (
-    <div className="px-[1.2vw] pb-[0.9vw]">
-      <div className="flex items-center justify-between font-[Fredoka] font-semibold text-[1vw] text-[var(--ink)] opacity-70 mb-[0.4vw]">
+    <div className="beerio-tvpb">
+      <div className="beerio-tvpb__l flex items-center justify-between font-[Fredoka] font-semibold text-[var(--ink)] opacity-70">
         <span>Crowd says</span>
         <span>
           {total} {total === 1 ? "vote" : "votes"}
         </span>
       </div>
-      <div className="flex h-[1.4vw] rounded-full overflow-hidden border-[2px] border-[var(--ink)]">
+      <div className="beerio-tvpb__bar flex rounded-full overflow-hidden border-[2px] border-[var(--ink)]">
         {options.map((o) => {
           const n = counts[o.value] ?? 0;
           if (n === 0) return null;
           return (
             <div
               key={o.value}
-              className="flex items-center justify-center font-[Fredoka] font-bold text-[0.9vw] text-[var(--ink)]"
+              className="beerio-tvpb__pct flex items-center justify-center font-[Fredoka] font-bold text-[var(--ink)]"
               style={{ width: `${(n / total) * 100}%`, background: o.color }}
             >
               {Math.round((n / total) * 100)}%
@@ -149,15 +161,22 @@ function PredictionBar({
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ band = "roomy", children }: { band?: BeerioTvBand; children: React.ReactNode }) {
+  // beerio-tv carries the ladder's variables and beerio-tv__shell spends the
+  // two that are the page's own frame. The safe-area insets stay folded into
+  // the padding calc (ADDING A PACK step 7: a TV that sets its own padding must,
+  // because a class rule beats the zero-specificity shell inset).
   return (
-    <div className="beerio-root min-h-dvh w-full overflow-hidden flex flex-col gap-[1.5vw]" style={{ padding: "calc(2vw + env(safe-area-inset-top, 0px)) calc(2vw + env(safe-area-inset-right, 0px)) calc(2vw + env(safe-area-inset-bottom, 0px)) calc(2vw + env(safe-area-inset-left, 0px))" }}>
+    <div
+      className="beerio-root beerio-tv beerio-tv__shell min-h-dvh w-full overflow-hidden flex flex-col"
+      data-band={band}
+    >
       {children}
     </div>
   );
 }
 
-function Header({ code, joinUrl, isGP }: { code: string; joinUrl: string; isGP: boolean }) {
+function Header({ code, joinUrl, isGP, band }: { code: string; joinUrl: string; isGP: boolean; band: BeerioTvBand }) {
   return (
     <header className="flex items-start justify-between gap-6 shrink-0">
       <div>
@@ -170,26 +189,26 @@ function Header({ code, joinUrl, isGP }: { code: string; joinUrl: string; isGP: 
             from the day the harness was written. */}
         <button
           onClick={() => { if (window.history.length > 1) history.back(); else location.href = "/"; }}
-          className="beerio-tv-back mb-[0.8vw] px-[1.2vw] py-[0.5vw] rounded-[10px] border-[3px] border-[var(--ink)] bg-[var(--foam)] font-[Fredoka] font-semibold text-[1.2vw] text-[var(--ink)] shadow-[0_3px_0_rgba(22,35,59,.22)] cursor-pointer"
+          className="beerio-tv-back mb-[0.6vw] px-[1.2vw] py-[0.4vw] rounded-[10px] border-[3px] border-[var(--ink)] bg-[var(--foam)] font-[Fredoka] font-semibold text-[1.1vw] text-[var(--ink)] shadow-[0_3px_0_rgba(22,35,59,.22)] cursor-pointer"
         >
           &larr; Back
         </button>
         <h1
-          className="font-[Luckiest_Guy,cursive] text-[5.5vw] leading-none m-0 tracking-wide text-[var(--sun)]"
-          style={{ WebkitTextStroke: "3px var(--ink)", textShadow: "6px 6px 0 var(--ink)", transform: "rotate(-2deg)" }}
+          className="beerio-tv__brand font-[Luckiest_Guy,cursive] leading-none m-0 tracking-wide text-[var(--sun)]"
+          style={{ WebkitTextStroke: "3px var(--ink)", transform: "rotate(-2deg)" }}
         >
           BEERIO KART
         </h1>
-        <div className="mt-[1vw] inline-flex items-center gap-3 font-[Fredoka] font-semibold text-[1.5vw] text-[var(--ink)] bg-[var(--foam)] border-[3px] border-[var(--ink)] rounded-full px-[1.5vw] py-[0.5vw] shadow-[0_3px_0_rgba(22,35,59,.22)]">
+        <div className="beerio-tv__pill mt-[0.6vw] inline-flex items-center gap-3 font-[Fredoka] font-semibold text-[var(--ink)] bg-[var(--foam)] border-[3px] border-[var(--ink)] rounded-full shadow-[0_3px_0_rgba(22,35,59,.22)]">
           <span className="w-[0.8vw] h-[0.8vw] rounded-full bg-[var(--grass)] animate-pulse shadow-[0_0_0_2px_var(--ink)]" />
           LIVE &middot; Room {code} &middot; {isGP ? "Grand Prix" : "Double Elimination"}
         </div>
       </div>
       <div className="text-center shrink-0">
-        <div className="bg-white p-[0.6vw] rounded-[10px] border-[3px] border-[var(--ink)]">
-          <QRCodeSVG value={joinUrl} size={120} />
+        <div className="bg-white p-[0.5vw] rounded-[10px] border-[3px] border-[var(--ink)]">
+          <QRCodeSVG value={joinUrl} size={BEERIO_QR_PX[band]} />
         </div>
-        <p className="font-[Fredoka] font-semibold text-[1vw] text-[var(--ink)] mt-1">scan to watch</p>
+        <p className="font-[Fredoka] font-semibold text-[0.9vw] text-[var(--ink)] mt-1">scan to watch</p>
       </div>
     </header>
   );
@@ -275,7 +294,17 @@ function GpBoard({ state, preds }: { state: SavedState; preds: PredMap }) {
  */
 const orderOf = (key: string): RoundOrder => roundOrderFromKey(key) ?? { side: "GF", depth: 1 };
 
-function BracketBoard({ state, preds }: { state: SavedState; preds: PredMap }) {
+function BracketBoard({
+  state,
+  preds,
+  code,
+  joinUrl,
+}: {
+  state: SavedState;
+  preds: PredMap;
+  code: string;
+  joinUrl: string;
+}) {
   const { BR, M } = useMemo(() => {
     try {
       const b = buildBracket(state.playerCount);
@@ -329,26 +358,39 @@ function BracketBoard({ state, preds }: { state: SavedState; preds: PredMap }) {
     }),
   );
 
+  // THE DENSITY LADDER. The header is on it too, which is what this screen
+  // needed that the shell TV's did not: 561px of the 1080 went on chrome before
+  // a racer was drawn, most of it the wordmark and the QR beside it.
+  const anyVotes = Object.values(preds).some((p) => p?.picks && Object.keys(p.picks).length > 0);
+  const band = beerioTvBand({
+    entrants: entrants.length,
+    ready: live.length,
+    predictions: anyVotes,
+  });
+  const deck = live.slice(0, BEERIO_DECK_SLICE[band]);
+
   return (
-    <div className="flex-1 flex flex-col gap-[1.2vw] min-h-0">
+    <Shell band={band}>
+      <Header code={code} joinUrl={joinUrl} isGP={false} band={band} />
+      <div className="beerio-tv__cols flex-1 flex flex-col min-h-0">
       <RoundStrip cells={strip} />
       <div className="flex-1 grid grid-cols-2 gap-[2vw] min-h-0">
         <section className="flex flex-col min-h-0">
-          <h2 className="font-[Fredoka] font-bold text-[2vw] text-[var(--ink)] mb-[1vw]">Up next</h2>
-          <div className="flex flex-col gap-[1vw] overflow-hidden">
-            {live.length === 0 && (
-              <p className="font-[Fredoka] text-[1.6vw] text-[var(--ink)] opacity-50">
+          <h2 className="beerio-tv__h2 font-[Fredoka] font-bold text-[var(--ink)]">Up next</h2>
+          <div className="beerio-tv__deck flex flex-col overflow-hidden">
+            {deck.length === 0 && (
+              <p className="font-[Fredoka] text-[1.4vw] text-[var(--ink)] opacity-50">
                 Waiting on the next matchup...
               </p>
             )}
-            {live.slice(0, 4).map((m) => (
+            {deck.map((m) => (
               <MatchCard key={m.def.id} m={m} state={state} preds={preds} highlight />
             ))}
           </div>
         </section>
 
         <section className="flex flex-col min-h-0">
-          <h2 className="font-[Fredoka] font-bold text-[2vw] text-[var(--ink)] mb-[1vw]">
+          <h2 className="beerio-tv__h2 font-[Fredoka] font-bold text-[var(--ink)]">
             {champ ? "Champion" : (
               <>
                 Who&apos;s left{" "}
@@ -362,8 +404,8 @@ function BracketBoard({ state, preds }: { state: SavedState; preds: PredMap }) {
               what the room wants to see, not a standings board with one name
               in the unbeaten row. */}
           {champ ? (
-            <div className="border-[4px] border-[var(--ink)] rounded-[18px] bg-[var(--sun)] px-[2vw] py-[2.5vw] text-center shadow-[0_6px_0_rgba(22,35,59,.22)]">
-              <p className="font-[Fredoka] font-bold text-[1.6vw] text-[var(--ink)] uppercase tracking-widest">
+            <div className="border-[4px] border-[var(--ink)] rounded-[18px] bg-[var(--sun)] px-[2vw] py-[2vw] text-center shadow-[0_6px_0_rgba(22,35,59,.22)]">
+              <p className="font-[Fredoka] font-bold text-[1.5vw] text-[var(--ink)] uppercase tracking-widest">
                 Champion
               </p>
               <p className="font-[Luckiest_Guy,cursive] text-[5vw] text-[var(--ink)] leading-tight mt-[0.5vw]">
@@ -375,7 +417,8 @@ function BracketBoard({ state, preds }: { state: SavedState; preds: PredMap }) {
           )}
         </section>
       </div>
-    </div>
+      </div>
+    </Shell>
   );
 }
 
@@ -403,14 +446,14 @@ function AliveBoard({
     // beerio-tv-alive carries no styling: it is the stable hook scripts/tv-fit.mjs
     // proves this board rendered by. Every other pack's TV has a class name to
     // point at and this one is all utility classes, which is why it needs one.
-    <div className="beerio-tv-alive flex flex-col gap-[1vw] overflow-hidden">
+    <div className="beerio-tv-alive flex flex-col overflow-hidden">
       {groups.map((g) =>
         g.seeds.length === 0 ? null : (
           <div key={g.label}>
-            <p className="font-[Fredoka] font-bold text-[1.2vw] text-[var(--ink)] opacity-70 uppercase tracking-wide mb-[0.5vw]">
+            <p className="beerio-tv-alive__lbl font-[Fredoka] font-bold text-[var(--ink)] opacity-70 uppercase tracking-wide">
               {g.label} &middot; {g.seeds.length}
             </p>
-            <div className="flex flex-wrap gap-[0.7vw]">
+            <div className="beerio-tv-alive__row flex flex-wrap">
               {g.seeds.map((seed) => (
                 <RacerChip key={seed} seed={seed} tone={g.tone} state={state} />
               ))}
@@ -437,7 +480,7 @@ function RacerChip({
   const out = tone === "out";
   return (
     <span
-      className={`inline-flex items-center gap-[0.6vw] border-[3px] rounded-full px-[1vw] py-[0.4vw] font-[Fredoka] font-bold text-[1.6vw] text-[var(--ink)] max-w-full ${
+      className={`beerio-tva inline-flex items-center border-[3px] rounded-full font-[Fredoka] font-bold text-[var(--ink)] max-w-full ${
         out ? "border-dashed opacity-45" : "shadow-[0_3px_0_rgba(22,35,59,.18)]"
       }`}
       style={{
@@ -446,7 +489,7 @@ function RacerChip({
       }}
     >
       <span
-        className="w-[1.3vw] h-[1.3vw] rounded-full border-[3px] border-[var(--ink)] shrink-0"
+        className="beerio-tva__dot rounded-full border-[3px] border-[var(--ink)] shrink-0"
         style={{ background: color }}
       />
       <span className={`truncate ${out ? "line-through" : ""}`}>{name}</span>
@@ -468,25 +511,22 @@ function RoundStrip({ cells }: { cells: ReturnType<typeof roundStrip> }) {
   return (
     // beerio-tv-strip: the same unstyled hook the alive board carries, and the
     // one scripts/tv-fit.mjs uses as its render proof for this route.
-    <div className="beerio-tv-strip flex gap-[0.6vw] shrink-0">
+    <div className="beerio-tv-strip flex shrink-0">
       {cells.map((c) => {
         const now = c.state === "now";
         const done = c.state === "done";
         return (
           <div
             key={c.key}
-            className={`flex-1 min-w-0 bg-[var(--foam)] border-[3px] border-[var(--ink)] rounded-[10px] px-[0.7vw] py-[0.45vw] ${
+            className={`beerio-tvst flex-1 min-w-0 bg-[var(--foam)] border-[3px] border-[var(--ink)] rounded-[10px] ${
               done ? "opacity-50" : ""
             }`}
-            style={{
-              borderTopWidth: "0.7vw",
-              borderTopColor: now ? "var(--grass)" : "var(--ink)",
-            }}
+            style={{ borderTopColor: now ? "var(--grass)" : "var(--ink)" }}
           >
-            <div className="font-[Fredoka] font-bold text-[1vw] text-[var(--ink)] truncate">
+            <div className="beerio-tvst__nm font-[Fredoka] font-bold text-[var(--ink)] truncate">
               {c.title}
             </div>
-            <div className="font-[Fredoka] font-semibold text-[0.9vw] text-[var(--ink)] opacity-70">
+            <div className="beerio-tvst__n font-[Fredoka] font-semibold text-[var(--ink)] opacity-70">
               {c.decided}/{c.total}
             </div>
           </div>
@@ -517,15 +557,15 @@ function MatchCard({
     const lost = m.decided && !won && real;
     return (
       <div
-        className="flex items-center gap-[1vw] px-[1.2vw] py-[0.7vw]"
+        className="beerio-tvm__row flex items-center"
         style={{ background: won ? "rgba(94,193,109,0.25)" : "transparent" }}
       >
         <span
-          className="w-[1.6vw] h-[1.6vw] rounded-full border-[3px] border-[var(--ink)] shrink-0"
+          className="beerio-tvm__dot rounded-full border-[3px] border-[var(--ink)] shrink-0"
           style={{ background: colorIdx !== undefined ? (state.colors?.[colorIdx] ?? "var(--foam)") : "transparent" }}
         />
         <span
-          className={`font-[Fredoka] font-bold text-[1.9vw] text-[var(--ink)] flex-1 truncate ${
+          className={`beerio-tvm__nm font-[Fredoka] font-bold text-[var(--ink)] flex-1 truncate ${
             lost ? "opacity-40 line-through" : ""
           }`}
         >

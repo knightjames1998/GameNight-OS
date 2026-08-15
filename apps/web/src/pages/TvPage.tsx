@@ -10,6 +10,7 @@ import {
   type StripRound,
 } from "@gamenight/shared";
 import { api, type BracketView, type BracketMatchView } from "../api";
+import { bracketTvBand, TV_DECK_SLICE } from "./tv-band";
 import BackButton from "../BackButton";
 import { useBracketLive } from "../useLiveUpdates";
 
@@ -123,8 +124,18 @@ export default function TvPage({ bracketId }: { bracketId?: string }) {
   const strip = roundStrip(rounds);
   const isChamp = bracket.champion?.kind === "player";
 
+  // THE DENSITY LADDER. Both columns and the strip take their metrics from this
+  // one attribute (see tv-band.ts and the [data-band] blocks in index.css); this
+  // screen did not fit a 1080p television at any entrant count before it.
+  const band = bracketTvBand({
+    entrants: bracket.entrantCount,
+    ready: live.length,
+    gfNote: live.some((m) => m.side === "GF"),
+  });
+  const deck = live.slice(0, TV_DECK_SLICE[band]);
+
   return (
-    <main className="gn-tv flex flex-col" style={{ padding: "calc(2.5rem + env(safe-area-inset-top, 0px)) calc(2.5rem + env(safe-area-inset-right, 0px)) calc(2.5rem + env(safe-area-inset-bottom, 0px)) calc(2.5rem + env(safe-area-inset-left, 0px))" }}>
+    <main className="gn-tv flex flex-col" data-band={band} style={{ padding: "calc(2.5rem + env(safe-area-inset-top, 0px)) calc(2.5rem + env(safe-area-inset-right, 0px)) calc(2.5rem + env(safe-area-inset-bottom, 0px)) calc(2.5rem + env(safe-area-inset-left, 0px))" }}>
       <header className="flex items-start justify-between gap-6 shrink-0">
         <div>
           <BackButton className="!text-lg mb-2 block" />
@@ -173,10 +184,10 @@ export default function TvPage({ bracketId }: { bracketId?: string }) {
             <section className="flex flex-col min-h-0">
               <h2 className="gn-tv-h2">On deck <span>{live.length} ready</span></h2>
               <div className="gn-tv-stack">
-                {live.length === 0 ? (
+                {deck.length === 0 ? (
                   <p className="gn-tv-empty">Waiting on the next matchup…</p>
                 ) : (
-                  live.slice(0, 5).map((m) => <TvMatch key={m.id} m={m} live />)
+                  deck.map((m) => <TvMatch key={m.id} m={m} live />)
                 )}
               </div>
             </section>
