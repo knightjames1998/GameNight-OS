@@ -22,7 +22,7 @@
 // on state this module has no business knowing about. Everything else is one
 // list.
 
-import { SESSION_PACKS, type SessionPackKey } from "@gamenight/shared";
+import { SESSION_PACKS, type SessionPackKey } from "@gamenight/shared/packs";
 import type { PickerFormat, PickerGame } from "./GamePicker";
 
 /**

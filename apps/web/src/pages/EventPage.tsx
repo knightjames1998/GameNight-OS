@@ -8,7 +8,7 @@ import { shareLink } from "../share";
 import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
 import GamePicker, { type PickerGame, type PickerFormat } from "../GamePicker";
-import { SESSION_PACKS } from "@gamenight/shared";
+import { SESSION_PACKS } from "@gamenight/shared/packs";
 import { buildPickerGames, type PackKey, type SessionPackKey } from "../packs";
 
 export default function EventPage({ me }: { me: Me | null }) {

@@ -1,7 +1,7 @@
 // Tiny fetch wrapper. Same-origin requests carry the session cookie
 // automatically; this just centralizes JSON handling and errors.
 
-import type { SessionPackKey } from "@gamenight/shared";
+import type { SessionPackKey } from "@gamenight/shared/packs";
 
 export class ApiError extends Error {
   status: number;
