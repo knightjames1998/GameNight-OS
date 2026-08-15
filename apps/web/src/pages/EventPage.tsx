@@ -9,7 +9,7 @@ import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
 import GamePicker, { type PickerGame, type PickerFormat } from "../GamePicker";
 import { SESSION_PACKS } from "@gamenight/shared/packs";
-import { buildPickerGames, type PackKey, type SessionPackKey } from "../packs";
+import { buildPickerGames, isSingleFormatPack, type PackKey, type SessionPackKey } from "../packs";
 
 export default function EventPage({ me }: { me: Me | null }) {
   const { id } = useParams();
@@ -513,8 +513,11 @@ function eventGames(
     destination: (pack, format) => () => {
       if (pack === "mariokart" && format === "beerio") return navigate(`/beerio?event=${id}`);
       if (pack === "tournament") return;
-      // One-format packs carry no format suffix.
-      if (pack === "marioparty" || pack === "blackjack" || pack === "roulette" || pack === "craps" || pack === "boardgame" || pack === "cardtable") return navigate(`/${pack}?event=${id}`);
+      // A pack with one format has nothing to choose, so it carries no
+      // suffix. Asked of the catalogue rather than listed here; the list this
+      // replaced was two packs out of date, and Home.tsx had the same list
+      // with the same two gaps. See isSingleFormatPack in src/packs.ts.
+      if (isSingleFormatPack(pack)) return navigate(`/${pack}?event=${id}`);
       navigate(`/${pack}?event=${id}&format=${format}`);
     },
   });

@@ -4,7 +4,7 @@ import { api, type Friend, type GroupSummary, type Me } from "../api";
 import { useCachedApi } from "../cache";
 import Login from "./Login";
 import GamePicker from "../GamePicker";
-import { buildPickerGames, type SessionPackKey } from "../packs";
+import { buildPickerGames, isSingleFormatPack, type SessionPackKey } from "../packs";
 import AddToHomeHint from "../AddToHomeHint";
 import { GroupListSkeleton } from "../Skeleton";
 import { onIntent, routes } from "../prefetch";
@@ -123,9 +123,10 @@ function Groups({
       if (pack === "mariokart" && format === "beerio") return navigate("/beerio");
       // Tournament never reaches here: its formats are supplied below.
       if (pack === "tournament") return;
-      // Mario Party, the cash packs and Board Game have one format each, so
-      // they carry no format suffix.
-      if (pack === "marioparty" || pack === "blackjack" || pack === "roulette" || pack === "craps" || pack === "boardgame" || pack === "cardtable") return startSession(pack);
+      // A pack with one format has nothing to choose, so it carries no suffix.
+      // Asked of the catalogue rather than listed here; the list this replaced
+      // was two packs out of date. See isSingleFormatPack in src/packs.ts.
+      if (isSingleFormatPack(pack)) return startSession(pack);
       startSession(pack, `&format=${format}`);
     },
     tournamentFormats: [

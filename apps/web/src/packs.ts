@@ -237,6 +237,28 @@ export const PACKS: PackSpec[] = [
   },
 ];
 
+/**
+ * Does this pack offer exactly ONE format?
+ *
+ * A one-format pack carries no `?format=` suffix in its route, because there is
+ * nothing to choose and the pack's own page does not read one.
+ *
+ * DERIVED, and it has to be. This predicate was written out by hand as a chain
+ * of six `pack === "..."` comparisons, TWICE (Home.tsx and EventPage.tsx), and
+ * both copies had fallen two packs behind by the time anybody looked: Casino
+ * Run and Social Deduction each have one format and were in neither list, so
+ * both were being sent to `/casinorun?event=X&format=coop` and
+ * `/deduction?event=X&format=night`. Harmless, because neither page reads the
+ * parameter, and exactly the kind of harmless that is one refactor away from
+ * not being. The catalogue below already knows the answer.
+ *
+ * Tournament reads false (it has no catalogue formats at all, they are always
+ * caller-supplied) and never reaches the callers that ask, which handle it
+ * before this is consulted.
+ */
+export const isSingleFormatPack = (key: PackKey): boolean =>
+  PACKS.find((p) => p.key === key)?.formats.length === 1;
+
 export interface BuildPickerOptions {
   /** Where a given pack/format goes. Called once per format when building. */
   destination: (packKey: PackKey, formatKey: string) => () => void;
