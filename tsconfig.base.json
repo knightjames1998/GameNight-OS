@@ -4,6 +4,15 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
+    // TURNED ON 2026-08-15, cleanup phase 4. An entire category of rot was
+    // invisible before this: unused imports, unreferenced locals, and the
+    // half-finished code path that leaves one behind. The fallout was ELEVEN
+    // errors across four packages, which is the whole argument, and one of the
+    // eleven was mariokart.ts declaring the pack registry constant it then did
+    // not use while hardcoding the literal forty lines below. Zero runtime
+    // cost, zero new dependencies, no lockfile change. See AUDIT-2026-08.md.
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,

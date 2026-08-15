@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, type Friend, type GroupSummary, type Me } from "../api";
 import { useCachedApi } from "../cache";

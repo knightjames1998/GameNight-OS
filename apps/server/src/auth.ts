@@ -236,7 +236,12 @@ authRouter.post("/request-link", async (req, res) => {
 authRouter.post("/verify-code", async (req, res) => {
   const email = String(req.body?.email ?? "").trim().toLowerCase();
   const code = String(req.body?.code ?? "").replace(/\D/g, "");
-  const redirect = safeRedirect(req.body?.redirect);
+  // NO REDIRECT IS READ HERE, and the client sending one is not a bug. This
+  // route answers with JSON, and a JSON response cannot redirect; Login.tsx's
+  // finish() owns the navigation for the code path. The two routes that DO
+  // consume safeRedirect are the emailed-link pair below, where the response
+  // really is a redirect. A `const redirect = safeRedirect(...)` sat here
+  // unread until noUnusedLocals found it.
   const db = getDb();
   const now = new Date();
 

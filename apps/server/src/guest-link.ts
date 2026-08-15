@@ -16,7 +16,7 @@
 // rawResult has no guest names to match and simply contributes nothing.
 
 import { Router } from "express";
-import { getDb, events, and, eq, inArray } from "@gamenight/db";
+import { getDb, events, inArray } from "@gamenight/db";
 import { SESSION_PACKS } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { roleOf } from "./pack-runtime.js";

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, CLIENT_ID } from "../api";
 import BackButton from "../BackButton";
 import { usePackSession, type PackCtx as Ctx } from "../usePackSession";
 import {

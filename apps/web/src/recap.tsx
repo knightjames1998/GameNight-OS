@@ -369,7 +369,7 @@ export function drawNightRecapCard(recap: EventRecap): HTMLCanvasElement {
   if (!ctx) return cv;
   ctx.scale(scale, scale);
 
-  const { ink, dim, gold, surf, line, teal } = RECAP;
+  const { ink, dim, gold, line, teal } = RECAP;
   const SILVER = "#c9d2e0";
   const BRONZE = "#e0a06a";
 
