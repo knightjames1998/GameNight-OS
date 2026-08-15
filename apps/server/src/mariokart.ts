@@ -45,8 +45,8 @@ import { createPackRuntime, packConfig, roleOf, isHostRole, type LedgerLine } fr
 import { broadcast } from "./ws.js";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
-/** The ledger spelling, from the one registry (packages/shared/src/packs.ts). */
-const PACK = SESSION_PACKS.mariokart.ledger;
+/** This pack's registry entry, the one place its identifiers exist. */
+const DEF = SESSION_PACKS.mariokart;
 
 export const marioKartRouter = Router();
 export const marioKartTvRouter = Router();
@@ -186,8 +186,8 @@ export async function creditGuestMarioKart(
       if (!line) continue;
       if (credited.has(rt.ledgerKey(eventId, state.sessionKey, g.idx))) continue;
       items.push({
-        pack: "mario_kart",
-        packLabel: "Mario Kart",
+        pack: DEF.ledger,
+        packLabel: DEF.name,
         eventId,
         label: raceLabel,
         date: g.at ?? null,
@@ -200,8 +200,8 @@ export async function creditGuestMarioKart(
       if (credited.has(rt.ledgerKey(eventId, state.sessionKey, ser.idx))) continue;
       const won = guestSlots.has(ser.winnerId);
       items.push({
-        pack: "mario_kart",
-        packLabel: "Mario Kart",
+        pack: DEF.ledger,
+        packLabel: DEF.name,
         eventId,
         label: `Best of ${state.bestOf}`,
         date: ser.at ?? null,

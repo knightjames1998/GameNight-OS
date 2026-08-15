@@ -63,8 +63,8 @@ import { createPackRuntime, packConfig, roleOf, isHostRole, type LedgerLine } fr
 import { broadcast } from "./ws.js";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
-/** The ledger spelling, from the one registry (packages/shared/src/packs.ts). */
-const PACK = SESSION_PACKS.pingpong.ledger;
+/** This pack's registry entry, the one place its identifiers exist. */
+const DEF = SESSION_PACKS.pingpong;
 
 export const pingPongRouter = Router();
 export const pingPongTvRouter = Router();
@@ -161,8 +161,8 @@ export async function creditGuestPingPong(
       const winner = m.winnerSideId === m.a.id ? m.a : m.b;
       const won = winner.memberIds.some((id) => guestSlots.has(id));
       items.push({
-        pack: "pingpong",
-        packLabel: "Ping Pong",
+        pack: DEF.ledger,
+        packLabel: DEF.name,
         eventId,
         label,
         date: m.at ?? null,
@@ -535,7 +535,7 @@ pingPongRouter.get("/groups/:id/pingpong-stats", requireAuth, async (req: Authed
     await db
       .select({ id: games.id })
       .from(games)
-      .where(and(eq(games.groupId, groupId), eq(games.pack, PACK)))
+      .where(and(eq(games.groupId, groupId), eq(games.pack, DEF.ledger)))
       .limit(1)
   )[0];
   if (!game) {

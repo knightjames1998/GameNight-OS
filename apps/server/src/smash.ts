@@ -36,6 +36,7 @@ import {
   finalizeSeries,
   seriesGameTally,
   summarizeSeriesLog,
+  SESSION_PACKS,
   type SmashSessionState,
   type SmashPlayer,
   type SmashMode,
@@ -48,6 +49,9 @@ import {
   type SeriesBestOf,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
+
+/** This pack's registry entry, the one place its identifiers exist. */
+const DEF = SESSION_PACKS.smash;
 import { createPackRuntime, packConfig, roleOf, isHostRole, type LedgerLine } from "./pack-runtime.js";
 import { broadcast } from "./ws.js";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
@@ -267,8 +271,8 @@ export async function creditGuestSmash(
       if (!line) continue;
       if (credited.has(rt.ledgerKey(eventId, state.sessionKey, g.idx))) continue;
       items.push({
-        pack: "smash",
-        packLabel: "Smash Bros",
+        pack: DEF.ledger,
+        packLabel: DEF.name,
         eventId,
         // Format first: a Smashdown battle is stored with mode "ffa" (it runs
         // on the FFA engine), so reading the mode alone would preview every
@@ -289,8 +293,8 @@ export async function creditGuestSmash(
       if (credited.has(rt.ledgerKey(eventId, state.sessionKey, ser.idx))) continue;
       const won = guestSlots.has(ser.winnerId);
       items.push({
-        pack: "smash",
-        packLabel: "Smash Bros",
+        pack: DEF.ledger,
+        packLabel: DEF.name,
         eventId,
         label: `Best of ${state.bestOf}`,
         date: ser.at ?? null,
@@ -307,8 +311,8 @@ export async function creditGuestSmash(
       const stand = sd.standings.find((s) => guestSlots.has(s.playerId));
       if (stand) {
         items.push({
-          pack: "smash",
-          packLabel: "Smash Bros",
+          pack: DEF.ledger,
+          packLabel: DEF.name,
           eventId,
           label: `Smashdown series (${sd.battlesPlayed} battles)`,
           date: state.games[state.games.length - 1]?.at ?? null,
@@ -1016,7 +1020,7 @@ smashRouter.get("/groups/:id/smash-stats", requireAuth, async (req: AuthedReques
     await db
       .select({ id: games.id })
       .from(games)
-      .where(and(eq(games.groupId, groupId), eq(games.pack, "smash")))
+      .where(and(eq(games.groupId, groupId), eq(games.pack, DEF.ledger)))
       .limit(1)
   )[0];
   if (!game) {
