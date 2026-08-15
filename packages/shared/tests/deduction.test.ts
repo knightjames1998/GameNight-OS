@@ -27,9 +27,11 @@ import {
   normalizeSdState,
   recordSdGame,
   sdAdvancePhase,
+  sdAliasTitle,
   sdAliveCount,
   sdBoardOutcomes,
   sdDefWith,
+  sdIsEmptyDef,
   sdRoleSlug,
   sdSetOut,
   sdTvView,
@@ -121,16 +123,93 @@ const SHIPPED_ROLE_IDS: Record<string, string[]> = {
   "Blood on the Clocktower": ["townsfolk", "outsider", "minion", "demon"],
 };
 
-test("EVERY PREVIOUSLY SHIPPED ROLE ID STILL RESOLVES, in the same title", () => {
-  // 3.1's guard, made mechanical. A role removed or renamed fails here rather
-  // than in a stats query nobody runs for a month.
+/**
+ * IDS DELIBERATELY REMOVED, and why, so a future session cannot quietly drop a
+ * role without editing this list.
+ *
+ * SALEM WAS THE WRONG SALEM. The catalogue shipped Town of Salem (the online
+ * game) and the crew plays Salem 1692 (the card game), so seven roles and four
+ * factions that belong to a different game came out on 2026-08-14. Removal is
+ * NOT the same hazard as renaming: existing ledger rows keep their ids intact
+ * and the screens already fall back to the raw id for a role the catalogue does
+ * not have.
+ *
+ * THE REAL HAZARD IS REUSE. None of these ids may EVER be re-added to Salem
+ * meaning something else, because that silently rewrites rows already written.
+ * If Town of Salem is ever wanted, it is a DIFFERENT TITLE with its own label.
+ */
+const REMOVED_ROLE_IDS: Record<string, string[]> = {
+  Salem: ["sheriff", "doctor", "investigator", "mafioso", "godfather", "serialkiller", "jester", "executioner"],
+};
+
+test("EVERY PREVIOUSLY SHIPPED ROLE ID STILL RESOLVES, unless it was deliberately removed", () => {
+  // The guard, made mechanical. A role removed or renamed fails here rather
+  // than in a stats query nobody runs for a month, and a REMOVAL has to be
+  // written into the list above to pass, which is the point.
   for (const [title, ids] of Object.entries(SHIPPED_ROLE_IDS)) {
     const def = sdTitleDef(title);
+    const removed = new Set(REMOVED_ROLE_IDS[title] ?? []);
     for (const id of ids) {
+      if (removed.has(id)) {
+        assert.equal(sdRole(def, id), undefined, `${title}: ${id} is listed as removed but still resolves`);
+        continue;
+      }
       assert.ok(sdRole(def, id), `${title}: role id ${id} no longer resolves`);
       assert.ok(sdFactionOfRole(def, id), `${title}: role id ${id} points at no faction`);
     }
   }
+});
+
+test("A REMOVED ROLE ID IS NEVER REUSED FOR SOMETHING ELSE", () => {
+  // The one hazard removal actually carries. A row recorded under Town of Salem
+  // says `meta.role: "sheriff"`; re-adding `sheriff` to Salem meaning anything
+  // at all would retroactively relabel that row.
+  for (const [title, ids] of Object.entries(REMOVED_ROLE_IDS)) {
+    const def = sdTitleDef(title);
+    for (const id of ids) {
+      assert.equal(sdRole(def, id), undefined, `${title}: the removed id ${id} has been reused`);
+      assert.equal(sdFaction(def, id), undefined, `${title}: the removed faction id ${id} has been reused`);
+    }
+  }
+});
+
+test("SALEM IS SALEM 1692, THE CARD GAME, not the online one", () => {
+  // Two different games share the name and this catalogue had the wrong one
+  // until 2026-08-14. Salem 1692's tryal cards are Witch, Constable or Not A
+  // Witch, and its factions are the Townspeople and the Witches.
+  const salem = sdTitleDef("Salem");
+  assert.deepEqual(salem.roles.map((r) => r.id), ["townsperson", "witch", "constable", "witchconstable"]);
+  assert.deepEqual(salem.factions.map((f) => f.id), ["town", "witch"]);
+
+  // THE WITCH KEEPS HER ID AND CHANGES ALIGNMENT. She was a SOLO third party
+  // under Town of Salem; here the Witches are a main EVIL faction.
+  assert.equal(sdFactionOfRole(salem, "witch")?.alignment, "evil");
+  assert.equal(sdFactionOfRole(salem, "townsperson")?.alignment, "town");
+
+  // THE CONSTABLE SPLITS IN TWO, exactly like BotC's Traveller: the role is
+  // independent of alignment, and a role whose faction floats cannot be ranked.
+  assert.equal(sdFactionOfRole(salem, "constable")?.alignment, "town");
+  assert.equal(sdFactionOfRole(salem, "witchconstable")?.alignment, "evil");
+  assert.equal(sdRole(salem, "witchconstable")?.name, "Witch Constable");
+});
+
+test("SALEM 1692 RESOLVES TO THE SALEM LABEL, rather than becoming a second one", () => {
+  // The label never changes: `matches.label` carries the title and the crew's
+  // recents carry it, so renaming would split that title's history across two
+  // names with nothing erroring. The ALIAS fixes the input instead.
+  assert.equal(sdAliasTitle("Salem 1692"), "Salem");
+  assert.equal(sdAliasTitle("  salem 1692  "), "Salem");
+  assert.equal(sdAliasTitle("Salem1692"), "Salem");
+  assert.equal(sdTitleDef("Salem 1692").title, "Salem");
+  assert.equal(sdTitleDef("salem 1692").roles.length, 4);
+  // A title with no alias comes back as itself, normalized.
+  assert.equal(sdAliasTitle("  One   Night  "), "One Night");
+
+  // TOWN OF SALEM IS DELIBERATELY NOT ALIASED. It is a different game rather
+  // than another name for this one, so it stays uncurated and opens empty,
+  // which is the honest answer.
+  assert.equal(sdAliasTitle("Town of Salem"), "Town of Salem");
+  assert.ok(sdIsEmptyDef(sdTitleDef("Town of Salem")));
 });
 
 test("the catalogue gaps found on 2026-08-10 are filled", () => {
@@ -139,11 +218,9 @@ test("the catalogue gaps found on 2026-08-10 are filled", () => {
   assert.equal(sdFactionOfRole(wolf, "minion")?.id, "wolves");
   assert.equal(sdFactionOfRole(wolf, "sorcerer")?.id, "wolves");
 
-  const salem = sdTitleDef("Salem");
-  // Each third party gets its OWN faction, the way the Jester already did.
-  assert.equal(sdFactionOfRole(salem, "witch")?.alignment, "solo");
-  assert.equal(sdFactionOfRole(salem, "witch")?.id, "witch");
-  assert.equal(sdFactionOfRole(salem, "executioner")?.alignment, "solo");
+  // SALEM'S 08-10 ADDITIONS WERE TO THE WRONG GAME and left with it on 08-14;
+  // see "SALEM IS SALEM 1692" above. The Witch survives, under a stable id,
+  // with the alignment the correct game gives her.
 
   const botc = sdTitleDef("Blood on the Clocktower");
   // THE FIFTH TYPE NEEDED TWO ENTRIES: a Traveller can be good or evil, and
@@ -171,12 +248,21 @@ test("every catalogue is internally consistent", () => {
     for (const r of def.roles) {
       assert.ok(factionIds.has(r.factionId), `${def.title}: ${r.id} points at no faction`);
     }
+    // AN EMPTY CATALOGUE HAS NO BASELINES AND NO FACTIONS, and that is the
+    // point of it: an uncurated title opens with nothing and the host types the
+    // roles. Skipped rather than deleted, so the CURATED six keep the check.
+    if (sdIsEmptyDef(def)) {
+      assert.equal(def.factions.length, 0, "an empty catalogue must not carry factions either");
+      assert.equal(def.baselineTown, undefined);
+      assert.equal(def.baselineEvil, undefined);
+      continue;
+    }
     // The baselines are what a suggested composition deals, so a typo in one
     // would produce a deal with a role nobody can look up.
-    assert.ok(sdRole(def, def.baselineTown), `${def.title}: baselineTown`);
-    assert.ok(sdRole(def, def.baselineEvil), `${def.title}: baselineEvil`);
-    assert.equal(sdFactionOfRole(def, def.baselineTown)?.alignment, "town", `${def.title}: town baseline`);
-    assert.equal(sdFactionOfRole(def, def.baselineEvil)?.alignment, "evil", `${def.title}: evil baseline`);
+    assert.ok(sdRole(def, def.baselineTown!), `${def.title}: baselineTown`);
+    assert.ok(sdRole(def, def.baselineEvil!), `${def.title}: baselineEvil`);
+    assert.equal(sdFactionOfRole(def, def.baselineTown!)?.alignment, "town", `${def.title}: town baseline`);
+    assert.equal(sdFactionOfRole(def, def.baselineEvil!)?.alignment, "evil", `${def.title}: evil baseline`);
     // Two factions minimum, or there is nobody to find.
     assert.ok(def.factions.length >= 2, `${def.title}: needs at least two factions`);
 
@@ -223,23 +309,65 @@ test("A ROLE ID EQUALS ITS NAME'S SLUG, which is what makes type-then-curate uni
   assert.notEqual(sdRoleSlug("Alpha Werewolf"), "alpha");
 });
 
-test("a title is matched case-folded, and anything else opens the default shape", () => {
+test("a title is matched case-folded, and ANYTHING ELSE OPENS AN EMPTY CATALOGUE", () => {
   assert.equal(sdTitleDef("Werewolf").title, "Werewolf");
   assert.equal(sdTitleDef("werewolf").title, "Werewolf");
   assert.equal(sdTitleDef("  secret hitler  ").title, "Secret Hitler");
-  // A free-typed title has no catalogue, because there is nothing to look it
-  // up in. Same call the title-night layer makes about partnership defaults.
-  assert.equal(sdTitleDef("Ultimate Werewolf Deluxe"), SD_DEFAULT_DEF);
-  assert.equal(sdTitleDef(null), SD_DEFAULT_DEF);
-  assert.equal(sdTitleDef(""), SD_DEFAULT_DEF);
+
+  // THIS ASSERTION USED TO BE THE BUG WRITTEN DOWN AS A TEST. It said an
+  // uncurated title "opens the default shape", and the default shape was
+  // Village/Wolves with a `villager` and a `wolf`. So typing "One Night
+  // Ultimate Werewolf" offered those two roles, and a host who accepted them
+  // wrote `meta.role: "villager"` permanently for a game that has neither.
+  // A game nobody picked is not Werewolf (James, 2026-08-14).
+  for (const uncurated of ["Ultimate Werewolf Deluxe", "One Night Ultimate Werewolf", "Town of Salem", null, ""]) {
+    const def = sdTitleDef(uncurated);
+    assert.equal(def, SD_DEFAULT_DEF, `${uncurated} should open the empty catalogue`);
+    assert.ok(sdIsEmptyDef(def));
+    assert.deepEqual(def.roles, []);
+    assert.deepEqual(def.factions, []);
+  }
+});
+
+test("AN EMPTY CATALOGUE SUGGESTS NOTHING rather than inventing a shape", () => {
+  const empty = sdTitleDef("One Night Ultimate Werewolf");
+  assert.deepEqual(suggestComposition(empty, 9), []);
+  assert.equal(compositionSize(suggestComposition(empty, 9)), 0);
+  // And the deal is blocked until the host types some roles, by the count rule
+  // that was already there.
+  assert.equal(validateComposition(empty, [], 9), "9 more roles to deal");
+});
+
+test("an uncurated title is playable the moment the host TYPES its roles", () => {
+  // Which is what makes the empty default cheap rather than a new feature:
+  // typed roles already existed, and this is the path they were built for.
+  const empty = sdTitleDef("One Night Ultimate Werewolf");
+  const villager = typedRole(empty, "Villager", null, false);
+  assert.equal(villager, null, "with no factions to pick from, a non-solo role cannot resolve yet");
+
+  const wolf = typedRole(empty, "Wolf", null, true)!;
+  const withWolf = sdDefWith(empty, [wolf.role], [wolf.faction!]);
+  const town = typedRole(withWolf, "Villager", null, true)!;
+  const def = sdDefWith(withWolf, [town.role], [town.faction!]);
+
+  assert.equal(def.roles.length, 2);
+  assert.equal(validateComposition(def, [{ roleId: "wolf", count: 2 }, { roleId: "villager", count: 7 }], 9), null);
+  // And the two-faction floor still bites on a typed-only deal, so an empty
+  // catalogue cannot become a game with nobody to find.
+  assert.equal(
+    validateComposition(def, [{ roleId: "villager", count: 9 }], 9),
+    "A deal needs at least two factions",
+  );
 });
 
 test("THIRD-PARTY SOLO ROLES ARE IN THE CATALOGUE, not deferred", () => {
+  // Salem's third parties left with Town of Salem on 2026-08-14, so the
+  // Werewolf Tanner carries this now. The MODEL is unchanged: a solo faction
+  // is still a first-class alignment and `sdPlacements` still gives a solo
+  // winner a real side id (see the Tanner case below).
   const wolf = sdTitleDef("Werewolf");
   assert.equal(sdFaction(wolf, "tanner")?.alignment, "solo");
-  const salem = sdTitleDef("Salem");
-  assert.equal(sdFaction(salem, "jester")?.alignment, "solo");
-  assert.equal(sdFaction(salem, "serialkiller")?.alignment, "solo");
+  assert.equal(sdFactionOfRole(wolf, "tanner")?.alignment, "solo");
 });
 
 // ---------- the deal ----------
@@ -945,15 +1073,23 @@ test("the slug strips rather than hyphenates, which is what the shipped ids need
 });
 
 test("a typed role that names a CURATED role resolves to the curated id", () => {
-  const salem = sdTitleDef("Salem");
-  assert.deepEqual(canonicalRole("jester", salem), { id: "jester", name: "Jester", matched: true });
-  assert.deepEqual(canonicalRole("  SERIAL killer ", salem), {
-    id: "serialkiller",
-    name: "Serial Killer",
+  // Werewolf carries this now: Salem's Jester and Serial Killer belonged to
+  // Town of Salem and left with it on 2026-08-14.
+  const wolf = sdTitleDef("Werewolf");
+  assert.deepEqual(canonicalRole("tanner", wolf), { id: "tanner", name: "Tanner", matched: true });
+  assert.deepEqual(canonicalRole("  ALPHA werewolf ", wolf), {
+    id: "alpha",
+    name: "Alpha Werewolf",
     matched: true,
   });
   // Matched by ID too, for a host who types what they saw in a URL.
-  assert.equal(canonicalRole("serialkiller", salem)?.id, "serialkiller");
+  assert.equal(canonicalRole("sorcerer", wolf)?.id, "sorcerer");
+  const salem = sdTitleDef("Salem");
+  assert.deepEqual(canonicalRole("witch constable", salem), {
+    id: "witchconstable",
+    name: "Witch Constable",
+    matched: true,
+  });
   // And the three legacy ids, which only the NAME pass can reach.
   assert.equal(canonicalRole("Alpha Werewolf", sdTitleDef("Werewolf"))?.id, "alpha");
   assert.equal(canonicalRole("Minion of Mordred", sdTitleDef("Avalon"))?.id, "minion");
@@ -1020,10 +1156,13 @@ test("a typed role joins an existing faction, or brings its own solo one", () =>
   assert.deepEqual(alone.faction, { id: "cultleader", name: "Cult Leader", alignment: "solo" });
 
   // Typing a role the title ALREADY has, as a solo, does not mint a second
-  // faction over the top of the curated one.
-  const already = typedRole(salem, "Jester", null, true)!;
-  assert.equal(already.role.id, "jester");
-  assert.equal(already.faction, null);
+  // faction over the top of the curated one. `witch` is the interesting case
+  // after the 08-14 correction: the role and the faction share an id, and the
+  // faction is EVIL rather than solo, so a solo request must not overwrite it.
+  const already = typedRole(salem, "Witch", null, true)!;
+  assert.equal(already.role.id, "witch");
+  assert.equal(already.faction, null, "a curated faction must not be replaced by a minted solo one");
+  assert.equal(sdFactionOfRole(salem, already.role.id)?.alignment, "evil");
 
   assert.equal(typedRole(salem, "", null, true), null);
   assert.equal(typedRole(salem, "Amnesiac", "nosuchfaction", false), null);
@@ -1035,15 +1174,15 @@ test("the merged catalogue is ONE merge point, and a typed role cannot shadow a 
     { id: "cultleader", name: "Cult Leader", factionId: "cultleader" },
     // A typed role whose id already exists is DROPPED rather than allowed to
     // shadow: the curated entry is the one with the faction the catalogue means.
-    { id: "jester", name: "Court Fool", factionId: "town" },
+    { id: "witch", name: "Cunning Woman", factionId: "town" },
   ];
   const extraFactions: SdCustomFaction[] = [{ id: "cultleader", name: "Cult Leader", alignment: "solo" }];
   const merged = sdDefWith(salem, extraRoles, extraFactions);
 
   assert.equal(sdRole(merged, "cultleader")?.name, "Cult Leader");
   assert.equal(sdFactionOfRole(merged, "cultleader")?.alignment, "solo");
-  assert.equal(sdRole(merged, "jester")?.name, "Jester", "a typed role must not shadow a curated one");
-  assert.equal(sdFactionOfRole(merged, "jester")?.id, "jester");
+  assert.equal(sdRole(merged, "witch")?.name, "Witch", "a typed role must not shadow a curated one");
+  assert.equal(sdFactionOfRole(merged, "witch")?.id, "witch");
   // Every curated role survives the merge.
   assert.equal(merged.roles.length, salem.roles.length + 1);
   assert.equal(merged.factions.length, salem.factions.length + 1);
@@ -1130,35 +1269,37 @@ test("TWO FACTIONS SHARE A WIN AND THE LOSER IS THIRD: 1, 1, 3, never 1, 1, 2", 
   // a tie between two SIDES, so the gap is right: there was no second place,
   // there were two firsts. Closing it to 1,1,2 would quietly rewrite what a
   // placement means in every row the other rule already wrote.
-  const def = sdTitleDef("Salem");
+  // WEREWOLF carries the three-faction example: Salem 1692 has exactly two
+  // factions, and the Tanner is the app's other worked shared-win case.
+  const def = sdTitleDef("Werewolf");
   const order: SdFactionEntry[] = [
-    { factionId: "mafia", memberIds: ["p0", "p1"] },
-    { factionId: "witch", memberIds: ["p2"], tiedWithAbove: true },
-    { factionId: "town", memberIds: ["p3", "p4", "p5"] },
+    { factionId: "wolves", memberIds: ["p0", "p1"] },
+    { factionId: "tanner", memberIds: ["p2"], tiedWithAbove: true },
+    { factionId: "village", memberIds: ["p3", "p4", "p5"] },
   ];
   const lines = sdPlacements(order, def, null);
 
   assert.deepEqual(lines.map((l) => l.placement), [1, 1, 1, 3, 3, 3]);
   assert.deepEqual(lines.map((l) => l.isWinner), [true, true, true, false, false, false]);
-  // The Witch is one player on her own faction and still carries a REAL side id,
-  // because the Mafia and the town both hold several: teams.ts's null rule.
-  assert.deepEqual(lines.map((l) => l.side), ["mafia", "mafia", "witch", "town", "town", "town"]);
+  // The Tanner is one player on his own faction and still carries a REAL side
+  // id, because the wolves and the village both hold several: teams.ts's rule.
+  assert.deepEqual(lines.map((l) => l.side), ["wolves", "wolves", "tanner", "village", "village", "village"]);
   assert.equal(lines.find((l) => l.playerId === "p2")!.alignment, "solo");
 });
 
 test("a shared win reaches the LEDGER as two winning factions and a third placement", () => {
-  const def = sdTitleDef("Salem");
+  const def = sdTitleDef("Werewolf");
   const state = newSdState({ roster: players(6) });
   const game = recordSdGame(
     state,
-    "Salem",
+    "Werewolf",
     [
-      { factionId: "mafia", memberIds: ["p0", "p1"] },
-      { factionId: "witch", memberIds: ["p2"], tiedWithAbove: true },
-      { factionId: "town", memberIds: ["p3", "p4", "p5"] },
+      { factionId: "wolves", memberIds: ["p0", "p1"] },
+      { factionId: "tanner", memberIds: ["p2"], tiedWithAbove: true },
+      { factionId: "village", memberIds: ["p3", "p4", "p5"] },
     ],
     def,
-    { p0: "mafioso", p1: "godfather", p2: "witch", p3: "townsperson", p4: "sheriff", p5: "doctor" },
+    { p0: "werewolf", p1: "alpha", p2: "tanner", p3: "villager", p4: "seer", p5: "doctor" },
     NIGHT,
   );
 
@@ -1166,24 +1307,24 @@ test("a shared win reaches the LEDGER as two winning factions and a third placem
   assert.deepEqual(ledger.map((l) => [l.placement, l.isWinner]), [
     [1, true], [1, true], [1, true], [3, false], [3, false], [3, false],
   ]);
-  assert.equal(ledger.find((l) => l.playerId === "p2")!.meta.role, "witch");
+  assert.equal(ledger.find((l) => l.playerId === "p2")!.meta.role, "tanner");
   // The game's own snapshot agrees: two factions at 1, one at 3.
   assert.deepEqual(
     game.factions.map((f) => [f.id, f.placement]),
-    [["mafia", 1], ["witch", 1], ["town", 3]],
+    [["wolves", 1], ["tanner", 1], ["village", 3]],
   );
 });
 
 test("a shared win counts as a win for everybody on both factions in the night summary", () => {
-  const def = sdTitleDef("Salem");
+  const def = sdTitleDef("Werewolf");
   const state = newSdState({ roster: players(6) });
   recordSdGame(
     state,
-    "Salem",
+    "Werewolf",
     [
-      { factionId: "mafia", memberIds: ["p0", "p1"] },
-      { factionId: "witch", memberIds: ["p2"], tiedWithAbove: true },
-      { factionId: "town", memberIds: ["p3", "p4", "p5"] },
+      { factionId: "wolves", memberIds: ["p0", "p1"] },
+      { factionId: "tanner", memberIds: ["p2"], tiedWithAbove: true },
+      { factionId: "village", memberIds: ["p3", "p4", "p5"] },
     ],
     def,
     null,
@@ -1202,7 +1343,7 @@ test("a shared win counts as a win for everybody on both factions in the night s
   ]);
   // And the last-game panel puts both winners at the top.
   assert.deepEqual(s.last!.factions.map((f) => [f.name, f.placement]), [
-    ["Mafia", 1], ["Witch", 1], ["Town", 3],
+    ["Werewolves", 1], ["Tanner", 1], ["Village", 3],
   ]);
 });
 
@@ -1210,12 +1351,14 @@ test("three factions sharing one win is 1, 1, 1, 4", () => {
   // The rule generalises rather than being special-cased at two, which is what
   // competition ranking means: the next untied side takes its own 1-based
   // position.
-  const def = sdTitleDef("Salem");
+  const def = sdDefWith(sdTitleDef("Werewolf"), [], [
+    { id: "cultleader", name: "Cult Leader", alignment: "solo" },
+  ]);
   const order: SdFactionEntry[] = [
-    { factionId: "mafia", memberIds: ["p0"] },
-    { factionId: "witch", memberIds: ["p1"], tiedWithAbove: true },
-    { factionId: "executioner", memberIds: ["p2"], tiedWithAbove: true },
-    { factionId: "town", memberIds: ["p3", "p4"] },
+    { factionId: "wolves", memberIds: ["p0"] },
+    { factionId: "tanner", memberIds: ["p1"], tiedWithAbove: true },
+    { factionId: "cultleader", memberIds: ["p2"], tiedWithAbove: true },
+    { factionId: "village", memberIds: ["p3", "p4"] },
   ];
   assert.deepEqual(sdPlacements(order, def, null).map((l) => l.placement), [1, 1, 1, 4, 4]);
 });
@@ -1225,9 +1368,68 @@ test("a tie flag on the FIRST faction is ignored rather than being an error", ()
   // there is nothing above the first row to be level with.
   const def = sdTitleDef("Salem");
   const order: SdFactionEntry[] = [
-    { factionId: "mafia", memberIds: ["p0"], tiedWithAbove: true },
+    { factionId: "witch", memberIds: ["p0"], tiedWithAbove: true },
     { factionId: "town", memberIds: ["p1", "p2"] },
   ];
   assert.equal(validateSdResult(order, newSdState({ roster: players(3) }), def), null);
   assert.deepEqual(sdPlacements(order, def, null).map((l) => l.placement), [1, 2, 2]);
+});
+
+// ---------- loyalties that change mid-game ----------
+
+test("A PLAYER DEALT INTO ONE FACTION CAN BE RECORDED IN ANOTHER", () => {
+  // SALEM 1692'S CONSPIRACY shifts loyalties mid-game: a townsperson who gains
+  // a Witch card joins the Witches and stays a witch for the rest of the game.
+  // The deal happens at the start, so a player who flips is dealt one faction
+  // and finishes in another.
+  //
+  // THE MODEL ALREADY RECORDS THAT CORRECTLY, and this test is what keeps it
+  // that way: the record path takes `memberIds` FROM THE CALLER rather than
+  // deriving them from the deal, so the deal only PREFILLS the form and the
+  // host moves the flipped player before recording.
+  const def = sdTitleDef("Salem");
+  const state = newSdState({ roster: players(6) });
+  const dealt = { p0: "witch", p1: "townsperson", p2: "townsperson", p3: "townsperson", p4: "townsperson", p5: "constable" };
+  state.deal = {
+    dealNo: 1,
+    title: "Salem",
+    at: NIGHT,
+    composition: [{ roleId: "townsperson", count: 4 }, { roleId: "witch", count: 1 }, { roleId: "constable", count: 1 }],
+    extraRoles: [],
+    extraFactions: [],
+  };
+  // What the deal implies, which is what the form opens on.
+  assert.equal(factionsFromRoles(def, dealt).p3, "town");
+
+  // p3 flipped. The host moves them onto the Witches and records.
+  const game = recordSdGame(
+    state,
+    "Salem",
+    [
+      { factionId: "witch", memberIds: ["p0", "p3"] },
+      { factionId: "town", memberIds: ["p1", "p2", "p4", "p5"] },
+    ],
+    def,
+    dealt,
+    NIGHT,
+  );
+
+  const flipped = game.lines.find((l) => l.playerId === "p3")!;
+  assert.equal(flipped.factionId, "witch", "the RECORDED faction wins, not the dealt one");
+  assert.equal(flipped.alignment, "evil");
+  assert.equal(flipped.side, "witch");
+  assert.equal(flipped.isWinner, true);
+  // AND THE DEALT ROLE IS STILL TRUE: they were dealt a Townsperson and became
+  // a witch, so `meta.role` says townsperson and `meta.faction` says witch,
+  // which is exactly what happened rather than a contradiction.
+  assert.equal(flipped.roleId, "townsperson");
+  assert.deepEqual(sdGameLines(game).find((l) => l.playerId === "p3")!.meta, {
+    faction: "witch",
+    alignment: "evil",
+    role: "townsperson",
+    survived: null,
+    votedOutFirst: null,
+  });
+  // Nobody else moved.
+  assert.equal(game.lines.find((l) => l.playerId === "p1")!.factionId, "town");
 });

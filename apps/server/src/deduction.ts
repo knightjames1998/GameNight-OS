@@ -48,6 +48,7 @@ import {
   recordSdGame,
   sdAdvancePhase,
   sdGameLines,
+  sdAliasTitle,
   sdDefWith,
   sdSetOut,
   sdTitleDef,
@@ -316,7 +317,9 @@ deductionRouter.post(`/${route}/:eventId/now-playing`, requireAuth, async (req: 
   // Canonicalized here as well as on record: whatever the room reads for the
   // next hour is the spelling everybody uses, and if it differs from the one
   // that lands in the ledger the crew has been shown a lie.
-  loaded.state.nowPlaying = raw.trim() ? canonicalTitle(raw, await known(loaded.row.groupId)).title : null;
+  loaded.state.nowPlaying = raw.trim()
+    ? canonicalTitle(sdAliasTitle(raw), await known(loaded.row.groupId)).title
+    : null;
   res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
 
@@ -353,7 +356,7 @@ deductionRouter.post(`/${route}/:eventId/deal`, requireAuth, async (req: AuthedR
     res.status(400).json({ error: "Pick what you are playing" });
     return;
   }
-  const { title } = canonicalTitle(rawTitle, await known(row.groupId));
+  const { title } = canonicalTitle(sdAliasTitle(rawTitle), await known(row.groupId));
   const curated = sdTitleDef(title);
 
   // ROLES THE HOST TYPED, canonicalized SERVER-SIDE against this title's
@@ -590,7 +593,7 @@ deductionRouter.post(`/${route}/:eventId/record`, requireAuth, async (req: Authe
     res.status(400).json({ error: "Pick what you played" });
     return;
   }
-  const { title } = canonicalTitle(rawTitle, await known(row.groupId));
+  const { title } = canonicalTitle(sdAliasTitle(rawTitle), await known(row.groupId));
   // The MERGED def, so a faction the host typed can be ranked like any other.
   const def = sdDefWith(sdTitleDef(title), state.deal?.extraRoles, state.deal?.extraFactions);
 

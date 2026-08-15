@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import {
   compositionSize,
   sdDefWith,
+  sdIsEmptyDef,
   sdTitleDef,
   suggestComposition,
   typedRole,
@@ -528,6 +529,13 @@ function DealCard({
   const bump = (roleId: string, by: number) =>
     setCounts((c) => ({ ...c, [roleId]: Math.max(0, (c[roleId] ?? 0) + by) }));
 
+  // TWO DIFFERENT EMPTY STATES, and the copy has to tell them apart: nothing
+  // picked at all, versus a real title the catalogue has never heard of.
+  // `def.title` is "" for both, so the session's own title is what separates
+  // them.
+  const picked = (session.deal?.title ?? session.nowPlaying ?? "").trim();
+  const emptyCatalogue = sdIsEmptyDef(def) && picked.length > 0;
+
   const draftProblem = draft.trim() ? validateTypedRole(def, draft, draftFaction, draftFaction === null) : null;
   const addTyped = () => {
     if (!draft.trim() || draftProblem) return;
@@ -557,12 +565,29 @@ function DealCard({
   return (
     <div className="gn-card space-y-2">
       <h2 className="gn-h2">Deal the roles</h2>
-      <p className="gn-hint">
-        {def.title
-          ? `${def.title}, ${size} at the table.`
-          : `${size} at the table. Nothing named yet, so this is the plain village-and-wolves shape.`}{" "}
-        The suggestion is a starting position, never a rule.
-      </p>
+      {/* A GAME NOBODY PICKED IS NOT WEREWOLF. This used to render a
+          Villager/Wolf catalogue before anyone had chosen anything, so the game
+          looked pre-selected, and worse, a free-typed title got that catalogue
+          as its REAL role list. A host who accepted it wrote `villager` and
+          `village` permanently for a game that has neither. Now an uncurated
+          title opens empty and the host types the roles, which is exactly what
+          the typed-role box below was built for. */}
+      {/* BRANCHED ON WHAT THE HOST PICKED, not on `def.title`, which is the
+          empty string for BOTH states: nothing chosen, and something chosen
+          that the catalogue has never heard of. Keying on the def showed the
+          "pick a game" line to a host who had already picked one. */}
+      {!picked ? (
+        <p className="gn-hint">
+          Pick or type a game first, up at the top. Nothing is assumed about a game that has not been named.
+        </p>
+      ) : (
+        <p className="gn-hint">
+          {`${picked}, ${size} at the table.`}{" "}
+          {emptyCatalogue
+            ? "This one is not on the list, so there are no roles to start from. Type the ones you are playing with below and they are recorded under their own names."
+            : "The suggestion is a starting position, never a rule."}
+        </p>
+      )}
 
       {merged.roles.map((r) => (
         <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -613,7 +638,11 @@ function DealCard({
               not be recorded at all. */}
           <div className="gn-lab">Who do they win with</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {def.factions.map((f) => (
+            {/* The MERGED factions, so the second typed role can join the first
+                one's side. On an empty catalogue the first role has nothing to
+                join and takes "wins alone", which mints the faction the next
+                one can pick. */}
+            {merged.factions.map((f) => (
               <button
                 key={f.id}
                 className={draftFaction === f.id ? "gn-chip gn-chip--stats" : "gn-actionbtn"}
@@ -643,7 +672,7 @@ function DealCard({
       </p>
       <button
         className="gn-btn gn-btn--go"
-        disabled={busy || !!problem}
+        disabled={busy || !!problem || !picked}
         onClick={() =>
           call(at("deal"), {
             title: def.title || session.nowPlaying || "",
@@ -655,7 +684,7 @@ function DealCard({
           })
         }
       >
-        {problem ?? "Deal"}
+        {!picked ? "Pick a game first" : problem ?? "Deal"}
       </button>
     </div>
   );
@@ -961,6 +990,11 @@ function RecordResult({
           ))}
         </div>
       ))}
+      <p className="gn-hint">
+        Starts from the deal, and every chip is tappable: if somebody CHANGED SIDES during the game (Salem 1692's
+        Conspiracy hands a townsperson a Witch card, and they stay a witch) move them here before recording. What you
+        tap is what is recorded; the role they were dealt is kept as well, so the row says both.
+      </p>
       <p className="gn-hint">
         Anybody who sat this one out just stays unassigned. Their night is not affected.
       </p>

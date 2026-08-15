@@ -168,6 +168,19 @@ function sdUndealt() {
   return { ...sdSession(), nowPlaying: "Salem", deal: null, board: null, boardEnabled: false };
 }
 
+/**
+ * A night on a title the catalogue has never heard of.
+ *
+ * THE SCREEN THIS PINS is the 2026-08-14 fix: an uncurated title used to be
+ * handed a Villager/Wolf catalogue, so a host who accepted it wrote
+ * `meta.role: "villager"` permanently for a game that has neither. It now opens
+ * EMPTY and tells the host to type the roles. A snapshot with no role rows in
+ * it is the point rather than a gap.
+ */
+function sdUncurated() {
+  return { ...sdSession(), nowPlaying: "One Night Ultimate Werewolf", deal: null, board: null, boardEnabled: false };
+}
+
 /** The same night as the PUBLIC TV sees it. Roles only where revealed. */
 function sdTv() {
   const s = sdSession();
@@ -366,6 +379,11 @@ async function main() {
   sdPayload = sdUndealt();
   await goto(`${ORIGIN}/deduction?event=e1`);
   snap.sdDealForm = await text();
+
+  // The EMPTY CATALOGUE, which is what an uncurated title now opens with.
+  sdPayload = sdUncurated();
+  await goto(`${ORIGIN}/deduction?event=e1`);
+  snap.sdUncurated = await text();
 
   sdTvPayload = sdTv();
   await view(1920, 1080);

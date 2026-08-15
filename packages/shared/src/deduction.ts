@@ -127,10 +127,16 @@ export interface SdTitleDef {
   title: string;
   factions: readonly SdFaction[];
   roles: readonly SdRole[];
-  /** The plain role most of the table gets. Fills the seats a deal does not name. */
-  baselineTown: string;
-  /** The plain evil role. Takes the suggested evil count. */
-  baselineEvil: string;
+  /**
+   * The plain role most of the table gets, and the plain evil one.
+   *
+   * OPTIONAL, because an UNCURATED TITLE HAS AN EMPTY CATALOGUE and there is no
+   * such thing as its baseline. Absent means `suggestComposition` returns
+   * nothing rather than inventing a shape, which is the whole point of the
+   * 2026-08-14 fix: a game nobody picked is not Werewolf.
+   */
+  baselineTown?: string;
+  baselineEvil?: string;
 }
 
 const TOWN = (id: string, name: string): SdFaction => ({ id, name, alignment: "town" });
@@ -195,35 +201,55 @@ export const SD_TITLE_DEFS: readonly SdTitleDef[] = [
     baselineEvil: "mafioso",
   },
   {
+    // SALEM MEANS THE 1692 CARD GAME (Facade Games, 2015), 2 to 12 players.
+    //
+    // ===================================================================
+    // TWO DIFFERENT GAMES SHARE THIS NAME AND THIS CATALOGUE HAD THE WRONG
+    // ONE until 2026-08-14, when James played a night and found a Mafioso.
+    //
+    // TOWN OF SALEM is the online PC and mobile game (BlankMediaGames):
+    // Mafioso, Godfather, Sheriff, Investigator, Serial Killer, Jester,
+    // Executioner, Witch. That is what shipped here on 2026-08-10, and it
+    // is a game this app cannot be used for at all: it runs in its own
+    // client with its own UI, and a crew playing it has no use for a
+    // moderator board or a TV.
+    //
+    // SALEM 1692 is the physical card game, which is the one that needs
+    // exactly this pack, and the one the crew plays (James, 2026-08-14).
+    // Its tryal cards are Witch, Constable or Not A Witch, and its two
+    // factions are the Townspeople and the Witches.
+    //
+    // DO NOT RE-IMPORT TOWN OF SALEM. If somebody wants it, it is a
+    // DIFFERENT TITLE with a different label, not more roles under this one.
+    // ===================================================================
     title: "Salem",
     factions: [
-      TOWN("town", "Town"),
-      EVIL("mafia", "Mafia"),
-      SOLO("serialkiller", "Serial Killer"),
-      SOLO("jester", "Jester"),
-      // APPENDED 2026-08-10, never inserted, and each solo role gets its OWN
-      // faction the way the Jester already does. THE WITCH IS THE WORKED EXAMPLE
-      // OF A SHARED WIN: she survives and wins ALONGSIDE whoever kills the town,
-      // so her faction and the Mafia both take placement 1 and the town is
-      // THIRD. That is competition ranking over factions, and `tiedWithAbove`
-      // is how it is recorded.
-      SOLO("witch", "Witch"),
-      SOLO("executioner", "Executioner"),
+      // BOTH IDS SURVIVE THE CORRECTION, and that is deliberate: a faction id
+      // is written to `match_participants.side` and to `meta.faction`, so it is
+      // exactly as permanent as a role id.
+      TOWN("town", "Townspeople"),
+      // THE ONE THING THAT CHANGES MEANING UNDERNEATH A STABLE ID. The Witch
+      // was a SOLO third party under Town of Salem; in Salem 1692 the Witches
+      // are a main EVIL faction. The id stays (it still means "a witch") and
+      // the alignment does not, so any row recorded before 2026-08-14 carries
+      // `meta.alignment: "solo"` and now means something different. Nothing can
+      // fix that in code; see the audit query in the 2026-08-14 closeout.
+      EVIL("witch", "Witches"),
     ],
     roles: [
       role("townsperson", "Townsperson", "town"),
-      role("sheriff", "Sheriff", "town"),
-      role("doctor", "Doctor", "town"),
-      role("investigator", "Investigator", "town"),
-      role("mafioso", "Mafioso", "mafia"),
-      role("godfather", "Godfather", "mafia"),
-      role("serialkiller", "Serial Killer", "serialkiller"),
-      role("jester", "Jester", "jester"),
       role("witch", "Witch", "witch"),
-      role("executioner", "Executioner", "executioner"),
+      // THE CONSTABLE SPLITS INTO TWO, exactly as Blood on the Clocktower's
+      // Traveller does, and for exactly the same reason: the Constable is
+      // INDEPENDENT OF ALIGNMENT (a witch who draws it is an evil Constable and
+      // may protect fellow witches), `role()` pins one faction on purpose, and
+      // a role whose alignment floats cannot be ranked. Two entries, chosen
+      // when the role is dealt, rather than one role that means either.
+      role("constable", "Constable", "town"),
+      role("witchconstable", "Witch Constable", "witch"),
     ],
     baselineTown: "townsperson",
-    baselineEvil: "mafioso",
+    baselineEvil: "witch",
   },
   {
     title: "Secret Hitler",
@@ -282,25 +308,69 @@ export const SD_TITLE_DEFS: readonly SdTitleDef[] = [
 export const SD_TITLES: readonly string[] = SD_TITLE_DEFS.map((d) => d.title);
 
 /**
- * What a title nobody has a catalogue for opens with.
+ * What a title nobody has a catalogue for opens with: NOTHING.
  *
- * A FREE-TYPED TITLE HAS NO CATALOGUE, because there is nothing to look it up
- * in, so it gets the shape every game in this genre has underneath: a village,
- * something hunting it, and a plain role each. Same call the title-night layer
- * makes when a typed title has no partnership default.
+ * ===========================================================================
+ * A GAME NOBODY PICKED IS NOT WEREWOLF (James, 2026-08-14).
+ *
+ * This used to be Village/Wolves with a `villager` and a `wolf`, returned for
+ * an empty title AND for every free-typed one. Both routes already refuse an
+ * empty title, so the empty case was only ever cosmetic (the deal card rendered
+ * a Werewolf catalogue before anyone had picked anything, so the game looked
+ * pre-selected). THE FREE-TYPED CASE WAS THE DAMAGING ONE: type "One Night
+ * Ultimate Werewolf" or anything uncurated and the app OFFERED `villager` and
+ * `wolf`, and a host who accepted them wrote `meta.role: "villager"` and
+ * `meta.faction: "village"` permanently for a game that has neither.
+ *
+ * That is the same class of false record as a Witch recorded as a Townsperson,
+ * except on the DEFAULT path, which is where it would happen most.
+ *
+ * So an uncurated title opens EMPTY and the host types the roles. That is
+ * exactly what typed roles were built for, which is what makes this fix a
+ * deletion rather than a feature. The two-faction floor still applies:
+ * `validateComposition` refuses a deal that is all one faction, so a typed-only
+ * deal cannot be a game with nobody to find.
+ * ===========================================================================
  */
 export const SD_DEFAULT_DEF: SdTitleDef = {
   title: "",
-  factions: [TOWN("village", "Village"), EVIL("wolves", "Wolves")],
-  roles: [role("villager", "Villager", "village"), role("wolf", "Wolf", "wolves")],
-  baselineTown: "villager",
-  baselineEvil: "wolf",
+  factions: [],
+  roles: [],
 };
+
+/** True when a title has no catalogue and the host has to type its roles. */
+export function sdIsEmptyDef(def: SdTitleDef): boolean {
+  return def.roles.length === 0;
+}
+
+/**
+ * Other names for a curated title, folded onto the curated one.
+ *
+ * THE LABEL ITSELF NEVER CHANGES. `matches.label` carries the title and the
+ * crew's recents carry it, so renaming "Salem" to "Salem 1692" would split that
+ * title's history across two names with nothing erroring, which is the silent
+ * failure this file already catalogues for pack display names. An alias fixes
+ * the input instead: a host typing either lands on the one label.
+ *
+ * "TOWN OF SALEM" IS DELIBERATELY NOT HERE. It is a genuinely different game
+ * (the online one) rather than another name for this one, so it stays
+ * uncurated and opens the empty catalogue, which is the honest answer.
+ */
+export const SD_TITLE_ALIASES: Readonly<Record<string, string>> = {
+  "salem 1692": "Salem",
+  salem1692: "Salem",
+};
+
+/** Fold a known alias onto its curated title. Returns the title normalized. */
+export function sdAliasTitle(raw: string | null | undefined): string {
+  const title = normalizeTitle(raw ?? "");
+  return SD_TITLE_ALIASES[title.toLowerCase()] ?? title;
+}
 
 /** The catalogue for a title, matched case-folded, or the default shape. */
 export function sdTitleDef(title: string | null | undefined): SdTitleDef {
   if (!title) return SD_DEFAULT_DEF;
-  const folded = normalizeTitle(title).toLowerCase();
+  const folded = sdAliasTitle(title).toLowerCase();
   return SD_TITLE_DEFS.find((d) => d.title.toLowerCase() === folded) ?? SD_DEFAULT_DEF;
 }
 
@@ -543,6 +613,10 @@ export function suggestedEvilCount(playerCount: number): number {
  * night IS. The host taps those in.
  */
 export function suggestComposition(def: SdTitleDef, playerCount: number): SdRoleCount[] {
+  // AN EMPTY CATALOGUE HAS NO SUGGESTION, and returning one would be inventing
+  // a shape for a game the app has never heard of. That is the bug this
+  // replaced, in its most damaging form.
+  if (!def.baselineTown || !def.baselineEvil) return [];
   const n = Math.max(0, Math.floor(playerCount));
   const evil = Math.min(suggestedEvilCount(n), Math.max(0, n - 1));
   const town = n - evil;
