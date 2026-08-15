@@ -125,7 +125,16 @@ const RULE_ROUTES = [
   // route that imports it has been visited.
   "/deduction",
   "/deduction/tv/x",
+  // BOTH BEERIO ROUTES, added 2026-08-15 with the alive board and the round
+  // strip. The TV imports the same beerio.css the page does, so this adds no
+  // stylesheet the pass could not already see; it is here because listing a
+  // pack's page WITHOUT its TV is the habit that let Board Game go five days
+  // unmeasured, and because this pack's TV is now a screen somebody edits.
+  // /tv/x is deliberately NOT here: the shell TV paints out of index.css,
+  // which "/" already loads, so a second visit would cost a route and prove
+  // nothing. It is in ROUTES, which is the pass that walks screens.
   "/beerio",
+  "/beerio/tv/ABCD",
 ];
 
 /**

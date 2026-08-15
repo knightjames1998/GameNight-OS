@@ -137,6 +137,10 @@ type WsEvent =
 export type WsMessage = WsEvent & { origin?: string };
 export * from "./packs.js";
 export * from "./bracket.js";
+// The bracketed TVs' shared derivations (round order, the alive board, the
+// round strip). Beside the engine rather than in it: it reads what compute()
+// produced and derives nothing about the bracket itself.
+export * from "./bracketboard.js";
 export * from "./series.js";
 export * from "./smash.js";
 export * from "./mariokart.js";

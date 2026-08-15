@@ -2,11 +2,20 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
+  aliveBoard,
+  compareRoundOrder,
+  roundOrderFromKey,
+  roundStrip,
+  type RoundOrder,
+  type StripRound,
+} from "@gamenight/shared";
+import {
   buildBracket,
   compute,
   getChampion,
   gpStandings,
   isRealPlayer,
+  type Bracket,
   type MatchResult,
   type SavedState,
 } from "./BeerioApp";
@@ -152,9 +161,16 @@ function Header({ code, joinUrl, isGP }: { code: string; joinUrl: string; isGP: 
   return (
     <header className="flex items-start justify-between gap-6 shrink-0">
       <div>
+        {/* beerio-tv-back is an unstyled hook. Standing rule 4 wants a way back
+            on every screen and scripts/tv-fit.mjs measures to that control
+            rather than to the footer, but its selector is
+            `.gn-textbtn, .cg-tv__back` and this pack's back button is its own
+            styled one rather than the shared BackButton component, so this
+            screen reported "no button" and had its rule-4 check quietly skipped
+            from the day the harness was written. */}
         <button
           onClick={() => { if (window.history.length > 1) history.back(); else location.href = "/"; }}
-          className="mb-[0.8vw] px-[1.2vw] py-[0.5vw] rounded-[10px] border-[3px] border-[var(--ink)] bg-[var(--foam)] font-[Fredoka] font-semibold text-[1.2vw] text-[var(--ink)] shadow-[0_3px_0_rgba(22,35,59,.22)] cursor-pointer"
+          className="beerio-tv-back mb-[0.8vw] px-[1.2vw] py-[0.5vw] rounded-[10px] border-[3px] border-[var(--ink)] bg-[var(--foam)] font-[Fredoka] font-semibold text-[1.2vw] text-[var(--ink)] shadow-[0_3px_0_rgba(22,35,59,.22)] cursor-pointer"
         >
           &larr; Back
         </button>
@@ -248,66 +264,234 @@ function GpBoard({ state, preds }: { state: SavedState; preds: PredMap }) {
 
 // ---------- Double elimination ----------
 
+/**
+ * Where a Beerio match sits in the night, for the SHARED comparator.
+ *
+ * `def.grp` is already exactly the key shape that parse understands (`W{r}`,
+ * `L{lr}`, `GF`), and this pack's losers rounds are numbered the same way the
+ * generic engine's are, so the depth lines up with the shell TV's behaviour
+ * rather than only looking like it does. A key that does not parse sorts last
+ * rather than silently sorting first.
+ */
+const orderOf = (key: string): RoundOrder => roundOrderFromKey(key) ?? { side: "GF", depth: 1 };
+
 function BracketBoard({ state, preds }: { state: SavedState; preds: PredMap }) {
-  const M = useMemo(() => {
+  const { BR, M } = useMemo(() => {
     try {
-      const BR = buildBracket(state.playerCount);
-      return compute(BR, state.names, state.results ?? {});
+      const b = buildBracket(state.playerCount);
+      return { BR: b as Bracket | null, M: compute(b, state.names, state.results ?? {}) };
     } catch {
-      return {} as Record<string, MatchResult>;
+      return { BR: null, M: {} as Record<string, MatchResult> };
     }
   }, [state.playerCount, state.names, state.results]);
 
   const all = Object.values(M).filter((m) => m.active && !m.phantom);
   const champ = getChampion(M);
-  // Ready to play: both seats filled, nobody has won it yet.
-  const live = all.filter(
-    (m) => !m.decided && isRealPlayer(m.a) && isRealPlayer(m.b),
+  // Ready to play: both seats filled, nobody has won it yet. ORDERED BY THE
+  // SHARED COMPARATOR (depth, then side) rather than left in buildBracket's
+  // insertion order, which is every winners round before any losers round:
+  // that looks right at the start of a night and mid-bracket floats a winners
+  // R2 matchup above a losers R1 one that has been waiting longer.
+  const live = all
+    .filter((m) => !m.decided && isRealPlayer(m.a) && isRealPlayer(m.b))
+    .sort((x, y) => compareRoundOrder(orderOf(x.def.grp), orderOf(y.def.grp)));
+
+  // Who is still in it. Everyone with a typed name is an entrant; a seat left
+  // blank is a bye, and compute() already resolves it as one.
+  const entrants = state.names.flatMap((n, i) => (n && n.trim() ? [i + 1] : []));
+  const board = aliveBoard(
+    entrants,
+    all.map((m) => ({
+      decided: m.decided,
+      auto: m.auto,
+      loser: isRealPlayer(m.loser) ? m.loser.seed : null,
+    })),
+    // Beerio's bracket mode is always double elim; Grand Prix is a different
+    // board entirely and never reaches here.
+    "double_elim",
   );
-  const recent = all.filter((m) => m.decided && !m.auto).slice(-6).reverse();
+
+  const strip = roundStrip(
+    (BR?.groups ?? []).flatMap((g): StripRound[] => {
+      const ms = g.ids.flatMap((id) => {
+        const m = M[id];
+        return m && m.active && !m.phantom ? [m] : [];
+      });
+      if (ms.length === 0) return [];
+      return [{
+        key: g.key,
+        title: g.title,
+        ...orderOf(g.key),
+        decided: ms.filter((m) => m.decided).length,
+        total: ms.length,
+        playable: ms.filter((m) => !m.decided && isRealPlayer(m.a) && isRealPlayer(m.b)).length,
+      }];
+    }),
+  );
 
   return (
-    <div className="flex-1 grid grid-cols-2 gap-[2vw] min-h-0">
-      <section className="flex flex-col min-h-0">
-        <h2 className="font-[Fredoka] font-bold text-[2vw] text-[var(--ink)] mb-[1vw]">Up next</h2>
-        <div className="flex flex-col gap-[1vw] overflow-hidden">
-          {live.length === 0 && (
-            <p className="font-[Fredoka] text-[1.6vw] text-[var(--ink)] opacity-50">
-              Waiting on the next matchup...
-            </p>
-          )}
-          {live.slice(0, 4).map((m) => (
-            <MatchCard key={m.def.id} m={m} state={state} preds={preds} highlight />
-          ))}
-        </div>
-      </section>
-
-      <section className="flex flex-col min-h-0">
-        <h2 className="font-[Fredoka] font-bold text-[2vw] text-[var(--ink)] mb-[1vw]">
-          {champ ? "Champion" : "Just finished"}
-        </h2>
-        {champ ? (
-          <div className="border-[4px] border-[var(--ink)] rounded-[18px] bg-[var(--sun)] px-[2vw] py-[2.5vw] text-center shadow-[0_6px_0_rgba(22,35,59,.22)]">
-            <p className="font-[Fredoka] font-bold text-[1.6vw] text-[var(--ink)] uppercase tracking-widest">
-              Champion
-            </p>
-            <p className="font-[Luckiest_Guy,cursive] text-[5vw] text-[var(--ink)] leading-tight mt-[0.5vw]">
-              {champ.name ?? `Racer ${champ.seed + 1}`}
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-[0.8vw] overflow-hidden">
-            {recent.length === 0 && (
+    <div className="flex-1 flex flex-col gap-[1.2vw] min-h-0">
+      <RoundStrip cells={strip} />
+      <div className="flex-1 grid grid-cols-2 gap-[2vw] min-h-0">
+        <section className="flex flex-col min-h-0">
+          <h2 className="font-[Fredoka] font-bold text-[2vw] text-[var(--ink)] mb-[1vw]">Up next</h2>
+          <div className="flex flex-col gap-[1vw] overflow-hidden">
+            {live.length === 0 && (
               <p className="font-[Fredoka] text-[1.6vw] text-[var(--ink)] opacity-50">
-                No results yet.
+                Waiting on the next matchup...
               </p>
             )}
-            {recent.map((m) => (
-              <MatchCard key={m.def.id} m={m} state={state} preds={preds} />
+            {live.slice(0, 4).map((m) => (
+              <MatchCard key={m.def.id} m={m} state={state} preds={preds} highlight />
             ))}
           </div>
-        )}
-      </section>
+        </section>
+
+        <section className="flex flex-col min-h-0">
+          <h2 className="font-[Fredoka] font-bold text-[2vw] text-[var(--ink)] mb-[1vw]">
+            {champ ? "Champion" : (
+              <>
+                Who&apos;s left{" "}
+                <span className="opacity-60">
+                  &middot; {board.stillIn} of {board.entrants}
+                </span>
+              </>
+            )}
+          </h2>
+          {/* THE CHAMPION PANEL STILL WINS. When there is a champion, that is
+              what the room wants to see, not a standings board with one name
+              in the unbeaten row. */}
+          {champ ? (
+            <div className="border-[4px] border-[var(--ink)] rounded-[18px] bg-[var(--sun)] px-[2vw] py-[2.5vw] text-center shadow-[0_6px_0_rgba(22,35,59,.22)]">
+              <p className="font-[Fredoka] font-bold text-[1.6vw] text-[var(--ink)] uppercase tracking-widest">
+                Champion
+              </p>
+              <p className="font-[Luckiest_Guy,cursive] text-[5vw] text-[var(--ink)] leading-tight mt-[0.5vw]">
+                {champ.name ?? `Racer ${champ.seed + 1}`}
+              </p>
+            </div>
+          ) : (
+            <AliveBoard board={board} state={state} />
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+// ---------- The still-alive board ----------
+
+/**
+ * Who is still in it, in three groups. This replaced the "Just finished"
+ * column: a result that just happened is already on the phones and already
+ * cheered, and what a room actually asks across a night is who is still
+ * standing and who is one race from going home.
+ */
+function AliveBoard({
+  board,
+  state,
+}: {
+  board: ReturnType<typeof aliveBoard>;
+  state: SavedState;
+}) {
+  const groups: { label: string; seeds: number[]; tone: "clean" | "one" | "out" }[] = [
+    { label: "Unbeaten", seeds: board.unbeaten, tone: "clean" },
+    { label: "One loss, next one is out", seeds: board.oneLoss, tone: "one" },
+    { label: "Out", seeds: board.out, tone: "out" },
+  ];
+  return (
+    // beerio-tv-alive carries no styling: it is the stable hook scripts/tv-fit.mjs
+    // proves this board rendered by. Every other pack's TV has a class name to
+    // point at and this one is all utility classes, which is why it needs one.
+    <div className="beerio-tv-alive flex flex-col gap-[1vw] overflow-hidden">
+      {groups.map((g) =>
+        g.seeds.length === 0 ? null : (
+          <div key={g.label}>
+            <p className="font-[Fredoka] font-bold text-[1.2vw] text-[var(--ink)] opacity-70 uppercase tracking-wide mb-[0.5vw]">
+              {g.label} &middot; {g.seeds.length}
+            </p>
+            <div className="flex flex-wrap gap-[0.7vw]">
+              {g.seeds.map((seed) => (
+                <RacerChip key={seed} seed={seed} tone={g.tone} state={state} />
+              ))}
+            </div>
+          </div>
+        ),
+      )}
+    </div>
+  );
+}
+
+function RacerChip({
+  seed,
+  tone,
+  state,
+}: {
+  seed: number;
+  tone: "clean" | "one" | "out";
+  state: SavedState;
+}) {
+  // Bracket seeds are 1-based; the colors array is 0-based.
+  const color = state.colors?.[seed - 1] ?? "var(--foam)";
+  const name = state.names[seed - 1]?.trim() || `Racer ${seed}`;
+  const out = tone === "out";
+  return (
+    <span
+      className={`inline-flex items-center gap-[0.6vw] border-[3px] rounded-full px-[1vw] py-[0.4vw] font-[Fredoka] font-bold text-[1.6vw] text-[var(--ink)] max-w-full ${
+        out ? "border-dashed opacity-45" : "shadow-[0_3px_0_rgba(22,35,59,.18)]"
+      }`}
+      style={{
+        background: tone === "one" ? "var(--sun)" : "var(--foam)",
+        borderColor: tone === "clean" ? "var(--grass)" : "var(--ink)",
+      }}
+    >
+      <span
+        className="w-[1.3vw] h-[1.3vw] rounded-full border-[3px] border-[var(--ink)] shrink-0"
+        style={{ background: color }}
+      />
+      <span className={`truncate ${out ? "line-through" : ""}`}>{name}</span>
+    </span>
+  );
+}
+
+// ---------- The round strip ----------
+
+/**
+ * The night's shape in one band: every round, in the same order the Up next
+ * list uses, with how far each one has got. STATE IS THE TOP EDGE rather than
+ * a fill, so the band stays quiet under the two columns that carry the
+ * actual reading. More than one round is lit at once in double elim, which is
+ * the normal case rather than an edge one.
+ */
+function RoundStrip({ cells }: { cells: ReturnType<typeof roundStrip> }) {
+  if (cells.length === 0) return null;
+  return (
+    // beerio-tv-strip: the same unstyled hook the alive board carries, and the
+    // one scripts/tv-fit.mjs uses as its render proof for this route.
+    <div className="beerio-tv-strip flex gap-[0.6vw] shrink-0">
+      {cells.map((c) => {
+        const now = c.state === "now";
+        const done = c.state === "done";
+        return (
+          <div
+            key={c.key}
+            className={`flex-1 min-w-0 bg-[var(--foam)] border-[3px] border-[var(--ink)] rounded-[10px] px-[0.7vw] py-[0.45vw] ${
+              done ? "opacity-50" : ""
+            }`}
+            style={{
+              borderTopWidth: "0.7vw",
+              borderTopColor: now ? "var(--grass)" : "var(--ink)",
+            }}
+          >
+            <div className="font-[Fredoka] font-bold text-[1vw] text-[var(--ink)] truncate">
+              {c.title}
+            </div>
+            <div className="font-[Fredoka] font-semibold text-[0.9vw] text-[var(--ink)] opacity-70">
+              {c.decided}/{c.total}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

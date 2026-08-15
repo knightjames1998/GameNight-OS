@@ -27,6 +27,12 @@
 // softening the check.
 
 import { spawn } from "node:child_process";
+// THE REAL ENGINE, imported straight from source (node strips the types), so
+// the two bracketed cases below are measured against a bracket the app could
+// actually produce. Hand-rolling a rounds payload for a 16-entrant double elim
+// is exactly the shape of fixture that goes stale without saying so, which is
+// the failure this file already carries a `rendered` assertion for.
+import { buildStructure, computeBracket } from "../packages/shared/src/bracket.ts";
 const PORT = Number(process.env.PORT || 4185), CDP = Number(process.env.CDP || 9340);
 const ROOT = "/home/user/GameNight-OS";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -175,12 +181,109 @@ const deduction = (n) => {
   } };
 };
 
+// THE TWO OLDEST TV VIEWS IN THE APP, and until 2026-08-15 neither was in this
+// harness: /tv/:id shipped with the bracket engine and /beerio/tv/:code came in
+// with the vendored pack, both long before this file existed, so the gap was
+// never a pack that forgot a step. It was the two screens nobody thought to
+// add. Same finding as Board Game's on 2026-08-09, in an older costume.
+//
+// MEASURED AT 8 AND AT 16. Sixteen is Beerio's MAX_PLAYERS, and it is the count
+// that puts eleven cells in the round strip and sixteen names on the alive
+// board, so it is the reachable worst case rather than a theoretical one.
+//
+// Mid-bracket on purpose: two waves played, so the on-deck stack is full, the
+// alive board has all three of its groups populated, and the strip has done,
+// current and not-yet cells at once. An empty bracket measures the least ink
+// on any of the three.
+const WAVES = 2;
+const playWaves = (n, structure) => {
+  const results = {};
+  for (let w = 0; w < WAVES; w++) {
+    const open = Object.values(computeBracket(n, structure, results).matches)
+      .filter((m) => m.playable && m.active);
+    if (open.length === 0) break;
+    for (const m of open) results[m.def.id] = "A";
+  }
+  return results;
+};
+
+// The shell's /tv/:id payload, built through the same serializer shape
+// apps/server/src/brackets.ts deriveView() emits.
+const bracketTv = (n, format = "double_elim") => {
+  const structure = buildStructure(format, n);
+  const results = playWaves(n, structure);
+  const computed = computeBracket(n, structure, results);
+  const slot = (s) =>
+    s.kind === "player"
+      ? { kind: "player", seed: s.seed, userId: "u" + s.seed, displayName: "Player Nameiskindalong " + s.seed }
+      : { kind: s.kind };
+  return {
+    id: "b1", eventId: "e1", groupId: "g1",
+    gameName: "Mario Kart 8 Deluxe", groupName: "The Thursday Crew",
+    status: "live", format, openScoring: false, canScore: false, canManage: false,
+    entrantCount: n,
+    rounds: structure.groups
+      .map((g) => ({
+        title: g.title, side: g.side,
+        matches: g.ids
+          .map((id) => computed.matches[id])
+          .filter((m) => m.active && !(m.a.kind === "bye" && m.b.kind === "bye"))
+          .map((m) => ({
+            id: m.def.id, a: slot(m.a), b: slot(m.b),
+            winner: m.decided ? slot(m.winner) : null,
+            decided: m.decided, auto: m.auto, playable: m.playable,
+            undoable: m.def.id in results, reset: !!m.def.resetOf,
+          })),
+      }))
+      .filter((g) => g.matches.length > 0),
+    champion: computed.championSeed ? slot({ kind: "player", seed: computed.championSeed }) : null,
+  };
+};
+
+// Beerio Kart's /beerio/tv/:code payload: the pack's own SavedState, which the
+// page feeds to its OWN engine. THE MATCH IDS ARE THE SAME BY CONSTRUCTION —
+// packages/shared/src/bracket.ts is that engine generalized, so W{r}M{i} /
+// L{r}M{i} / GF and the seed order are identical for double elim — which is
+// why one results map serves both cases and why this fixture cannot drift into
+// naming matches the pack does not have.
+const BEERIO_COLORS = ["#E5352B", "#3B7BE8", "#2FB969", "#FFC02E", "#9B59D0", "#FF7BAC", "#00B7C2", "#F2751A"];
+const beerioTv = (n) => {
+  const structure = buildStructure("double_elim", n);
+  const results = playWaves(n, structure);
+  // Two spectators who voted on everything, so the on-deck cards carry their
+  // prediction bars: that is the tallest an Up next card ever gets.
+  const picks = Object.fromEntries(structure.defs.map((d) => [`M:${d.id}`, "A"]));
+  return {
+    state: {
+      playerCount: n,
+      names: Array.from({ length: n }, (_, i) => "Player Nameiskindalong " + (i + 1)),
+      colors: Array.from({ length: n }, (_, i) => BEERIO_COLORS[i % BEERIO_COLORS.length]),
+      results, series: {}, gpLog: [],
+      format: { series: 1, mode: "bracket", gpRaces: 4 },
+      seeded: true,
+    },
+    predictions: {
+      s1: { name: "Spectator One", picks },
+      s2: { name: "Spectator Two", picks: { ...picks, "M:W1M0": "B" } },
+    },
+  };
+};
+
 let PAYLOAD = money(4, []);
 on.set("Fetch.requestPaused", ({ requestId, request }) => {
   const p = new URL(request.url).pathname;
   if (!p.startsWith("/api/")) { send("Fetch.continueRequest", { requestId }).catch(() => {}); return; }
   let body = { error: "no" }, code = 404;
   if (p.startsWith("/api/tv/")) { body = PAYLOAD; code = 200; }
+  // Beerio reads the shared public live-session endpoint, not /api/tv, and it
+  // reads predictions from a second one. Both are answered from the same
+  // payload so a case cannot serve a state and a prediction set that disagree.
+  if (p.startsWith("/api/sessions/")) {
+    body = p.endsWith("/predictions")
+      ? { predictions: PAYLOAD.predictions ?? {} }
+      : { state: PAYLOAD.state ?? {} };
+    code = 200;
+  }
   if (p === "/api/auth/me") { body = { id: "u1", email: "a@b.c", displayName: "S", hasPassword: true }; code = 200; }
   send("Fetch.fulfillRequest", { requestId, responseCode: code, responseHeaders: [{ name: "content-type", value: "application/json" }], body: Buffer.from(JSON.stringify(body)).toString("base64") }).catch(() => {});
 });
@@ -234,7 +337,13 @@ const MEASURE = (PROOF) => `(()=>{
   // hook that cannot go stale. It used to be a hardcoded list of per-pack class
   // names, which silently reported "no button" for any pack nobody remembered
   // to add, which is the same shape of miss this whole file exists to catch.
-  const back = document.querySelector('.gn-textbtn, .cg-tv__back');
+  //
+  // .beerio-tv-back joined on 2026-08-15. That pack's TV does NOT use the
+  // shared BackButton (standing rule 4 says so in as many words: "Beerio has
+  // its own styled one in its header"), so the sentence above was true of every
+  // BackButton and quietly false of the one screen that does not have one. It
+  // reported "no button" the first time it was ever measured.
+  const back = document.querySelector('.gn-textbtn, .cg-tv__back, .beerio-tv-back');
   const bb = back ? back.getBoundingClientRect() : null;
   return {
     railW,
@@ -287,6 +396,15 @@ const CASES = [
   ["deduction  12 players", "/deduction/tv/x", deduction(12), ".sd-p"],
   ["deduction  16 players", "/deduction/tv/x", deduction(16), ".sd-p"],
   ["deduction  20 players", "/deduction/tv/x", deduction(20), ".sd-p"],
+  // THE TWO BRACKETED TVs, added 2026-08-15 with the alive board and the round
+  // strip. Both are older than this harness and neither had ever been measured.
+  // The proof selector is a round-strip cell in each: it needs a real rounds
+  // payload to exist at all, so a stale fixture takes the waiting state and
+  // fails loudly rather than measuring a loading screen.
+  ["bracket tv   8 players", "/tv/x", bracketTv(8), ".gn-tvst"],
+  ["bracket tv  16 players", "/tv/x", bracketTv(16), ".gn-tvst"],
+  ["beerio tv    8 racers", "/beerio/tv/ABCD", beerioTv(8), ".beerio-tv-strip"],
+  ["beerio tv   16 racers", "/beerio/tv/ABCD", beerioTv(16), ".beerio-tv-strip"],
 ];
 
 // A case that is ALREADY over before any rail exists cannot be made to pass by

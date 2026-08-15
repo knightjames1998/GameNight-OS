@@ -1,15 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
+import {
+  aliveBoard,
+  compareRoundOrder,
+  loserSeedOf,
+  roundStrip,
+  type AliveBoard as AliveBoardShape,
+  type StripRound,
+} from "@gamenight/shared";
 import { api, type BracketView, type BracketMatchView } from "../api";
 import BackButton from "../BackButton";
 import { useBracketLive } from "../useLiveUpdates";
 
 // The Broadcast view. Design target: a 75" TV at couch distance. A full
 // bracket tree is unreadable from across a room, so (like the Beerio pack's
-// TV mode) this surfaces what actually matters live: the matchups on deck
-// and the latest results, in type sized to read from the couch. Styled in
-// the Arcade language; branded packs bring their own TV mode.
+// TV mode) this surfaces what actually matters live: the night's shape, the
+// matchups on deck and who is still alive, in type sized to read from the
+// couch. Styled in the Arcade language; branded packs bring their own TV mode.
+//
+// The three derivations it shares with Beerio Kart's TV (round order, the
+// alive board, the round strip) live in @gamenight/shared, so the two boards
+// cannot disagree about what comes next or about who is out.
 
 type TvView = BracketView & { groupName: string };
 type Side = BracketView["rounds"][number]["side"];
@@ -64,27 +76,51 @@ export default function TvPage({ bracketId }: { bracketId?: string }) {
   // Flatten every round into one list, carrying each match's bracket side and
   // its round depth within that side, so the on-deck list can be ordered.
   const all: FlatMatch[] = [];
+  const rounds: StripRound[] = [];
   const depthSeen: Record<string, number> = {};
   for (const r of bracket.rounds) {
     const depth = (depthSeen[r.side] = (depthSeen[r.side] ?? 0) + 1);
     for (const m of r.matches) all.push({ ...m, round: r.title, side: r.side, depth });
+    rounds.push({
+      // The payload carries a title and a side, not a key; this is the same
+      // shape Beerio's groups already use, and it only has to be unique.
+      key: r.side === "GF" ? "GF" : `${r.side}${depth}`,
+      title: r.title,
+      side: r.side,
+      depth,
+      decided: r.matches.filter((m) => m.decided).length,
+      total: r.matches.length,
+      playable: r.matches.filter((m) => m.playable).length,
+    });
   }
 
-  // On deck: both seats filled, nobody has won yet. Order it by depth then
-  // side (winners round 1, losers round 1, winners round 2, losers round 2,
-  // and so on) with the grand final last, so the losers path never reads as
-  // an afterthought.
-  const sideRank: Record<Side, number> = { W: 0, L: 1, GF: 2 };
-  const depthKey = (m: FlatMatch) => (m.side === "GF" ? 9999 : m.depth);
-  const live = all
-    .filter((m) => m.playable)
-    .sort((x, y) => depthKey(x) - depthKey(y) || sideRank[x.side] - sideRank[y.side]);
+  // On deck: both seats filled, nobody has won yet, ordered by the SHARED
+  // comparator (depth then side: winners R1, losers R1, winners R2, losers
+  // R2, grand final last) so the losers path never reads as an afterthought.
+  const live = all.filter((m) => m.playable).sort(compareRoundOrder);
 
-  // Decided: real results (skip bye walkovers). "Latest" leans on structure
-  // order (later rounds sit last), which reads as recency closely enough
-  // without timestamps.
-  const decided = all.filter((m) => m.decided && !m.auto);
-  const latest = decided.slice(-6).reverse();
+  // Who is still in it. `BracketMatchView` carries a, b and winner but no
+  // loser, so the loser is whichever of the two the winner is not.
+  const seedOf = (s: BracketMatchView["a"]) => (s.kind === "player" ? s.seed : null);
+  const board = aliveBoard(
+    Array.from({ length: bracket.entrantCount }, (_, i) => i + 1),
+    all.map((m) => ({
+      decided: m.decided,
+      auto: m.auto,
+      loser: loserSeedOf(seedOf(m.a), seedOf(m.b), m.winner ? seedOf(m.winner) : null),
+    })),
+    bracket.format === "double_elim" ? "double_elim" : "single_elim",
+  );
+
+  // Every entrant appears in the first winners round (a bye pairs them with
+  // an empty slot rather than hiding them), so the slots are a complete name
+  // table for the board's seeds.
+  const nameOf = new Map<number, string>();
+  for (const m of all) {
+    for (const s of [m.a, m.b]) if (s.kind === "player") nameOf.set(s.seed, s.displayName);
+  }
+
+  const strip = roundStrip(rounds);
   const isChamp = bracket.champion?.kind === "player";
 
   return (
@@ -121,34 +157,105 @@ export default function TvPage({ bracketId }: { bracketId?: string }) {
         </div>
       )}
 
-      <div className="gn-tv-cols">
-        {!isChamp && (
-          <section className="flex flex-col min-h-0">
-            <h2 className="gn-tv-h2">On deck <span>{live.length} ready</span></h2>
-            <div className="gn-tv-stack">
-              {live.length === 0 ? (
-                <p className="gn-tv-empty">Waiting on the next matchup…</p>
-              ) : (
-                live.slice(0, 5).map((m) => <TvMatch key={m.id} m={m} live />)
-              )}
-            </div>
-          </section>
-        )}
+      {/* The strip stays true after the night ends: every round done, which is
+          the shape of the night that just happened. */}
+      <RoundStrip cells={strip} />
 
-        <section className="flex flex-col min-h-0">
-          <h2 className="gn-tv-h2">
-            Latest results <span>{decided.length} played</span>
-          </h2>
-          <div className="gn-tv-stack">
-            {latest.length === 0 ? (
-              <p className="gn-tv-empty">No results yet.</p>
-            ) : (
-              latest.map((m) => <TvMatch key={m.id} m={m} />)
-            )}
+      {/* THE CHAMPION PANEL WINS OVER THE BOARD. The alive board does not just
+          become redundant once there is a winner, it becomes WRONG: "one loss,
+          next one is out" is false after the last race, and in double elim the
+          champion can be sitting in that very group, having come up through
+          the losers bracket. So the board goes and the panel above is what the
+          room is left looking at. */}
+      {!isChamp && (
+        <>
+          <div className="gn-tv-cols">
+            <section className="flex flex-col min-h-0">
+              <h2 className="gn-tv-h2">On deck <span>{live.length} ready</span></h2>
+              <div className="gn-tv-stack">
+                {live.length === 0 ? (
+                  <p className="gn-tv-empty">Waiting on the next matchup…</p>
+                ) : (
+                  live.slice(0, 5).map((m) => <TvMatch key={m.id} m={m} live />)
+                )}
+              </div>
+            </section>
+
+            <section className="flex flex-col min-h-0">
+              <h2 className="gn-tv-h2">
+                Who&apos;s left <span>{board.stillIn} of {board.entrants}</span>
+              </h2>
+              <AliveBoard board={board} nameOf={nameOf} />
+            </section>
           </div>
-        </section>
-      </div>
+        </>
+      )}
     </main>
+  );
+}
+
+/**
+ * Who is still in it, in groups. This replaced the "Latest results" column:
+ * a result that just happened is already known to everyone in the room, and
+ * the question a bracket night actually leaves open is who is still standing.
+ *
+ * SINGLE ELIM IS A DIFFERENT BOARD, not a double one with an empty middle:
+ * one loss is out, so it reads "Still in" and "Out" and never shows a
+ * one-loss group.
+ */
+function AliveBoard({
+  board,
+  nameOf,
+}: {
+  board: AliveBoardShape;
+  nameOf: Map<number, string>;
+}) {
+  const single = board.format === "single_elim";
+  const groups: { label: string; seeds: number[]; tone: string }[] = [
+    { label: single ? "Still in" : "Unbeaten", seeds: board.unbeaten, tone: "clean" },
+    ...(single ? [] : [{ label: "One loss, next one is out", seeds: board.oneLoss, tone: "one" }]),
+    { label: "Out", seeds: board.out, tone: "out" },
+  ];
+  return (
+    <div className="gn-tv-alive">
+      {groups.map((g) =>
+        g.seeds.length === 0 ? null : (
+          <div key={g.label}>
+            <p className="gn-tv-alive__lbl">
+              {g.label} <span>{g.seeds.length}</span>
+            </p>
+            <div className="gn-tv-alive__row">
+              {g.seeds.map((seed) => (
+                <span key={seed} className={`gn-tva gn-tva--${g.tone}`}>
+                  {nameOf.get(seed) ?? `Seed ${seed}`}
+                </span>
+              ))}
+            </div>
+          </div>
+        ),
+      )}
+    </div>
+  );
+}
+
+/**
+ * The night's shape in one band: every round, in the SAME order the on-deck
+ * list uses, with how far each one has got. State is the top edge rather than
+ * a fill, so the band stays quiet under the two columns that carry the actual
+ * reading. More than one round is lit at once in double elim, which is the
+ * normal case rather than an edge one.
+ */
+function RoundStrip({ cells }: { cells: ReturnType<typeof roundStrip> }) {
+  if (cells.length === 0) return null;
+  return (
+    <div className="gn-tv-strip">
+      {cells.map((c) => (
+        <div key={c.key} className={`gn-tvst gn-tvst--${c.state}`}>
+          <div className="gn-tvst__nm">{c.title}</div>
+          <div className="gn-tvst__n">{c.decided}/{c.total}</div>
+        </div>
+      ))}
+    </div>
   );
 }
 

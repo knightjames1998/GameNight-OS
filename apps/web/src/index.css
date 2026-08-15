@@ -1215,6 +1215,45 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   border-top:.25vmin dashed color-mix(in srgb, var(--gn-gold) 35%, transparent);
 }
 .gn-tv-empty{font-family:Fredoka,system-ui,sans-serif;font-weight:700;font-size:2.2vmin;color:var(--gn-dim);opacity:.7}
+/* ---- The round strip ----
+   The night's shape in one band between the header and the columns: one cell
+   per round, ordered by the SAME comparator the on-deck list uses, so the two
+   can never disagree about what comes next. STATE IS THE TOP EDGE rather than
+   a background, so the band stays quiet under the columns that carry the
+   reading. More than one cell is "now" in double elim and that is normal: a
+   winners round and a losers round are routinely both open. */
+.gn-tv-strip{display:flex;gap:.8vmin;margin-top:2.4vmin;flex-shrink:0}
+.gn-tvst{
+  flex:1;min-width:0;background:var(--gn-surf);border:.25vmin solid var(--gn-line);
+  border-top:.7vmin solid var(--gn-line);border-radius:var(--gn-radius-card);padding:.8vmin 1.1vmin;
+}
+.gn-tvst__nm{
+  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:1.5vmin;color:var(--gn-ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.gn-tvst__n{font-family:Nunito,system-ui,sans-serif;font-weight:700;font-size:1.4vmin;color:var(--gn-dim)}
+.gn-tvst--done{opacity:.5}
+.gn-tvst--now{border-top-color:var(--gn-p2)}
+/* ---- The still-alive board ----
+   Replaced "Latest results" in the right-hand column: a result that just
+   happened is already known to the room, and what a bracket night leaves open
+   is who is still standing. Three groups on double elim, TWO on single (one
+   loss is out there, so the middle group does not exist). */
+.gn-tv-alive{display:flex;flex-direction:column;gap:2vmin;min-height:0}
+.gn-tv-alive__lbl{
+  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:1.7vmin;letter-spacing:.18vmin;
+  text-transform:uppercase;color:var(--gn-dim);margin-bottom:1vmin;
+}
+.gn-tv-alive__lbl span{color:var(--gn-faint)}
+.gn-tv-alive__row{display:flex;flex-wrap:wrap;gap:1.1vmin}
+.gn-tva{
+  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:2.4vmin;color:var(--gn-ink);
+  background:var(--gn-surf);border:.3vmin solid var(--gn-line);border-radius:var(--gn-radius-pill);
+  padding:.7vmin 1.8vmin;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.gn-tva--clean{border-color:var(--gn-p2);color:var(--gn-p2)}
+.gn-tva--one{border-color:var(--gn-gold);color:var(--gn-gold)}
+.gn-tva--out{border-style:dashed;color:var(--gn-dim);text-decoration:line-through;opacity:.6}
 /* The event TV lobby: the yes-RSVP list, sized to read from the couch before
    anything has been started. Wraps rather than scrolls, since nobody is there
    to scroll it. */
