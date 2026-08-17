@@ -81,6 +81,7 @@ import { seriesGameTally } from "./series.js";
 import {
   MAX_SIDES,
   placementsFromRankedSides,
+  sideIdAt,
   sideOf,
   singletonSides,
   validateSides,
@@ -225,6 +226,90 @@ export function newMkKartState(opts: {
     sideSets: newSideLog(sides),
     games: [],
     koth: mode === "koth" ? openMkKoth(sides) : null,
+  };
+}
+
+// ---------- legacy state ----------
+
+/**
+ * Upgrade a session persisted under the pre-karts shape.
+ *
+ * Rows in `game_sessions` were written with no `sideSets` at all, no `side` on
+ * a race's lines, a `koth` holding a `kingId` plus a queue of PLAYER ids, and a
+ * `series` between two PLAYER ids. A night that is live when this deploys has
+ * to keep working, and a finished one has to stay readable by the guest
+ * backfill, so the upgrade happens at the two points where jsonb becomes state
+ * (PackRuntimeConfig.normalize) and nowhere else. Doing it at the pack's own
+ * call sites means getting all of them, and this pack reads state in nine
+ * places plus the backfill.
+ *
+ * THE UPGRADE IS EXACT RATHER THAN APPROXIMATE. Every race ever recorded by
+ * this pack was raced by individuals, so the roster becomes one kart per racer,
+ * which `sideIdFor` then treats as no team structure, which is what it always
+ * was. A legacy race's lines get `side: null` written on them explicitly, and
+ * that is the same NULL the column has always held for this pack.
+ *
+ * Follows normalizePpState, which does the same job for Ping Pong's KOTH queue.
+ */
+export function normalizeMkState(state: MkSessionState): MkSessionState {
+  const raw = state as unknown as Record<string, unknown>;
+  if (Array.isArray(raw.sideSets) && raw.sideSets.length > 0) return state;
+
+  const roster = (state.roster ?? []) as SmashPlayer[];
+  const sides = singletonSides(roster.map((p) => p.id));
+  const sideIdOfPlayer = new Map(roster.map((p, i) => [p.id, sideIdAt(i)]));
+  /** A player id becomes the id of the kart holding them; anything else is left. */
+  const toSideId = (id: string | null | undefined): string | null =>
+    id ? sideIdOfPlayer.get(id) ?? null : null;
+
+  const upgradeSeries = (s: Series | null | undefined): Series | null => {
+    if (!s) return null;
+    const aId = toSideId(s.aId);
+    const bId = toSideId(s.bId);
+    if (!aId || !bId) return null;
+    return {
+      idx: s.idx ?? -1,
+      aId,
+      bId,
+      games: (s.games ?? []).map((g) => ({ winnerId: toSideId(g.winnerId) ?? aId })),
+      winnerId: s.winnerId ? toSideId(s.winnerId) : null,
+      at: s.at ?? null,
+    };
+  };
+
+  const k = raw.koth as Record<string, unknown> | null | undefined;
+  const legacyBest = k?.bestStreak as { playerId?: string; streak?: number } | null | undefined;
+  const bestSideId = toSideId(legacyBest?.playerId);
+  const koth: MkKothState | null = k
+    ? {
+        kingSideId: toSideId(k.kingId as string) ?? sides[0]?.id ?? null,
+        queue: ((k.queue ?? []) as string[])
+          .map((id) => toSideId(id))
+          .filter((id): id is string => !!id),
+        streak: (k.streak as number) ?? 0,
+        bestStreak:
+          legacyBest && bestSideId
+            ? {
+                sideId: bestSideId,
+                memberIds: [legacyBest.playerId!],
+                streak: legacyBest.streak ?? 0,
+              }
+            : null,
+      }
+    : null;
+
+  return {
+    ...state,
+    sideSets: newSideLog(sides),
+    games: ((raw.games ?? []) as MkGame[]).map((g) => ({
+      ...g,
+      lines: (g.lines ?? []).map((l) => ({ ...l, side: l.side ?? null })),
+    })),
+    koth,
+    series: upgradeSeries(state.series),
+    seriesLog: ((state.seriesLog ?? []) as Series[])
+      .map(upgradeSeries)
+      .filter((s): s is Series => s !== null),
   };
 }
 

@@ -29,6 +29,7 @@ import {
   mkSeriesLines,
   mkSides,
   mkSidesAtIdx,
+  normalizeMkState,
   reshuffleMkSides,
   undoMkRace,
   sideIdAt,
@@ -68,6 +69,10 @@ export const marioKartTvRouter = Router();
 
 export const marioKartRuntime = createPackRuntime<MkSessionState>({
   ...packConfig("mariokart"),
+  // Sessions written before karts existed load through this at the two points
+  // where jsonb becomes state, so a night already in progress when this deploys
+  // keeps working and the guest backfill can still read finished ones.
+  normalize: normalizeMkState,
   extras: (state) => ({
     // summarizeNight only reads roster + games, and MkResultLine is the Smash
     // line plus a `side`, so the cast is over a SUPERSET and MK's wider format
