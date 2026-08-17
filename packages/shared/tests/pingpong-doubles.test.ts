@@ -246,7 +246,7 @@ test("RESHUFFLE: changing your mind twice does not stack dead arrangements", () 
   assert.equal(reshuffleSides(s, [pair("a", "p0", "p2"), pair("b", "p1", "p3")]), null);
   assert.equal(reshuffleSides(s, [pair("a", "p0", "p3"), pair("b", "p1", "p2")]), null);
   assert.equal(s.sideSets.length, 1);
-  assert.deepEqual(currentSides(s)[0]!.memberIds, ["p0", "p3"]);
+  assert.deepEqual(currentSides(s.sideSets)[0]!.memberIds, ["p0", "p3"]);
 });
 
 test("RESHUFFLE: KOTH restarts the ladder from the new arrangement", () => {
@@ -270,7 +270,7 @@ test("RESHUFFLE: UNDOING BACK PAST IT RESTORES THE OLD ARRANGEMENT", () => {
   assert.equal(s.sideSets.length, 2);
   undoLast(s);
   assert.equal(s.sideSets.length, 1);
-  assert.deepEqual(currentSides(s)[0]!.memberIds, ["p0", "p1"]);
+  assert.deepEqual(currentSides(s.sideSets)[0]!.memberIds, ["p0", "p1"]);
   assert.deepEqual(s.koth, { kingSideId: "a", queue: ["b", "c"], reign: 0, bestReign: null });
 });
 

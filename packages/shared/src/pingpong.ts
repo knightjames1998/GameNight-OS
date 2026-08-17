@@ -38,6 +38,18 @@ import {
   validateSides,
   type Side,
 } from "./teams.js";
+// The side LOG (which arrangement was in force when), extracted into its own
+// module on 2026-08-16 when Mario Kart became its second consumer. Everything
+// this pack used to do inline with `sideSets` now goes through it; the shape
+// stored in jsonb is unchanged, so no session in the database moves.
+import {
+  currentSides,
+  newSideLog,
+  reshuffle,
+  truncateSideLog,
+  type SideLog,
+  type SideSet,
+} from "./sidelog.js";
 
 export type PpMode = "koth" | "ffa";
 // 1 = free play: every single game is its own recorded result. 3/5/7 are
@@ -108,23 +120,6 @@ export interface PpKothState {
   bestReign: { sideId: string; memberIds: string[]; reign: number } | null;
 }
 
-/**
- * One arrangement of sides, and the match index it takes effect from.
- *
- * Sides are FIXED for the night by default, with an explicit host reshuffle
- * (James's call). The reshuffle POINT has to be recorded rather than just
- * overwriting the arrangement, because KOTH's throne and queue are REBUILT by
- * replaying matches rather than maintained, and a replay needs to know which
- * arrangement each stretch of the night was played under. Same reason craps
- * derives its hands from an event log and Smashdown derives its burn board:
- * undo across a boundary is correct by construction instead of correct until
- * somebody forgets a counter.
- */
-export interface PpSideSet {
-  fromIdx: number;
-  sides: Side[];
-}
-
 export interface PpSessionState {
   // Unique per session start. The ledger keys each materialized match
   // pp:{eventId}:{sessionKey}:{idx}; without the sessionKey a second session
@@ -139,26 +134,27 @@ export interface PpSessionState {
   // may flip it on to let members score. Defaults off.
   openScoring: boolean;
   roster: PpPlayer[];
-  /** Always at least one entry; the LAST is the arrangement in force. */
-  sideSets: PpSideSet[];
+  /**
+   * Which arrangement of sides was in force when, oldest first, always with at
+   * least one entry. See sidelog.ts for why this is a log rather than a field:
+   * KOTH's throne is rebuilt by replaying matches, and a replay that cannot
+   * tell which stretch was played under which arrangement hands the table to a
+   * pair that never won it.
+   */
+  sideSets: SideLog;
   matches: PpMatch[]; // completed matches (materialized into the ledger)
   current: PpMatch | null; // the in-progress match
   koth: PpKothState | null;
 }
 
-/** The arrangement of sides in force right now. */
-export function currentSides(state: PpSessionState): Side[] {
-  return state.sideSets[state.sideSets.length - 1]?.sides ?? [];
-}
-
 /** True when any side in force holds more than one player. */
 export function isDoubles(state: PpSessionState): boolean {
-  return currentSides(state).some((s) => s.memberIds.length > 1);
+  return currentSides(state.sideSets).some((s) => s.memberIds.length > 1);
 }
 
 /** A side by id out of the arrangement in force. */
 export function sideById(state: PpSessionState, sideId: string | null | undefined): Side | undefined {
-  return sideId ? currentSides(state).find((s) => s.id === sideId) : undefined;
+  return sideId ? currentSides(state.sideSets).find((s) => s.id === sideId) : undefined;
 }
 
 /** Every player name, keyed by slot id, for labelling sides on a screen. */
@@ -262,7 +258,7 @@ export function normalizePpState(state: PpSessionState): PpSessionState {
 
   return {
     ...state,
-    sideSets: [{ fromIdx: 0, sides }],
+    sideSets: newSideLog(sides),
     matches: ((raw.matches ?? []) as Record<string, unknown>[])
       .map(upgradeMatch)
       .filter((m): m is PpMatch => m !== null),
@@ -289,7 +285,7 @@ export function newPingPongState(opts: {
     bestOf: opts.bestOf,
     openScoring: false,
     roster: opts.roster,
-    sideSets: [{ fromIdx: 0, sides }],
+    sideSets: newSideLog(sides),
     matches: [],
     current: null,
     koth: null,
@@ -313,6 +309,10 @@ export function newPingPongState(opts: {
  * because a queue of sides that no longer exist is not a queue.
  */
 export function reshuffleSides(state: PpSessionState, sides: Side[]): string | null {
+  // The primitive's verdict is asked FIRST, before this pack's own two checks,
+  // which is the order that shipped and therefore the order an arrangement
+  // failing more than one of them still reports. `reshuffle` below asks it
+  // again so no consumer of the log can skip it; both calls are pure and cheap.
   const check = validateSides(sides);
   if (check.error) return check.error;
   const known = new Set(state.roster.map((p) => p.id));
@@ -323,13 +323,8 @@ export function reshuffleSides(state: PpSessionState, sides: Side[]): string | n
     return "Finish the match in progress first";
   }
 
-  const last = state.sideSets[state.sideSets.length - 1]!;
-  const entry: PpSideSet = { fromIdx: state.matches.length, sides };
-  // A reshuffle that has had no matches under it yet REPLACES rather than
-  // stacks, so changing your mind twice does not leave a dead arrangement in
-  // the log for the rebuild to walk past.
-  if (last.fromIdx === state.matches.length) state.sideSets[state.sideSets.length - 1] = entry;
-  else state.sideSets.push(entry);
+  // The log owns the replace-rather-than-stack rule; see sidelog.ts.
+  reshuffle(state.sideSets, sides, state.matches.length);
 
   if (state.mode === "koth") rebuildKoth(state);
   else state.current = null;
@@ -439,12 +434,7 @@ export function undoLast(state: PpSessionState): { unmaterializeIdx: number | nu
   // Undoing back PAST a reshuffle restores the arrangement that was in force
   // before it. Without this the rebuild would replay old matches under new
   // sides, which is how a throne ends up held by a side that never played.
-  while (
-    state.sideSets.length > 1 &&
-    state.sideSets[state.sideSets.length - 1]!.fromIdx > state.matches.length
-  ) {
-    state.sideSets.pop();
-  }
+  truncateSideLog(state.sideSets, state.matches.length);
   if (state.mode === "koth") rebuildKoth(state);
   else state.current = null;
   return { unmaterializeIdx: last.idx };
@@ -456,7 +446,7 @@ export function undoLast(state: PpSessionState): { unmaterializeIdx: number | nu
  * sides that no longer exist, and the ladder restarts at a reshuffle.
  */
 function rebuildKoth(state: PpSessionState) {
-  const set = state.sideSets[state.sideSets.length - 1]!;
+  const set: SideSet = state.sideSets[state.sideSets.length - 1]!;
   const sides = set.sides;
   let k: PpKothState = {
     kingSideId: sides[0]?.id ?? null,
@@ -683,5 +673,10 @@ export function summarizePingPong(state: PpSessionState): {
   return { players, bestReign: state.mode === "koth" ? record : null };
 }
 
-/** Re-exported so pack code can label a side without importing the primitive. */
-export { sideOf };
+/**
+ * Re-exported so pack code can label a side, or read the arrangement in force,
+ * without importing the primitive and the log separately. `currentSides` takes
+ * the LOG rather than the session, which is the one spelling that moved when
+ * sidelog.ts came out: `currentSides(state.sideSets)`.
+ */
+export { sideOf, currentSides };

@@ -173,4 +173,9 @@ export * from "./deduction.js";
 // Not a pack. Ping Pong is its first consumer; Card table, Party games and
 // Social deduction are queued behind it.
 export * from "./teams.js";
+// The side LOG beside it: which arrangement was in force when, so a session
+// that rebuilds derived state by replaying its units knows which stretch was
+// played under which sides. Out of Ping Pong on 2026-08-16, when Mario Kart's
+// pairs mode became the second consumer.
+export * from "./sidelog.js";
 export * from "./modifiers.js";

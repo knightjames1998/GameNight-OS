@@ -77,7 +77,7 @@ export const pingPongRuntime = createPackRuntime<PpSessionState>({
   normalize: normalizePpState,
   extras: (state) => ({
     needed: neededWins(state.bestOf),
-    sides: currentSides(state),
+    sides: currentSides(state.sideSets),
     doubles: isDoubles(state),
     summary: summarizePingPong(state),
   }),

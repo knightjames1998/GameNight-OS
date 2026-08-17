@@ -60,7 +60,7 @@ const teed = (state: PpSessionState) =>
 const kothMembers = (state: PpSessionState) => {
   const k = state.koth!;
   const members = (id: string | null) =>
-    id ? currentSides(state).find((s) => s.id === id)?.memberIds ?? null : null;
+    id ? currentSides(state.sideSets).find((s) => s.id === id)?.memberIds ?? null : null;
   return {
     king: members(k.kingSideId),
     queue: k.queue.map(members),
@@ -203,7 +203,7 @@ test("SINGLES: an abandoned bo5 finalizes to the game leader", () => {
   const finalized = finalizeCurrent(s);
   assert.ok(finalized);
   // Same claim as the old `winnerId === "p0"`: side "a" is p0 in a singles night.
-  assert.deepEqual(currentSides(s).find((x) => x.id === finalized!.winnerSideId)?.memberIds, ["p0"]);
+  assert.deepEqual(currentSides(s.sideSets).find((x) => x.id === finalized!.winnerSideId)?.memberIds, ["p0"]);
   assert.equal(finalized!.idx, 0);
   assert.deepEqual(ppMatchLines(finalized!), [
     { playerId: "p0", placement: 1, isWinner: true, score: 15, meta: { gameWins: 2, gamesPlayed: 3 }, side: null },
