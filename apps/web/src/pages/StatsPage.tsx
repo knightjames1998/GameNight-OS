@@ -522,6 +522,101 @@ function PingPongPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
   );
 }
 
+/** Wins and races for one half of Mario Kart's solo/pairs split. */
+interface MkTally {
+  races: number;
+  wins: number;
+}
+
+interface MkStats {
+  races: number;
+  /** Both derived from side IS NOT NULL, never from a label. */
+  soloRaces: number;
+  pairsRaces: number;
+  byPlayer: {
+    userId: string;
+    name: string;
+    races: number;
+    wins: number;
+    solo: MkTally;
+    pairs: MkTally;
+    topRacer: string | null;
+  }[];
+}
+
+/**
+ * Mario Kart lifetime panel. The ledger unit is the RACE for three of the four
+ * formats and the SET for Best Of, so a "race" here is one recorded result
+ * either way, matching the shared row's wins.
+ *
+ * THE SPLIT IS DERIVED, NOT LABELLED: a row with a non-null `side` was raced in
+ * a shared kart, so this axis is orthogonal to the gp{n} and bo{n} labels and
+ * costs the ledger nothing. Only shown once a crew has actually shared a kart,
+ * so a solo-only crew's panel reads exactly as it did before.
+ *
+ * BOTH HALVES AND THE TOTAL ARE PRINTED, deliberately. The two halves sum to
+ * the unsplit total by construction, because every row goes into exactly one of
+ * them, and a reader who does not want to take that on trust can add them up on
+ * the screen.
+ */
+function MarioKartPanel({ groupId, rows, open, setOpen }: PackPanelProps) {
+  const { data, error } = useCachedApi<MkStats>(
+    `group:${groupId}:mariokart`,
+    `/api/groups/${groupId}/mariokart-stats`,
+  );
+
+  if (!data && error) return <p style={{ color: "var(--gn-danger)" }} className="text-sm">{error}</p>;
+  if (!data) return <StatsSkeleton />;
+  if (data.races === 0) {
+    return <p className="gn-hint">No Mario Kart recorded yet. Run a Free Play, Grand Prix, Best Of or King of the Hill night and it fills in here.</p>;
+  }
+
+  const extras = new Map(
+    data.byPlayer.map((p) => [p.userId, <> &middot; {p.topRacer ?? "no racer"}</>]),
+  );
+  const hasPairs = data.pairsRaces > 0;
+  const rate = (t: MkTally) => (t.races ? Math.round((t.wins / t.races) * 100) : 0);
+
+  return (
+    <div className="space-y-2">
+      <p className="gn-hint">
+        Wins count every recorded result: a race in Free Play, Grand Prix and King of the Hill, and a whole set in Best Of.
+      </p>
+      <PlayerRows rows={rows} open={open} setOpen={setOpen} extras={extras} />
+
+      {hasPairs && (
+        <section style={{ marginTop: 24 }}>
+          {packHead("Solo and shared karts", "#ff9a6a")}
+          <p className="gn-hint" style={{ marginBottom: 8 }}>
+            {data.soloRaces} solo &middot; {data.pairsRaces} shared. The two add up to the {data.races} total above:
+            every result is in exactly one of them.
+          </p>
+          <ul className="space-y-1">
+            {data.byPlayer.map((p) => (
+              <li key={p.userId} className="gn-card" style={{ padding: "10px 16px" }}>
+                <div className="font-bold truncate">{p.name}</div>
+                <div className="gn-hint" style={{ fontSize: "12px", marginTop: 2 }}>
+                  {p.solo.races > 0 && (
+                    <>solo <span style={{ color: "var(--gn-ink)" }}>{p.solo.wins}</span>/{p.solo.races} ({rate(p.solo)}%)</>
+                  )}
+                  {p.solo.races > 0 && p.pairs.races > 0 && " · "}
+                  {p.pairs.races > 0 && (
+                    <>shared kart <span style={{ color: "var(--gn-ink)" }}>{p.pairs.wins}</span>/{p.pairs.races} ({rate(p.pairs)}%)</>
+                  )}
+                  {p.solo.races === 0 && p.pairs.races === 0 && "no races"}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="gn-hint" style={{ marginTop: 8, fontSize: "12px" }}>
+            Both racers in a kart carry the kart's result, so a pair that finished first both finished first.
+          </p>
+        </section>
+      )}
+    </div>
+  );
+}
+
 const BLACKJACK_GAME_NAME = SESSION_PACKS.blackjack.gameName;
 const ROULETTE_GAME_NAME = SESSION_PACKS.roulette.gameName;
 const CRAPS_GAME_NAME = SESSION_PACKS.craps.gameName;
@@ -1297,6 +1392,8 @@ export default function StatsPage() {
           <MarioPartyPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : tab === PING_PONG_GAME_NAME && id ? (
           <PingPongPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
+        ) : tab === MARIO_KART_GAME_NAME && id ? (
+          <MarioKartPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : tab === BLACKJACK_GAME_NAME && id ? (
           <BlackjackPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : tab === ROULETTE_GAME_NAME && id ? (

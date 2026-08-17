@@ -13,7 +13,7 @@
 // (apps/server/src/beerio.ts); this file is only the general tracker.
 
 import { Router } from "express";
-import { getDb, events, eq } from "@gamenight/db";
+import { getDb, events, games, matches, matchParticipants, users, and, eq } from "@gamenight/db";
 import {
   newMkKartState,
   cupStandings,
@@ -285,6 +285,144 @@ export async function creditGuestMarioKart(
   }
   return { items, written: dryRun ? 0 : items.length };
 }
+
+// ---------- lifetime stats: the solo / pairs split ----------
+//
+// THE SPLIT IS DERIVED, NEVER LABELLED, which is the same call Ping Pong's
+// doubles split took on 2026-08-05 and is worth restating because it is what
+// makes this safe to change your mind about. Within this pack a non-null `side`
+// already means the race had team structure, so the split is a read on the
+// column the primitive writes anyway: no new matches.format value, no new
+// matches.label value, and the gp{n} and bo{n} labels do not move. A
+// mislabelled row is unrecoverable history; a derived split is a query.
+
+/** One participant row, reduced to what the split cares about. */
+export interface MkStatRow {
+  userId: string;
+  displayName: string;
+  isWinner: boolean;
+  placement: number | null;
+  character: string | null;
+  matchId: string;
+  /** NULL means the race had no shared kart in it. See teams.ts sideIdFor. */
+  side: string | null;
+}
+
+/** Wins and races for one half of the split. */
+export interface MkTally {
+  races: number;
+  wins: number;
+}
+
+export interface MkPlayerStat {
+  userId: string;
+  name: string;
+  races: number;
+  wins: number;
+  solo: MkTally;
+  pairs: MkTally;
+  topRacer: string | null;
+}
+
+/**
+ * Fold participant rows into the panel's shape. Pure, so the one property that
+ * matters can actually be asserted: THE TWO HALVES SUM TO THE UNSPLIT TOTALS,
+ * by construction, because every row goes into exactly one of them.
+ *
+ * A reader who does not trust that can check it on the screen, which is why the
+ * panel prints both halves and the total rather than the halves alone.
+ */
+export function foldMkStatRows(rows: readonly MkStatRow[]): {
+  races: number;
+  soloRaces: number;
+  pairsRaces: number;
+  byPlayer: MkPlayerStat[];
+} {
+  const raceIds = new Set<string>();
+  const pairsRaceIds = new Set<string>();
+  const newTally = (): MkTally => ({ races: 0, wins: 0 });
+  const acc = new Map<
+    string,
+    MkPlayerStat & { racerCounts: Map<string, number> }
+  >();
+
+  for (const r of rows) {
+    raceIds.add(r.matchId);
+    if (r.side) pairsRaceIds.add(r.matchId);
+
+    let p = acc.get(r.userId);
+    if (!p) {
+      p = {
+        userId: r.userId,
+        name: r.displayName,
+        races: 0,
+        wins: 0,
+        solo: newTally(),
+        pairs: newTally(),
+        topRacer: null,
+        racerCounts: new Map(),
+      };
+      acc.set(r.userId, p);
+    }
+    p.races++;
+    if (r.isWinner) p.wins++;
+    const half = r.side ? p.pairs : p.solo;
+    half.races++;
+    if (r.isWinner) half.wins++;
+    if (r.character) p.racerCounts.set(r.character, (p.racerCounts.get(r.character) ?? 0) + 1);
+  }
+
+  const byPlayer = [...acc.values()]
+    .map(({ racerCounts, ...p }) => ({
+      ...p,
+      topRacer: [...racerCounts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? null,
+    }))
+    .sort((a, b) => b.wins - a.wins || b.races - a.races || a.name.localeCompare(b.name));
+
+  return {
+    races: raceIds.size,
+    pairsRaces: pairsRaceIds.size,
+    soloRaces: raceIds.size - pairsRaceIds.size,
+    byPlayer,
+  };
+}
+
+marioKartRouter.get("/groups/:id/mariokart-stats", requireAuth, async (req: AuthedRequest, res) => {
+  const db = getDb();
+  const groupId = String(req.params.id);
+  if (!(await roleOf(groupId, req.user!.id))) {
+    res.status(404).json({ error: "Group not found" });
+    return;
+  }
+  const game = (
+    await db
+      .select({ id: games.id })
+      .from(games)
+      .where(and(eq(games.groupId, groupId), eq(games.pack, DEF.ledger)))
+      .limit(1)
+  )[0];
+  if (!game) {
+    res.json({ races: 0, soloRaces: 0, pairsRaces: 0, byPlayer: [] });
+    return;
+  }
+
+  const rows = await db
+    .select({
+      userId: matchParticipants.userId,
+      displayName: users.displayName,
+      isWinner: matchParticipants.isWinner,
+      placement: matchParticipants.placement,
+      character: matchParticipants.character,
+      matchId: matchParticipants.matchId,
+      side: matchParticipants.side,
+    })
+    .from(matchParticipants)
+    .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
+    .innerJoin(users, eq(matchParticipants.userId, users.id))
+    .where(and(eq(matches.groupId, groupId), eq(matches.gameId, game.id), eq(matches.status, "completed")));
+
+  res.json(foldMkStatRows(rows));
+});
 
 // ---------- launch context ----------
 
