@@ -20,6 +20,7 @@ import { marioKartRouter, marioKartTvRouter } from "./mariokart.js";
 import { marioPartyRouter, marioPartyTvRouter } from "./marioparty.js";
 import { pingPongRouter, pingPongTvRouter } from "./pingpong.js";
 import { blackjackRouter, blackjackTvRouter } from "./blackjack.js";
+import { pokerRouter, pokerTvRouter } from "./poker.js";
 import { rouletteRouter, rouletteTvRouter } from "./roulette.js";
 import { crapsRouter, crapsTvRouter } from "./craps.js";
 import { casinoRunRouter, casinoRunTvRouter } from "./casinorun.js";
@@ -83,6 +84,7 @@ app.use("/api/tv", casinoRunTvRouter); // public: big-screen bank + quota for Ca
 app.use("/api/tv", boardGameTvRouter); // public: big-screen title + standings for Board Game
 app.use("/api/tv", cardTableTvRouter); // public: big-screen title + standings for Card Table
 app.use("/api/tv", deductionTvRouter); // public: big-screen alive/dead board for Social Deduction
+app.use("/api/tv", pokerTvRouter); // public: big-screen settlement + money board for Poker
 app.use("/api", beerioRouter); // public: sessions/hof for the Beerio pack
 app.use("/api", beerioGnRouter); // authed per-route: GameNight binding for the pack
 app.use("/api", quickPlayRouter);
@@ -98,6 +100,7 @@ app.use("/api", casinoRunRouter); // authed per-route: Casino Run co-op legs + s
 app.use("/api", boardGameRouter); // authed per-route: Board Game night + stats
 app.use("/api", cardTableRouter); // authed per-route: Card Table night + stats
 app.use("/api", deductionRouter); // authed per-route: Social Deduction night + the two role routes
+app.use("/api", pokerRouter); // authed per-route: Poker cash game, the variant and the deal
 app.use("/api", statsRouter);
 app.use("/api", eventsRouter);
 app.use("/api", bracketsRouter);

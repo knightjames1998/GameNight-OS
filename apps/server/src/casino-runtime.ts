@@ -96,6 +96,30 @@ export interface CasinoConfig<S extends CashPackState> {
   key: SessionPackKey;
   runtime: PackRuntime<S>;
   router: Router;
+  /**
+   * Pin the bank type instead of taking it off the request.
+   *
+   * Three of the four cash packs let the host choose who banks, because a
+   * blackjack night genuinely can be dealt by a crew member or played in a real
+   * casino. POKER CANNOT: it is zero-sum with no house by definition, so
+   * offering the choice would be offering a wrong answer, and accepting one off
+   * a request body would let a malformed client record a poker night as
+   * player-banked and derive somebody's net who was never the other side of a
+   * hand. When this is set the `bank` and `bankerIndex` fields of the open
+   * request are ignored entirely rather than validated.
+   */
+  fixedBank?: CashBank;
+  /**
+   * The ledger FORMAT key for this pack's rows. Defaults to "cash", which is
+   * what three of the four cash packs write: they record one row per session
+   * and `games.name` is what tells blackjack from roulette.
+   *
+   * Poker overrides it because its two formats have to be told apart from EACH
+   * OTHER: a cash net and a tournament finish are different claims about a
+   * player, both live under one `games` row named Poker, so the format is the
+   * only thing that can separate them. See LEDGER_FORMATS.
+   */
+  format?: string;
   /** Build a fresh session. The pack adds its own tracker log and detail map. */
   newState(opts: {
     bank: CashBank;
@@ -219,7 +243,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
       idx: 0,
       sessionKey: state.sessionKey,
       label: null,
-      format: "cash",
+      format: cfg.format ?? "cash",
       roster: state.roster,
       lines,
       linkMap,
@@ -372,7 +396,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
       return;
     }
 
-    const bank: CashBank = req.body?.bank === "casino" ? "casino" : "player";
+    const bank: CashBank = cfg.fixedBank ?? (req.body?.bank === "casino" ? "casino" : "player");
     // Anything that is not the word "play" is real. Defaulting the OTHER way
     // would mean a malformed body could quietly record a real-money night as
     // play money, which is the more damaging mistake of the two.
@@ -399,14 +423,19 @@ export function registerCasinoRoutes<S extends CashPackState>(
 
     // A player-banked table needs at least two people (the banker and somebody
     // to play against); a casino-banked one needs one, because the house is
-    // not on the roster.
-    const minPlayers = bank === "player" ? 2 : 1;
+    // not on the roster. A no-banker table needs two for the same reason a
+    // player-banked one does: with one seat there is nobody to be zero-sum
+    // against, and the balance check would only ever confirm that a player's
+    // cash-out equals their own buy-in.
+    const minPlayers = bank === "casino" ? 1 : 2;
     if (roster.length < minPlayers) {
       res.status(400).json({
         error:
           bank === "player"
             ? "A player-banked table needs the banker plus at least one player"
-            : "Add at least 1 player",
+            : bank === "table"
+              ? "A poker table needs at least 2 players"
+              : "Add at least 1 player",
       });
       return;
     }

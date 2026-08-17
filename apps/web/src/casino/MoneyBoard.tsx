@@ -81,7 +81,10 @@ export function MoneyBoard<D>({
         <div className="cg-tv__muted" style={{ fontSize: "2.4vmin" }}>
           <StakesBadge stakes={summary.stakes} />
           {summary.stakes === "play" && " "}
-          {summary.bank === "player" ? "player banked" : "casino banked"} ·{" "}
+          {/* THREE BANK TYPES SINCE POKER. A ternary read "casino banked" for
+              anything that was not "player", which on a poker table is exactly
+              backwards: nobody banks it, which is the whole point of the pack. */}
+          {summary.bank === "player" ? "player banked" : summary.bank === "table" ? "no banker" : "casino banked"} ·{" "}
           {summary.players.length} at the table
           {summary.stillIn > 0 && ` · ${summary.stillIn} still in`}
           {meta}

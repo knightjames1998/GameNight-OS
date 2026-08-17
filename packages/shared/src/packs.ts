@@ -241,6 +241,28 @@ export const SESSION_PACKS = {
     emoji: "\u{1F43A}", // 🐺
     quickTitle: "Social deduction night",
   },
+  // THE POKER ONE, and the only pack whose bank type is not the host's choice.
+  // It runs on the shared cash engine like the other three cash packs, but on
+  // `bank: "table"`: nobody is the house, everybody counts their own stack, and
+  // the table must sum to zero. See packages/shared/src/poker.ts.
+  //
+  // ONE `games` ROW NAMED "Poker" CARRIES BOTH FORMATS. The variant (Hold'em,
+  // Omaha, Stud) goes on matches.label the way Board Game's title does, and the
+  // format keys are session-key namespaced (`poker:cash`, `poker:tourney`)
+  // following the Ping Pong pattern, because one long night can plausibly run a
+  // cash game and then a tournament and unnamespaced keys would collide. A row
+  // per format would split one pack across two leaderboard tabs.
+  poker: {
+    ledger: "poker",
+    gameName: "Poker",
+    keyPrefix: "poker",
+    route: "poker",
+    wsType: "poker_updated",
+    table: "game_sessions",
+    name: "Poker",
+    emoji: "\u{2663}\u{FE0F}", // ♣️
+    quickTitle: "Poker night",
+  },
 } as const satisfies Record<string, SessionPackDef>;
 
 /**

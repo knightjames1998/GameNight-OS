@@ -68,6 +68,31 @@ const money = (n, mods) => {
     balance: { ok: true, delta: 0 }, warning: null,
   } } };
 };
+// POKER'S TV IS THE MONEY BOARD PLUS A SETTLEMENT BAND, and the band is what
+// this payload exists to measure: it is the pack's `hero`, so it spends the same
+// 1080px the board does. Everybody is cashed out and the table squares, which is
+// the WORST case for height rather than the happy one: that is the only state in
+// which the transfer list is non-null, and a greedy settlement of n players runs
+// to n-1 rows before the six-row cap in PokerTvPage clips it.
+const poker = (n) => {
+  const players = Array.from({ length: n }, (_, i) => ({
+    playerId: "p" + i, name: "Player Nameiskindalong " + (i + 1), kind: "member",
+    isBanker: false, buyIn: 2000, rebuys: i % 2, rebuyTotal: (i % 2) * 2000,
+    totalIn: 2000 + (i % 2) * 2000, cashOut: 2000, cashedOut: true,
+    net: i % 2 === 0 ? 1000 : -1000, events: i, detail: { dealt: i },
+    derived: false, placement: i + 1,
+  }));
+  const transfers = Array.from({ length: n - 1 }, (_, i) => ({
+    fromId: "p" + ((i + 1) % n), toId: "p" + (i % n), cents: 1000 + i * 100,
+  }));
+  return { session: { status: "live", summary: {
+    bank: "table", bankerId: null, modifiers: [], defaultBuyIn: 2000, stakes: "real",
+    players, totalIn: 2000 * n, totalOut: 2000 * n, onTable: 0,
+    stillIn: 0, cashedOut: n, events: n * 2,
+    balance: { checked: true, balanced: true, delta: 0 }, warning: null,
+  }, variants: [{ variant: "Texas Hold'em", games: 8 }, { variant: "Omaha", games: 3 }], transfers } };
+};
+
 // UPDATED 2026-08-09 to the post-doubles shape. Ping Pong's TV moved to SIDES on
 // 2026-08-05 and this payload stayed on the old aId/bId/kingId one, so from that
 // day both ping pong cases rendered the short "waiting" state and measured
@@ -456,6 +481,9 @@ const CASES = [
   ["money board  8 seats", "/blackjack/tv/x", money(8, []), ".cg-tv__line"],
   ["money board 12 seats", "/blackjack/tv/x", money(12, []), ".cg-tv__line"],
   ["money board 12 + 5 mods", "/blackjack/tv/x", money(12, ["m1", "m2", "m3", "m4", "m5"]), ".cg-tv__line"],
+  ["poker        4 seats", "/poker/tv/x", poker(4), ".cg-tv__line"],
+  ["poker        8 seats", "/poker/tv/x", poker(8), ".cg-tv__line"],
+  ["poker       12 seats", "/poker/tv/x", poker(12), ".cg-tv__line"],
   ["ping pong    6 players", "/pingpong/tv/x", pingpong(6), ".pp-tv__panel"],
   ["ping pong    7 players", "/pingpong/tv/x", pingpong(7), ".pp-tv__panel"],
   ["mario kart   8 solo", "/mariokart/tv/x", mariokart(8, false), ".mk-tv__panel"],
@@ -558,6 +586,14 @@ const KNOWN = new Set([
   "mario kart  16 solo",
   "mario kart  16 karts",
   "mario kart  16 koth",
+  // POKER AT EIGHT, added 2026-08-17 with the pack rather than days later. It is
+  // 73px over and four and twelve both FIT, which is the finding: moneyBoardBand
+  // puts twelve on a tighter rung than eight, and the roomier rung is not roomy
+  // enough once every seat is cashed out and ranked. No payload had ever put a
+  // casino board in that state (`money()` above settles one player in three), so
+  // it is a shared-board question that likely touches all four cash packs at
+  // their own end-of-night. See BACKLOG, BUGS.
+  "poker        8 seats",
 ]);
 let newOverlaps = 0;
 let stale = 0;

@@ -163,6 +163,19 @@ export const PACKS: PackSpec[] = [
     formats: [{ key: "cash", label: "🃏 Cash game", sub: "buy-ins, rebuys, cash-outs" }],
   },
   {
+    key: "poker",
+    name: S.poker.name,
+    emoji: S.poker.emoji,
+    cabClass: "gn-cab--pk",
+    group: "casino",
+    // ONE FORMAT TODAY AND THE TILE SAYS SO. The tournament format is queued as
+    // its own session (blind levels are a shared wall-clock timer, which is a
+    // live-sync problem rather than a money one), and it joins this list as a
+    // SECOND format under this tile rather than as a second tile: same pack,
+    // same `games` row, two different claims about a player.
+    formats: [{ key: "cash", label: "\u2663\uFE0F Cash game", sub: "buy-ins, rebuys, final stacks" }],
+  },
+  {
     key: "roulette",
     name: S.roulette.name,
     emoji: S.roulette.emoji,

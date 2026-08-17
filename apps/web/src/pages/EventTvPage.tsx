@@ -31,6 +31,7 @@ const MarioKartTvPage = lazy(() => import("../mariokart/MarioKartTvPage"));
 const MarioPartyTvPage = lazy(() => import("../marioparty/MarioPartyTvPage"));
 const PingPongTvPage = lazy(() => import("../pingpong/PingPongTvPage"));
 const BlackjackTvPage = lazy(() => import("../blackjack/BlackjackTvPage"));
+const PokerTvPage = lazy(() => import("../poker/PokerTvPage"));
 const RouletteTvPage = lazy(() => import("../roulette/RouletteTvPage"));
 const CrapsTvPage = lazy(() => import("../craps/CrapsTvPage"));
 const CasinoRunTvPage = lazy(() => import("../casinorun/CasinoRunTvPage"));
@@ -77,6 +78,7 @@ const PACK_TV: Record<SessionPackKey, ((eventId: string) => JSX.Element) | null>
   boardgame: (id) => <BoardGameTvPage eventId={id} />,
   cardtable: (id) => <CardTableTvPage eventId={id} />,
   deduction: (id) => <DeductionTvPage eventId={id} />,
+  poker: (id) => <PokerTvPage eventId={id} />,
 };
 
 export default function EventTvPage() {

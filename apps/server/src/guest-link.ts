@@ -28,6 +28,7 @@ import { guestNamesMarioKart, creditGuestMarioKart } from "./mariokart.js";
 import { guestNamesMarioParty, creditGuestMarioParty } from "./marioparty.js";
 import { guestNamesPingPong, creditGuestPingPong } from "./pingpong.js";
 import { guestNamesBlackjack, creditGuestBlackjack } from "./blackjack.js";
+import { guestNamesPoker, creditGuestPoker } from "./poker.js";
 import { guestNamesRoulette, creditGuestRoulette } from "./roulette.js";
 import { guestNamesCraps, creditGuestCraps } from "./craps.js";
 import { guestNamesCasinoRun, creditGuestCasinoRun } from "./casinorun.js";
@@ -51,6 +52,7 @@ const nameAdapters = [
   guestNamesBoardGame,
   guestNamesCardTable,
   guestNamesDeduction,
+  guestNamesPoker,
   guestNamesBeerio,
 ];
 
@@ -76,6 +78,9 @@ const creditAdapters: {
   // backfill reopens the recorded game, which already carries the faction and
   // the revealed role, so nothing about the secret half is involved here.
   { key: SESSION_PACKS.deduction.ledger, credit: creditGuestDeduction },
+  // A guest at a poker table is in the SETTLEMENT (the money does not square
+  // without them) but not in the ledger, so a backfill has real work to do here.
+  { key: SESSION_PACKS.poker.ledger, credit: creditGuestPoker },
   { key: "beerio", credit: creditGuestBeerio },
 ];
 

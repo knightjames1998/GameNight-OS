@@ -80,8 +80,23 @@ export const LEDGER_FORMATS: LedgerFormatDef[] = [
   // would be the same lie "8 games of blackjack" would be, in reverse.
   { key: "deduction", label: "Deduction game" },
   // The casino group records one row per SESSION, so they share one format key
-  // and the pack (games.name) is what tells blackjack from poker.
+  // and the pack (games.name) is what tells blackjack from roulette.
   { key: "cash", label: "Cash game", unit: "sessions" },
+  // POKER IS THE EXCEPTION, AND IT IS ABOUT POKER'S OWN TWO FORMATS rather than
+  // about telling it from blackjack. The pack ships a cash game now and a
+  // tournament later, and those are genuinely different claims about a player:
+  // a cash net and a finishing position are not the same skill and must not
+  // share a leaderboard bucket. `games.name` cannot separate them because both
+  // are Poker, which is deliberate (one `games` row, or lifetime history splits
+  // across two tabs), so the FORMAT is what carries it. Namespaced rather than
+  // bare `tourney`, because a bare key would read as "the tournament format" for
+  // any pack and Smash has one queued.
+  //
+  // "poker:tourney" IS RESERVED AND NOT DECLARED HERE, on purpose: nothing
+  // writes it yet, and a format in this table that no materializer produces is
+  // an empty bucket on a stats screen. It joins this list on the commit that
+  // ships the tournament format, next to this comment.
+  { key: "poker:cash", label: "Poker cash game", unit: "sessions" },
   // The CO-OP one, which is genuinely not a cash game: one shared bank against
   // a target rather than per-player nets, so it has its own key. The label
   // matches the picker's format label for this pack, which is the wording a

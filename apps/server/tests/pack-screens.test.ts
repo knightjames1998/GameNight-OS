@@ -109,8 +109,11 @@ test("the derived screen list covers every pack, and did not quietly shrink", ()
       `${pack} has no scoring screen in the derived list`,
     );
   }
-  // And the twelve paths the hand-written list held on the day it was replaced,
-  // so the swap is provably a no-op rather than merely a green run.
+  // And the paths themselves. This was the twelve the hand-written list held on
+  // the day it was replaced, so the swap was provably a no-op rather than merely
+  // a green run; a pack that ships adds its line here in the same commit, which
+  // is the point where "the derivation found one more" becomes a decision rather
+  // than a number going up.
   assert.deepEqual([...SCREENS].sort(), [
     "blackjack/BlackjackPage.tsx",
     "boardgame/BoardGamePage.tsx",
@@ -122,6 +125,7 @@ test("the derived screen list covers every pack, and did not quietly shrink", ()
     "marioparty/MarioPartyPage.tsx",
     "pages/BracketPage.tsx",
     "pingpong/PingPongPage.tsx",
+    "poker/PokerPage.tsx",
     "roulette/RoulettePage.tsx",
     "smash/SmashPage.tsx",
   ]);

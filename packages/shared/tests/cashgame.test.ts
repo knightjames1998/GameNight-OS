@@ -1006,3 +1006,45 @@ test("a banked table can produce a transfer list too, once it balances", () => {
   assert.equal(s.balance.balanced, true);
   assert.deepEqual(settleTransfers(s), [{ fromId: "ana", toId: "bo", cents: 2000 }, { fromId: "cass", toId: "bo", cents: 1000 }]);
 });
+
+test("A GUEST'S MONEY COUNTS EVEN THOUGH A GUEST'S LEDGER ROW DOES NOT", () => {
+  // THE TENSION THIS PACK EXPOSED, and the silent version of getting it wrong
+  // reports every guest night as broken. Every other pack drops guests at the
+  // ledger and that is harmless: a guest carries no lifetime stats, so their
+  // row has nowhere to go. Here, dropping a guest's buy-in from the SETTLEMENT
+  // would make delta non-zero and fire the balance warning on a table that is
+  // actually correct.
+  //
+  // The rule is therefore: the settlement counts every seat, and only the
+  // ledger WRITE skips guests. settleCash walks core.roster and never looks at
+  // `kind`, which is what makes the first half true; insertParticipants in
+  // apps/server/src/pack-runtime.ts is where the second half happens, and it
+  // reports the count rather than dropping them silently.
+  const withGuest = pokerTable(
+    [entry("ana", 5000, [], 9000), entry("bo", 5000, [], 4000), entry("visitor", 5000, [], 2000)],
+    { visitor: "guest" },
+  );
+  const s = settleCash(withGuest, { final: true });
+  assert.equal(s.balance.checked, true);
+  assert.equal(s.balance.balanced, true, "a correct table with a guest at it must not report a discrepancy");
+  assert.equal(s.lines.length, 3, "every seat is settled, guest included");
+  assert.equal(lineFor(s, "visitor").net, -3000);
+
+  // And the ledger lines still cover all three: the SKIP is at the database
+  // write, not here, so a pack that hand-filtered guests at this layer would be
+  // filtering in the wrong place and would take the money with it.
+  const ledger = cashLedgerLines(s, { bank: "table", bankerId: null, stakes: "real" });
+  assert.equal(ledger.length, 3);
+  assert.ok(ledger.some((l) => l.playerId === "visitor"));
+});
+
+test("dropping a guest from the settlement is exactly what would break it", () => {
+  // The negative control for the rule above, so it is a rule rather than a
+  // coincidence: settle the SAME night with the guest's seat removed and the
+  // table stops squaring. This is what the app would report if the ledger's
+  // guest rule ever leaked into the money.
+  const withoutGuest = pokerTable([entry("ana", 5000, [], 9000), entry("bo", 5000, [], 4000)]);
+  const s = settleCash(withoutGuest, { final: true });
+  assert.equal(s.balance.balanced, false);
+  assert.equal(s.balance.delta, 3000);
+});

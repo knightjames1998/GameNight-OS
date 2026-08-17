@@ -1,0 +1,143 @@
+/* ============================================================
+   Poker pack theme: OXBLOOD, which is the card-room colour and is
+   the one slot in the casino group still unclaimed. Blackjack is
+   near-black baize (#1a120f), roulette is deep green (#0d2a20),
+   craps is navy (#0e1e38) and Casino Run is violet (#1a1030), so
+   the four were already differentiated and poker takes the fifth
+   (standing rule 3).
+
+   THE STRUCTURE LIVES IN ../casino/casino.css. This file is only
+   the backdrop, the brand glow, the --cg-* token values and the
+   settlement panel, which is the one screen element no other cash
+   pack has.
+
+   UNDER TABLETOP THE OXBLOOD BECOMES THE CLOTH'S TINT rather than
+   a second material, which is this month's stage 4 decision: one
+   greyscale tile, named once in --gn-felt-tile, tinted per pack.
+   See apps/web/src/boardgame/boardgame.css for the worked example
+   and why a pack composes its own layer list instead of reading
+   --gn-texture.
+   ============================================================ */
+
+.pk-root,
+.pk-tv {
+  --cg-accent: #e8b04a;
+  --cg-accent-ink: #23180a;
+  --cg-accent-sh: #9a6f1e;
+  --cg-line: #4a2a2c;
+  --cg-surface: #1d1013;
+  --cg-raise: #2c191d;
+  --cg-card: linear-gradient(180deg, #2a161a, #1d1013);
+  --cg-glow: rgba(232, 176, 74, 0.4);
+  /* The settlement's own two signals. Green is "the table squares", amber is
+     "it does not", and they are tokens rather than literals so the Tabletop
+     pass can re-treat them without hunting through this file. */
+  --pk-square: #5cbc7b;
+  --pk-off: #e8a35c;
+}
+
+.pk-root {
+  background:
+    radial-gradient(120% 80% at 50% -10%, #5a1520 0%, transparent 55%),
+    linear-gradient(180deg, #1a0e11, #0d0708);
+}
+
+.pk-tv {
+  background:
+    radial-gradient(120% 80% at 50% -10%, #5a1520 0%, transparent 55%),
+    linear-gradient(180deg, #1a0e11, #0a0506);
+}
+
+/* ---- the settlement, which is what this pack is for ---------- */
+
+.pk-settle {
+  border: 1px solid var(--cg-line);
+  border-radius: 12px;
+  background: var(--cg-card);
+  padding: 14px;
+  margin-top: 12px;
+}
+.pk-settle__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: Fredoka, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+}
+.pk-settle__state {
+  font-size: 13px;
+  font-weight: 800;
+}
+.pk-settle__state--square { color: var(--pk-square); }
+.pk-settle__state--off { color: var(--pk-off); }
+.pk-settle__note {
+  color: var(--gn-dim);
+  font-size: 13px;
+  margin-top: 6px;
+  line-height: 1.35;
+}
+.pk-pay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid color-mix(in srgb, var(--cg-line) 60%, transparent);
+  font-size: 14px;
+}
+.pk-pay:first-of-type { border-top: none; }
+.pk-pay__amt { margin-left: auto; font-weight: 800; }
+.pk-pay__arrow { color: var(--gn-dim); }
+
+/* ---- the variant strip and the deal ------------------------- */
+
+.pk-variant {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.pk-variant button {
+  border: 1px solid var(--cg-line);
+  background: var(--cg-surface);
+  color: var(--gn-dim);
+  border-radius: var(--gn-radius-pill);
+  padding: 7px 13px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.pk-variant button.on {
+  background: var(--cg-accent);
+  color: var(--cg-accent-ink);
+  border-color: var(--cg-accent);
+}
+.pk-deal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--gn-dim);
+}
+.pk-deal__who { color: var(--gn-ink); font-weight: 700; }
+
+/* ---- the TV's settlement band ------------------------------- */
+
+.pk-tv__settle {
+  margin-top: 1vmin;
+  border-top: 1px solid var(--cg-line);
+  padding-top: 0.8vmin;
+}
+.pk-tv__state { font-size: 2.6vmin; font-weight: 800; }
+.pk-tv__state--square { color: var(--pk-square); }
+.pk-tv__state--off { color: var(--pk-off); }
+.pk-tv__pay {
+  display: flex;
+  gap: 2vmin;
+  font-size: 2.1vmin;
+  padding: 0.2vmin 0;
+}
+.pk-tv__pay b { margin-left: auto; }

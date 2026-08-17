@@ -108,7 +108,13 @@ function writtenFormats(): Found[] {
     const lineOf = (index: number) => text.slice(0, index).split("\n").length;
 
     // 1. format: "literal"
-    for (const m of text.matchAll(/\bformat:\s*"([a-z_]+)"/g)) {
+    //
+    // THE CLASS INCLUDES A COLON since 2026-08-17. Every format key was
+    // [a-z_]+ until poker shipped `poker:cash`, and a scanner that cannot see a
+    // key is a scanner that reports it as unwritten: the reverse-direction test
+    // below fired on a label that IS written, which is the harness being wrong
+    // about the code rather than the other way round.
+    for (const m of text.matchAll(/\bformat:\s*"([a-z_:]+)"/g)) {
       found.push({ format: m[1]!, where: `${rel}:${lineOf(m.index!)}` });
     }
 
@@ -117,7 +123,7 @@ function writtenFormats(): Found[] {
     //    through to shape 3 rather than being mistaken for a value here.
     for (const m of text.matchAll(/\bformat:\s*([A-Za-z_][A-Za-z0-9_]*)\s*[,;]/g)) {
       const ident = m[1]!;
-      const decl = text.match(new RegExp(`\\bconst\\s+${ident}\\s*=\\s*"([a-z_]+)"`));
+      const decl = text.match(new RegExp(`\\bconst\\s+${ident}\\s*=\\s*"([a-z_:]+)"`));
       if (decl) found.push({ format: decl[1]!, where: `${rel}:${lineOf(m.index!)} (via ${ident})` });
     }
 
@@ -132,14 +138,14 @@ function writtenFormats(): Found[] {
           `\`type ${typeName} = ...\` was found in packages/shared/src. Either the ` +
           `type moved, or it belongs in NON_LEDGER_FORMAT_TYPES with a reason.`,
       );
-      for (const lit of decl![1]!.matchAll(/"([a-z_]+)"/g)) {
+      for (const lit of decl![1]!.matchAll(/"([a-z_:]+)"/g)) {
         found.push({ format: lit[1]!, where: `${rel}:${lineOf(m.index!)} (via ${typeName})` });
       }
     }
 
     // 4. the bucket a null format falls into, which the display tables must
     //    also carry because it is what every bracket row reads as.
-    for (const m of text.matchAll(/\.format\s*\?\?\s*"([a-z_]+)"/g)) {
+    for (const m of text.matchAll(/\.format\s*\?\?\s*"([a-z_:]+)"/g)) {
       found.push({ format: m[1]!, where: `${rel}:${lineOf(m.index!)} (null bucket)` });
     }
   }

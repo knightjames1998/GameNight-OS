@@ -44,6 +44,8 @@ const PingPongPage = lazy(() => import("./pingpong/PingPongPage"));
 const PingPongTvPage = lazy(() => import("./pingpong/PingPongTvPage"));
 const BlackjackPage = lazy(() => import("./blackjack/BlackjackPage"));
 const BlackjackTvPage = lazy(() => import("./blackjack/BlackjackTvPage"));
+const PokerPage = lazy(() => import("./poker/PokerPage"));
+const PokerTvPage = lazy(() => import("./poker/PokerTvPage"));
 const RoulettePage = lazy(() => import("./roulette/RoulettePage"));
 const RouletteTvPage = lazy(() => import("./roulette/RouletteTvPage"));
 const CrapsPage = lazy(() => import("./craps/CrapsPage"));
@@ -77,6 +79,11 @@ function MarioPartySearchKeyed() {
 function PingPongSearchKeyed() {
   const location = useLocation();
   return <PingPongPage key={location.search} />;
+}
+
+function PokerSearchKeyed() {
+  const location = useLocation();
+  return <PokerPage key={location.search} />;
 }
 
 function BlackjackSearchKeyed() {
@@ -239,6 +246,8 @@ export default function App() {
             <Route path="/pingpong/tv/:eventId" element={<PingPongTvPage />} />
             <Route path="/blackjack" element={<BlackjackSearchKeyed />} />
             <Route path="/blackjack/tv/:eventId" element={<BlackjackTvPage />} />
+            <Route path="/poker" element={<PokerSearchKeyed />} />
+            <Route path="/poker/tv/:eventId" element={<PokerTvPage />} />
             <Route path="/roulette" element={<RouletteSearchKeyed />} />
             <Route path="/roulette/tv/:eventId" element={<RouletteTvPage />} />
             <Route path="/craps" element={<CrapsSearchKeyed />} />

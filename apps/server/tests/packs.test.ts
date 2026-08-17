@@ -103,7 +103,7 @@ test("the registry holds exactly the session packs, in order", () => {
   // ORDER IS SHIP ORDER, and it is asserted rather than incidental: this list
   // feeds the event TV's tiebreak, so a new pack inserted ABOVE a live one
   // would silently re-rank the live one. Append; never insert.
-  assert.deepEqual(SESSION_PACK_KEYS, ["smash", "mariokart", "marioparty", "pingpong", "blackjack", "roulette", "craps", "casinorun", "boardgame", "cardtable", "deduction"]);
+  assert.deepEqual(SESSION_PACK_KEYS, ["smash", "mariokart", "marioparty", "pingpong", "blackjack", "roulette", "craps", "casinorun", "boardgame", "cardtable", "deduction", "poker"]);
 });
 
 test("Ping Pong's ledger key is pingpong, not ping_pong", () => {

@@ -153,6 +153,7 @@ export * from "./pingpong.js";
 // The casino group: one shared engine, one thin module per pack.
 export * from "./cashgame.js";
 export * from "./blackjack.js";
+export * from "./poker.js";
 export * from "./roulette.js";
 export * from "./craps.js";
 // The co-op one. Its own state module, deliberately not settleCash.
