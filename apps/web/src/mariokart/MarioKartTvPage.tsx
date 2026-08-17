@@ -7,14 +7,19 @@ import { usePackLive } from "../useLiveUpdates";
 import "./mariokart.css";
 
 interface Slot { id: string; name: string; character: string | null }
+interface TvKart { id: string; name: string; memberIds: string[] }
 interface TvCupStanding { playerId: string; name: string; points: number; wins: number }
 interface TvSeriesStanding { slotId: string; name: string; seriesWins: number; gameWins: number; currentStreak: number }
 interface TvSession {
   status: string;
   format: "free" | "grandprix" | "bestof" | "koth";
   roster: Slot[];
+  /** The arrangement of karts in force. A solo night is one kart per racer. */
+  sides: TvKart[];
+  /** True when a kart holds more than one racer. */
+  pairs: boolean;
   games: { idx: number }[];
-  koth: { kingId: string | null; queue: string[]; streak: number } | null;
+  koth: { kingSideId: string | null; queue: string[]; streak: number } | null;
   series: { aId: string; bId: string; games: { winnerId: string }[] } | null;
   seriesLog: { idx: number }[];
   seriesStandings: TvSeriesStanding[];
@@ -55,6 +60,20 @@ export default function MarioKartTvPage({ eventId: propEventId }: { eventId?: st
     );
   }
 
+  const nameOf = new Map(session.roster.map((p) => [p.id, p.name]));
+  const charOf = new Map(session.roster.map((p) => [p.id, p.character]));
+  const kartOf = new Map((session.sides ?? []).map((k) => [k.id, k]));
+  // A kart of one is that racer's name, so a solo night's TV reads exactly as
+  // it did before karts existed.
+  const kartLabel = (id: string | null | undefined) => {
+    const k = id ? kartOf.get(id) : undefined;
+    if (!k) return "?";
+    const names = k.memberIds.map((m) => nameOf.get(m)).filter((n): n is string => !!n);
+    return names.length ? names.join(" + ") : k.name;
+  };
+  const kartRacers = (id: string) =>
+    (kartOf.get(id)?.memberIds ?? []).map((m) => charOf.get(m) ?? "no racer").join(" + ");
+
   const label =
     session.format === "grandprix"
       ? session.cup
@@ -63,9 +82,13 @@ export default function MarioKartTvPage({ eventId: propEventId }: { eventId?: st
       : session.format === "bestof"
       ? `Best Of · ${session.seriesLog.length} set${session.seriesLog.length === 1 ? "" : "s"}`
       : session.format === "koth"
-      ? "King of the Hill"
+      ? // Who holds the table, FOLDED ONTO THE LABEL that is already on the
+        // screen rather than given a block of its own. This view is measured
+        // against 1080p and a new block is what pushes it over.
+        session.koth?.kingSideId
+        ? `King of the Hill · 👑 ${kartLabel(session.koth.kingSideId)}`
+        : "King of the Hill"
       : `Free Play · ${session.games.length} races`;
-  const nameOf = new Map(session.roster.map((p) => [p.id, p.name]));
   const cur = session.series;
   const setWins = cur
     ? cur.games.reduce((acc, g) => { if (g.winnerId === cur.aId) acc.a++; else if (g.winnerId === cur.bId) acc.b++; return acc; }, { a: 0, b: 0 })
@@ -82,9 +105,9 @@ export default function MarioKartTvPage({ eventId: propEventId }: { eventId?: st
         <div style={{ marginTop: "2vmin" }}>
           <div className="mk-tv__muted" style={{ fontSize: "2.6vmin", textTransform: "uppercase", letterSpacing: "0.3vmin" }}>On the grid</div>
           <div style={{ fontSize: "5vmin", fontFamily: "Fredoka, sans-serif", fontWeight: 800, display: "flex", alignItems: "center", gap: "2vmin" }}>
-            <span>{nameOf.get(cur.aId)}</span>
+            <span>{kartLabel(cur.aId)}</span>
             <span className="mk-tv__muted">{setWins.a} - {setWins.b}</span>
-            <span>{nameOf.get(cur.bId)}</span>
+            <span>{kartLabel(cur.bId)}</span>
           </div>
         </div>
       )}
@@ -127,16 +150,35 @@ export default function MarioKartTvPage({ eventId: propEventId }: { eventId?: st
               </div>
             ))}
           </div>
-          <div className="mk-tv__panel">
-            <h3>Racers</h3>
-            {session.summary.characters.length === 0 && <div className="mk-tv__muted">No races yet</div>}
-            {session.summary.characters.slice(0, 8).map((c) => (
-              <div className="mk-tv__line" key={c.character}>
-                <span>{c.character}</span>
-                <span>{c.wins}W · {c.played}</span>
-              </div>
-            ))}
-          </div>
+          {/* KARTS REPLACE RACERS ON A PAIRS NIGHT, in the panel that is
+              already there rather than beside it. It is a swap and never an
+              addition, and a kart line is never longer than the racer lines it
+              replaces (karts <= racers), so the 1080p fit is bounded by what
+              this view already measured at. On a solo night this is the Racers
+              panel, unchanged. */}
+          {session.pairs ? (
+            <div className="mk-tv__panel">
+              <h3>Karts</h3>
+              {session.sides.length === 0 && <div className="mk-tv__muted">No karts yet</div>}
+              {session.sides.slice(0, 8).map((k) => (
+                <div className="mk-tv__line" key={k.id}>
+                  <span>{kartLabel(k.id)}</span>
+                  <span className="mk-tv__muted" style={{ fontSize: "2.2vmin" }}>{kartRacers(k.id)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mk-tv__panel">
+              <h3>Racers</h3>
+              {session.summary.characters.length === 0 && <div className="mk-tv__muted">No races yet</div>}
+              {session.summary.characters.slice(0, 8).map((c) => (
+                <div className="mk-tv__line" key={c.character}>
+                  <span>{c.character}</span>
+                  <span>{c.wins}W · {c.played}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

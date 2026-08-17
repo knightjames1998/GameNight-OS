@@ -673,6 +673,106 @@ export function cupStandings(state: MkSessionState): {
   };
 }
 
+// ---------- the title sets the shape ----------
+
+/** The one title in the roster where two people share a kart. */
+export const DOUBLE_DASH_TITLE_ID = "mkdd";
+
+/** The one roster size the auto-apply fires for. Read the block below first. */
+export const KART_PAIRS_ROSTER_SIZE = 4;
+
+/**
+ * Put the roster into karts when the host says which Mario Kart is on.
+ *
+ * DOUBLE DASH PLUS EXACTLY FOUR PLAYERS OPENS IN PAIRS, and nothing else does.
+ * It is grounded in the actual game: the GameCube has four controller ports, so
+ * four players in two karts is what a Double Dash co-op night IS. It follows
+ * the Euchre precedent in titlenight.ts and for the same reason, that a default
+ * which has to be found in a menu is a default that does not get used, and the
+ * alternative is a crew recording four races as a free-for-all and noticing in
+ * the stats a month later.
+ *
+ * EXACTLY FOUR IS A DELIBERATE LINE RATHER THAN A STARTING POINT (James,
+ * 2026-08-16). Every other arrangement, uneven ones included, is available and
+ * is OPT-IN through the picker. Three players is not two even karts, and
+ * auto-dealing somebody into a solo kart is the app making a judgement about a
+ * night it was not at. Two players is a 1v1, which is singletons. Six and eight
+ * are not reachable on one console, and a host running two consoles can set
+ * karts by hand. DO NOT widen this to "any even roster" because it looks tidier.
+ *
+ * THREE GUARDS, each with its own named test, because all three fail silently:
+ *
+ *   1. IT FIRES ONLY WHEN THE KART COUNT DIFFERS. A host who has already put
+ *      four people into two specific karts and then taps Double Dash keeps
+ *      their karts: the title wanted two and there are two, so there is nothing
+ *      to decide. Free-for-all counts as one kart per racer, so its count is
+ *      the roster size.
+ *   2. GOING THE OTHER WAY IS DETERMINISTIC. Any title that is not Double Dash
+ *      gives one kart per racer in ROSTER ORDER, never a shuffle. Reverting is
+ *      correct rather than merely tidy, because no other title in the roster
+ *      has a shared kart.
+ *   3. SETUP ONLY, NEVER ONCE A RACE HAS BEEN LOGGED. Once races exist,
+ *      changing the arrangement is a reshuffle with a fromIdx and it is a
+ *      deliberate host action. An auto-apply that rearranged the table between
+ *      two races would silently change what the night was raced under, and it
+ *      would look exactly like a host who rearranged it on purpose.
+ *
+ * THE PAIRING ITSELF IS ROSTER ORDER, NOT A SHUFFLE, which is the one place
+ * this departs from the Euchre precedent. It is what makes guard 2 hold in both
+ * directions: Double Dash, then MK8 Deluxe, then Double Dash hands the host the
+ * same screen back rather than a new random deal. It is also the least
+ * opinionated answer available, because roster order is the order the host
+ * typed people in, which on a four-port console is the order they are sitting
+ * in. A host who wants a random deal has the Shuffle button in the picker.
+ *
+ * THE TRIGGER MATTERS AND IS PASSED IN. A title change evaluates both
+ * directions; a ROSTER change only ever puts karts together, never takes them
+ * apart. Without that split, a host who had hand-built karts for a five-player
+ * MK8 Deluxe night and then added a sixth racer would watch their karts
+ * dissolve, which is the feature undoing the host's work.
+ *
+ * Works in ROSTER INDICES rather than slot ids, because slot ids are minted by
+ * the server when the session starts and this runs before that: it is the same
+ * level TeamPicker works at, and the two have to agree.
+ *
+ * Returns the new assignment, or null for "leave the table alone".
+ */
+export function autoKartAssign(opts: {
+  titleId: string | null | undefined;
+  rosterSize: number;
+  /** The picker's current assignment, as roster indices per kart. */
+  assign: readonly (readonly number[])[];
+  trigger: "title" | "roster";
+  /** Anything above zero means the night has started. Defaults to 0. */
+  racesRecorded?: number;
+}): number[][] | null {
+  // Guard 3, first, because it outranks the other two.
+  if ((opts.racesRecorded ?? 0) > 0) return null;
+  if (opts.rosterSize < 2) return null;
+
+  const doubleDash = opts.titleId === DOUBLE_DASH_TITLE_ID;
+  const pairs = doubleDash && opts.rosterSize === KART_PAIRS_ROSTER_SIZE;
+  if (!pairs) {
+    // A roster change puts karts together and never takes them apart.
+    if (opts.trigger === "roster") return null;
+    // NEITHER DOES DOUBLE DASH ITSELF. Reverting is justified by "no other
+    // title in the roster has a shared kart", and Double Dash is the one that
+    // does, so a five-player Double Dash night with hand-built karts keeps them
+    // when the host taps the title again. Only a title with no shared kart
+    // dissolves one.
+    if (doubleDash) return null;
+  }
+
+  // Guard 1. Free-for-all is one kart per racer, so its count is the roster size.
+  const target = pairs ? 2 : opts.rosterSize;
+  if (opts.assign.length === target) return null;
+
+  // Guard 2, and the forward direction, both in roster order.
+  return pairs
+    ? [[0, 1], [2, 3]]
+    : Array.from({ length: opts.rosterSize }, (_, i) => [i]);
+}
+
 export const MARIO_KART_TITLES: GameTitle[] = [
   { id: "mk8dx", name: "Mario Kart 8 Deluxe", roster: MARIO_KART_RACERS },
   {

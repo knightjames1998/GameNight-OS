@@ -96,6 +96,43 @@ const pingpong = (n) => {
 };
 
 
+// MARIO KART, added 2026-08-16 when karts arrived. This TV had never been in
+// the ladder, which is exactly the gap this file exists to close: a pack with a
+// TV and no fit case is a pack whose fit nobody owns, and Board Game was 176px
+// over at twelve for five days for that reason.
+//
+// The pairs case is the one that matters and it is measured at the CAP: this
+// pack seats sixteen, and eight karts of two is the widest night it offers
+// (MAX_SIDES is eight). The Players panel is per racer either way, so sixteen
+// racers is the tallest that column ever gets, and the Karts panel that
+// replaces Racers on a pairs night is at most eight lines against the Racers
+// panel's eight, so it is a swap rather than an addition.
+const mariokart = (n, pairs, format = "free") => {
+  const r = Array.from({ length: n }, (_, i) => ({
+    id: "p" + i, kind: "member", userId: "u" + i,
+    name: "Player Nameiskindalong " + (i + 1),
+    character: ["Mario", "Yoshi", "Peach", "Toad", "Bowser", "Waluigi"][i % 6],
+  }));
+  const sides = pairs
+    ? Array.from({ length: Math.ceil(n / 2) }, (_, i) => ({
+        id: String.fromCharCode(97 + i), name: "Kart",
+        memberIds: r.slice(i * 2, i * 2 + 2).map((p) => p.id),
+      }))
+    : r.map((p, i) => ({ id: String.fromCharCode(97 + i), name: "Kart", memberIds: [p.id] }));
+  return { session: {
+    status: "live", groupId: "g1", format, mode: format === "koth" ? "koth" : "ffa",
+    titleId: "mkdd", assignment: "self", resultDetail: "placement", openScoring: false,
+    roster: r, sides, pairs, sideSets: [{ fromIdx: 0, sides }], bestOf: 3,
+    games: Array.from({ length: 6 }, (_, i) => ({ idx: i })),
+    koth: format === "koth" ? { kingSideId: sides[0].id, queue: sides.slice(1).map((s) => s.id), streak: 3 } : null,
+    series: null, seriesLog: [], seriesStandings: [], cup: null,
+    summary: {
+      characters: ["Mario", "Yoshi", "Peach", "Toad", "Bowser", "Waluigi", "Luigi", "Daisy"].map((c, i) => ({ character: c, played: 6 - i > 0 ? 6 - i : 1, wins: i % 3 })),
+      players: r.map((p, i) => ({ playerId: p.id, name: p.name, played: 6, wins: 6 - i > 0 ? 6 - i : 0, mainCharacter: p.character })),
+    },
+  } };
+};
+
 // Casino Run's summary is a different animal from the cash packs': a ladder, a
 // progress block, per-stage rows and a leg trail. Built out in full rather than
 // approximated, because a payload the page rejects renders the short "waiting"
@@ -406,6 +443,12 @@ const CASES = [
   ["money board 12 + 5 mods", "/blackjack/tv/x", money(12, ["m1", "m2", "m3", "m4", "m5"]), ".cg-tv__line"],
   ["ping pong    6 players", "/pingpong/tv/x", pingpong(6), ".pp-tv__panel"],
   ["ping pong    7 players", "/pingpong/tv/x", pingpong(7), ".pp-tv__panel"],
+  ["mario kart   8 solo", "/mariokart/tv/x", mariokart(8, false), ".mk-tv__panel"],
+  ["mario kart   8 karts", "/mariokart/tv/x", mariokart(8, true), ".mk-tv__panel"],
+  ["mario kart  12 solo", "/mariokart/tv/x", mariokart(12, false), ".mk-tv__panel"],
+  ["mario kart  16 solo", "/mariokart/tv/x", mariokart(16, false), ".mk-tv__panel"],
+  ["mario kart  16 karts", "/mariokart/tv/x", mariokart(16, true), ".mk-tv__panel"],
+  ["mario kart  16 koth", "/mariokart/tv/x", mariokart(16, true, "koth"), ".mk-tv__panel"],
   ["casino run   6 mid-run", "/casinorun/tv/x", crun(6), ".crun-tv"],
   ["casino run  12 mid-run", "/casinorun/tv/x", crun(12), ".crun-tv"],
   ["board game   4 players", "/boardgame/tv/x", titlenight(4), ".tn-tv__panel"],
@@ -471,10 +514,36 @@ const CASES = [
 // twice. A fit ladder has been its own session every time (the money board's,
 // which is the worked example) and this is no different.
 //
+// MARIO KART AT TWELVE AND SIXTEEN joined on 2026-08-16, the day this TV was
+// first measured at all, and for exactly the reason Board Game did: it shipped
+// a TV and was never added here. It seats sixteen through the server's roster
+// cap, so this is reachable rather than theoretical.
+//
+// IT IS NOT THE KARTS, AND THAT WAS MEASURED RATHER THAN ASSUMED. The pairs
+// session that added these cases checked out the PREVIOUS commit's TV component
+// and ran the same three payloads through it: 1447px, over by 367, identical to
+// the digit in every case. The Players panel is per RACER whether or not karts
+// are shared, so it is the tall column either way, and the Karts panel replaces
+// the Racers panel rather than sitting beside it (karts are never more numerous
+// than racers). The kart work added zero pixels. Twelve is where it first goes
+// over; eight fits with 201px of clearance in Arcade, which covers a Double
+// Dash night, so the reachable-and-common case is fine.
+//
+// NOT FIXED HERE. This is a density ladder, and a fit ladder has been its own
+// session every time (the money board's is the worked example). Logged in
+// BACKLOG under BUGS beside Ping Pong's and Board Game's.
+//
 // THE EXEMPTION IS BY NAME AND STAYS THAT WAY. A new pack does not get added to
 // this set: if Card Table's TV does not fit, that is a new bug in new code and
 // it fails the run.
-const KNOWN = new Set(["ping pong    7 players", "board game  12 players"]);
+const KNOWN = new Set([
+  "ping pong    7 players",
+  "board game  12 players",
+  "mario kart  12 solo",
+  "mario kart  16 solo",
+  "mario kart  16 karts",
+  "mario kart  16 koth",
+]);
 let newOverlaps = 0;
 let stale = 0;
 // THE FIT WAS REPORTED AND NEVER ENFORCED until 2026-08-15. This file has asked
@@ -573,7 +642,7 @@ console.log("\nnegative control: the ladder pinned back to its base metrics, whi
 const ok = newOverlaps === 0 && stale === 0 && overs === 0 && control === 0;
 console.log(
   ok
-    ? "\nPASS  every case fits 1080p and nothing is covered by a fixed overlay (Ping Pong past six and Board Game at twelve excepted, and logged in BUGS)"
+    ? "\nPASS  every case fits 1080p and nothing is covered by a fixed overlay (Ping Pong past six, Board Game at twelve and Mario Kart past eight excepted, and logged in BUGS)"
     : [
         overs ? `FAIL  ${overs} case(s) run past 1080px` : "",
         newOverlaps ? `FAIL  ${newOverlaps} case(s) have painted content under a fixed overlay` : "",
