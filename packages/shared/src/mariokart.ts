@@ -19,10 +19,9 @@ export const MARIO_KART_RACERS: string[] = [
   "Diddy Kong", "Funky Kong", "Peachette", "Mii",
 ];
 
-const RACER_SET = new Set(MARIO_KART_RACERS);
-export function isRacer(name: unknown): name is string {
-  return typeof name === "string" && RACER_SET.has(name);
-}
+// `isRacer` and the set behind it live at the BOTTOM of this file, after
+// MARIO_KART_TITLES, because the set is the union of every title's roster and
+// cannot be built before the titles exist. See the comment there.
 
 // ---------- Which Mario Kart title ----------
 // The host picks a title on the pack's front page; it scopes the racer
@@ -810,3 +809,34 @@ export const MARIO_KART_TITLES: GameTitle[] = [
     roster: ["Mario", "Luigi", "Peach", "Toad", "Yoshi", "Donkey Kong", "Wario", "Bowser"],
   },
 ];
+
+// ---------- the racer gate ----------
+
+/**
+ * Every racer ANY Mario Kart title in this pack offers.
+ *
+ * IT IS THE UNION AND NOT THE MK8 DELUXE LIST, and that fix closed a latent bug
+ * that had a todo test sitting on it since 2026-08-15 (AUDIT-2026-08.md NOTED
+ * 9). A title scopes the picker and the random pool, so a host on a Double Dash
+ * night is offered Double Dash's roster, and Paratroopa is in it and is in no
+ * other title. `isRacer` is the gate a submitted racer passes through on the
+ * way to the ledger and it checked MARIO_KART_RACERS alone, which IS mk8dx's
+ * roster. So Paratroopa was pickable and then unrecognised, and the failure was
+ * the silent kind: the name was replaced with null rather than refused.
+ *
+ * It was LATENT rather than live because both gates had something rescuing
+ * them, and the pairs session removed one of those rescues (the record route no
+ * longer falls back to the slot's stored racer, because a race now carries its
+ * racers from the roster rather than from the request). That is exactly the
+ * "a pass that tidies away the fallback makes it live" case the todo named, so
+ * it is fixed in the same session rather than left for the next one.
+ *
+ * MARIO_KART_RACERS is unchanged and still IS mk8dx's roster, which is pinned
+ * by its own test. Widening that constant instead would have put Paratroopa in
+ * the MK8 Deluxe picker, where the character does not exist.
+ */
+const RACER_SET = new Set(MARIO_KART_TITLES.flatMap((t) => t.roster));
+
+export function isRacer(name: unknown): name is string {
+  return typeof name === "string" && RACER_SET.has(name);
+}

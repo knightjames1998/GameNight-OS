@@ -182,48 +182,54 @@ test("isRacer is exact, because it gates what reaches the ledger", () => {
   assert.equal(isRacer(42), false);
 });
 
-test(
-  "ISRACER ACCEPTS EVERY RACER ANY TITLE OFFERS",
-  {
-    todo:
-      "fails on Paratroopa (mkdd). LATENT, not live: see AUDIT-2026-08.md NOTED 9. " +
-      "Not fixed in this session because it is outside the approved phase 3 scope.",
-  },
-  () => {
-    // THE RULE THIS IS ABOUT. A title scopes the picker and the random pool
-    // (standing rule, character packs), so a host on a Double Dash night is
-    // offered that title's roster. `isRacer` is the gate two server paths run a
-    // submitted racer through on the way to the ledger, and it checks the
-    // MK8DX master list ALONE. A racer a title offers but the master list does
-    // not contain is therefore pickable and then unrecognised, and the failure
-    // is the silent kind: the name is replaced with null rather than refused.
-    //
-    // WHY THIS IS LATENT RATHER THAN LIVE, verified rather than assumed. There
-    // are two isRacer gates and both currently have something that rescues
-    // them. mariokart.ts:482 falls back to `charOf.get(playerId)`, which is the
-    // slot's stored racer, and that was set through the /character route, which
-    // validates against rosterForTitle and accepts Paratroopa correctly.
-    // mariokart.ts:317 parses the roster at session start, and the shipped
-    // client sends names only at that point. So nothing is wrong on a screen
-    // today. A client that starts sending characters at session start, or a
-    // pass that tidies away the 482 fallback, makes it live with no test to
-    // catch it. Which is what this test is for.
-    const offered = new Set(MARIO_KART_TITLES.flatMap((t) => t.roster));
-    const rejected = [...offered].filter((name) => !isRacer(name));
-    assert.deepEqual(
-      rejected,
-      [],
-      `${rejected.length} racer(s) are offered by a title but rejected by isRacer, ` +
-        `so they reach the ledger as null: ${rejected.join(", ")}`,
-    );
-  },
-);
+test("ISRACER ACCEPTS EVERY RACER ANY TITLE OFFERS", () => {
+  // THE RULE THIS IS ABOUT. A title scopes the picker and the random pool
+  // (standing rule, character packs), so a host on a Double Dash night is
+  // offered that title's roster. `isRacer` is the gate a submitted racer runs
+  // through on the way to the ledger, and it used to check the MK8DX master
+  // list ALONE. A racer a title offers but the master list does not contain was
+  // therefore pickable and then unrecognised, and the failure was the silent
+  // kind: the name replaced with null rather than refused.
+  //
+  // GREEN SINCE 2026-08-16. It was a todo for one day, on the ground that both
+  // gates had something rescuing them (see AUDIT-2026-08.md NOTED 9), and the
+  // pairs session removed one of those rescues: the record route no longer
+  // falls back to the slot's stored racer, because a race now takes its racers
+  // from the roster rather than from the request. That is precisely the "a pass
+  // that tidies away the fallback makes it live" case this test was written
+  // for, so it was fixed in the same session that reached it. `isRacer` now
+  // checks the UNION of every title's roster.
+  const offered = new Set(MARIO_KART_TITLES.flatMap((t) => t.roster));
+  const rejected = [...offered].filter((name) => !isRacer(name));
+  assert.deepEqual(
+    rejected,
+    [],
+    `${rejected.length} racer(s) are offered by a title but rejected by isRacer, ` +
+      `so they reach the ledger as null: ${rejected.join(", ")}`,
+  );
+});
+
+test("PARATROOPA, by name, because it is the one that was broken", () => {
+  // A regression test rather than a duplicate: the union check above passes the
+  // moment the sets agree, and this says which racer the bug was about, so a
+  // future pass that narrows the gate back to the master list fails with the
+  // answer already in the message.
+  assert.equal(isRacer("Paratroopa"), true);
+  assert.equal(MARIO_KART_RACERS.includes("Paratroopa"), false, "and it is still NOT an MK8 Deluxe racer");
+});
 
 test("the master racer list is the default title's roster, exactly", () => {
-  // Passes, and is what makes the todo above a one-racer problem rather than a
-  // structural one: MARIO_KART_RACERS IS mk8dx's roster, so every other title
-  // is a subset of it plus whatever that title has of its own.
+  // Unchanged by the Paratroopa fix, and deliberately so: widening
+  // MARIO_KART_RACERS would have put Paratroopa in the MK8 Deluxe picker, where
+  // the character does not exist. The union lives behind isRacer instead.
   assert.deepEqual(MARIO_KART_TITLES[0]!.roster, MARIO_KART_RACERS);
+});
+
+test("a racer no title offers is still refused", () => {
+  // The gate got wider, not open. Widening it to "any string" would put
+  // arbitrary text on a lifetime character stat with nothing to catch it.
+  assert.equal(isRacer("Sonic"), false);
+  assert.equal(isRacer("Paratroopa "), false, "exact, because stats unify by exact name");
 });
 
 test("the default title is the widest one, and an unknown title falls back to it", () => {
