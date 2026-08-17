@@ -28,9 +28,11 @@ import {
   parseCents,
   rankByNet,
   settleCash,
+  settleTransfers,
   summarizeBlackjack,
   totalIn,
   type BjHand,
+  type CashBalance,
   type CashEntry,
   type CashNight,
   type CashPlayer,
@@ -799,4 +801,208 @@ test("choosing a casino bank clears the banker rather than remembering one", () 
   });
   assert.equal(state.bankerId, null);
   assert.equal(summarizeBlackjack(state).balance.checked, false);
+});
+
+// ---------- the no-banker poker table ----------
+//
+// The third CashBank. Nobody is the house, everybody types their own cash-out,
+// nobody is derived, and the table must sum to exactly zero once the room has
+// finished counting. See the union's own comment in cashgame.ts for why neither
+// of the other two fits.
+
+const pokerTable = (entries: CashEntry[], kinds: Record<string, "member" | "guest"> = {}): CashSessionCore => ({
+  bank: "table",
+  bankerId: null,
+  roster: entries.map((e) => ({
+    id: e.playerId,
+    kind: kinds[e.playerId] ?? "member",
+    userId: (kinds[e.playerId] ?? "member") === "member" ? `u_${e.playerId}` : null,
+    name: e.playerId,
+  })),
+  entries,
+});
+
+test("a poker table derives nobody, however the nets fall", () => {
+  const s = settleCash(
+    pokerTable([
+      entry("ana", 5000, [], 12000),
+      entry("bo", 5000, [5000], 3000),
+      entry("cass", 5000, [], 0),
+    ]),
+  );
+  for (const l of s.lines) assert.equal(l.derived, false, `${l.playerId} must not be derived`);
+  assert.equal(lineFor(s, "ana").net, 7000);
+  assert.equal(lineFor(s, "bo").net, -7000);
+  assert.equal(lineFor(s, "cass").net, -5000);
+});
+
+test("the check waits for the WHOLE room, not for one banker", () => {
+  // Two of three counted. A banked table would already be checking against the
+  // banker; a poker table has nothing to check against until the last stack is
+  // counted, and saying "you are $50 short" while chips are still on the felt
+  // would train everybody to ignore the warning that matters.
+  const partial = settleCash(
+    pokerTable([entry("ana", 5000, [], 12000), entry("bo", 5000, [], 3000), entry("cass", 5000, [], null)]),
+  );
+  assert.deepEqual(partial.balance, { checked: false, balanced: true, delta: 0 });
+  assert.equal(balanceWarning(partial.balance, "real", "table"), null);
+
+  const full = settleCash(
+    pokerTable([entry("ana", 5000, [], 12000), entry("bo", 5000, [], 3000), entry("cass", 5000, [], 0)]),
+  );
+  assert.equal(full.balance.checked, true);
+  assert.equal(full.balance.balanced, true);
+  assert.equal(full.balance.delta, 0);
+});
+
+test("a poker table that does not add up says so, and by exactly how much", () => {
+  // 150 on the table, 190 counted off it: forty dollars that does not exist.
+  const s = settleCash(
+    pokerTable([entry("ana", 5000, [], 12000), entry("bo", 5000, [], 4000), entry("cass", 5000, [], 3000)]),
+  );
+  assert.deepEqual(s.balance, { checked: true, balanced: false, delta: 4000 });
+  assert.equal(
+    balanceWarning(s.balance, "real", "table"),
+    "The table does not balance, off by $40.00. More money came off the table than went onto it, so somebody's count is too high.",
+  );
+});
+
+test("the poker wording is its own, and the banked wording is untouched", () => {
+  const short: CashBalance = { checked: true, balanced: false, delta: -2500 };
+  assert.match(balanceWarning(short, "real", "table")!, /chips are still unaccounted for/);
+  assert.match(balanceWarning(short, "real", "player")!, /a cash-out is too low or one is missing/);
+  // No bank argument at all is the banked sentence, which is what keeps every
+  // call site written before poker existed reading exactly as it did.
+  assert.equal(balanceWarning(short, "real"), balanceWarning(short, "real", "player"));
+});
+
+test("an empty table is not a balanced table", () => {
+  // "The sum of no nets is zero" is true and useless. A table nobody has opened
+  // must not report itself as reconciled.
+  assert.deepEqual(settleCash(pokerTable([])).balance, { checked: false, balanced: true, delta: 0 });
+});
+
+test("a poker night records with no banker keys in any meta bag", () => {
+  const lines = cashLedgerLines(
+    settleCash(pokerTable([entry("ana", 5000, [], 9000), entry("bo", 5000, [], 1000)]), { final: true }),
+    { bank: "table", bankerId: null, stakes: "real" },
+  );
+  for (const l of lines) {
+    assert.equal("banker" in l.meta, false);
+    assert.equal("derivedNet" in l.meta, false);
+    assert.equal(l.meta.bank, "table");
+  }
+  assert.equal(lines.find((l) => l.playerId === "ana")!.meta.net, 4000);
+});
+
+// ---------- who pays whom ----------
+
+const transfersOf = (entries: CashEntry[], kinds?: Record<string, "member" | "guest">) =>
+  settleTransfers(settleCash(pokerTable(entries, kinds)));
+
+test("an unbalanced table returns NO transfer list rather than an approximate one", () => {
+  // The whole point: a list derived from a wrong number is the app inventing a
+  // debt between two friends, which is worse than showing nothing.
+  const t = transfersOf([entry("ana", 5000, [], 12000), entry("bo", 5000, [], 4000), entry("cass", 5000, [], 3000)]);
+  assert.equal(t, null);
+});
+
+test("an unfinished table returns no list either, because it has not been checked", () => {
+  const t = transfersOf([entry("ana", 5000, [], 12000), entry("bo", 5000, [], 3000), entry("cass", 5000, [], null)]);
+  assert.equal(t, null);
+});
+
+test("two players is one payment, in the direction the money actually moves", () => {
+  const t = transfersOf([entry("ana", 5000, [], 8000), entry("bo", 5000, [], 2000)]);
+  assert.deepEqual(t, [{ fromId: "bo", toId: "ana", cents: 3000 }]);
+});
+
+test("a squared table with nobody up or down owes nothing at all", () => {
+  // Everybody broke even. An empty list, not a list of zeroes: a row saying
+  // "bo pays ana $0.00" is noise on a screen whose job is to be acted on.
+  const t = transfersOf([entry("ana", 5000, [], 5000), entry("bo", 5000, [], 5000)]);
+  assert.deepEqual(t, []);
+});
+
+test("a four-hander settles in three payments, largest debt to largest credit", () => {
+  // in: 50 each, 200 total. out: ana 120, dev 80, bo 0, cass 0.
+  // nets: ana +70, dev +30, bo -50, cass -50.
+  const t = transfersOf([
+    entry("ana", 5000, [], 12000),
+    entry("bo", 5000, [], 0),
+    entry("cass", 5000, [], 0),
+    entry("dev", 5000, [], 8000),
+  ]);
+  assert.ok(t);
+  assert.ok(t!.length <= 3, `at most n-1 payments, got ${t!.length}`);
+  assert.deepEqual(t, [
+    { fromId: "bo", toId: "ana", cents: 5000 },
+    { fromId: "cass", toId: "ana", cents: 2000 },
+    { fromId: "cass", toId: "dev", cents: 3000 },
+  ]);
+});
+
+test("TIED NETS RESOLVE THE SAME WAY ON EVERY DEVICE", () => {
+  // bo and cass are both down exactly $50 and ana and dev are both up exactly
+  // $50. Greedy has a free choice at every step, and two phones choosing
+  // differently would show two different sets of debts for one table over live
+  // sync. The playerId tie-break is what removes the choice.
+  const entries = [
+    entry("dev", 5000, [], 10000),
+    entry("cass", 5000, [], 0),
+    entry("bo", 5000, [], 0),
+    entry("ana", 5000, [], 10000),
+  ];
+  const first = transfersOf(entries);
+  // The same table with the roster typed in a different order is the same table.
+  const shuffled = transfersOf([entries[2]!, entries[0]!, entries[3]!, entries[1]!]);
+  assert.deepEqual(first, shuffled);
+  // Both creditors and both debtors are level, so the id tie-break decides all
+  // four slots: ana before dev, bo before cass, on both sides of the ledger.
+  assert.deepEqual(first, [
+    { fromId: "bo", toId: "ana", cents: 5000 },
+    { fromId: "cass", toId: "dev", cents: 5000 },
+  ]);
+});
+
+test("A GUEST IS IN THE TRANSFER LIST, because money does not care about the ledger", () => {
+  // The ledger skips guests, since a guest carries no lifetime stats. Skipping
+  // one HERE would leave the table unsquared and quietly stiff whoever they owe.
+  const t = transfersOf(
+    [entry("ana", 5000, [], 10000), entry("visitor", 5000, [], 0)],
+    { visitor: "guest" },
+  );
+  assert.deepEqual(t, [{ fromId: "visitor", toId: "ana", cents: 5000 }]);
+});
+
+test("every payment is positive and the list sums to what the winners are owed", () => {
+  const entries = [
+    entry("ana", 10000, [5000], 30000),
+    entry("bo", 10000, [], 12500),
+    entry("cass", 10000, [], 0),
+    entry("dev", 10000, [], 12500),
+    entry("eve", 10000, [], 0),
+  ];
+  const t = transfersOf(entries)!;
+  assert.ok(t);
+  for (const x of t) assert.ok(x.cents > 0, "a zero or negative payment is a bug, not a row");
+  const owed = settleCash(pokerTable(entries)).lines.filter((l) => (l.net ?? 0) > 0).reduce((a, l) => a + l.net!, 0);
+  assert.equal(t.reduce((a, x) => a + x.cents, 0), owed);
+  assert.ok(t.length <= entries.length - 1, "at most n-1 payments");
+});
+
+test("a banked table can produce a transfer list too, once it balances", () => {
+  // Nothing in settleTransfers looks at the bank type: it reads signed nets and
+  // the balance flag, both of which a player-banked table also produces. That is
+  // deliberate rather than incidental, so a banked blackjack night can show the
+  // same "who pays whom" without a second implementation.
+  const banked: CashSessionCore = {
+    bank: "player",
+    bankerId: "ana",
+    roster: ["ana", "bo", "cass"].map((id) => ({ id, kind: "member" as const, userId: `u_${id}`, name: id })),
+    entries: [entry("ana", 10000, [], 8000), entry("bo", 5000, [], 8000), entry("cass", 5000, [], 4000)],
+  };
+  const s = settleCash(banked);
+  assert.equal(s.balance.balanced, true);
+  assert.deepEqual(settleTransfers(s), [{ fromId: "ana", toId: "bo", cents: 2000 }, { fromId: "cass", toId: "bo", cents: 1000 }]);
 });

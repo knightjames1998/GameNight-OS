@@ -156,8 +156,25 @@ export function money(stakes?: CashStakes) {
  * "casino": a real casino banks. Every net is independent, nobody is derived,
  * and there is nothing to check: the money that left the table went to a
  * building, not to another line on the screen.
+ * "table": nobody banks. Every player types their own cash-out, nobody is
+ * derived, and the table must sum to exactly zero once everybody has counted.
+ *
+ * POKER IS THE THIRD ONE AND IT IS GENUINELY NOT EITHER OF THE OTHER TWO,
+ * which is the whole reason this union grew rather than the pack picking the
+ * closest fit. "casino" is wrong because it checks NOTHING: a poker table is
+ * zero-sum and a night that does not add up is the single most useful thing
+ * this app can tell a room full of people. "player" is wrong because it DERIVES
+ * somebody: on a poker table nobody is the other side of every hand, so
+ * inverting one player's net against the rest would invent a number and hide
+ * the very disagreement worth reporting.
+ *
+ * The difference between "table" and "player" is therefore where the check
+ * comes from. A banked table checks the banker's own count against what the
+ * players imply, so it can only check once the banker has counted. A poker
+ * table checks the sum of everybody's count against zero, so it can only check
+ * once EVERYBODY has counted. Same arithmetic, different trigger.
  */
-export type CashBank = "player" | "casino";
+export type CashBank = "player" | "casino" | "table";
 
 /** A roster slot, the same shape every other pack uses. */
 export interface CashPlayer {
@@ -416,14 +433,33 @@ export function settleCash(core: CashSessionCore, opts?: { final?: boolean }): C
     l.playerId === bankerId ? { ...l, net: -othersSum || 0, derived: true } : l,
   );
 
-  // Two conditions, both necessary: a player must be banking (a casino table
-  // has no second side), and that banker must have counted their own rack (an
-  // absent count is not a count of zero, and treating it as one would report
-  // every table where the players finished up as broken).
+  // THREE BANK TYPES, TWO OF WHICH CHECK, AND THEY CHECK AT DIFFERENT MOMENTS.
+  //
+  // "player": a player must be banking (a casino table has no second side) and
+  // that banker must have counted their own rack. An absent count is not a
+  // count of zero, and treating it as one would report every table where the
+  // players finished up as broken.
+  //
+  // "table": nobody banks, so there is no single count to compare against and
+  // the comparison is the whole table against zero. That can only be asked once
+  // EVERY seat has a net, which live means everyone has cashed out and final
+  // means always (an absent cash-out is forced to zero, and for a player who
+  // busted that zero IS their count). A partially counted poker table is not
+  // unbalanced, it is unfinished, and reporting "you are $200 short" to a room
+  // where two people still have chips in front of them would be worse than
+  // saying nothing: it would train everyone to ignore the warning that matters.
+  //
+  // An EMPTY roster is not checked, because "the sum of no nets is zero" is
+  // true and useless, and a table with no players is a table nobody has opened.
+  const everySeatCounted = base.length > 0 && base.every((l) => l.net !== null);
   const balance: CashBalance =
-    bankerId === null || !bankerCashedOut
-      ? NO_CHECK
-      : { checked: true, balanced: typedSum === 0, delta: typedSum };
+    core.bank === "table"
+      ? everySeatCounted
+        ? { checked: true, balanced: typedSum === 0, delta: typedSum }
+        : NO_CHECK
+      : bankerId === null || !bankerCashedOut
+        ? NO_CHECK
+        : { checked: true, balanced: typedSum === 0, delta: typedSum };
 
   const lines = rankByNet(withBanker) as CashLine[];
 
@@ -511,14 +547,131 @@ export function cashLedgerLines(
  * than thrown, because the host is allowed to record it anyway once they have
  * been told: the app records what a home game did, it does not referee it.
  */
-export function balanceWarning(balance: CashBalance, stakes?: CashStakes): string | null {
+export function balanceWarning(
+  balance: CashBalance,
+  stakes?: CashStakes,
+  /**
+   * Optional and absent means a banked table, so every call site written before
+   * poker existed keeps its exact sentence. It only changes the WORDING: the
+   * delta and the sign mean the same thing on both, because it is the same sum.
+   */
+  bank?: CashBank,
+): string | null {
   if (!balance.checked || balance.balanced) return null;
   const over = balance.delta > 0;
-  return `The table does not balance, off by ${formatCents(Math.abs(balance.delta), stakes)}. ${
+  const off = `The table does not balance, off by ${formatCents(Math.abs(balance.delta), stakes)}.`;
+  // A BANKED TABLE AND A POKER TABLE ARE THE SAME ARITHMETIC AND A DIFFERENT
+  // SENTENCE, and the sentence is most of the value. On a banked table the host
+  // is looking for ONE wrong number, because the banker's own count is what
+  // disagreed. On a poker table nobody is more suspect than anybody else and
+  // the room is looking for the discrepancy together, so the wording names the
+  // table rather than a cash-out and says which direction to look in.
+  if (bank === "table") {
+    return `${off} ${
+      over
+        ? "More money came off the table than went onto it, so somebody's count is too high."
+        : "Less money came off the table than went onto it, so somebody's count is too low, or chips are still unaccounted for."
+    }`;
+  }
+  return `${off} ${
     over
       ? "More was cashed out than was bought in, so a cash-out is too high."
       : "Less was cashed out than was bought in, so a cash-out is too low or one is missing."
   }`;
+}
+
+// ---------- who pays whom ----------
+
+/** One payment, from the person who is down to the person who is up. */
+export interface CashTransfer {
+  fromId: string;
+  toId: string;
+  /** cents, always positive */
+  cents: number;
+}
+
+/**
+ * Turn a settled table into the list of payments that squares it.
+ *
+ * IT COSTS NO NEW INPUT, which is the reason it exists at all. The vector is
+ * derived entirely from the signed nets, and those are already derived from the
+ * buy-in, the rebuys and the cash-out that any cash pack has to collect anyway.
+ * No new field, no new tap, no new screen state: `settleCash` already hands back
+ * exactly what this needs.
+ *
+ * FOUR RULES, all of them load bearing.
+ *
+ * 1. IT RETURNS NULL UNLESS THE TABLE BALANCES. With a non-zero delta the list
+ *    is not merely approximate, it is MEANINGLESS: somebody miscounted, and
+ *    handing a room a set of debts derived from a wrong number is the app
+ *    inventing a debt between two friends. So it appears exactly when
+ *    `balance.checked && balance.balanced`, which on a poker table is the moment
+ *    everybody has counted. That is not a separate gate for a user to satisfy;
+ *    it is the same cash-outs the pack already needs.
+ *
+ * 2. IT IS DETERMINISTIC ACROSS DEVICES. Greedy settlement has ties, and two
+ *    phones resolving a tie differently would show two different sets of debts
+ *    for the same table over live sync, which is worse than showing none. So the
+ *    order is a total order with no ties left in it: net descending, then
+ *    playerId ascending. (`rankByNet` sorts on net alone and relies on a stable
+ *    sort to hold roster order, which is deterministic for ONE device reading
+ *    one roster; this needs the stronger property, so the id tie-break is
+ *    explicit here rather than inherited.)
+ *
+ * 3. GUESTS ARE IN IT. The ledger skips guests because a guest carries no
+ *    lifetime stats; the MONEY cannot skip anybody or the table does not square.
+ *    A guest owes or is owed exactly like a member, their name is already typed,
+ *    and this function never looks at `kind` at all. That is the same rule the
+ *    balance check follows, and it has its own test for the same reason.
+ *
+ * 4. IT IS AT MOST n-1 TRANSFERS AND IT DOES NOT CLAIM TO BE MINIMAL. Provably
+ *    minimising the number of payments is subset-sum, which is NP-hard, and it
+ *    is not worth solving for six people at a kitchen table. Greedy
+ *    largest-debtor-pays-largest-creditor gives n-1 or fewer, which is what
+ *    every split-the-bill tool ships. This paragraph exists so that nobody later
+ *    reads a four-transfer answer where three would do and files it as a bug.
+ *
+ * Players whose net is exactly zero are absent from the list rather than present
+ * with a zero: they broke even and owe nobody, and a row saying so is noise on a
+ * screen whose entire job is to be scanned once and acted on.
+ */
+export function settleTransfers(settlement: CashSettlement): CashTransfer[] | null {
+  const { balance, lines } = settlement;
+  if (!balance.checked || !balance.balanced) return null;
+
+  const owing = lines.filter((l): l is CashLine & { net: number } => l.net !== null && l.net !== 0);
+  const byId = (a: { playerId: string }, b: { playerId: string }) => (a.playerId < b.playerId ? -1 : 1);
+
+  // Largest credit first, and largest DEBT first, each with the SAME id
+  // tie-break. Sorting the debtors explicitly rather than reversing one shared
+  // ordering is deliberate: reversing flips the tie-break too, so two players
+  // level on -$50 would settle in descending id order while two level on +$50
+  // settled in ascending. Both are deterministic and one of them is arbitrary
+  // for no reason, which is exactly the kind of detail that reads as a bug the
+  // first time somebody looks closely at a tied table.
+  const creditors = owing
+    .filter((l) => l.net > 0)
+    .sort((a, b) => (b.net === a.net ? byId(a, b) : b.net - a.net))
+    .map((l) => ({ id: l.playerId, left: l.net }));
+  const debtors = owing
+    .filter((l) => l.net < 0)
+    .sort((a, b) => (a.net === b.net ? byId(a, b) : a.net - b.net))
+    .map((l) => ({ id: l.playerId, left: -l.net }));
+
+  const out: CashTransfer[] = [];
+  let ci = 0;
+  let di = 0;
+  while (ci < creditors.length && di < debtors.length) {
+    const c = creditors[ci]!;
+    const d = debtors[di]!;
+    const cents = Math.min(c.left, d.left);
+    if (cents > 0) out.push({ fromId: d.id, toId: c.id, cents });
+    c.left -= cents;
+    d.left -= cents;
+    if (c.left === 0) ci++;
+    if (d.left === 0) di++;
+  }
+  return out;
 }
 
 // ---------- the night, as every casino screen reads it ----------
@@ -653,9 +806,10 @@ export function summarizeCash<D>(
     cashedOut: players.length - settlement.stillIn,
     events: detail.total,
     balance: settlement.balance,
-    // Null until the banker has counted their own rack, which is the moment
-    // there is anything to disagree with. See settleCash's balance rules.
-    warning: balanceWarning(settlement.balance, core.stakes),
+    // Null until there is anything to disagree with, which is the banker's own
+    // count on a banked table and everybody's count on a poker one. See
+    // settleCash's balance rules for why the trigger differs.
+    warning: balanceWarning(settlement.balance, core.stakes, core.bank),
   };
 }
 
