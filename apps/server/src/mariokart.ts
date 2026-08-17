@@ -23,14 +23,14 @@ import {
   summarizeNight,
   isKartPairs,
   mkKothAdvance,
+  mkKothPair,
   mkOrderFromPlacements,
   mkRaceLines,
   mkSeriesLines,
   mkSides,
-  mkSideById,
   mkSidesAtIdx,
-  rebuildMkKoth,
   reshuffleMkSides,
+  undoMkRace,
   sideIdAt,
   sideLabel,
   shuffleIntoSides,
@@ -551,12 +551,12 @@ marioKartRouter.post("/mariokart/:eventId/record", requireAuth, async (req: Auth
   if (state.format === "koth") {
     // Winning kart holds the table; the two racing come from state. One tap.
     const koth = state.koth!;
-    const king = mkSideById(state, koth.kingSideId);
-    const challenger = mkSideById(state, koth.queue[0]);
-    if (!king || !challenger) {
+    const pair = mkKothPair(state);
+    if (!pair) {
       res.status(400).json({ error: "Not enough karts queued" });
       return;
     }
+    const { king, challenger } = pair;
     const winnerSideId = String(req.body?.winnerSideId ?? "");
     if (winnerSideId !== king.id && winnerSideId !== challenger.id) {
       res.status(400).json({ error: "Winner must be one of the two karts racing" });
@@ -697,23 +697,16 @@ marioKartRouter.post("/mariokart/:eventId/undo", requireAuth, async (req: Authed
     return;
   }
 
-  const last = state.games.pop();
-  if (!last) {
+  // Popping the race, restoring the arrangement of karts it was raced under,
+  // and replaying the throne so it cannot drift, in that order and for the
+  // reason spelled out on undoMkRace. Grand Prix cups are derived from the
+  // games log, so undo needs no cup fixup.
+  const { unmaterializeIdx } = undoMkRace(state);
+  if (unmaterializeIdx === null) {
     res.json({ ...rt.viewOf(loaded), empty: true });
     return;
   }
-  await rt.deleteMaterialized(eventId, state.sessionKey, last.idx);
-
-  // Undoing back PAST a reshuffle restores the arrangement of karts that was in
-  // force before it, and it has to happen BEFORE the throne is rebuilt: the
-  // rebuild replays the races run under the arrangement now in force, so a
-  // rebuild against an arrangement nothing was raced under any more hands the
-  // table to a kart that never won it.
-  truncateSideLog(state.sideSets, state.games.length);
-
-  // KOTH: replay the throne from the opening order so it can't drift. Grand
-  // Prix cups are derived from the games log, so undo needs no cup fixup.
-  if (state.format === "koth") rebuildMkKoth(state);
+  await rt.deleteMaterialized(eventId, state.sessionKey, unmaterializeIdx);
 
   const view = await rt.saveState(loaded, "live", origin);
   broadcast({ type: "leaderboard_updated", eventId }, origin);

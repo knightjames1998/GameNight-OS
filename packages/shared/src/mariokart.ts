@@ -93,6 +93,7 @@ import {
   newSideLog,
   reshuffle,
   sidesAtIdx,
+  truncateSideLog,
   type SideLog,
 } from "./sidelog.js";
 
@@ -409,6 +410,14 @@ export function mkKothAdvance(koth: MkKothState, winner: Side, loser: Side): MkK
   return { kingSideId: winner.id, queue, streak, bestStreak };
 }
 
+/** The two karts up next: the one holding the table and the front of the queue. */
+export function mkKothPair(state: MkSessionState): { king: Side; challenger: Side } | null {
+  const king = mkSideById(state, state.koth?.kingSideId);
+  const challenger = mkSideById(state, state.koth?.queue[0]);
+  if (!king || !challenger || king.id === challenger.id) return null;
+  return { king, challenger };
+}
+
 /**
  * Rebuild the throne and queue by REPLAYING the races run under the current
  * arrangement. Mutates.
@@ -438,6 +447,25 @@ export function rebuildMkKoth(state: MkSessionState): void {
     k = mkKothAdvance(k, winner, loser);
   }
   state.koth = k;
+}
+
+/**
+ * Undo the last recorded race. Mutates. Returns the idx the caller has to
+ * un-materialize from the ledger, or null when there was nothing to undo.
+ *
+ * THE ORDER OF THE TWO STEPS IS THE WHOLE FUNCTION, which is why it is here
+ * rather than inline in a route. Truncating the side log has to happen BEFORE
+ * the throne is rebuilt: the rebuild replays the races run under the
+ * arrangement in force, so rebuilding first would replay them under an
+ * arrangement that nothing is raced under any more and hand the table to a kart
+ * that never won it. Nothing errors either way, and the screen is simply wrong.
+ */
+export function undoMkRace(state: MkSessionState): { unmaterializeIdx: number | null } {
+  const last = state.games.pop();
+  if (!last) return { unmaterializeIdx: null };
+  truncateSideLog(state.sideSets, state.games.length);
+  if (state.format === "koth") rebuildMkKoth(state);
+  return { unmaterializeIdx: last.idx };
 }
 
 // ---------- recording a best-of set ----------
