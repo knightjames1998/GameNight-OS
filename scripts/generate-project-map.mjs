@@ -75,11 +75,11 @@ const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
 // (row 1 860 -> 920).
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
-// each 480 wide, row 1 y=95 h=1600, row 2 y=1720 h=840. Items 440x40, 46px
+// each 480 wide, row 1 y=95 h=1950, row 2 y=2070 h=1020. Items 440x40, 46px
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
-    x: 40, y: 95, h: 1600,
+    x: 40, y: 95, h: 1950,
     title: "SHIPPED — FOUNDATION", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Auth: 6-digit codes + links + passwords" },
@@ -98,12 +98,12 @@ const ZONES = [
       { t: "One TV button per night: /e/:id/tv auto-follows" },
       { t: "One pack registry: SESSION_PACKS, one entry per pack" },
       { t: "Pack picker groups: Nintendo / Casino / Bar / Other" },
-      { t: "TABLETOP THEME, SHELL COMPLETE: 73 tokens, warm-dark palette, real felt tile + rail, translucent cards, woodtype face, Ping Pong pilot", h: 88 },
-      { t: "BRACKETED TVs: shared round order, a STILL-ALIVE board in place of latest results, and a round strip. Both TVs, one rule each (NEW)", bg: "#c3fae8", h: 88 },
+      { t: "TABLETOP THEME, SHELL COMPLETE AND REPAIRED: 80 tokens, warm-dark palette, a REAL felt tile (the shipped one was a 39-byte placeholder), a lamp that is a pool, cards that cast instead of being outlined, a mitred four-plank rail, woodtype face (NEW)", bg: "#c3fae8", h: 130 },
+      { t: "BRACKETED TVs: shared round order, a STILL-ALIVE board in place of latest results, and a round strip. Both TVs, one rule each", h: 88 },
     ],
   },
   {
-    x: 560, y: 95, h: 1600,
+    x: 560, y: 95, h: 1950,
     title: "SHIPPED — GAME PACKS", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Beerio Kart: full replica, predictions, TV" },
@@ -128,21 +128,23 @@ const ZONES = [
       { t: "TITLE-NIGHT LAYER extracted from Board Game: engine, screens and routes, shared by two packs", h: 70 },
       { t: "CARD TABLE: the pack that is a config file. 50-line router, partnership defaults on Euchre and Spades", h: 88 },
       { t: "SOCIAL DEDUCTION (both parts): roles in a SEPARATE STORE so the session payload is public-safe by construction, factions with solo third parties, live moderator board, public TV that never leaks an unrevealed role, fits 20 at 1080p", h: 130 },
+      { t: "MARIO KART PAIRS: two players, one kart, across all four formats. Sides all the way through, sidelog.ts extracted at the second consumer, Double Dash opens in pairs at exactly four (NEW)", bg: "#c3fae8", h: 106 },
+      { t: "BOARD GAME wears the cloth: the stage 4 worked example. Same tile at an olive tint, the pack composing its own layer list, and the identity question settled for the other eight (NEW)", bg: "#c3fae8", h: 106 },
     ],
   },
   {
-    x: 1080, y: 95, h: 1600,
+    x: 1080, y: 95, h: 1950,
     title: "NEXT UP (queued)", zoneBg: "#fff3bf", header: "#b45309", itemBg: "#ffd8a8",
     items: [
-      { t: "1. Poker (cash engine PLUS a tournament format)", sw: 2, h: 52 },
+      { t: "1. Poker CASH GAME: the cash engine plus a no-banker table. Tournament format is its own session", sw: 2, h: 70 },
       { t: "2. Smash Tournament format (bracket + fighters)", sw: 2, h: 52 },
       { t: "3. Party games (Board Game plus a side)", sw: 2, h: 52 },
-      { t: "Tabletop theme STAGE 4: the remaining 9 packs (LAST, James 08-04)", h: 52 },
+      { t: "Tabletop theme STAGE 4: the remaining EIGHT packs. Mechanism settled, casino tints settled, per-pack now (LAST, James 08-04)", h: 70 },
       { t: "More packs: darts" },
     ],
   },
   {
-    x: 40, y: 1720, h: 840,
+    x: 40, y: 2070, h: 1020,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
       { t: "PARTNER STATS: who you win most with (the primitive's missing payoff)", h: 52 },
@@ -160,24 +162,28 @@ const ZONES = [
     ],
   },
   {
-    x: 560, y: 1720, h: 840,
+    x: 560, y: 2070, h: 1020,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
-      { t: "OPEN: the felt does not reach the PACKS (no pack root mounts .gn-app / .gn-tv)", h: 52 },
+      { t: "OPEN: Mario Kart's TV does not fit 1080p past EIGHT racers, and was never in the fit harness", h: 52 },
       { t: "OPEN: Casino Run's TV has the same back-button blind spot the money board had", h: 52 },
       { t: "OPEN: Ping Pong's TV does not fit 1080p past SIX players (pre-existing)", h: 52 },
-      { t: "OPEN: Board Game / Card Table TV is 176px over 1080p at TWELVE players", h: 52 },
-      { t: "OPEN: NEITHER bracketed TV fits 1080p, and never has (nothing measured them until 08-15)", h: 52 },
+      { t: "OPEN: Board Game / Card Table TV is 156px over 1080p at TWELVE players", h: 52 },
+      { t: "FIXED: the felt REACHES the packs. Mechanism plus Board Game; eight conversions are stage 4, not a bug", bg: "#b2f2bb", h: 52 },
+      { t: "FIXED 08-15: neither bracketed TV fitted 1080p, and neither ever had. Density ladder per screen", bg: "#b2f2bb", h: 52 },
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
       { t: "Watch: countLastPlace IN list grows without bound", bg: "#fff3bf", h: 52 },
       { t: "Watch: ws hub broadcasts everything to everyone (no rooms)", bg: "#fff3bf", h: 52 },
       { t: "Watch: drizzle push can no-op in CI, check build log", bg: "#fff3bf", h: 52 },
       { t: "Watch: color-mix's opaque fallback on pre-2023 browsers (shell-wide since stage 1)", bg: "#fff3bf", h: 52 },
       { t: "Watch: the canvas share cards follow NO theme (16 hardcoded colours, JS not CSS)", bg: "#fff3bf", h: 52 },
+      { t: "Watch: the sweep tracks no BOX-MODEL length, so padding and border-width move unseen", bg: "#fff3bf", h: 52 },
+      { t: "Watch: judge a tiling texture at the PAINTED size; felt-variance scored a lattice higher", bg: "#fff3bf", h: 52 },
+      { t: "Watch: Bevan overflows the stats tile on .gn-h2 at 390px (display face needs a width budget)", bg: "#fff3bf", h: 52 },
     ],
   },
   {
-    x: 1080, y: 1720, h: 840,
+    x: 1080, y: 2070, h: 1020,
     title: "IDEAS — NOT SOLIDIFIED", zoneBg: "#e5dbff", header: "#6d28d9", itemBg: "#d0bfff",
     items: [
       { t: "Draft night mode (snake drafts, TV board)" },

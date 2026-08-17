@@ -12,19 +12,9 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-15 (the bracketed-TV fit session)
-    Shipped sessions since that redraw: 4
+    Last map redraw:                    2026-08-17 (the Poker session, before its own work)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
-
-    A REDRAW WAS DUE AT THE START OF 2026-08-17 AND WAS SKIPPED, so the counter is CARRIED
-    to 4 rather than reset, which is what the rule says to do with a skip. The session was
-    handed a written scope (the Tabletop repair and the stage 4 mechanism) with its own
-    verification list, and that scope did not include the map. RECONCILING THIS FILE WAS
-    NOT SKIPPED, only the drawing: the sections below are current as of that session.
-    THE REDRAW IS THE FIRST THING THE NEXT SESSION DOES, before its own work, and it has
-    a lot to draw: zone 2 takes Board Game's conversion, zone 3's STAGE 4 item changes
-    shape now that the mechanism exists and eight packs remain, and zone 5 loses "the felt
-    does not reach the packs" and gains two harness gaps.
 
     THE RULE, applied to the two numbers above and to nothing else:
 
@@ -58,36 +48,42 @@ anyone's memory of how many sessions have happened.
       - 2026-08-10, the role-catalogue pass. Zone 2 took Card Table and Social Deduction,
         both (NEW); row 1 grew 1400 -> 1600; zone 3 shrank 7 items to 5; zone 5 took Board
         Game's and Card Table's shared TV overflow as an OPEN bug.
-      - 2026-08-15, this pass. Below.
+      - 2026-08-15, the bracketed-TV fit pass. Zone 1 took the still-alive board; zone 2 was
+        unchanged at 22; zone 5 swapped one for one; no row moved.
+      - 2026-08-17, this pass. Below.
 
     What this pass changed beyond the counter:
-      - THE MERGE CAME FIRST, THE REDRAW SECOND, and that is a reading of the rule rather
-        than an exception to it. The counter reached 3 on a branch that was already written
-        and already verified; landing it was shipping finished work, not feature work
-        jumping the queue, and reconciling AFTER the merge drew the true state instead of
-        one that was about to change. The rule protects the redraw from a session's OWN
-        new work, which is what part 3 of this session (the fit ladder) waited for.
-      - ZONE 1 TOOK ONE, (NEW): the bracketed TVs' still-alive board and round strip. Zone
-        1 rather than zone 2 because that is the heading it lives under: it changes the
-        SHELL's /tv/:id as much as Beerio's TV, and the shared derivations are in
-        packages/shared. First shell item since the tabletop pilot.
-      - ZONE 2 UNCHANGED AT 22, and Card Table and Social Deduction lost their (NEW). That
-        is the whole job of a (NEW) marker: one redraw's worth.
-      - ZONE 5 SWAPPED ONE FOR ONE, still 11. It gained the bracketed-TV fit bug, which
-        the last pass could not have drawn because nothing had ever measured those two
-        screens, and lost the rail safe-area FIXED item, which was drawn on the 08-09 and
-        08-10 passes and aged out on schedule. Five OPEN, six Watch, none FIXED.
-      - NO ROW MOVED, and the first draft of this pass raised row 1 to 1700 before
-        measuring anything. Reading the generated file back caught it: zone 1's content
-        ends at 1141 in a zone ending at 1695, so 18 items leave it 554px, and zone 2 is
-        untouched on its 106. Nothing over, nothing tight. "Raise a row when a zone is
-        over; leave it when a zone is under" cuts both ways, and a row that moves on a pass
-        that did not need it drags every zone below it for no reader's benefit.
-      - ZONES 3, 4 AND 6 UNCHANGED. Nothing left NEXT UP: the numbered three are still
-        Poker, Smash Tournament and Party games, and this session's work came out of the
-        previous session's closeout rather than off the queue.
+      - THE REDRAW WENT FIRST, which is what the previous pass owed and skipped. The counter
+        read 4 at the start of this session, not 3, because 2026-08-17's Tabletop repair
+        carried it forward with a logged skip rather than resetting it. That is the escape
+        clause working: the skip was visible in this block, it named what would need drawing,
+        and the next session did it before touching its own scope.
+      - ZONE 1 TOOK NO NEW ITEM AND REWROTE ONE, which is the 2026-08-04 precedent (that pass
+        absorbed three felt sessions into the same item). The tabletop entry claimed "real
+        felt tile" while the shipped tile was a 39-byte placeholder, so the repair does not
+        sit beside it as a second item, it makes the first one TRUE. Marked (NEW) because it
+        genuinely shipped this pass. The bracketed-TV item lost its (NEW) on schedule.
+      - ZONE 2 TOOK TWO, both (NEW), and went 22 to 24: Mario Kart pairs, and Board Game
+        wearing the cloth. Board Game's is a PACK item rather than part of zone 1's tabletop
+        entry, because what shipped is the pack's own identity and its own token block; the
+        shell mechanism that made it possible is what stayed in zone 1.
+      - ZONE 3'S FIRST ITEM SPLIT IN TWO AND ONLY HALF IS QUEUED. Poker was one item covering
+        a cash engine and a tournament format; the tournament half is now explicitly its own
+        session, because blind levels are a wall-clock timer shared across devices, which is
+        a live-sync problem rather than a money one. Stage 4 went from nine packs to eight
+        with its mechanism settled.
+      - ZONE 5 WENT 11 TO 15 AND ITS SHAPE CHANGED. It gained Mario Kart's TV overflow (found
+        08-16, after the last redraw) and three Watch traps out of the repair, and TWO items
+        flipped to FIXED: the felt reaching the packs, and the bracketed TVs, which the last
+        pass drew as OPEN on the day they were fixed. That was a reconcile miss and this is
+        the correction. Four OPEN, two FIXED, nine Watch.
+      - ROW 1 GREW 1600 TO 1950 IN TWO STEPS INSIDE ONE PASS, and the second step is the
+        measure-the-file rule paying for itself again. 1800 was sized to fit the two new zone
+        2 items and did, with 82px left; the Poker item this SAME session ships is a 130px
+        box, so 1800 would have shipped a map that overflowed before the week was out.
+        Row 2 grew 840 to 1020 for zone 5's four new entries and moved to y=2070.
     Zone heights checked against their contents by reading the generated file back, not
-    by hand. Canvas 1560x2560; panorama camera 1600x2610.
+    by hand. Canvas 1560x3090; panorama camera 1600x3140.
 
 ## MAP PROTOCOL
 How and when the Excalidraw project map gets redrawn. Written so any session reproduces
@@ -120,7 +116,7 @@ another reference section does not change the map; adding or renaming one of the
 above does, and must update this table in the same commit.
 
 **Layout (fixed, so redraws are stable):** 3 columns x 2 rows. Columns at x=40, 560, 1080,
-each 480 wide. Row 1 at y=95 (height 1400), row 2 at y=1520 (height 840). Zone header text
+each 480 wide. Row 1 at y=95 (height 1950), row 2 at y=2070 (height 1020). Zone header text
 15px below zone top, fontSize 22. Items 440 wide, 40 tall, 46px step, first item 50px below
 zone top; give a taller box (52-70) to any item whose label wraps past one line. Row 1 grew
 from 540 to 730 on 2026-07-27 (SHIPPED FOUNDATION reached 14 items and overflowed its
@@ -130,8 +126,12 @@ pass, when the two newly rendered shipped sessions needed exactly the 92px of sl
 had left, from 860 to 920 on 2026-07-29, when zone 1's remaining 42px was 4px short of
 the 46px one more item costs, from 920 to 990 on 2026-07-30, when zone 2 took three
 multi-line casino items in one pass, from 990 to 1120 on 2026-08-02, when zone 2 took
-declarative modifiers and Casino Run, and from 1120 to 1400 on 2026-08-09, when zone 2 took
-the Board Game pack, the team primitive and the title-night layer in one pass. Each time it was raised pre-emptively rather than
+declarative modifiers and Casino Run, from 1120 to 1400 on 2026-08-09, when zone 2 took
+the Board Game pack, the team primitive and the title-night layer in one pass, from 1400 to
+1600 on 2026-08-10 when zone 2 reached 22 items, and from 1600 to 1950 on 2026-08-17 in two
+steps within one pass: 1800 took zone 2's two new items, and reading the file back showed
+that left only 82px, which does not fit the Poker item the SAME session was about to ship,
+so it went to 1950. Each time it was raised pre-emptively rather than
 waiting for the next entry to overflow it, since the fix is mechanical and the trap would
 have landed on whoever added the next line.
 ROW 2 GREW FOR THE FIRST TIME on 2026-08-02, 530 to 660: it had been a fixed height through
@@ -144,6 +144,10 @@ When a zone outgrows its height again, raise EVERY zone in its row together (the
 THREE per row, not two: the stage 2 pass raised FEATURES and BUG FIXES and left IDEAS
 behind at the old height, which the generated-file check below caught immediately), and if
 it is row 1, push row 2 down by the same amount so the columns stay aligned.
+ROW 2 GREW AGAIN on 2026-08-17, 840 to 1020: zone 5 went to 15 items (a new OPEN for Mario
+Kart's TV, two entries flipping to FIXED, and three new Watch traps out of the Tabletop
+repair) and needed 920px of its 840. Row 2 also MOVED, 1720 to 2070, because row 1 grew and
+the columns stay aligned.
 A ZONE THAT SHRINKS DOES NOT SHRINK ITS ROW, and 2026-08-04 is the first pass where that
 came up: zone 5 dropped four aged-out FIXED items and needs 572px of its 840. The height
 stays, because the queue below it (a pack into zone 2, four items into zone 3) will refill
@@ -158,8 +162,8 @@ they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb).
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x2610 at the current zone heights; the canvas
-itself measures 1560x2560, read off the generated file rather than assumed. This line read
+on a panorama covering the full canvas (1600x3140 at the current zone heights; the canvas
+itself measures 1560x3090, read off the generated file rather than assumed. This line read
 2410 for four passes after the heights it describes had moved, which is why a redraw checks
 it against the file). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 
@@ -316,7 +320,7 @@ deduction, poker, smash tournament, party games. Two things worth reading off th
     reach the packs (BUGS), the casino group's identity problem is still unsolved, and the
     per-pack checklist is still the checklist. None of it is this month's problem.
 
-- [ ] 1. POKER, same engine and same screens, and LAST of the four CASH packs on purpose (Casino Run shipped before it and does not change that: it is a fifth casino pack but not a cash one, and shares no engine with them): it is the only one that carries a SECOND format on top of the net-based one. A `tournament` format is placement-based rather than net-based (one buy-in, a finishing position, a payout), which the cash engine does not model, so poker needs both paths in one pack. Pack-specific on the cash side: biggest pot and a bad-beat note.
+- [ ] 1. POKER, CASH GAME FIRST. **ANSWERS LOCKED 2026-08-17** (James): both formats eventually, cash game first; NO hand-to-hand tracking, buy-ins and final stacks only; lifetime stats carry both, with PROFIT as the headline; real stakes are the default and `play` is the per-session opt-out; the variant (Hold'em, Omaha, Stud, dealer's choice) rides `nowPlaying` on the title-night pattern rather than the Casino Run modifier system; identity is OXBLOOD, which is unclaimed (blackjack #1a120f, roulette #0d2a20, craps #0e1e38, Casino Run #1a1030 are all taken). **THE TOURNAMENT FORMAT IS ITS OWN SESSION**, because blind levels are a wall-clock timer shared across devices, which is a live-sync problem rather than a money one, and mixing it in is how the cash game ends up half-finished. The original entry: same engine and same screens, and LAST of the four CASH packs on purpose (Casino Run shipped before it and does not change that: it is a fifth casino pack but not a cash one, and shares no engine with them): it is the only one that carries a SECOND format on top of the net-based one. A `tournament` format is placement-based rather than net-based (one buy-in, a finishing position, a payout), which the cash engine does not model, so poker needs both paths in one pack. Pack-specific on the cash side: biggest pot and a bad-beat note.
 - [ ] 2. Smash Tournament format: a fifth option in the Smash format picker that launches a bracket from the Smash session roster and materializes with fighters. Today Smash tournaments run through the generic bracket.
 - [ ] 3. PARTY GAMES pack. Titles: Codenames, trivia, charades, Fishbowl, Jackbox. Board Game plus a side: two teams, tap the winning side, optional score, title on `matches.label`. **THE SHARING IT IS PRICED ON NOW EXISTS, and that is stated deliberately because this file got that wrong about Card table once** (see DECISION LOG, 2026-08-05): the title-night layer, its screens, its routes and the team picker all shipped by 2026-08-09, and Card Table is the worked example of a pack that is a config file plus a palette. So this really is a registry entry, a title list with partnership defaults on most of them, a copy file, a theme and the registration checklist. (Codenames is deliberately absent from Board Game's curated starter list for exactly this reason.)
 - [ ] Tabletop theme, STAGE 4: THE REMAINING EIGHT PACKS. **UPDATED 2026-08-17: Board Game is converted, the mechanism is settled, and the identity question is ANSWERED** (see SHIPPED and the DECISION LOG). Read those before starting: the answer is the same cloth at a different tint, one tile named once in `--gn-felt-tile`, and a pack composing its OWN layer list because a custom property containing a var() resolves where it is declared. The casino group's four tints (deep green, oxblood, royal, charcoal) are settled and need no further design work; what remains per pack is a tint decision measured against that pack's own accent on its lit crown, a token block, its pairs in `theme-contrast.test.ts`, its baize in `generate-felt-tile.mjs`'s guard list, and a line in `copy-rules.test.ts`. Order from here: the casino four (nearly free, one `--cg-*` contract), then Ping Pong (tokenised already, only the cloth missing), Card Table, Social Deduction, Smash, Mario Party, Mario Kart and Casino Run. Beerio Kart is permanently exempt. The original entry, kept for the parts still true: THE REMAINING NINE PACKS (stages 1 to 3 and the PILOT shipped 2026-08-02, see SHIPPED — FOUNDATION). Ping Pong is converted and the mechanism is settled and written down in the DECISION LOG; the nine that follow apply it and should not re-derive it. **IT WAS EIGHT UNTIL 2026-08-04**, when Board Game shipped unconverted; that pack also carries the group's identity problem in its sharpest form, because it is walnut and brass under Arcade already and Tabletop's base is walnut and brass, so it is the one to settle the "identity from something other than the base material" question on if the casino group does not get there first. **NEXT: THE CASINO GROUP**, and it is nearly free: four packs, one `--cg-*` contract, roughly twenty lines each. **ONE DESIGN PROBLEM TO SETTLE BEFORE STARTING IT:** Tabletop's base is already felt and brass, so a casino pack re-treated in felt and brass dissolves into the shell and the four stop reading as four. Their identity has to come from something other than the base material (the table layout, the chip colours, the rail, the cloth's weave direction) and that is a design call, not a conversion. Then Smash, Mario Party, Mario Kart and Casino Run individually. Beerio Kart is permanently exempt. **AND ONE ITEM THAT CAME BEFORE ANY OF THEM AND IS NOW DONE FOR THE MECHANISM: THE FELT DID NOT REACH THE PACKS** (found 2026-08-03, fixed 2026-08-17 for the shell contract and for Board Game, see BUGS). The shell's cloth hangs off `.gn-app::before` / `.gn-tv::before` and no pack page mounts either class, so Tabletop's felt stops at exactly the screens the direction is about. Every pack's surface has to carry the cloth itself, and the 2026-08-17 correction to this sentence is that it must NOT read `--gn-texture`: that token resolves at `:root` and carries the shell's own `--gn-felt-lit`, so a pack reading it lights its table in the shell's green. It composes its own list out of `--gn-felt-tile`, `--gn-lamp-geom` and `--gn-lamp-fade` plus its own colours, which is roughly ten lines each and a decision about tint per pack — settle it once, on the pack the casino group converts first, rather than nine times. **PER-PACK CHECKLIST, from the pilot:** add the pack to `TOKENISED_CSS` in `copy-rules.test.ts` on the same commit that converts it, add its contrast pairs and its identity assertion to `theme-contrast.test.ts`, put the cloth on the pack's own surface, and run `node scripts/theme-sweep.mjs` under both themes (its rule pass already visits one route per pack). **TWO FOLLOW-UPS THE PILOT DELIBERATELY DID NOT DO:** the nine `--gn-cab-*` cabinet tokens still live in `index.css` and their own comment says stage 4 moves them onto the packs, but doing it inside a pack conversion mixes a shell refactor into a pack change and makes the identical-under-Arcade result ambiguous, so it wants its own commit (note that Ping Pong's `--pp-edge`/`--pp-card` are the SAME VALUES as `--gn-cab-pp-edge`/`--gn-cab-pp-top`, so the identity is currently written down twice); and the canvas share cards (`RECAP` in `recap.tsx`, `C` in `MemberPage.tsx`) follow no theme at all, which is a different rendering path and its own session, logged as a Watch trap in BUGS.
