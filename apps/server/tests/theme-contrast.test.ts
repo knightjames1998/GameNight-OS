@@ -101,14 +101,36 @@ const rgba = (v: string) => v.match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d
 const toHex = (c: number[]) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
 const composite = (fg: number[], alpha: number, bg: number[]) => fg.map((v, i) => v * alpha + bg[i]! * (1 - alpha));
 
-/** The lamp at the strength index.css paints it, over the theme's own felt. */
+/**
+ * The lamp at the strength index.css paints it, over the theme's own felt.
+ *
+ * SINCE THE LAMP BECAME A POOL THAT IS SIMPLY --gn-felt-lit. This used to
+ * composite the lit colour at 85%, which matched a lamp whose brightest stop was
+ * 88% and whose centre sat ON the top edge of the screen at `at 50% 0%`, so the
+ * full value was never actually painted anywhere a person could read. The
+ * revised geometry puts the centre at `50% 5%`, inside the viewport, and its
+ * first stop at full strength: the brightest surface text lands on is exactly
+ * --gn-felt-lit. Keeping the old 0.85 here would measure a screen that no longer
+ * exists, and it would measure it 0.3 of a ratio point too generously.
+ * scripts/generate-felt-tile.mjs holds the same constant, spelled out.
+ */
 function crown(theme: Record<string, string>): number[] {
-  return composite(hexToRgb(value(theme, "--gn-felt-lit")), 0.85, hexToRgb(value(theme, "--gn-felt")));
+  return hexToRgb(value(theme, "--gn-felt-lit"));
 }
 
-/** A token as an opaque colour: itself, or its composite over the crown. */
+/**
+ * A token as an opaque colour: itself, or its composite over the crown.
+ *
+ * ONE HOP OF var() INDIRECTION IS RESOLVED, so a token may be pointed at another
+ * token instead of respelling a colour. --gn-tab-on-fill is var(--gn-ink) under
+ * Arcade and var(--gn-gold) under Tabletop, and the alternative to resolving it
+ * here is writing #f4ecff into a second place, which is the exact drift the
+ * whole token block exists to prevent.
+ */
 function solid(theme: Record<string, string>, token: string): string {
-  const v = value(theme, token);
+  let v = value(theme, token);
+  const ref = /^var\((--gn-[a-z0-9-]+)\)$/.exec(v);
+  if (ref) v = value(theme, ref[1]!);
   const m = rgba(v);
   if (!m) return v;
   return toHex(composite([+m[1]!, +m[2]!, +m[3]!], m[4] === undefined ? 1 : +m[4]!, crown(theme)));
@@ -215,6 +237,22 @@ const CLOTH_PAIRS: [string, string][] = [
   ["--gn-dim", "--gn-felt-lit"],
 ];
 
+/**
+ * PAIRS THAT MUST CLEAR AA BUT ARE NOT HELD TO PARITY, held apart for the same
+ * reason CLOTH_PAIRS is: parity compares a theme against Arcade for the SAME
+ * pair, and that is only meaningful when the pair is the same object in both.
+ *
+ * The selected pill tab is not. Under Arcade it is --gn-ink on --gn-bg, a white
+ * lozenge, and that is the single brightest object on a Tabletop home screen by
+ * a wide margin, which is why it becomes brass with dark ink. 16.09 against
+ * 11.01 is a real 5-point loss and it is 5 points of a pair that was at 16:
+ * asserting parity over it would be asserting that the theme was not allowed to
+ * make the change it exists to make. The AA floor is the assertion that matters.
+ */
+const AA_ONLY_PAIRS: [string, string][] = [
+  ["--gn-tab-on-ink", "--gn-tab-on-fill"],
+];
+
 const THEME_BLOCKS: [string, Record<string, string>][] = [
   ["arcade", ARCADE],
   ["tabletop", TABLETOP],
@@ -223,7 +261,7 @@ const THEME_BLOCKS: [string, Record<string, string>][] = [
 test("every theme clears WCAG AA on the pairs that carry text", () => {
   const failures: string[] = [];
   for (const [name, theme] of THEME_BLOCKS) {
-    for (const [fg, bg, floor = 4.5] of [...PAIRS, ...CLOTH_PAIRS] as [string, string, number?][]) {
+    for (const [fg, bg, floor = 4.5] of [...PAIRS, ...CLOTH_PAIRS, ...AA_ONLY_PAIRS] as [string, string, number?][]) {
       const ratio = contrast(solid(theme, fg), solid(theme, bg));
       if (ratio < floor) failures.push(`${name}: ${fg} on ${bg} = ${ratio} (needs ${floor})`);
     }
@@ -253,25 +291,24 @@ test("TABLETOP HOLDS CONTRAST PARITY WITH ARCADE, pair for pair", () => {
   // --gn-p1 from 6.21 to 8.62, and failing a build over that is the test
   // working in the wrong direction.
   //
-  // AND ONE NAMED EXEMPTION LIST, RATHER THAN A WIDER TOLERANCE. Tabletop's
-  // card is rgba(0,0,0,.24), a darkening of lit cloth instead of an opaque
-  // walnut panel, and it is a good deal lighter than the panel it replaced, so
-  // every accent printed on a card loses ground. That is a real parity
-  // regression by this test's own definition and it is an ACCEPTED one (James,
-  // on the alpha): the material is the point, and the AA test above still holds
-  // the floor for every pair here. It is written out pair by pair with the
-  // numbers, exactly as --gn-faint's 3.0 floor is, so the cost is on the page
-  // and so a tenth pair cannot join the list without somebody adding a line.
-  // If the alpha ever goes back up, these come off.
+  // AND ONE NAMED EXEMPTION LIST, RATHER THAN A WIDER TOLERANCE. This ran to
+  // eight lines while Tabletop's card was rgba(0,0,0,.24): a card that light
+  // costs every accent printed on it, and that was accepted (James, on the
+  // alpha) because the material was the point.
+  //
+  // SEVEN OF THE EIGHT CLOSED WHEN THE CARD WENT TO .62, and they are deleted
+  // rather than left sitting here, which the assertion below has always
+  // required: an exemption for a pair that no longer drifts is a line nobody
+  // needs and a place a future regression on that pair could hide. For the
+  // record, they closed at --gn-ink 12.97, --gn-gold 8.78, --gn-danger 7.36,
+  // --gn-danger-hover 9.06, --gn-yes 6.26, --gn-act 8.22, --gn-act-ink 9.95.
+  // Deleting them is the whole point of paying for a heavier card.
   const CARD_COST = new Map([
-    ["--gn-ink on --gn-surf", "14.45 -> 10.06"],
-    ["--gn-p2 on --gn-surf", "9.97 -> 5.77"],
-    ["--gn-gold on --gn-surf", "11.26 -> 6.81"],
-    ["--gn-danger on --gn-surf", "8.19 -> 5.71"],
-    ["--gn-danger-hover on --gn-surf", "10.06 -> 7.02"],
-    ["--gn-yes on --gn-surf", "8.28 -> 4.85"],
-    ["--gn-act on --gn-surf", "7.36 -> 4.76"],
-    ["--gn-act-ink on --gn-surf", "9.74 -> 7.03"],
+    // The one that survives, and it is felt green against Arcade's neon teal
+    // rather than anything about the card: --gn-p2 is a green that is actually
+    // green, which is the known and accepted cost logged when the palette
+    // landed. It loses 2.53 of 9.97 and still sits at 7.44, well over AA.
+    ["--gn-p2 on --gn-surf", "9.97 -> 7.44"],
   ]);
   const drifted: string[] = [];
   for (const [fg, bg] of PAIRS) {
@@ -347,6 +384,9 @@ test("A THEME OWNS ITS MATERIAL, not just its palette", () => {
     "--gn-texture-blend",
     "--gn-texture-size",
     "--gn-texture-size-tv",
+    // The tile itself, which is the material rather than a treatment of it: it
+    // is what every pack composes its own table out of.
+    "--gn-felt-tile",
     // The cloth and the light on it. A flat surface is a page; a surface with a
     // lamp over it is a table, and it is also what lifts the middle of the
     // screen enough for the weave to be visible at all.
@@ -408,6 +448,26 @@ test("A TABLE HAS AN EDGE AND AN ARCADE CABINET DOES NOT", () => {
     ["--gn-rail-grain", "none"],
     ["--gn-rail-grain-v", "none"],
     ["--gn-rail-face", "none, none, none, none"],
+    // The four mitred planks and their two shared overlays. These are read by
+    // UNSCOPED rules on four real elements that sit in index.html under every
+    // theme, so their inertness under Arcade is doing exactly the job
+    // --gn-rail-face's four `none` layers do: the markup exists, the paint does
+    // not. At --gn-rail-w 0px each plank also clips to zero area, so this is
+    // belt and braces on purpose.
+    ["--gn-plank-t", "none"],
+    ["--gn-plank-b", "none"],
+    ["--gn-plank-l", "none"],
+    ["--gn-plank-r", "none"],
+    ["--gn-plank-grain-h", "none"],
+    ["--gn-plank-grain-v", "none"],
+    ["--gn-plank-gloss-h", "none"],
+    ["--gn-plank-gloss-v", "none"],
+    // NOT A RAIL TOKEN, AND HERE ANYWAY, because it is the same promise: a
+    // browser fetches a background image only when a rendered element uses one,
+    // so `none` here is what keeps an Arcade session from paying for the tile.
+    // It sat inside --gn-texture until the cloth had to reach a pack, and a
+    // filename that has moved once is a filename that can move again.
+    ["--gn-felt-tile", "none"],
     // currentcolor rather than transparent, and that is not a typo: it is the
     // initial value of outline-color, so Arcade computes exactly what it
     // computed before the stitch existed an outline at all.
@@ -452,8 +512,63 @@ test("A TABLE HAS AN EDGE AND AN ARCADE CABINET DOES NOT", () => {
     /^-\d/,
     "the stitch sits IN from the cloth's edge, not flush against it",
   );
-  assert.notEqual(TABLETOP["--gn-radius-rail"], "0px", "a table has rounded corners");
+  // THE OUTER CORNER IS SQUARE, and this assertion is the reverse of the one it
+  // replaces ("a table has rounded corners"). A mitre runs from the outer corner
+  // to the inner one at 45 degrees and the bevel lines meet on it; on a radius
+  // the outer end of that joint has nowhere to land, so a mitre and a rounded
+  // outer corner are mutually exclusive. The joint is worth more than the
+  // radius: a butt joint is what made the shipped frame read as four separate
+  // strips laid over each other. The cloth inside the timber still rounds.
+  assert.equal(
+    TABLETOP["--gn-radius-rail"],
+    "0px",
+    "the rail is mitred, so its outer corner must be square: see --gn-plank-* in index.css",
+  );
   assert.notEqual(TABLETOP["--gn-radius-felt"], "0px", "the cloth is rounded inside the timber");
+
+  // A PLANK IS FLAT ACROSS ITS FACE AND ITS GRAIN RUNS ALONG ITS LENGTH. Both
+  // are the difference between timber and piping, and both are one careless
+  // "simplify the gradient" away from being lost.
+  for (const t of ["--gn-plank-t", "--gn-plank-b", "--gn-plank-l", "--gn-plank-r"]) {
+    assert.match(TABLETOP[t]!, /^linear-gradient/, `${t} must draw a plank cross-section`);
+  }
+  assert.notEqual(
+    TABLETOP["--gn-plank-t"],
+    TABLETOP["--gn-plank-b"],
+    "one lamp above the table means the top rail faces it and the bottom rail does not; " +
+      "equal tones make every mitre disappear",
+  );
+  assert.match(
+    TABLETOP["--gn-plank-grain-h"]!,
+    /^repeating-linear-gradient\(179deg/,
+    "grain on a horizontal plank runs ALONG it; the 94deg the old rail used draws " +
+      "near-vertical stripes on a horizontal timber, which is grain across the board",
+  );
+  assert.match(
+    TABLETOP["--gn-plank-grain-v"]!,
+    /^repeating-linear-gradient\(89deg/,
+    "grain on a vertical plank runs along it too",
+  );
+  // The four elements exist, unconditionally, and each is clipped to a
+  // trapezoid. Backgrounds cannot be masked layer by layer, so this geometry IS
+  // the mitre; a rule that lost its clip-path would silently go back to four
+  // overlapping strips and look almost right.
+  for (const side of ["t", "r", "b", "l"]) {
+    assert.ok(
+      HTML.includes(`class="gn-rail__${side}"`),
+      `the rail's ${side} plank must be in index.html, added for every theme rather than ` +
+        "left for a theme to remember",
+    );
+    // ALL the rules naming this plank, not the first: the four share a rule for
+    // their position and repeat, and for the last side in that list the shared
+    // selector matches `.gn-rail__l{` too. Only one of them carries the clip.
+    const rules = [...CSS_BARE.matchAll(new RegExp(`\\.gn-rail__${side}\\s*\\{([^}]*)\\}`, "g"))];
+    assert.ok(rules.length, `no .gn-rail__${side} rule in index.css`);
+    assert.ok(
+      rules.some((r) => /clip-path\s*:\s*polygon/.test(r[1]!)),
+      `the ${side} plank must be mitred, not butted`,
+    );
+  }
   // The layer lists have to stay in step or the timbers land in the wrong
   // places, and the failure is silent: the frame simply draws wrong.
   const layers = (v: string) => v.split(",").length;
@@ -482,10 +597,45 @@ test("THE FELT IS A REAL FILE, and only Tabletop names it", () => {
   // ("felt is a grey texture plus a colour, so one tile serves every pack"), so
   // the cost that ruling was protecting is the thing to keep measured. The tile
   // is greyscale, tinted at use, and paid for exactly once.
-  const url = TABLETOP["--gn-texture"]!.match(/url\("([^"]+)"\)/);
-  assert.ok(url, `Tabletop's texture should be a url(): got ${TABLETOP["--gn-texture"]}`);
+  //
+  // THE FILE IS NAMED IN --gn-felt-tile, NOT INSIDE --gn-texture, since the
+  // cloth had to reach a pack: a pack composes its own layer list and cannot
+  // read --gn-texture, so the url() had to come out into a token of its own or
+  // nine stylesheets would each spell the path again.
+  const url = TABLETOP["--gn-felt-tile"]!.match(/url\("([^"]+)"\)/);
+  assert.ok(url, `Tabletop's tile should be a url(): got ${TABLETOP["--gn-felt-tile"]}`);
+  assert.match(
+    TABLETOP["--gn-texture"]!,
+    /var\(--gn-felt-tile\)/,
+    "the shell's texture must read the tile token, or there are two names for one file",
+  );
   const tile = path.join(ROOT, "apps/web/src", url![1]!.replace(/^\.\//, ""));
   const bytes = statSync(tile).size;
+
+  // AND IT IS ACTUALLY AN IMAGE. This is the check that was missing, and its
+  // absence cost the theme a week: felt.webp sat on main as 39 bytes of ASCII
+  // reading "<base64-encoded-webp-from-user-image-1>", a placeholder nobody
+  // replaced because scripts/generate-felt-tile.mjs could not run. Vite inlines
+  // anything under 4KB as a data URI, the browser could not decode it, the layer
+  // dropped silently, and Tabletop painted a flat green gradient on every
+  // screen. NOTHING CAUGHT IT: theme-sweep.mjs compares computed values and the
+  // computed value of a broken url() is the same string as a working one, and
+  // felt-variance.mjs was never run against a build that had the file. That is
+  // the fourth instance of this repo's recurring failure shape, a registration
+  // nothing verifies, and the answer is the same as it was the other three
+  // times: assert the thing itself, not the reference to it.
+  //
+  // The magic number rather than only a byte count, because a byte count passes
+  // on any 5KB of garbage. A RIFF container tagged WEBP is what a browser will
+  // actually decode.
+  const head = readFileSync(tile);
+  assert.equal(head.subarray(0, 4).toString("latin1"), "RIFF", "the felt tile is not a RIFF container");
+  assert.equal(head.subarray(8, 12).toString("latin1"), "WEBP", "the felt tile is not a WebP");
+  assert.ok(
+    bytes > 5 * 1024,
+    `the felt tile is ${bytes} bytes, which is too small to be a 512px weave: regenerate it ` +
+      "with `node scripts/generate-felt-tile.mjs`",
+  );
   // 64KB, raised from 48 on 2026-08-03 when the weave was allowed to be a
   // weave: noise is what costs bytes in a lossy codec, so the tile went from a
   // standard deviation of 4.6 at 33KB to 8.1 at 53KB. That is the trade being
@@ -542,6 +692,30 @@ test("THE CARD BELONGS TO THE SURFACE IT SITS ON", () => {
     /var\(--gn-cab-[a-z]+-top\),\s*var\(--gn-surf\)/,
     "a cabinet gradient ends on the translucent card, so the tile fades out instead of settling",
   );
+
+  // AND IT CASTS, WHICH IS THE ACTUAL FIX FOR "IT READS AS A HOLE IN THE
+  // CLOTH". The long argument about the alpha was about the wrong variable: a
+  // panel reads as a hole because nothing casts, not because it is opaque. Once
+  // it has a drop, a contact edge and a lit top lip it reads as card stock at
+  // any alpha, which is what freed --gn-surf to be chosen for contrast. Both
+  // halves are asserted, because either one alone puts it back.
+  assert.equal(TABLETOP["--gn-card-border"], "0px", "a card on cloth is not outlined");
+  assert.notEqual(TABLETOP["--gn-card-shadow"], "none", "a card on cloth must cast");
+  assert.ok(
+    (TABLETOP["--gn-card-shadow"]!.match(/inset/g) || []).length >= 2,
+    "the card needs a lit top lip and a dark bottom lip, not just a drop",
+  );
+  // And .gn-card reads all three, or a theme is back to needing an override.
+  const card = CSS_BARE.match(/\.gn-card\s*\{([^}]*)\}/);
+  assert.ok(card, "no .gn-card rule in index.css");
+  for (const t of ["--gn-card-border", "--gn-card-shadow", "--gn-card-pad"]) {
+    assert.ok(card![1]!.includes(`var(${t})`), `.gn-card must read ${t}`);
+  }
+  // Arcade's three are exactly what the rule used to spell out, which is what
+  // makes this tokenisation free.
+  assert.equal(ARCADE["--gn-card-border"], "2px");
+  assert.equal(ARCADE["--gn-card-shadow"], "none");
+  assert.equal(ARCADE["--gn-card-pad"], "14px 16px");
 });
 
 test("CONTENT STANDS BACK FROM THE RAIL, and Arcade pays nothing for it", () => {
@@ -648,13 +822,20 @@ test("PING PONG holds contrast parity between the themes", () => {
   // The felt was tuned against this, not picked and hoped for: the first
   // candidate (#143a3f) put the orange rubber at 4.72 against it, barely over
   // AA where Arcade reads 5.90, and it was darkened until the pair came back.
+  //
+  // ONLY LOSSES COUNT, which is the same correction the shell's parity test
+  // carries and this one was missing. The stated job is that a whole step of
+  // legibility cannot go missing, and a pair that got MORE readable has not lost
+  // anything. Paling --gn-dim to buy the shell's weave took --gn-dim on
+  // --pp-felt from 8.05 to 10.63, and failing a build over a pack's body copy
+  // getting easier to read is the test working in the wrong direction.
   const TOLERANCE = 2.0;
   const drifted: string[] = [];
   for (const [fg, bg] of PP_PAIRS) {
     const a = contrast(ppValue(ARCADE, PP_ARCADE, fg), ppValue(ARCADE, PP_ARCADE, bg));
     const t = contrast(ppValue(TABLETOP, PP_TABLETOP, fg), ppValue(TABLETOP, PP_TABLETOP, bg));
     const delta = Math.round((t - a) * 100) / 100;
-    if (Math.abs(delta) > TOLERANCE) {
+    if (a - t > TOLERANCE) {
       drifted.push(`${fg} on ${bg}: arcade ${a}, tabletop ${t} (${delta})`);
     }
   }
@@ -785,5 +966,134 @@ test("CARD TABLE'S IDENTITY SURVIVES THE THEME, and its material does not", () =
   for (const t of ["--ct-baize", "--ct-baize-lit", "--ct-face", "--ct-edge"]) {
     assert.ok(t in CT_TABLETOP, `${t} is material and must be re-treated under Tabletop`);
     assert.notEqual(CT_ARCADE[t], CT_TABLETOP[t], `${t} carries Arcade's value under Tabletop`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// BOARD GAME, the stage 4 worked example, and the pack that had to answer the
+// identity question for the eight that follow.
+//
+// Tabletop's base is walnut and brass and so is this pack's, so under a Tabletop
+// shell it DISSOLVED: two objects made of the same material at the same tint are
+// one object. The answer is the same cloth at a different tint rather than a
+// different material per pack, which is what makes one tile serve ten tables.
+// See the header of boardgame.css for the three candidates and why olive won.
+//
+// THE PAIRS ARE THE PACK'S TEXT AGAINST THE PACK'S OWN TABLE. Shell ink and dim
+// carry the page copy, --tn-display carries the brand lettering, and the TV
+// carries its own two. The LIT crown is the binding surface for every one of
+// them, because every text colour here is light and a brighter surface is a
+// smaller gap.
+
+const BG_CSS = readFileSync(path.join(ROOT, "apps/web/src/boardgame/boardgame.css"), "utf8");
+const BG_ARCADE = packTokens(BG_CSS, ".bg-root {");
+const BG_TABLETOP = packTokens(BG_CSS, ':root[data-theme="tabletop"] .bg-root {');
+const BG_TV_ARCADE = packTokens(BG_CSS, ".bg-tv {");
+const BG_TV_TABLETOP = packTokens(BG_CSS, ':root[data-theme="tabletop"] .bg-tv {');
+
+/** Pack tokens (page then TV) first, then the shell's, resolved for the theme. */
+function bgValue(shell: Record<string, string>, page: Record<string, string>, tv: Record<string, string>, token: string) {
+  return tv[token] ?? page[token] ?? BG_TV_ARCADE[token] ?? BG_ARCADE[token] ?? shell[token] ?? ARCADE[token]!;
+}
+
+const BG_PAIRS: [string, string, number?][] = [
+  ["--gn-ink", "--bg-felt"],
+  ["--gn-dim", "--bg-felt"],
+  ["--gn-ink", "--bg-felt-lit"],
+  ["--gn-dim", "--bg-felt-lit"],
+  ["--tn-display", "--bg-felt-lit"],
+  ["--tn-tv-ink", "--bg-felt-lit"],
+  // THE TWO TELEVISION PAIRS, AT THE LARGE-TEXT FLOOR of 3.0 rather than 4.5,
+  // and the floor is a property of the selectors rather than a concession.
+  // --tn-accent on the backdrop is only ever .tn-tv__title, which this pack sets
+  // at 7.4vmin, and --tn-tv-muted is .tn-tv__label at 2.6vmin: about 80px and
+  // 28px on a 1080 screen, both well over WCAG's large-text threshold. Holding
+  // an 80px title to the body-copy floor would set this pack's whole palette
+  // from a constraint that does not apply to it. Both clear 4.5 anyway on the
+  // flat crown (4.90 and 4.82); the 3.0 is what they are actually held to once
+  // the weave is on, where scripts/generate-felt-tile.mjs gates them at 4.32
+  // and 4.25.
+  ["--tn-accent", "--bg-felt-lit", 3.0],
+  ["--tn-tv-muted", "--bg-felt-lit", 3.0],
+  // Each -ink on the fill it is printed on.
+  ["--tn-accent-ink", "--tn-accent"],
+  ["--tn-mark-ink", "--tn-mark"],
+];
+
+const BG_BLOCKS: [string, Record<string, string>, Record<string, string>, Record<string, string>][] = [
+  ["arcade", ARCADE, BG_ARCADE, BG_TV_ARCADE],
+  ["tabletop", TABLETOP, BG_TABLETOP, BG_TV_TABLETOP],
+];
+
+test("BOARD GAME clears its floors in both themes", () => {
+  const failures: string[] = [];
+  for (const [name, shell, page, tv] of BG_BLOCKS) {
+    for (const [fg, bg, floor = 4.5] of BG_PAIRS) {
+      const ratio = contrast(bgValue(shell, page, tv, fg), bgValue(shell, page, tv, bg));
+      if (ratio < floor) failures.push(`${name}: ${fg} on ${bg} = ${ratio} (needs ${floor})`);
+    }
+  }
+  assert.deepEqual(failures, [], "pack contrast below the floor:\n  " + failures.join("\n  "));
+});
+
+test("BOARD GAME'S IDENTITY SURVIVES THE THEME, and its table does not", () => {
+  // Brass, meeple green and parchment are the pack. A board game's box art does
+  // not change colour because the room did, which is the call the shell's
+  // cabinet inks and Ping Pong's rubber both make.
+  for (const t of ["--tn-accent", "--tn-accent-ink", "--tn-accent-sh", "--tn-mark", "--tn-mark-ink", "--tn-display"]) {
+    assert.ok(t in BG_ARCADE, `${t} should be declared on the pack root`);
+    assert.ok(!(t in BG_TABLETOP), `${t} is identity and must NOT be redeclared under Tabletop`);
+  }
+  // And the TABLE does change, or the pack is a recolour of the shell.
+  for (const t of ["--bg-felt", "--bg-felt-lit", "--bg-layers", "--tn-card", "--tn-line"]) {
+    assert.ok(t in BG_TABLETOP, `${t} is material and must be re-treated under Tabletop`);
+    assert.notEqual(BG_ARCADE[t], BG_TABLETOP[t], `${t} carries Arcade's value under Tabletop`);
+  }
+});
+
+test("BOARD GAME COMPOSES THE CLOTH ITSELF, rather than reading the shell's", () => {
+  // THE MECHANISM THE OTHER EIGHT PACKS COPY, and the one thing about it that is
+  // easy to get wrong. A custom property containing a var() resolves where it is
+  // DECLARED, so --gn-texture bakes in the shell's --gn-felt-lit: a pack that
+  // read it would light its own table with the shell's green and nothing would
+  // error. The pack builds its own list out of the shell's GEOMETRY plus its own
+  // colour, which is what Ping Pong's lamp already does.
+  for (const layers of [BG_TABLETOP["--bg-layers"]!, BG_TV_TABLETOP["--bg-tv-layers"]!]) {
+    assert.doesNotMatch(
+      layers,
+      /var\(--gn-texture/,
+      "a pack must not read --gn-texture: it resolves at :root and carries the shell's felt",
+    );
+    assert.match(layers, /var\(--gn-felt-tile\)/, "the pack must use the one shared tile");
+    assert.match(layers, /var\(--gn-lamp-geom\)/, "the lamp's shape belongs to the theme");
+    assert.match(layers, /var\(--bg-felt-lit\)/, "the lamp's colour belongs to the pack");
+  }
+  // The tile is only ever named through the token, here as everywhere.
+  assert.doesNotMatch(
+    BG_CSS.replace(/\/\*[\s\S]*?\*\//g, ""),
+    /textures\//,
+    "the pack names the tile file directly; it must read var(--gn-felt-tile)",
+  );
+  // THE THREE LISTS HAVE TO STAY IN STEP, and the failure is silent: a blend
+  // list one entry short does not error, it just applies `overlay` to the
+  // vignette and the table develops a bruise. Counted at the TOP level only,
+  // since every layer here is a function call full of its own commas.
+  const layers = (v: string) => {
+    let depth = 0, n = 1;
+    for (const c of v) {
+      if (c === "(") depth++;
+      else if (c === ")") depth--;
+      else if (c === "," && depth === 0) n++;
+    }
+    return n;
+  };
+  for (const [name, block, list] of [
+    ["page", BG_TABLETOP, "--bg-layers"],
+    ["tv", BG_TV_TABLETOP, "--bg-tv-layers"],
+  ] as [string, Record<string, string>, string][]) {
+    const n = layers(block[list]!);
+    assert.equal(n, 3, `the ${name} backdrop should be tile, vignette and lamp`);
+    assert.equal(layers(block[`${list}-blend`]!), n, `${name}: blend list out of step with the layers`);
+    assert.equal(layers(block[`${list}-size`]!), n, `${name}: size list out of step with the layers`);
   }
 });

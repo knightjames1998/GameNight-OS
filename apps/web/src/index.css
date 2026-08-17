@@ -223,6 +223,23 @@
      forgets. Named for the JOB, so that `--gn-glow-title: none` is a sensible
      thing to write. */
 
+  /* THE CLOTH TILE, AND IT IS NAMED IN EXACTLY ONE PLACE IN THE APP.
+     It used to be spelled out inside --gn-texture, which was fine while the
+     shell was the only surface wearing cloth and stops being fine on the first
+     pack. A pack CANNOT read --gn-texture: a custom property containing a var()
+     resolves where it is DECLARED, so the shell's --gn-texture bakes in the
+     shell's --gn-felt-lit and a pack reading it would light its own table with
+     the shell's green. That is the trap --gn-bevel-btn shipped with. So every
+     pack composes its own layer list out of the geometry tokens plus its own
+     colours, and without this token each of the nine would have to spell the
+     path out again: nine places to change a filename, and the "one tile, named
+     in one place" rule dead on the first conversion.
+
+     ARCADE DECLARES IT `none`, so an Arcade session still fetches no image: a
+     browser requests a background image only when a rendered element uses one.
+     Asserted in theme-contrast.test.ts alongside the rail's inert tokens. */
+  --gn-felt-tile:   none;
+
   /* The ambient overlay. The whole background shorthand, not just its colour,
      so a theme swaps the GEOMETRY: Arcade is a horizontal raster, and no
      amount of recolouring stops horizontal lines at 3px reading as a CRT. */
@@ -297,6 +314,36 @@
      the list is declared, not at the element. That is fine because every theme
      declares both together and the completeness test enforces it; a pack that
      wants a different rail width must override --gn-rail-face-size too. */
+  /* THE FOUR PLANKS, one per side, and they are separate ELEMENTS rather than
+     four more layers on the box above. Background layers cannot be masked
+     individually, so four sides on one box can only ever meet in a BUTT joint:
+     the top layer runs the full width including both corner squares and the
+     left layer runs the full height, they overlap, and whichever is listed
+     first wins. The four <i> children of .gn-rail in index.html are each
+     clip-pathed to their own trapezoid, which is a real mitre.
+
+     A PLANK IS FLAT ACROSS ITS FACE. --gn-rail-timber above is a symmetric
+     gradient with its highlight at 50%, and dark-mid-bright-mid-dark across a
+     width is the shading of a CYLINDER, which is why the shipped rail read as
+     piping. A board catches light only at its two eased edges, so the
+     cross-section is a thin dark line, a narrow bright bevel, a long flat face,
+     a bright bevel, a dark line.
+
+     FOUR SIDES RATHER THAN TWO, because one lamp above the table means the top
+     rail faces it, the bottom rail is turned away and the two sides sit
+     between. That tonal step across each joint is also what makes the joint
+     read as a joint rather than as a crease.
+
+     Arcade is `none` on all eight, and --gn-rail-w is 0px, so all four children
+     clip to zero area and paint nothing: an arcade cabinet has no rail. */
+  --gn-plank-t:          none;
+  --gn-plank-b:          none;
+  --gn-plank-l:          none;
+  --gn-plank-r:          none;
+  --gn-plank-grain-h:    none;
+  --gn-plank-grain-v:    none;
+  --gn-plank-gloss-h:    none;
+  --gn-plank-gloss-v:    none;
   --gn-rail-face:        none, none, none, none;
   --gn-rail-face-pos:    top, bottom, left, right;
   --gn-rail-face-size:   100% var(--gn-rail-w), 100% var(--gn-rail-w),
@@ -361,6 +408,40 @@
   --gn-bevel-btn:        0 4px 0;
   --gn-bevel-btn-press:  0 1px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent);
 
+  /* THE CARD'S EDGE, ITS SHADOW AND ITS PADDING. All three were written into
+     .gn-card directly, which made the card the one surface in the app a theme
+     could not re-make without a `:root[data-theme=...] .gn-card` override, and
+     an override is a rule the next theme forgets. Arcade's values here ARE the
+     shipped ones (a 2px line, no drop, 14/16 padding), so nothing computes
+     differently under Arcade; what they buy is that Tabletop can drop the
+     border and cast a real shadow without touching the rule.
+
+     WHY A THEME WANTS TO DROP THE BORDER AT ALL: a 2px warm-brown line on green
+     cloth belongs to neither the card nor the table, and it flattens every
+     panel into a sticker. A card reads as card stock because it CASTS, not
+     because it is outlined. */
+  --gn-card-border:    2px;
+  --gn-card-shadow:    none;
+  --gn-card-pad:       14px 16px;
+
+  /* AN INPUT'S MATERIAL, for the same reason. Arcade's input is an outlined box
+     laid on the page; a theme whose page is a table wants a SLOT CUT IN IT, and
+     that is a fill, an edge and an inset shadow rather than a colour. Tokens
+     rather than a `:root[data-theme=...] .gn-input` override, because this file
+     has argued since stage 3 that a rule a theme must remember to override is a
+     rule the next theme forgets. Every value here is Arcade's current one. */
+  --gn-input-fill:       var(--gn-surf);
+  --gn-input-edge:       var(--gn-line);
+  --gn-input-sunk:       none;
+  --gn-input-focus-edge: var(--gn-p2);
+
+  /* THE SELECTED PILL TAB, which under Arcade is --gn-ink on --gn-bg: a white
+     lozenge, and on a dark table it is the brightest object on the screen by
+     some margin. Only the ON state needs tokens; the off state already follows
+     the theme through --gn-surf and --gn-line. */
+  --gn-tab-on-fill:    var(--gn-ink);
+  --gn-tab-on-ink:     var(--gn-bg);
+
   /* Geometry. --gn-radius-pill stays 999px under every theme: the things that
      use it ARE pills (toggles, chips, the live tag), and a squared chip is
      just a small rectangle. Cards and tiles are what get squarer. */
@@ -423,20 +504,32 @@
      laid on cloth. A translucent black lets the weave AND the lamp carry
      through, so a card near the crown is lighter than one at the foot of a
      long page, exactly as a real card would be.
-     THE ALPHA IS MEASURED, NOT CHOSEN. At .24 (the render's number, on the
-     render's much darker felt) five text pairs fall under AA once the lamp is
-     under the card; .5 lands the card on the crown at #112e1f, which is within
-     a level or two of the render's own card, and every pair holds. The test
-     asserts on the COMPOSITE over the crown, since that is the worst case.
+     THE ALPHA ARGUMENT WAS ABOUT THE WRONG VARIABLE, and this is the
+     correction. The .24-versus-.5 debate was trying to stop the card reading as
+     a hole cut in the cloth by making it more transparent. A panel reads as a
+     hole because nothing CASTS, not because it is opaque: give it a drop, a
+     contact edge and a lit top lip (--gn-card-shadow below) and it reads as
+     card stock at any alpha. That frees the alpha to be chosen for CONTRAST
+     instead of for the illusion, and .62 buys most of it back. Measured on the
+     crown, .24 against .62: --gn-ink 9.93 -> 12.97, --gn-dim 6.86 -> 9.90,
+     --gn-place 5.15 -> 6.73, --gn-faint 3.48 -> 4.55. Seven of the eight parity
+     exemptions in theme-contrast.test.ts close.
+     THE FILL IS WARM NEAR-BLACK RATHER THAN BLACK for the same reason
+     --gn-shadow-depth is: card stock in shade under a pub lamp is brown, and a
+     pure-black darkening of green cloth reads as a grey wash over it.
      WHERE TRANSLUCENCY IS WRONG, --gn-surf-solid is the token. */
-  --gn-surf:    rgba(0,0,0,.24);
+  --gn-surf:    rgba(22,15,8,.62);
   --gn-surf-solid: #201a12;  /* card stock in shade, for the three exceptions */
   /* A raised control darkens LESS than a card, which is the same relationship
      these two have always had. Nested inside a card it goes darker rather than
      lighter, which is the one place the model does not hold; nothing in the app
      nests a ghost button inside a card today. */
-  --gn-raise:   rgba(0,0,0,.16);
-  --gn-line:    #3f3423;  /* warm border */
+  --gn-raise:   rgba(0,0,0,.34);
+  /* NOW ONLY EVER A DIVIDER INSIDE A CARD, which is where a warm brown line
+     does real work. It stopped being the card's outline when --gn-card-border
+     went to 0, so it no longer has to survive being seen against green cloth
+     and can go back to the quieter value it wants to be between two rows. */
+  --gn-line:    #3a2f20;
   --gn-ink:     #f7f0e2;  /* warm paper white */
   /* PALER THAN ARCADE'S EQUIVALENT, AND THAT BUYS THE LAMP. The crown's
      brightness is capped by whichever text sits on it, and that was --gn-dim:
@@ -449,8 +542,21 @@
      --gn-p1 all had to come up with it. Each was lifted along its own hue by
      the least that clears its floor with the cloth on it, which is why the
      lacquer red is a shade warmer than it was rather than a different colour.
-     If the card ever goes back to a heavier alpha, these come back down. */
-  --gn-dim:     #d4c9b1;
+     THE CARD HAS NOW GONE BACK TO A HEAVIER ALPHA and these have deliberately
+     NOT come back down with it. Every one of them is a pair that got EASIER to
+     read on the .62 card, and lowering a shipped contrast to restore a number
+     nobody was complaining about is a regression dressed as tidiness. What the
+     heavier card actually buys is spent below, on the weave. */
+  /* AND --gn-dim IS PALER AGAIN, WHICH IS WHAT LETS THE CLOTH SHIP AT ALL.
+     scripts/generate-felt-tile.mjs refuses to write while any gated pair falls
+     under its floor, and the binding pair is this one on the lit crown: at
+     #d4c9b1 the crown reads 4.89 flat and the weave takes it to 4.15, under the
+     4.5 floor, so the generator would not produce a tile and the theme shipped
+     with a placeholder. Nine levels paler clears it at 5.40 flat and 4.59 with
+     the cloth on it. The cost is the ink-to-dim gap, 1.45 to 1.31, which is the
+     cheapest place on this screen to spend it: it is the difference between two
+     text levels that are both comfortably legible either way. */
+  --gn-dim:     #ddd3bd;
   --gn-place:   #baae99;
   --gn-faint:   #998e79;
   --gn-p1:      #fc9375;  /* lacquer red, lifted for the .24 card */
@@ -466,11 +572,17 @@
   --gn-yes:     #5cbc7b;
   --gn-yes-ink: #06200f;
   --gn-no:      #ef8769;
-  /* The quiet secondary action stays a blue, because its whole job is to be
-     neither the go, the confirm nor the highlight, and every warm hue on this
-     screen is already one of those. Pewter rather than Arcade's cornflower. */
-  --gn-act:     #93a9c9;
-  --gn-act-ink: #bacde4;
+  /* AND THE SECONDARY ACTION STOPS BEING A BLUE. The previous note here argued
+     that its job is to be neither the go, the confirm nor the highlight, and
+     that every warm hue was already one of those. That was true and it was
+     answering the wrong question: four hues at once is what reads as busy, and
+     a cool pewter is the only object on this screen belonging to no material in
+     the room. The PLAYER colours are identity and do not move; what narrows is
+     the chrome. Bone, which is the same card stock the copy is printed on, so
+     Share and Log out read as quiet type rather than as a fourth signal.
+     Both pairs got MORE readable doing it: 7.36 -> 8.22 and 9.74 -> 9.95. */
+  --gn-act:     #cfc0a4;
+  --gn-act-ink: #e0d3ba;
   --gn-brand-ink:#fffaf0;
   /* The scanline is an ARCADE motif and it is still here, at 5%, because
      removing it is a structural change and this is a palette. Warmed to a
@@ -553,40 +665,68 @@
      and stays byte-identical. */
   --gn-felt:     #16402c;
   --gn-felt-lit: #265a3e;
-  /* The lamp's ceiling is set by --gn-dim on the crown, not by taste. It is
-     still exactly that, but the ink moved: at #c6b99f the cap was a 13-level
-     lift of the felt's green, and at #d4c9b1 it is 22, which is where this
-     sits. The binding number is --gn-dim on the crown WITH THE CLOTH ON IT,
-     4.51 against a 4.5 floor; the flat crown reads 5.17. Going further needs a
-     paler dim again (#ddd3bd buys 28 levels) and that starts closing the gap
-     to --gn-ink, which is a hierarchy this palette needs more than it needs
-     another six levels of light. */
-  --gn-lamp-geom: 92% 58% at 50% 0%;
-  --gn-lamp-fade: 58%;
+  /* THE ONE PLACE THE FILE IS NAMED, for the shell and for all nine packs. See
+     the token's note in the Arcade block for why a pack cannot simply read
+     --gn-texture and has to compose its own list around this instead. */
+  --gn-felt-tile: url("./textures/felt.webp");
+  /* THE LAMP IS A LAMP, NOT A TOP-DOWN WASH. 92% wide, centred ON the top edge
+     and fading at 58% is a gradient down the whole screen: it lifts everything
+     a bit and reads as a page with a light background rather than as a table
+     with a light over it. A hanging lamp above a table is a POOL. It has a
+     core, a fast falloff and darkness at the rail, so the geometry narrows to
+     74% and its centre comes down onto the screen at 5%, where the falloff has
+     somewhere to happen.
+
+     THE SECOND LAYER IS THE OTHER HALF OF THE SAME IDEA. A vignette that
+     darkens the corners is what makes the cloth read as ENDING UNDER TIMBER
+     rather than running off the edge of the screen, and without it the new,
+     tighter lamp just looks like a smaller wash. Cut from --gn-shadow-depth
+     rather than black so it warms with the theme.
+
+     THE CEILING IS STILL --gn-dim ON THE CROWN, and the crown is now the FULL
+     --gn-felt-lit: the first stop is at full strength and its centre is on the
+     screen, so a person can genuinely read text against #265a3e. That is 5.40
+     flat, 4.59 with the weave on it, against a 4.5 floor. scripts/
+     generate-felt-tile.mjs holds the same number from the other side and is
+     what set the tile's amplitude. */
+  --gn-lamp-geom: 74% 40% at 50% 5%;
+  --gn-lamp-fade: 70%;
   --gn-texture:
-    url("./textures/felt.webp"),
+    var(--gn-felt-tile),
+    radial-gradient(132% 88% at 50% 26%,
+      transparent 44%,
+      color-mix(in srgb, var(--gn-shadow-depth) 20%, transparent) 78%,
+      color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent) 100%),
     radial-gradient(var(--gn-lamp-geom),
-      color-mix(in srgb, var(--gn-felt-lit) 88%, transparent) 0%,
-      color-mix(in srgb, var(--gn-felt-lit) 62%, transparent) 30%,
-      color-mix(in srgb, var(--gn-felt-lit) 22%, transparent) 46%,
+      var(--gn-felt-lit) 0%,
+      color-mix(in srgb, var(--gn-felt-lit) 74%, transparent) 30%,
+      color-mix(in srgb, var(--gn-felt-lit) 26%, transparent) 52%,
       transparent var(--gn-lamp-fade));
   --gn-texture-tv:
-    url("./textures/felt.webp"),
+    var(--gn-felt-tile),
+    radial-gradient(120% 96% at 50% 26%,
+      transparent 40%,
+      color-mix(in srgb, var(--gn-shadow-depth) 26%, transparent) 74%,
+      color-mix(in srgb, var(--gn-shadow-depth) 50%, transparent) 100%),
     radial-gradient(var(--gn-lamp-geom),
-      color-mix(in srgb, var(--gn-felt-lit) 88%, transparent) 0%,
-      color-mix(in srgb, var(--gn-felt-lit) 62%, transparent) 30%,
-      color-mix(in srgb, var(--gn-felt-lit) 22%, transparent) 46%,
+      var(--gn-felt-lit) 0%,
+      color-mix(in srgb, var(--gn-felt-lit) 74%, transparent) 30%,
+      color-mix(in srgb, var(--gn-felt-lit) 26%, transparent) 52%,
       transparent var(--gn-lamp-fade));
   --gn-texture-opacity: 1;
   --gn-texture-tint: var(--gn-felt);
-  --gn-texture-blend: overlay, normal;
-  --gn-texture-size: 240px, 100% 100%;
-  /* Bigger on the big screen so the tile repeats twice across 1920 rather than
-     four times. The failure mode of a tiled texture is not the seam, it is the
-     LATTICE: the eye finds a repeating grid across a television long before it
-     finds an edge. The generator keeps the tile's coarse structure faint for
-     the same reason. */
-  --gn-texture-size-tv: 900px, 100% 100%;
+  /* THREE LAYERS NOW, AND THE THREE LISTS HAVE TO STAY IN STEP. --gn-tv::before
+     reads --gn-texture-blend as well, so a two-entry blend list against a
+     three-layer image list would silently overlay the TV's vignette. */
+  --gn-texture-blend: overlay, normal, normal;
+  /* 150px rather than 240: the weave reads as cloth at arm's length when a
+     strand is about a pixel, and at 240 it had drifted towards hessian. */
+  --gn-texture-size: 150px, 100% 100%, 100% 100%;
+  /* Bigger on the big screen so the tile repeats fewer times across 1920. The
+     failure mode of a tiled texture across a room is not the seam, it is the
+     LATTICE: the eye finds a repeating grid long before it finds an edge. The
+     generator keeps the tile's coarse structure faint for the same reason. */
+  --gn-texture-size-tv: 760px, 100% 100%, 100% 100%;
 
   /* ---- the rail: walnut, a stitch line, and the drop beneath it ----
      Shown a rail and no rail side by side, James chose the rail definitively.
@@ -634,20 +774,76 @@
   /* Brass thread, dashed, set 4px in from the cloth's edge. Dashed is the
      entire effect: the solid hairline this replaces read as a border, and a
      border around the screen is a window, not a table. */
-  --gn-rail-stitch:       rgba(238,194,98,.34);
+  /* Quieter than it was. At .34 the brass thread was competing with the
+     stitching on a real rail, which is a detail you notice when you look for
+     it, not a line that reads across a room. */
+  --gn-rail-stitch:       rgba(226,196,132,.18);
   --gn-rail-stitch-w:     1px;
   --gn-rail-stitch-style: dashed;
   --gn-rail-stitch-inset: -4px;
   /* The deep well plus the tight lip. This is what makes the cloth read as
      being UNDER the rail rather than beside it, and it does more for the
-     illusion than the timber does. */
-  --gn-rail-drop:      rgba(0,0,0,.6);
-  --gn-rail-drop-blur: 44px;
+     illusion than the timber does. Deeper and wider now that the lamp is a pool
+     rather than a wash: the well and the vignette are the same statement about
+     where the light stops. */
+  --gn-rail-drop:      rgba(0,0,0,.72);
+  --gn-rail-drop-blur: 54px;
   --gn-rail-lip:       rgba(0,0,0,.5);
   --gn-rail-lip-y:     2px;
   --gn-rail-lip-blur:  5px;
-  --gn-radius-rail:    16px;
+  /* SQUARE OUTER CORNERS, and this is forced by the mitre rather than being a
+     change of mind about tables having rounded corners. A mitre runs from the
+     OUTER corner to the INNER one at 45 degrees; on a radius the outer end of
+     that joint has nowhere to land, so the two are mutually exclusive and the
+     joint is worth more than the radius. The cloth inside the timber keeps its
+     own rounding. */
+  --gn-radius-rail:    0px;
   --gn-radius-felt:    4px;
+
+  /* ---- THE PLANK CROSS-SECTION -----------------------------------
+     Percentages rather than pixels, so the same tokens hold if the rail width
+     ever changes. The face occupies 26% to 70% and barely moves across it, and
+     that flatness IS the plank; the two bevels are narrow and bright, which is
+     what an eased edge under a lamp actually does. Compare --gn-rail-timber
+     above, whose highlight sits at 50%: that is a cylinder, and it is why the
+     shipped rail read as piping.
+
+     THE FOUR SIDES ARE NOT THE SAME TONE, and that is the light rather than
+     decoration. One lamp above the table: the top rail faces it, the bottom
+     rail is turned away, the two sides sit between. */
+  --gn-plank-t: linear-gradient(to bottom,
+    #150c05 0%, #c49a66 6%, #8a6034 14%, #77502a 26%,
+    #764f29 70%, #64411f 82%, #d8b07a 93%, #1d1106 100%);
+  --gn-plank-b: linear-gradient(to top,
+    #100903 0%, #8f6a42 6%, #654529 14%, #573a1f 26%,
+    #56391e 70%, #472e16 82%, #a07a4c 93%, #150c04 100%);
+  --gn-plank-l: linear-gradient(to right,
+    #120a04 0%, #ab8253 6%, #745029 14%, #634421 26%,
+    #624320 70%, #533718 82%, #c09763 93%, #190f05 100%);
+  --gn-plank-r: linear-gradient(to left,
+    #120a04 0%, #ab8253 6%, #745029 14%, #634421 26%,
+    #624320 70%, #533718 82%, #c09763 93%, #190f05 100%);
+  /* GRAIN RUNS ALONG THE PLANK. --gn-rail-grain above is at 94deg on the
+     horizontal rails, which draws near-vertical stripes on a horizontal timber:
+     that is grain across the board, and combined with the butt joints it made
+     the frame read as four strips laid over each other. Two or three lines
+     visible across a 14px face is the whole effect. */
+  --gn-plank-grain-h: repeating-linear-gradient(179deg,
+    rgba(0,0,0,.13) 0 1px, rgba(255,236,206,.05) 1px 2px, transparent 2px 5px);
+  --gn-plank-grain-v: repeating-linear-gradient(89deg,
+    rgba(0,0,0,.13) 0 1px, rgba(255,236,206,.05) 1px 2px, transparent 2px 5px);
+  /* GLOSS, AND IT WAS TUNED TWICE. The first pass put a tight, high-contrast
+     sweep along each plank on the theory that a hard edge is what says lacquer.
+     It read as a smear, most visibly as a bright wedge near each corner where
+     two sweeps met. What actually reads as varnish is a LOW-amplitude sheen
+     along the length, with the genuinely crisp specular left to the two bevels
+     in the gradients above, which is where a curved edge catches light. */
+  --gn-plank-gloss-h: linear-gradient(92deg,
+    rgba(255,248,232,0) 0%, rgba(255,248,232,.085) 20%, rgba(255,248,232,.015) 36%,
+    rgba(255,248,232,.055) 62%, rgba(255,248,232,.10) 80%, rgba(255,248,232,0) 100%);
+  --gn-plank-gloss-v: linear-gradient(182deg,
+    rgba(255,248,232,0) 0%, rgba(255,248,232,.075) 18%, rgba(255,248,232,.012) 34%,
+    rgba(255,248,232,.05) 60%, rgba(255,248,232,.09) 82%, rgba(255,248,232,0) 100%);
   /* The timber plus real breathing room inside the stitch. The rail does NOT
      get thinner to make room: the rail is the effect that was approved, so the
      content moves in and the timber stays put. */
@@ -677,6 +873,37 @@
   --gn-bevel-inset:     inset 0 1px 0 color-mix(in srgb, var(--gn-ink) 8%, transparent);
   --gn-bevel-btn:       0 2px 5px;
   --gn-bevel-btn-press: 0 1px 2px color-mix(in srgb, var(--gn-shadow-depth) 45%, transparent);
+
+  /* THE CARD LOSES ITS OUTLINE AND GAINS A SHADOW, which is the whole of the
+     "it reads as a hole in the cloth" fix. Four parts, and each does one job: a
+     lit top lip (the edge of the stock catching the lamp), a dark bottom lip
+     (its thickness), a tight contact shadow (where it touches the table) and a
+     wide soft drop (the light it blocks). A panel with all four reads as an
+     object resting on a surface at any alpha at all, which is what let --gn-surf
+     be chosen for contrast instead of for the illusion.
+     The padding goes up with the border coming off: 2px of border was doing
+     part of the visual inset and the card looks tight without it. */
+  /* An input is a SLOT CUT IN THE TABLE, not an outlined box sitting on it: it
+     goes darker than the card rather than matching it, loses its edge, and
+     takes a shadow cast down into itself. The edge stays 2px and transparent so
+     the box does not resize on focus, when it lights up in brass. */
+  --gn-input-fill:       rgba(0,0,0,.36);
+  --gn-input-edge:       transparent;
+  --gn-input-sunk:
+    inset 0 2px 5px color-mix(in srgb, var(--gn-shadow-depth) 55%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--gn-ink) 5%, transparent);
+  --gn-input-focus-edge: var(--gn-gold);
+  /* Brass, not paper white. */
+  --gn-tab-on-fill:  var(--gn-gold);
+  --gn-tab-on-ink:   #1c1204;
+
+  --gn-card-border: 0px;
+  --gn-card-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--gn-ink) 8%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--gn-shadow-depth) 40%, transparent),
+    0 1px 2px color-mix(in srgb, var(--gn-shadow-depth) 50%, transparent),
+    0 12px 24px -10px color-mix(in srgb, var(--gn-shadow-depth) 70%, transparent);
+  --gn-card-pad: 16px 18px;
 
   /* Squarer. --gn-radius-pill is DELIBERATELY NOT REDECLARED: the things that
      read it are toggles, chips and the live tag, and those genuinely are
@@ -811,6 +1038,60 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
     inset 0 0 var(--gn-rail-drop-blur) var(--gn-rail-drop),
     inset 0 var(--gn-rail-lip-y) var(--gn-rail-lip-blur) var(--gn-rail-lip);
 }
+
+/* ---- the four planks, mitred -----------------------------------
+   Each is the whole rail box, clipped to one trapezoid: two outer corners and
+   the two inner corners a rail-width in from them. The diagonals are therefore
+   at 45 degrees and each pair of planks meets on one, which is a real mitre.
+   The plank's own gradient is sized to the rail width across its short axis and
+   pinned to its own edge, so the cross-section lands in the timber rather than
+   being stretched across the screen.
+
+   ARCADE PAINTS NOTHING HERE and does it twice over: every plank token is
+   `none`, and at --gn-rail-w 0px each polygon collapses to zero area. The
+   rule is unscoped for the same reason the rail's own is: a theme should get
+   the frame by declaring its timber, not by remembering to add a selector. */
+.gn-rail__t,
+.gn-rail__r,
+.gn-rail__b,
+.gn-rail__l{
+  position:absolute;inset:0;
+  background-repeat:no-repeat;
+}
+.gn-rail__t{
+  clip-path:polygon(0 0, 100% 0,
+    calc(100% - var(--gn-rail-w)) var(--gn-rail-w), var(--gn-rail-w) var(--gn-rail-w));
+  background-image:var(--gn-plank-gloss-h), var(--gn-plank-grain-h), var(--gn-plank-t);
+  background-size:100% var(--gn-rail-w);
+  background-position:top;
+}
+.gn-rail__b{
+  clip-path:polygon(0 100%, 100% 100%,
+    calc(100% - var(--gn-rail-w)) calc(100% - var(--gn-rail-w)), var(--gn-rail-w) calc(100% - var(--gn-rail-w)));
+  background-image:var(--gn-plank-gloss-h), var(--gn-plank-grain-h), var(--gn-plank-b);
+  background-size:100% var(--gn-rail-w);
+  background-position:bottom;
+}
+.gn-rail__l{
+  clip-path:polygon(0 0, 0 100%,
+    var(--gn-rail-w) calc(100% - var(--gn-rail-w)), var(--gn-rail-w) var(--gn-rail-w));
+  background-image:var(--gn-plank-gloss-v), var(--gn-plank-grain-v), var(--gn-plank-l);
+  background-size:var(--gn-rail-w) 100%;
+  background-position:left;
+}
+.gn-rail__r{
+  clip-path:polygon(100% 0, 100% 100%,
+    calc(100% - var(--gn-rail-w)) calc(100% - var(--gn-rail-w)), calc(100% - var(--gn-rail-w)) var(--gn-rail-w));
+  background-image:var(--gn-plank-gloss-v), var(--gn-plank-grain-v), var(--gn-plank-r);
+  background-size:var(--gn-rail-w) 100%;
+  background-position:right;
+}
+/* THE OLD SINGLE-BOX FRAME STOPS PAINTING under the theme that has planks. Its
+   tokens stay declared: :root needs them so .gn-rail::before computes the four
+   `none` layers Arcade has always computed, and the completeness test in
+   theme-contrast.test.ts then requires Tabletop to declare them too. This is
+   the one line that says which of the two frames a theme with both is using. */
+:root[data-theme="tabletop"] .gn-rail::before{background-image:none}
 @media (prefers-reduced-motion:reduce){
   .gn-rail{transition:none}
 }
@@ -842,14 +1123,15 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 
 /* ---- inputs --------------------------------------------------- */
 .gn-input{
-  width:100%;min-height:48px;border-radius:var(--gn-radius-tile);background:var(--gn-surf);
-  border:2px solid var(--gn-line);color:var(--gn-ink);padding:0 14px;
+  width:100%;min-height:48px;border-radius:var(--gn-radius-tile);background:var(--gn-input-fill);
+  border:2px solid var(--gn-input-edge);color:var(--gn-ink);padding:0 14px;
+  box-shadow:var(--gn-input-sunk);
   /* 16px min: iOS Safari auto-zooms the page on focus of any text field under
      16px and often does not zoom back out, leaving the app slightly enlarged. */
   font-size:16px;font-family:inherit;color-scheme:dark;
 }
 .gn-input::placeholder{color:var(--gn-place)}
-.gn-input:focus{outline:none;border-color:var(--gn-p2)}
+.gn-input:focus{outline:none;border-color:var(--gn-input-focus-edge)}
 
 .gn-code{
   display:block;background:var(--gn-surf);border:2px solid var(--gn-line);
@@ -895,8 +1177,17 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-actionbtn--danger{color:var(--gn-p1-tint-ink);border-color:color-mix(in srgb, var(--gn-p1) 34%, transparent);background:color-mix(in srgb, var(--gn-p1) 8%, transparent)}
 .gn-actionbtn--danger:hover{border-color:var(--gn-danger);background:color-mix(in srgb, var(--gn-p1) 15%, transparent)}
 
-/* ---- card / panel -------------------------------------------- */
-.gn-card{background:var(--gn-surf);border:2px solid var(--gn-line);border-radius:var(--gn-radius-card);padding:14px 16px}
+/* ---- card / panel --------------------------------------------
+   Edge, shadow and padding are tokens rather than literals so a theme can
+   re-make the card without a `.gn-card` override of its own. Arcade's tokens
+   carry exactly the values that used to be written here. */
+.gn-card{
+  background:var(--gn-surf);
+  border:var(--gn-card-border) solid var(--gn-line);
+  border-radius:var(--gn-radius-card);
+  padding:var(--gn-card-pad);
+  box-shadow:var(--gn-card-shadow);
+}
 
 /* ---- arcade "cabinet" nav button (modes, stats, crews, events) */
 .gn-cab{
@@ -1042,7 +1333,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   background:var(--gn-surf);color:var(--gn-dim);font-weight:800;font-size:13px;font-family:inherit;
   cursor:pointer;white-space:nowrap;
 }
-.gn-tab--on{background:var(--gn-ink);color:var(--gn-bg);border-color:var(--gn-ink)}
+.gn-tab--on{background:var(--gn-tab-on-fill);color:var(--gn-tab-on-ink);border-color:var(--gn-tab-on-fill)}
 
 /* champion callout (bracket page) */
 .gn-champ{border:2px solid color-mix(in srgb, var(--gn-gold) 55%, transparent);background:color-mix(in srgb, var(--gn-gold) 10%, transparent);border-radius:var(--gn-radius-card)}

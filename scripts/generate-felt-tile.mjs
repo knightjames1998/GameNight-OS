@@ -102,14 +102,26 @@ const CHROME = "/opt/pw-browsers/chromium";
 const CDP_PORT = 9351;
 
 const SIZE = 512;
-// How far the cloth travels from mid grey, up and down. See the note above for
-// why these are not the same number.
 // How far the cloth travels from mid grey, in GREY LEVELS of standard
-// deviation. One symmetric number, because the previous pair (0.032 up against
-// 0.130 down) was a dark skew that turned fibre into speckle. At 6.4 the tile
-// runs roughly 107..148 and the average step between neighbours is under one
-// level: visible as cloth, invisible as grain.
-const TARGET_SD = 6.4;
+// deviation. One symmetric number, because the pair this replaced (0.032 up
+// against 0.130 down) was a dark skew that turned fibre into speckle. At 4.0 the
+// tile runs 109..146 and the average step between neighbours is under one level:
+// visible as cloth, invisible as grain.
+//
+// IT CAME DOWN FROM 6.4 IN TWO STEPS AND NEITHER WAS TASTE. First the lamp
+// became a pool, which put its centre inside the viewport at full --gn-felt-lit
+// (see FELT_CROWN below) and moved the surface --gn-dim is read against up by
+// 0.32 of a ratio point; 6.4 spent contrast that surface no longer had and the
+// script refused to write. Then the low-frequency terms in the field came down a
+// fifth to kill a diagonal lattice, and that CHANGES WHAT A GIVEN SD COSTS: the
+// same deviation built out of fine fibre has far longer tails than one built out
+// of smooth sinusoids, and this guard's worst case is the single most extreme
+// pixel. 5.4 of the old field ran 112..144; 5.4 of this one runs 104..153 and
+// breaches both the floor and the 20% bound. 4.0 runs 109..146, clears the crown
+// pair at 4.59, and measures 4.48 on screen against felt-variance's 2.5 floor.
+// The bytes go up with it (9.8KB to 19.5KB) because noise is what a lossy codec
+// cannot compress, which is the trade being made knowingly.
+const TARGET_SD = 4.0;
 const QUALITY = 0.9;
 /**
  * A backstop, not the design constraint. See the note above: the floors decide
@@ -124,6 +136,11 @@ const FLOORS = {
   // stage 1. Repeated here rather than inferred, so exactly one pair is
   // exempt and it is obvious which.
   "--gn-faint on a card at the crown": 3.0,
+  // Board Game's two television-only pairs. See the note beside them in
+  // GUARDED: both are painted at 28px and up, which is WCAG's large-text
+  // threshold, and 3.0 is the floor that applies to text that size.
+  "--tn-accent on the olive crown (TV)": 3.0,
+  "--tn-tv-muted on the olive crown (TV)": 3.0,
 };
 const DEFAULT_FLOOR = 4.5;
 
@@ -205,11 +222,23 @@ const DRAW = (size, targetSd, quality) => `(async () => {
   // A whisper of unevenness, at integer periods so it still wraps. Kept tiny on
   // purpose: coarse structure inside a tile is what a repeat exposes as a
   // lattice across 1920px, and it is what made the last one look blotchy.
+  //
+  // 0.30 AND 0.18 WERE NOT TINY ENOUGH ONCE THE STYLESHEET PAINTED THE TILE AT
+  // 150px, and this is the whole lesson of that pair of numbers. A 512px tile
+  // painted at 150 is downscaled 3.4x, which averages the fine fibre away and
+  // leaves the coarse terms almost untouched: normalising on the total standard
+  // deviation then means the SURVIVING structure is nearly all sinusoid, and the
+  // second term is diagonal at half the tile's period, so the screen filled with
+  // regular diagonal streaks every 75px. Cloth became brushed metal. Screenshot
+  // it at the size the stylesheet actually paints, never at 1:1: at 1:1 both
+  // versions look like felt, which is exactly why this shipped once already.
+  // The amplitudes are now a fifth of what they were, which puts the variance
+  // back into the fibre where the weave is.
   const w = (2 * Math.PI) / S;
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
-      f[y * S + x] += Math.sin(x * w) * Math.cos(y * w) * 0.30
-                    + Math.sin((x + y) * w * 2) * 0.18;
+      f[y * S + x] += Math.sin(x * w) * Math.cos(y * w) * 0.06
+                    + Math.sin((x + y) * w * 2) * 0.035;
     }
   }
 
@@ -255,8 +284,14 @@ const DRAW = (size, targetSd, quality) => `(async () => {
   const mean2 = sum2 / (dec.length / 4);
   let ss2 = 0;
   for (let i = 0; i < dec.length; i += 4) ss2 += (dec[i] - mean2) ** 2;
-  const sd = Math.sqrt(ss2 / (dec.length / 4));
-  return { b64: btoa(bin), min, max, sd: +sd.toFixed(2), bytes: buf.length };
+  // sdDec, NOT sd. The pre-normalise deviation above is already a const in this
+  // same scope, and shadowing it here threw
+  // "SyntaxError: Identifier 'sd' has already been declared" before a single
+  // pixel was drawn, which is why the tile in the repo was a placeholder for a
+  // week: this script could not run, so nobody could regenerate it, and nothing
+  // downstream could tell a broken image from a working one.
+  const sdDec = Math.sqrt(ss2 / (dec.length / 4));
+  return { b64: btoa(bin), min, max, sd: +sdDec.toFixed(2), bytes: buf.length };
 })()`;
 
 // ------------------------------------------------------------ contrast guard
@@ -296,13 +331,27 @@ const overlay = (c, g) => {
  * by hand, which is why both are spelled out with their token names.
  */
 const FELT = "#16402c";       // --gn-felt
-const FELT_CROWN = "#24563b"; // --gn-felt-lit (#265a3e) at 85% over --gn-felt
-// THE CARD IS TEXTURED TOO, since 2026-08-03: it is rgba(0,0,0,.24), a darkening
-// of whatever it is laid on, so the weave carries straight through it. The card
-// ON THE CROWN is the worst of the four surfaces here for a light ink, and it is
-// what set --gn-place's value.
-const CARD_ON_CROWN = "#1b412d";
-const INK = "#f7f0e2", DIM = "#d4c9b1", PLACE = "#baae99", FAINT = "#998e79";
+// THE CROWN IS NOW THE FULL --gn-felt-lit, AND THAT IS THE LAMP MOVING, NOT A
+// TIGHTENING FOR ITS OWN SAKE. This was #24563b, the lit colour at 85%, because
+// the shipped lamp's brightest stop was 88% and its centre sat ON the top edge
+// of the screen at `at 50% 0%`, so nothing on the page ever saw the full value.
+// The revised lamp is a pool rather than a wash: its centre is at `50% 5%`,
+// which is inside the viewport, and its first stop is the lit colour at full
+// strength. The brightest pixel a person can read text against is therefore
+// exactly --gn-felt-lit, and gating on anything darker gates on a screen that
+// no longer exists.
+const FELT_CROWN = "#265a3e"; // --gn-felt-lit, at the centre of the pool
+// THE CARD IS TEXTURED TOO, since 2026-08-03: it is a darkening of whatever it
+// is laid on, so the weave carries straight through it. The card ON THE CROWN is
+// the worst of the four surfaces here for a light ink. At the revised
+// rgba(22,15,8,.62) it is far darker than the rgba(0,0,0,.24) card this
+// replaces, which is what buys back the accent contrast the .24 card gave away.
+const CARD_ON_CROWN = "#1c2c1d";
+const INK = "#f7f0e2", DIM = "#ddd3bd", PLACE = "#baae99", FAINT = "#998e79";
+// Board Game's baize and its crown, from apps/web/src/boardgame/boardgame.css,
+// plus the two pack colours that land on them.
+const BG_FELT = "#232819", BG_CROWN = "#3a4129";
+const TN_DISPLAY = "#f4e7cf", TN_ACCENT = "#e0a54a", TN_TV_MUTED = "#c2ab8a";
 const GUARDED = [
   { fg: INK, bg: FELT, what: "--gn-ink on --gn-felt", gate: true },
   { fg: DIM, bg: FELT, what: "--gn-dim on --gn-felt", gate: true },
@@ -312,10 +361,34 @@ const GUARDED = [
   { fg: DIM, bg: CARD_ON_CROWN, what: "--gn-dim on a card at the crown", gate: true },
   { fg: PLACE, bg: CARD_ON_CROWN, what: "--gn-place on a card at the crown", gate: true },
   { fg: FAINT, bg: CARD_ON_CROWN, what: "--gn-faint on a card at the crown", gate: true },
-  // Reported, not gated: a pack root is not inside the shell's texture host, so
-  // nothing paints these through the cloth today. They are here so that the day
-  // a pack's own surface takes the texture (see BUGS: the felt does not reach
-  // the packs), the numbers are already on the page.
+
+  // BOARD GAME, AND THIS IS THE LIST GROWING THE WAY IT WAS ALWAYS GOING TO.
+  // The note above says the bound applies to the surface the cloth actually
+  // covers, and until now that was the shell alone: a pack root is not inside
+  // `.gn-app::before`, so nothing painted a pack through the weave. Board Game
+  // is the first pack to compose the tile into its own backdrop, so its baize
+  // is now a textured surface and belongs here. One block per converted pack.
+  //
+  // The values are --bg-felt and --bg-felt-lit from boardgame.css, spelled out
+  // and kept in step by hand, exactly as the shell's two are.
+  { fg: INK, bg: BG_FELT, what: "--gn-ink on the olive baize", gate: true },
+  { fg: DIM, bg: BG_FELT, what: "--gn-dim on the olive baize", gate: true },
+  { fg: INK, bg: BG_CROWN, what: "--gn-ink on the olive crown", gate: true },
+  { fg: DIM, bg: BG_CROWN, what: "--gn-dim on the olive crown", gate: true },
+  { fg: TN_DISPLAY, bg: BG_CROWN, what: "--tn-display on the olive crown", gate: true },
+  // THE TV'S OWN TWO, AT THE LARGE-TEXT FLOOR. Both of these are only ever
+  // painted on a television: --tn-accent is `.tn-tv__title` at 7.4vmin and
+  // --tn-tv-muted is `.tn-tv__label` at 2.6vmin, which are about 80px and 28px
+  // on a 1080 screen. WCAG's floor for text that size is 3.0, not 4.5, and
+  // holding an 80px title to the body-copy floor would set this whole pack's
+  // palette from a constraint that does not apply to it. Gated rather than
+  // merely reported, because "large" is a property of these two selectors and
+  // a future weave still must not eat them.
+  { fg: TN_ACCENT, bg: BG_CROWN, what: "--tn-accent on the olive crown (TV)", gate: true },
+  { fg: TN_TV_MUTED, bg: BG_CROWN, what: "--tn-tv-muted on the olive crown (TV)", gate: true },
+
+  // Reported, not gated: Ping Pong's table is not textured yet. It is here so
+  // that the day its conversion lands, the numbers are already on the page.
   { fg: "#ff7a1a", bg: "#0d262b", what: "--pp-accent on --pp-felt (not textured yet)", gate: false },
   { fg: INK, bg: "#0d262b", what: "--gn-ink on --pp-felt (not textured yet)", gate: false },
 ];

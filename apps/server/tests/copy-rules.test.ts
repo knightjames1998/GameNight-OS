@@ -124,6 +124,11 @@ const TOKENISED_CSS = [
   // Writing a pack's stylesheet token-first costs nothing on the day and is the
   // only way the list ever finishes.
   "apps/web/src/deduction/deduction.css",
+  // BOARD GAME joins on its conversion commit, which is what this list has
+  // always said it would do. Its backdrop was two inline gradients with four
+  // literals in them; they are now --bg-* tokens, which is what let the same
+  // two rules serve both a walnut page gradient and a cloth.
+  "apps/web/src/boardgame/boardgame.css",
 ];
 
 /** A hex colour, or an rgb()/rgba() literal. */

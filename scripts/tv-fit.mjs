@@ -391,7 +391,22 @@ const MEASURE = (PROOF) => `(()=>{
       || cs.borderTopWidth !== '0px' || cs.borderBottomWidth !== '0px';
     if (!paints || !railW) continue;
     // Full-bleed roots are the page itself, not something sitting on it.
-    if (r.width >= vw - 1 && r.height >= vh - 1) continue;
+    //
+    // MEASURED AGAINST THE LAYOUT VIEWPORT, NOT window.innerWidth, and the
+    // difference is a scrollbar. innerWidth INCLUDES the classic scrollbar and a
+    // block root's width does not, so on exactly the cases this escape exists
+    // for (the ones tall enough to overflow, which is when a scrollbar appears)
+    // a full-bleed root measured 15px short of vw and was reported as content
+    // covered by the rail. It went unnoticed while every pack root painted its
+    // backdrop as gradients alone, because a background shorthand with no
+    // colour leaves background-color transparent and the paint test above never
+    // fired. Board Game's Tabletop backdrop is the first with an opaque
+    // background-color under it, and it lit this up immediately as
+    // "tn-tv bg-tv by 170": the page painting under its own rail, which is what
+    // a page does. documentElement.clientWidth/Height is the layout viewport
+    // with the scrollbar already taken off.
+    const lvw = document.documentElement.clientWidth, lvh = document.documentElement.clientHeight;
+    if (r.width >= lvw - 1 && r.height >= lvh - 1) continue;
     const into = Math.max(
       railW - r.top,                 // under the top timber
       r.bottom - (vh - railW),       // under the bottom timber

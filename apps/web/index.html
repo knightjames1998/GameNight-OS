@@ -106,8 +106,27 @@
          Sitting in <body> beside #root, it exists before the first paint and
          leaves that invariant alone.
          Under Arcade it draws nothing: --gn-rail-w is 0px and every colour it
-         reads is transparent. An arcade cabinet has no rail. -->
-    <div class="gn-rail" aria-hidden="true"></div>
+         reads is transparent. An arcade cabinet has no rail.
+
+         THE FOUR CHILDREN ARE THE FOUR PLANKS, and they are elements rather
+         than four more background layers because of the CORNERS. Four sides on
+         one box are four layers each sized to 100% of its own axis, so the top
+         layer runs the full width including both corner squares and the left
+         layer runs the full height; they overlap, and whichever is listed first
+         wins. That is a butt joint. Background layers cannot be masked
+         individually, so a real mitre needs four boxes, each clip-pathed to its
+         own trapezoid from the outer corner to the inner one.
+
+         THEY ARE HERE UNCONDITIONALLY so no theme has to remember them, exactly
+         like the rail itself. Under Arcade every plank token is `none` and
+         --gn-rail-w is 0px, so all four clip to zero area and paint nothing.
+         Empty <i> rather than <div>: no default margin, no semantics, and the
+         parent is already aria-hidden. They are position:absolute inside a
+         position:fixed parent, so they cost no layout and --gn-shell-inset does
+         not move. -->
+    <div class="gn-rail" aria-hidden="true"
+      ><i class="gn-rail__t"></i><i class="gn-rail__r"></i><i class="gn-rail__b"></i><i class="gn-rail__l"></i
+    ></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

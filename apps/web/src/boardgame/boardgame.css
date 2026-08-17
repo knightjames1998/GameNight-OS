@@ -1,20 +1,11 @@
 /* ============================================================
    Board Game pack theme. Its own design language (standing rule
-   3): a lamplit wooden table. Walnut ground, parchment cards,
-   brass accent, with a meeple green for the second signal.
-
-   Distinct from the packs it sits nearest: Mario Party is a
-   purple/gold party, Ping Pong is green felt and an orange ball,
-   the casino group is oxblood and table felt. Nothing here is a
-   scoreboard; it is meant to read like the table the box is
-   sitting on.
+   3): a lamplit table with a box open on it. Brass accent, meeple
+   green for the second signal, parchment lettering.
 
    The STRUCTURE lives in ../titlenight/titlenight.css. This file
-   is the backdrop, the brand glow and the --tn-* tokens, which is
-   all a title-night pack's stylesheet should ever be. Every value
-   below is the one this pack shipped with on 2026-08-04: the
-   extraction moved the class names, not the pixels, and
-   scripts/theme-sweep.mjs is what proves it.
+   is the backdrop, the brand glow and the --tn-* / --bg-* tokens,
+   which is all a title-night pack's stylesheet should ever be.
 
    THE PAGE'S INK IS THE SHELL'S, THE TV'S IS PARCHMENT, and that
    asymmetry is the pack as it shipped rather than an oversight to
@@ -24,24 +15,76 @@
    two and repainted every line of copy on the page, which is what
    the sweep exists to catch.
 
-   Not tokenised for the Tabletop theme yet, deliberately: stage 4
-   converts the packs one at a time and this one joins that queue
-   (see BACKLOG). Under Arcade it reads as walnut, which is honest
-   for a board game pack; making it read as SOMETHING ELSE under a
-   walnut shell is exactly the identity problem stage 4 has to
-   settle for the casino group first.
+   ------------------------------------------------------------
+   STAGE 4, AND THIS PACK IS THE WORKED EXAMPLE FOR THE OTHER
+   EIGHT. Ping Pong proved a pack can carry its own token block;
+   what it did not have to answer is the question every remaining
+   pack has, which this one asks in its sharpest form.
+
+   THE IDENTITY PROBLEM. Tabletop's base is walnut and brass. So
+   is Board Game's, because a board game night IS a wooden table
+   with a brass lamp over it, and that is exactly why the pack
+   DISSOLVES INTO THE SHELL the moment the shell becomes a table:
+   two objects made of the same material at the same tint are one
+   object. Ping Pong never hit this because a blue-green painted
+   table top was already a different colour from the shell's
+   emerald.
+
+   THE ANSWER IS NOT A DIFFERENT MATERIAL PER PACK. Nine packs
+   inventing nine textures is nine treatments to maintain, nine
+   files naming their own asset, and a room that reads as nine
+   pieces of furniture rather than one table with different cloths
+   on it. It is THE SAME CLOTH AT A DIFFERENT TINT: one tile, one
+   rail, ten tables in one room. That is what --gn-felt-tile is
+   for, and it is why the tile is greyscale.
+
+   THREE TINTS WERE RENDERED AND OLIVE WON.
+     tobacco  still dissolves: the rail and the cloth read as one
+              brown field, which is the problem restated rather
+              than solved.
+     slate    works, and drifts into Deduction's cold territory,
+              which is a collision to pay for later.
+     olive    holds the brass accent, reads clearly as its own
+              table against the shell's emerald, and stays well
+              clear of Ping Pong's blue-green.
+
+   That decision unblocks the casino group with no further design
+   work: deep green, oxblood, royal, charcoal, all of them this
+   tile at a tint.
+
+   THE MECHANISM, and it is the part that generalises. A pack
+   CANNOT read --gn-texture. A custom property containing a var()
+   resolves where it is DECLARED, so the shell's --gn-texture bakes
+   in the shell's --gn-felt-lit and a pack reading it would light
+   its own table with the shell's green. That is the trap
+   --gn-bevel-btn shipped with in stage 3, and Ping Pong's lamp
+   already dodges it the same way: the pack composes its OWN layer
+   list here, out of the shell's geometry tokens (--gn-felt-tile,
+   --gn-lamp-geom, --gn-lamp-fade) plus its own colours.
    ============================================================ */
 
-.bg-root,
-.bg-tv {
+/* THE TV IS NAMED FIRST IN BOTH SHARED SELECTOR LISTS, and that is not
+   arbitrary. theme-contrast.test.ts finds a pack's token blocks by their
+   selector text, so with `.bg-root, .bg-tv {` the string ".bg-tv {" appears in
+   the SHARED block as well as in the TV-only one below it and the test reads
+   the wrong block. Naming .bg-tv first leaves each block's own selector unique.
+   Order inside a comma list changes nothing about what the CSS does. */
+.bg-tv,
+.bg-root {
+  /* ---- identity: brass, meeple green, parchment ----
+     None of these is redeclared under Tabletop. A board game's box art does
+     not change colour because the room did, which is the same call the shell's
+     cabinet inks and Ping Pong's rubber make. */
   --tn-accent: #e0a54a;
   --tn-accent-ink: #2a1c08;
   --tn-accent-sh: #9c6f21;
   --tn-mark: #5fb28a;
   --tn-mark-ink: #0d2419;
+  --tn-display: #f4e7cf;
+
+  /* ---- material: the table, and the print laid on it ---- */
   --tn-line: #5a422c;
   --tn-rule: #45311f;
-  --tn-display: #f4e7cf;
   --tn-surface: #241a11;
   --tn-card: linear-gradient(180deg, #33241a, #261b12);
   --tn-raise: #33241a;
@@ -49,6 +92,25 @@
   --tn-chip-ink: #f4e7cf;
   --tn-sunken: #1c130c;
   --tn-glow: rgba(224, 165, 74, 0.45);
+
+  /* ---- THE BACKDROP, AS TOKENS ----
+     Named for the job, in the shape Ping Pong established: a ground colour, a
+     lit crown, and the layer list itself. Under Arcade the list is the walnut
+     page gradient this pack shipped with on 2026-08-04, spelled out through
+     the tokens instead of inline; under Tabletop it is the cloth. Holding the
+     LIST in a token is what lets one rule serve both without the pack growing
+     a `:root[data-theme=...] .bg-root { background: ... }` override.
+     --bg-ground is transparent here because the Arcade backdrop is an opaque
+     gradient over the whole box and never shows a background-color. */
+  --bg-felt: #16100a;      /* the page's deep end */
+  --bg-felt-lit: #4a3520;  /* the pool at the top */
+  --bg-felt-top: #241a11;  /* the top of the page gradient, Arcade only */
+  --bg-ground: transparent;
+  --bg-layers:
+    radial-gradient(110% 70% at 50% -5%, var(--bg-felt-lit) 0%, transparent 60%),
+    linear-gradient(180deg, var(--bg-felt-top), var(--bg-felt));
+  --bg-layers-size: auto;
+  --bg-layers-blend: normal;
 }
 
 /* A TOKEN BLOCK STAYS PURE TOKENS, with the backdrop in its own rule below.
@@ -65,14 +127,141 @@
   --tn-tv-line: #6b4f31;
   --tn-tv-rule: rgba(244, 231, 207, 0.1);
   --tn-tv-glow: rgba(224, 165, 74, 0.5);
+  /* DISJOINT NAMES FROM THE PAGE'S, for the reason titlenight.css states about
+     --tn-glow and --tn-tv-glow: the sweep's rule probe hoists every token block
+     onto one element, so a pack that spelled --bg-layers twice would have its
+     page measured as its TV. */
+  --bg-tv-ground: transparent;
+  --bg-tv-layers: radial-gradient(120% 80% at 50% 0%, var(--bg-felt-lit), var(--bg-felt-deep-tv));
+  --bg-tv-layers-size: auto;
+  --bg-tv-layers-blend: normal;
+  --bg-felt-deep-tv: #120c07;
 }
 
+/* ============================================================
+   TABLETOP: the same cloth as the shell, at olive.
+   Every text pair is asserted in
+   apps/server/tests/theme-contrast.test.ts.
+   ============================================================ */
+:root[data-theme="tabletop"] .bg-tv,
+:root[data-theme="tabletop"] .bg-root {
+  /* THE VALUE WAS SET BY THE PACK'S OWN BRASS, not chosen. The rendered olive
+     was #2b3020 lit to #4a5236, and that crown is BRIGHT: it puts --tn-accent,
+     which is the now-playing title on the TV, at 3.78 against it and
+     --tn-tv-muted at 3.72, where the same two pairs read 5.30 and 5.21 on
+     Arcade's lit walnut. Every light text colour loses as the surface rises, so
+     the lamp's peak is the ceiling here exactly as --gn-dim on the crown is the
+     shell's. Same hue vector, lower value: the crown comes down until the brass
+     clears AA on it (4.90) and the felt comes down with it, which keeps the
+     LIFT between the two at +23/25/16 against the shell's +16/26/18. The pool
+     is as strong as the shell's; it just starts from a darker table. */
+  --bg-felt: #232819;
+  --bg-felt-lit: #3a4129;
+  --bg-ground: var(--bg-felt);
+  /* THE PACK'S OWN LIST, out of the shell's geometry and the pack's colour.
+     Same three layers and the same order as the shell's --gn-texture: the tile
+     overlays the LIT result, so the weave is strongest exactly where the light
+     falls, and the vignette is what makes the cloth read as ending under timber
+     rather than running off the edge of the screen. */
+  --bg-layers:
+    var(--gn-felt-tile),
+    radial-gradient(130% 84% at 50% 28%,
+      transparent 42%,
+      color-mix(in srgb, var(--gn-shadow-depth) 24%, transparent) 76%,
+      color-mix(in srgb, var(--gn-shadow-depth) 46%, transparent) 100%),
+    radial-gradient(var(--gn-lamp-geom),
+      var(--bg-felt-lit) 0%,
+      color-mix(in srgb, var(--bg-felt-lit) 72%, transparent) 30%,
+      color-mix(in srgb, var(--bg-felt-lit) 24%, transparent) 52%,
+      transparent var(--gn-lamp-fade));
+  --bg-layers-size: 150px, 100% 100%, 100% 100%;
+  --bg-layers-blend: overlay, normal, normal;
+  /* --bg-felt-top is NOT redeclared: it is the top stop of a linear page
+     gradient and this backdrop has no linear page gradient. A token kept alive
+     with a value nothing reads is worse than an absent one. */
+
+  /* The print on the card, re-treated onto cloth. The card stops being an
+     opaque walnut panel and becomes a darkening of whatever it is laid on,
+     exactly as the shell's did, so the weave and the lamp carry through it. */
+  --tn-card: rgba(22, 15, 8, 0.62);
+  --tn-surface: rgba(22, 15, 8, 0.62);
+  --tn-raise: rgba(0, 0, 0, 0.34);
+  --tn-chip: rgba(0, 0, 0, 0.34);
+  --tn-line: #3a2f20;
+  --tn-rule: #3a2f20;
+  --tn-sunken: rgba(0, 0, 0, 0.36);
+  /* PRINT ON CARD DOES NOT EMIT LIGHT, so the pack's brand glow goes the way
+     the shell's did in stage 3. --tn-brand keeps its hard drop, which is ink
+     sitting slightly proud of the board rather than a sign lit from behind. */
+  --tn-glow: transparent;
+}
+
+:root[data-theme="tabletop"] .bg-tv {
+  --bg-tv-ground: var(--bg-felt);
+  --bg-tv-layers:
+    var(--gn-felt-tile),
+    radial-gradient(120% 96% at 50% 26%,
+      transparent 40%,
+      color-mix(in srgb, var(--gn-shadow-depth) 26%, transparent) 74%,
+      color-mix(in srgb, var(--gn-shadow-depth) 50%, transparent) 100%),
+    radial-gradient(var(--gn-lamp-geom),
+      var(--bg-felt-lit) 0%,
+      color-mix(in srgb, var(--bg-felt-lit) 72%, transparent) 30%,
+      color-mix(in srgb, var(--bg-felt-lit) 24%, transparent) 52%,
+      transparent var(--gn-lamp-fade));
+  /* Bigger on the big screen, for the reason the shell states: the failure mode
+     of a tiled texture across a room is the LATTICE, not the seam. */
+  --bg-tv-layers-size: 760px, 100% 100%, 100% 100%;
+  --bg-tv-layers-blend: overlay, normal, normal;
+  --tn-tv-panel: rgba(18, 12, 6, 0.58);
+  --tn-tv-line: transparent;
+  --tn-tv-glow: transparent;
+}
+
+/* ---- the backdrop rules, one per screen ---------------------- */
 .bg-root {
-  background:
-    radial-gradient(110% 70% at 50% -5%, #4a3520 0%, transparent 60%),
-    linear-gradient(180deg, #241a11, #16100a);
+  background-color: var(--bg-ground);
+  background-image: var(--bg-layers);
+  background-size: var(--bg-layers-size);
+  background-blend-mode: var(--bg-layers-blend);
 }
 
 .bg-tv {
-  background: radial-gradient(120% 80% at 50% 0%, #4a3520, #120c07);
+  background-color: var(--bg-tv-ground);
+  background-image: var(--bg-tv-layers);
+  background-size: var(--bg-tv-layers-size);
+  background-blend-mode: var(--bg-tv-layers-blend);
+}
+
+/* ---- the print, once it is sitting on cloth ------------------
+   Scoped to this pack rather than written into titlenight.css, because that
+   file is shared with Card Table, which has had its own Tabletop pass and
+   whose cards are cream on purpose. A shared structural stylesheet is exactly
+   where a per-pack material change must NOT go. */
+:root[data-theme="tabletop"] .bg-root .tn-card {
+  border: 0;
+  border-radius: var(--gn-radius-card);
+  box-shadow: var(--gn-card-shadow);
+  padding: 16px;
+}
+:root[data-theme="tabletop"] .bg-root .tn-input,
+:root[data-theme="tabletop"] .bg-root .tn-select {
+  border-color: transparent;
+  box-shadow: var(--gn-input-sunk);
+}
+:root[data-theme="tabletop"] .bg-tv .tn-tv__panel {
+  border: 0;
+  border-radius: var(--gn-radius-card-tv);
+  box-shadow: var(--gn-card-shadow);
+}
+/* BEVAN ON THE NOW-PLAYING TITLE, and it is the cheapest thing in this session
+   that stops the TV reading as a phone app from across a room. It costs nothing
+   because Bevan is already loaded under this theme, and the size comes down
+   from 9vmin because Bevan sets far wider than Fredoka at the same size; 7.4
+   holds the same measure. Bevan is 400 only, so the 700 the structural rule
+   asks for would be synthesised into a smear. */
+:root[data-theme="tabletop"] .bg-tv .tn-tv__title {
+  font-family: var(--gn-font-display);
+  font-weight: 400;
+  font-size: 7.4vmin;
 }
