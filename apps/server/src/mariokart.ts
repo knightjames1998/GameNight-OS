@@ -19,23 +19,38 @@ import {
   cupStandings,
   cupNoForRace,
   assignRandomFighters,
-  validateFfa,
   isRacer,
   summarizeNight,
-  kothAdvance,
+  isKartPairs,
+  mkKothAdvance,
+  mkOrderFromPlacements,
+  mkRaceLines,
+  mkSeriesLines,
+  mkSides,
+  mkSideById,
+  mkSidesAtIdx,
+  rebuildMkKoth,
+  reshuffleMkSides,
+  sideIdAt,
+  sideLabel,
+  shuffleIntoSides,
+  singletonSides,
+  truncateSideLog,
+  validateMkRaceOrder,
+  validateSides,
   newSeries,
   recordSeriesGame,
   finalizeSeries,
-  seriesGameTally,
   summarizeSeriesLog,
   MARIO_KART_TITLES,
   rosterForTitle,
+  type MkGame,
+  type MkResultLine,
   type MkSessionState,
   type MkFormat,
+  type Side,
   type SmashPlayer,
   type SmashResultDetail,
-  type SmashResultLine,
-  type SmashGame,
   type Series,
   type SeriesBestOf,
   SESSION_PACKS,
@@ -54,11 +69,17 @@ export const marioKartTvRouter = Router();
 export const marioKartRuntime = createPackRuntime<MkSessionState>({
   ...packConfig("mariokart"),
   extras: (state) => ({
-    // summarizeNight only reads roster + games; MK's wider format union is
-    // irrelevant to it, so the cast is safe.
+    // summarizeNight only reads roster + games, and MkResultLine is the Smash
+    // line plus a `side`, so the cast is over a SUPERSET and MK's wider format
+    // union is irrelevant to it.
     summary: summarizeNight(state as unknown as import("@gamenight/shared").SmashSessionState),
     cup: state.format === "grandprix" ? cupStandings(state) : null,
     seriesStandings: state.format === "bestof" ? seriesStandings(state) : [],
+    // The arrangement of karts in force, flattened for the screen, plus the one
+    // boolean every panel on it branches on. A solo night is karts of one and
+    // `pairs` is false, which is what keeps its screens reading as they did.
+    sides: mkSides(state),
+    pairs: isKartPairs(state),
   }),
 });
 
@@ -71,7 +92,7 @@ async function materializeGame(
   groupId: string,
   eventId: string,
   gameId: string,
-  game: SmashGame,
+  game: MkGame,
   roster: SmashPlayer[],
   sessionKey: string,
   label: string | null,
@@ -83,6 +104,12 @@ async function materializeGame(
     placement: line.placement,
     isWinner: line.isWinner,
     character: line.character ?? null,
+    // Which KART. Null on every row of a solo race, which is the same NULL the
+    // column has held since this pack shipped: teams.ts sideIdFor owns the rule
+    // and a race whose karts all hold one racer has no team structure. A
+    // legacy race recorded before pairs existed has no `side` on its line at
+    // all, hence the coalesce rather than a bare read.
+    side: line.side ?? null,
   }));
 
   return rt.materializeUnit({
@@ -113,23 +140,15 @@ async function materializeSeries(
   bestOf: SeriesBestOf,
   roster: SmashPlayer[],
   sessionKey: string,
+  /** The arrangement of karts THIS set was raced under, not the current one. */
+  sides: readonly Side[],
   linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
 ): Promise<{ recorded: number; guests: number }> {
   if (!series.winnerId) return { recorded: 0, guests: 0 };
 
-  const tally = seriesGameTally(series);
-  const loserId = series.winnerId === series.aId ? series.bId : series.aId;
   const charOf = new Map(roster.map((p) => [p.id, p.character ?? null]));
-  const lines: LedgerLine[] = [series.winnerId, loserId].map((slotId) => {
-    const g = tally.get(slotId) ?? { wins: 0, played: 0 };
-    return {
-      playerId: slotId,
-      placement: slotId === series.winnerId ? 1 : 2,
-      isWinner: slotId === series.winnerId,
-      character: charOf.get(slotId) ?? null,
-      meta: { gameWins: g.wins, gamesPlayed: g.played },
-    };
-  });
+  const lines: LedgerLine[] = mkSeriesLines(series, sides, (id) => charOf.get(id) ?? null);
+  if (lines.length === 0) return { recorded: 0, guests: 0 };
 
   return rt.materializeUnit({
     groupId,
@@ -145,12 +164,26 @@ async function materializeSeries(
   });
 }
 
-/** Per-player best-of standings with names, for the live page + TV. */
+/**
+ * Per-KART best-of standings with names, for the live page + TV.
+ *
+ * `summarizeSeriesLog` keys on whatever ids the series carried, and those are
+ * kart ids now, so a row is a kart. The label comes from the kart's MEMBERS, so
+ * a solo night reads exactly as it did (a kart of one is labelled with that
+ * racer's name) and a pairs night reads "Ann + Ben". The field is still called
+ * `slotId` because that is what the primitive calls it and the client keys on
+ * it; the client never renders it.
+ */
 function seriesStandings(state: MkSessionState) {
   const nameOf = new Map(state.roster.map((p) => [p.id, p.name]));
+  const sides = mkSides(state);
+  const label = (sideId: string) => {
+    const side = sides.find((s) => s.id === sideId);
+    return side ? sideLabel(side, (id) => nameOf.get(id)) : "?";
+  };
   return [...summarizeSeriesLog(state.seriesLog ?? []).values()]
     .filter((s) => s.seriesPlayed > 0)
-    .map((s) => ({ ...s, name: nameOf.get(s.slotId) ?? "?" }))
+    .map((s) => ({ ...s, name: label(s.slotId) }))
     .sort((a, b) => b.seriesWins - a.seriesWins || b.gameWins - a.gameWins || b.seriesPlayed - a.seriesPlayed);
 }
 
@@ -195,10 +228,19 @@ export async function creditGuestMarioKart(
         isWinner: line.isWinner,
       });
     }
+    // A set is between two KARTS, so "did the guest play in it" is a question
+    // about the kart's members under the arrangement THAT set was raced under,
+    // not about a slot id sitting on the series. A legacy set still carrying
+    // player ids answers the same way, because normalizeMkState has already
+    // mapped it onto the kart holding that player.
+    const guestInSide = (state2: MkSessionState, idx: number, sideId: string) =>
+      mkSidesAtIdx(state2, idx).find((s) => s.id === sideId)?.memberIds.some((id) => guestSlots.has(id)) ?? false;
+
     for (const ser of state.seriesLog ?? []) {
-      if (!ser.winnerId || !(guestSlots.has(ser.aId) || guestSlots.has(ser.bId))) continue;
+      if (!ser.winnerId) continue;
+      if (!guestInSide(state, ser.idx, ser.aId) && !guestInSide(state, ser.idx, ser.bId)) continue;
       if (credited.has(rt.ledgerKey(eventId, state.sessionKey, ser.idx))) continue;
-      const won = guestSlots.has(ser.winnerId);
+      const won = guestInSide(state, ser.idx, ser.winnerId);
       items.push({
         pack: DEF.ledger,
         packLabel: DEF.name,
@@ -220,8 +262,18 @@ export async function creditGuestMarioKart(
         }
       }
       for (const ser of state.seriesLog ?? []) {
-        if (ser.winnerId && (guestSlots.has(ser.aId) || guestSlots.has(ser.bId))) {
-          await materializeSeries(groupId, eventId, gameId, ser, state.bestOf, state.roster, state.sessionKey, linkMap);
+        if (ser.winnerId && (guestInSide(state, ser.idx, ser.aId) || guestInSide(state, ser.idx, ser.bId))) {
+          await materializeSeries(
+            groupId,
+            eventId,
+            gameId,
+            ser,
+            state.bestOf,
+            state.roster,
+            state.sessionKey,
+            mkSidesAtIdx(state, ser.idx),
+            linkMap,
+          );
         }
       }
     }
@@ -330,7 +382,41 @@ marioKartRouter.post("/events/:eventId/mariokart", requireAuth, async (req: Auth
     : MARIO_KART_TITLES[0]!.id;
   const pool = rosterForTitle(MARIO_KART_TITLES, titleId);
 
-  let state = newMkKartState({ format, titleId, assignment, resultDetail, roster, bestOf, raceCount });
+  // KARTS AT SETUP. The client expresses them as ROSTER INDICES, because slot
+  // ids are minted here and it has never seen them: `sides: [[0,1],[2,3]]` is
+  // "Ann and Ben share a kart, Cal and Dee share the other". Absent means one
+  // kart per racer, which is a solo night and exactly what every client sent
+  // before this existed. Same wire shape as Ping Pong's, deliberately: two
+  // packs with one setup screen between them should not need two spellings.
+  const rawSides = Array.isArray(req.body?.sides) ? req.body.sides : null;
+  let sides: Side[];
+  if (rawSides) {
+    sides = rawSides.map((members: unknown, i: number): Side => ({
+      id: sideIdAt(i),
+      name: `Kart ${String.fromCharCode(65 + i)}`,
+      memberIds: (Array.isArray(members) ? members : [])
+        .map((n: unknown) => roster[Number(n)]?.id)
+        .filter((id: string | undefined): id is string => !!id),
+    }));
+    const check = validateSides(sides);
+    if (check.error) {
+      res.status(400).json({ error: check.error });
+      return;
+    }
+    // Anybody the host left out of a kart is not racing, and a roster slot in
+    // no kart would be invisible to every screen. Reject rather than guess.
+    const placed = new Set(sides.flatMap((x) => x.memberIds));
+    if (placed.size !== roster.length) {
+      res.status(400).json({ error: "Every racer has to be in a kart" });
+      return;
+    }
+  } else if (Number(req.body?.sideCount) >= 2) {
+    sides = shuffleIntoSides(roster.map((p) => p.id), Number(req.body.sideCount));
+  } else {
+    sides = singletonSides(roster.map((p) => p.id));
+  }
+
+  let state = newMkKartState({ format, titleId, assignment, resultDetail, roster, bestOf, raceCount, sides });
   if (assignment === "random") state.roster = assignRandomFighters(state.roster, pool);
 
   res.json(await rt.startSession(eventId, event.groupId, state, req.get("x-gn-client")));
@@ -419,12 +505,14 @@ marioKartRouter.post("/mariokart/:eventId/record", requireAuth, async (req: Auth
   // game) is the ledger unit, materializing when the set is won.
   if (state.format === "bestof") {
     if (!state.series) {
-      res.status(409).json({ error: "Pick two players and start a set first" });
+      res.status(409).json({ error: "Pick two karts and start a set first" });
       return;
     }
-    const winnerId = String(req.body?.winnerId ?? "");
+    // The client sends a KART id. On a solo night that is the kart holding the
+    // one racer, so the tap is unchanged from the outside.
+    const winnerId = String(req.body?.winnerSideId ?? "");
     if (winnerId !== state.series.aId && winnerId !== state.series.bId) {
-      res.status(400).json({ error: "Winner must be one of the two playing" });
+      res.status(400).json({ error: "Winner must be one of the two karts racing" });
       return;
     }
     const { completed } = recordSeriesGame(state.series, state.bestOf, winnerId);
@@ -435,7 +523,16 @@ marioKartRouter.post("/mariokart/:eventId/record", requireAuth, async (req: Auth
       state.seriesLog.push(done);
       state.series = null;
       const gameId = await rt.ensureGame(row.groupId);
-      report = await materializeSeries(row.groupId, eventId, gameId, done, state.bestOf, state.roster, state.sessionKey);
+      report = await materializeSeries(
+        row.groupId,
+        eventId,
+        gameId,
+        done,
+        state.bestOf,
+        state.roster,
+        state.sessionKey,
+        mkSidesAtIdx(state, done.idx),
+      );
     }
     const view = await rt.saveState(loaded, "live", origin);
     if (completed) broadcast({ type: "leaderboard_updated", eventId }, origin);
@@ -443,59 +540,64 @@ marioKartRouter.post("/mariokart/:eventId/record", requireAuth, async (req: Auth
     return;
   }
 
-  const charOf = new Map(state.roster.map((p) => [p.id, p.character]));
-  let lines: SmashResultLine[];
+  // A race is a tapped finish order of KARTS, and the placement rule lives in
+  // the primitive (teams.ts), so nothing here decides what a result means.
+  const charOf = new Map(state.roster.map((p) => [p.id, p.character ?? null]));
+  const racerOf = (playerId: string) => charOf.get(playerId) ?? null;
+  const sides = mkSides(state);
+  let lines: MkResultLine[];
   let label: string | null = null;
 
   if (state.format === "koth") {
-    // Winner stays on; the pair comes from state. One tap on the winner.
+    // Winning kart holds the table; the two racing come from state. One tap.
     const koth = state.koth!;
-    const pair = koth.kingId && koth.queue[0] ? [koth.kingId, koth.queue[0]] : null;
-    if (!pair) {
-      res.status(400).json({ error: "Not enough players queued" });
+    const king = mkSideById(state, koth.kingSideId);
+    const challenger = mkSideById(state, koth.queue[0]);
+    if (!king || !challenger) {
+      res.status(400).json({ error: "Not enough karts queued" });
       return;
     }
-    const winnerId = String(req.body?.winnerId ?? "");
-    if (!pair.includes(winnerId)) {
-      res.status(400).json({ error: "Winner must be one of the two playing" });
+    const winnerSideId = String(req.body?.winnerSideId ?? "");
+    if (winnerSideId !== king.id && winnerSideId !== challenger.id) {
+      res.status(400).json({ error: "Winner must be one of the two karts racing" });
       return;
     }
-    const loserId = pair.find((id) => id !== winnerId)!;
-    lines = [
-      { playerId: winnerId, character: charOf.get(winnerId) ?? null, placement: 1, isWinner: true },
-      { playerId: loserId, character: charOf.get(loserId) ?? null, placement: 2, isWinner: false },
-    ];
-    state.koth = kothAdvance(koth, winnerId, loserId);
+    const winner = winnerSideId === king.id ? king : challenger;
+    const loser = winnerSideId === king.id ? challenger : king;
+    // Two karts, so the order IS the result and the detail setting cannot
+    // change it: one kart finished first and one finished second.
+    lines = mkRaceLines([winner.id, loser.id], sides, "placement", racerOf);
+    state.koth = mkKothAdvance(koth, winner, loser);
   } else {
-    // Free Play or Grand Prix: an FFA race with placements. Grand Prix tags
-    // each race with its cup id (derived by chunking); cups advance
-    // automatically every raceCount races.
+    // Free Play or Grand Prix: a race with a finish order. Grand Prix tags each
+    // race with its cup id (derived by chunking); cups advance automatically
+    // every raceCount races.
     if (state.format === "grandprix") {
       label = `gp${cupNoForRace(state.games.length, state.grandPrix.raceCount)}`;
     }
-    const slotIds = new Set(state.roster.map((p) => p.id));
-    const raw = Array.isArray(req.body?.lines) ? req.body.lines : [];
-    lines = raw
-      .filter((l: any) => slotIds.has(String(l?.playerId)))
-      .map((l: any) => ({
-        playerId: String(l.playerId),
-        character: isRacer(l?.character) ? l.character : (charOf.get(String(l.playerId)) ?? null),
-        placement: Number(l?.placement) || 0,
-        isWinner: !!l?.isWinner,
-      }));
-    if (state.resultDetail === "winner") {
-      for (const l of lines) l.placement = l.isWinner ? 1 : 2;
-    } else {
-      for (const l of lines) l.isWinner = l.placement === 1;
-    }
-    const err = validateFfa(lines, state.resultDetail);
+    // `sides` is the kart order a pairs screen taps. `lines` is the per-racer
+    // form a solo screen has always sent, and it is TRANSLATED rather than
+    // refused: on a solo night a kart holds one racer, so the two spellings
+    // carry the same information and the older one keeps working.
+    const rawOrder = Array.isArray(req.body?.sides) ? req.body.sides.map((s: unknown) => String(s)) : null;
+    const order =
+      rawOrder ??
+      mkOrderFromPlacements(
+        (Array.isArray(req.body?.lines) ? req.body.lines : []).map((l: any) => ({
+          playerId: String(l?.playerId ?? ""),
+          placement: Number(l?.placement) || 0,
+        })),
+        sides,
+      );
+    const err = validateMkRaceOrder(order, sides);
     if (err) {
       res.status(400).json({ error: err });
       return;
     }
+    lines = mkRaceLines(order, sides, state.resultDetail, racerOf);
   }
 
-  const game: SmashGame = {
+  const game: MkGame = {
     idx: state.games.length,
     mode: state.mode,
     lines,
@@ -538,12 +640,14 @@ marioKartRouter.post("/mariokart/:eventId/start-series", requireAuth, async (req
     res.status(409).json({ error: "Finish the current set first" });
     return;
   }
-  const ids = new Set(state.roster.map((p) => p.id));
+  // Two KARTS, not two players. `series.ts` is generic over opaque slot ids, so
+  // this is a change of what the ids mean and not a change to the primitive.
+  const ids = new Set(mkSides(state).map((s) => s.id));
   const aId = String(req.body?.aId ?? "");
   const bId = String(req.body?.bId ?? "");
   const s = newSeries(aId, bId);
   if (!ids.has(aId) || !ids.has(bId) || !s) {
-    res.status(400).json({ error: "Pick two different players" });
+    res.status(400).json({ error: "Pick two different karts" });
     return;
   }
   state.series = s;
@@ -583,6 +687,10 @@ marioKartRouter.post("/mariokart/:eventId/undo", requireAuth, async (req: Authed
     lastSet.at = null;
     lastSet.idx = -1;
     state.series = lastSet;
+    // Undoing back PAST a reshuffle restores the arrangement of karts that was
+    // in force before it. Without this the set being re-opened would be raced
+    // by karts that did not exist when it was raced the first time.
+    truncateSideLog(state.sideSets, state.seriesLog.length);
     const view = await rt.saveState(loaded, "live", origin);
     broadcast({ type: "leaderboard_updated", eventId }, origin);
     res.json(view);
@@ -596,26 +704,65 @@ marioKartRouter.post("/mariokart/:eventId/undo", requireAuth, async (req: Authed
   }
   await rt.deleteMaterialized(eventId, state.sessionKey, last.idx);
 
+  // Undoing back PAST a reshuffle restores the arrangement of karts that was in
+  // force before it, and it has to happen BEFORE the throne is rebuilt: the
+  // rebuild replays the races run under the arrangement now in force, so a
+  // rebuild against an arrangement nothing was raced under any more hands the
+  // table to a kart that never won it.
+  truncateSideLog(state.sideSets, state.games.length);
+
   // KOTH: replay the throne from the opening order so it can't drift. Grand
   // Prix cups are derived from the games log, so undo needs no cup fixup.
-  if (state.format === "koth") {
-    let koth = {
-      kingId: state.roster[0]?.id ?? null,
-      queue: state.roster.slice(1).map((p) => p.id),
-      streak: 0,
-      bestStreak: null as { playerId: string; streak: number } | null,
-    };
-    for (const g of state.games) {
-      const w = g.lines.find((l) => l.isWinner);
-      const lo = g.lines.find((l) => !l.isWinner);
-      if (w && lo) koth = kothAdvance(koth, w.playerId, lo.playerId);
-    }
-    state.koth = koth;
-  }
+  if (state.format === "koth") rebuildMkKoth(state);
 
   const view = await rt.saveState(loaded, "live", origin);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json(view);
+});
+
+// ---------- host: rearrange the karts mid-night ----------
+//
+// Karts are FIXED for the night by default, with an explicit host action to
+// change them. Races already recorded keep the `side` written on their lines,
+// so the night's history stays true; in King of the Hill the ladder restarts,
+// because a queue of karts that no longer exist is not a queue.
+
+marioKartRouter.post("/mariokart/:eventId/sides", requireAuth, async (req: AuthedRequest, res) => {
+  const eventId = String(req.params.eventId);
+  const loaded = await rt.loadState(eventId);
+  if (!loaded) {
+    res.status(404).json({ error: "No session" });
+    return;
+  }
+  if (!isHostRole(await roleOf(loaded.row.groupId, req.user!.id))) {
+    res.status(403).json({ error: "Host only" });
+    return;
+  }
+  // Here the client HAS seen the roster, so karts come as slot ids.
+  const ids = loaded.state.roster.map((p) => p.id);
+  const known = new Set(ids);
+  const rawSides = Array.isArray(req.body?.sides) ? req.body.sides : null;
+  const sides: Side[] = rawSides
+    ? rawSides.map((s: any, i: number): Side => ({
+        id: sideIdAt(i),
+        name: `Kart ${String.fromCharCode(65 + i)}`,
+        memberIds: (Array.isArray(s?.memberIds) ? s.memberIds : [])
+          .map((id: unknown) => String(id))
+          .filter((id: string) => known.has(id)),
+      }))
+    : shuffleIntoSides(ids, Math.max(2, Number(req.body?.sideCount) || 2));
+
+  const placed = new Set(sides.flatMap((x) => x.memberIds));
+  if (placed.size !== ids.length) {
+    res.status(400).json({ error: "Every racer has to be in a kart" });
+    return;
+  }
+  const err = reshuffleMkSides(loaded.state, sides);
+  if (err) {
+    res.status(400).json({ error: err });
+    return;
+  }
+  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
 
 marioKartRouter.post("/mariokart/:eventId/open-scoring", requireAuth, async (req: AuthedRequest, res) => {
@@ -655,7 +802,16 @@ marioKartRouter.post("/mariokart/:eventId/complete", requireAuth, async (req: Au
     state.seriesLog.push(done);
     state.series = null;
     const gameId = await rt.ensureGame(row.groupId);
-    await materializeSeries(row.groupId, eventId, gameId, done, state.bestOf, state.roster, state.sessionKey);
+    await materializeSeries(
+      row.groupId,
+      eventId,
+      gameId,
+      done,
+      state.bestOf,
+      state.roster,
+      state.sessionKey,
+      mkSidesAtIdx(state, done.idx),
+    );
     finalized = true;
   }
   const view = await rt.saveState(loaded, "completed", origin);

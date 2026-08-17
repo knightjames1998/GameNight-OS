@@ -75,6 +75,11 @@ test("BASELINE: a fresh Mario Kart session has exactly these fields", () => {
   // and a field appearing is harmless while a field DISAPPEARING is a live
   // night reading undefined. Sorted so the assertion does not depend on the
   // order the spread happens to produce.
+  //
+  // `sideSets` was ADDED on 2026-08-16 when karts arrived, and that is the only
+  // edit this file has taken. Nothing was removed, which is the half that
+  // matters: a session persisted before that deploy still has every field the
+  // code reads, and normalizeMkState fills in the one it does not.
   const s = state("free");
   assert.deepEqual(Object.keys(s).sort(), [
     "assignment",
@@ -90,6 +95,7 @@ test("BASELINE: a fresh Mario Kart session has exactly these fields", () => {
     "series",
     "seriesLog",
     "sessionKey",
+    "sideSets",
     "titleId",
   ]);
   assert.equal(s.mode, "ffa");
