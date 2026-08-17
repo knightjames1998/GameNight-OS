@@ -36,6 +36,7 @@ export function MoneyBoard<D>({
   brand,
   meta,
   hero,
+  heroLines,
   extraMeta,
   emptyHint,
 }: {
@@ -53,6 +54,13 @@ export function MoneyBoard<D>({
    * starts where it always did.
    */
   hero?: ReactNode;
+  /**
+   * What the hero costs in board lines, when it is not the flat two a fixed
+   * panel costs. A pack whose hero GROWS with the table has to say so, or the
+   * ladder sizes the board for a hero that is three lines shorter than the one
+   * being painted. See BoardLoad.heroLines.
+   */
+  heroLines?: number;
   /** A per-player tail on the subline: "· 2 blackjacks", "· mostly red". */
   extraMeta?: (p: CashPlayerRow<D>) => string;
   emptyHint: string;
@@ -70,6 +78,7 @@ export function MoneyBoard<D>({
   // band.ts for the measured costs.
   const band = moneyBoardBand(summary.players.length, {
     hero: !!hero,
+    heroLines,
     warning: !!summary.warning,
     rules: summary.modifiers.length > 0,
   });

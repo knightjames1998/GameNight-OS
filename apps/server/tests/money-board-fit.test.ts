@@ -217,3 +217,54 @@ test("the back button is on the ladder, because the fit is measured against it",
   );
   assert.ok(read("casino/casino.css").includes(".cg-tv__back"), "casino.css has no .cg-tv__back rule");
 });
+
+// ---------- a hero that GROWS with the table ----------
+//
+// Added 2026-08-17 with the poker pack. `HERO_LINES` was a flat 2 and that was
+// right while craps was the only pack with a hero: a shooter panel is a fixed
+// two lines whatever the night is doing. Poker's hero is a settlement that grows
+// with the table, and a flat 2 understated it by three lines at a full one,
+// which handed an eight-seat board a band that does not fit it (tv-fit measured
+// it 73px over). So a pack whose hero grows now says how much it costs.
+
+test("heroLines overrides the flat hero cost, and only when a hero is on", () => {
+  // The default is untouched, which is what keeps craps and every other caller
+  // on exactly the ladder they were measured against.
+  assert.equal(moneyBoardBand(4, { hero: true }), moneyBoardBand(4, { hero: true, heroLines: 2 }));
+  // A taller hero tightens the band, which is the whole point.
+  assert.equal(moneyBoardBand(8, { hero: true }), "tight");
+  assert.equal(moneyBoardBand(8, { hero: true, heroLines: 3 }), "packed");
+  assert.equal(moneyBoardBand(8, { hero: true, heroLines: 6 }), "full");
+  // And it is ignored without a hero, so it cannot tighten a board that is not
+  // carrying one.
+  assert.equal(moneyBoardBand(8, { heroLines: 9 }), moneyBoardBand(8));
+});
+
+test("A TALLER HERO CAN ONLY EVER TIGHTEN, never loosen", () => {
+  // The same monotonicity the ladder already promises on its other two axes. A
+  // hero declaring itself taller and getting a roomier band would be a footer
+  // off the bottom of a television, and it would only show up at one seat count.
+  for (let seats = 0; seats <= 16; seats++) {
+    for (let lines = 1; lines <= 8; lines++) {
+      const prev = moneyBoardBand(seats, { hero: true, heroLines: lines - 1 });
+      const here = moneyBoardBand(seats, { hero: true, heroLines: lines });
+      assert.ok(
+        rung(here) >= rung(prev),
+        `${seats} seats: a ${lines - 1}-line hero gave ${prev} and a ${lines}-line one gave ${here}`,
+      );
+    }
+  }
+});
+
+test("a nonsense heroLines cannot make a board roomier than no hero at all", () => {
+  // Total by construction, like the seat count above it: a negative or
+  // fractional value clamps rather than subtracting lines off the load.
+  for (const bad of [-5, -0.5, 0.4, NaN]) {
+    const band = moneyBoardBand(8, { hero: true, heroLines: bad });
+    assert.ok(BOARD_BANDS.includes(band), `heroLines ${bad} returned ${band}`);
+    assert.ok(
+      rung(band) >= rung(moneyBoardBand(8)),
+      `heroLines ${bad} bought a roomier band than carrying no hero at all`,
+    );
+  }
+});

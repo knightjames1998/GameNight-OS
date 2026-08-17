@@ -73,7 +73,7 @@ const money = (n, mods) => {
 // 1080px the board does. Everybody is cashed out and the table squares, which is
 // the WORST case for height rather than the happy one: that is the only state in
 // which the transfer list is non-null, and a greedy settlement of n players runs
-// to n-1 rows before the six-row cap in PokerTvPage clips it.
+// to n-1 rows before the four-row cap in PokerTvPage clips it.
 const poker = (n) => {
   const players = Array.from({ length: n }, (_, i) => ({
     playerId: "p" + i, name: "Player Nameiskindalong " + (i + 1), kind: "member",
@@ -586,14 +586,6 @@ const KNOWN = new Set([
   "mario kart  16 solo",
   "mario kart  16 karts",
   "mario kart  16 koth",
-  // POKER AT EIGHT, added 2026-08-17 with the pack rather than days later. It is
-  // 73px over and four and twelve both FIT, which is the finding: moneyBoardBand
-  // puts twelve on a tighter rung than eight, and the roomier rung is not roomy
-  // enough once every seat is cashed out and ranked. No payload had ever put a
-  // casino board in that state (`money()` above settles one player in three), so
-  // it is a shared-board question that likely touches all four cash packs at
-  // their own end-of-night. See BACKLOG, BUGS.
-  "poker        8 seats",
 ]);
 let newOverlaps = 0;
 let stale = 0;

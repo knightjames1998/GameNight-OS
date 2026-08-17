@@ -66,6 +66,17 @@ export default function PokerTvPage({ eventId: propEventId }: { eventId?: string
   const { tone, headline } = settlementState(summary.balance, summary.stillIn);
   const nameOf = (id: string) => summary.players.find((p) => p.playerId === id)?.name ?? "somebody";
 
+  // WHAT THE SETTLEMENT BAND COSTS THE LADDER, in board lines, because this hero
+  // GROWS with the table where craps' shooter panel is a fixed two.
+  //
+  // Payment rows are 2.1vmin against a board line's much taller box, so they are
+  // counted at ROUGHLY TWO TO A LINE rather than one for one; the headline is the
+  // remaining whole line. That halving is measured rather than assumed: costing
+  // them one for one puts a four-seat table on `tight` when tv-fit says it fits
+  // on `close`, which would shrink a board that had room for no reason.
+  const shownRows = Math.min(transfers?.length ?? 0, 4) + ((transfers?.length ?? 0) > 4 ? 1 : 0);
+  const heroLines = 1 + Math.floor(shownRows / 2);
+
   return (
     <MoneyBoard
       summary={summary}
@@ -81,6 +92,7 @@ export default function PokerTvPage({ eventId: propEventId }: { eventId?: string
             ? ` · ${summary.events} games`
             : null
       }
+      heroLines={heroLines}
       hero={
         <div className="pk-tv__settle">
           <div

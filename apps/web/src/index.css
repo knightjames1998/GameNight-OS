@@ -198,6 +198,12 @@
   --gn-cab-bg-edge:    #5a422c;  --gn-cab-bg-top:    #2a1c12;  --gn-cab-bg-ink:   #e0a54a;
   --gn-cab-ct-edge:    #5c2a30;  --gn-cab-ct-top:    #2a1216;  --gn-cab-ct-ink:   #e8515c;
   --gn-cab-sd-edge:    #2b3350;  --gn-cab-sd-top:    #10142a;  --gn-cab-sd-ink:   #9db4ff;
+  /* Poker takes OXBLOOD, the one card-room colour the casino group had not
+     claimed: blackjack is near-black baize, roulette deep green, craps navy and
+     Casino Run violet. Its own ink rather than --gn-gold, which blackjack
+     already wears, so the two casino tiles are told apart by name colour as
+     well as by edge. */
+  --gn-cab-pk-edge:    #5c2230;  --gn-cab-pk-top:    #2a1017;  --gn-cab-pk-ink:   #e8b04a;
   /* Two cabinets do NOT land on --gn-surf and are preserved exactly as they
      shipped rather than quietly rounded to it. Mario Party's is 6/255 of red
      off --gn-surf and is almost certainly a typo for it; Casino Run's is a
@@ -606,6 +612,7 @@
   --gn-cab-bg-edge:    #55401f;  --gn-cab-bg-top:    #271a0a;
   --gn-cab-ct-edge:    #5e3128;  --gn-cab-ct-top:    #29130f;
   --gn-cab-sd-edge:    #2f3a52;  --gn-cab-sd-top:    #171a26;
+  --gn-cab-pk-edge:    #5c2028;  --gn-cab-pk-top:    #2a0d10;
   /* The two that do not land on --gn-surf keep the same near-miss they have
      under Arcade, rather than being quietly folded in here. If James decides
      Mario Party's is the typo it looks like, both themes should change in the
@@ -1226,6 +1233,8 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
    mistaken for each other across a room. Poker joins this block. */
 .gn-cab--bj{border-color:var(--gn-cab-bj-edge);background:linear-gradient(180deg,var(--gn-cab-bj-top),var(--gn-surf-solid))}
 .gn-cab--bj .gn-cab__name{color:var(--gn-gold)}
+.gn-cab--pk{border-color:var(--gn-cab-pk-edge);background:linear-gradient(180deg,var(--gn-cab-pk-top),var(--gn-surf-solid))}
+.gn-cab--pk .gn-cab__name{color:var(--gn-cab-pk-ink)}
 .gn-cab--rl{border-color:var(--gn-cab-rl-edge);background:linear-gradient(180deg,var(--gn-cab-rl-top),var(--gn-surf-solid))}
 .gn-cab--rl .gn-cab__name{color:var(--gn-p2)}
 .gn-cab--cr{border-color:var(--gn-cab-cr-edge);background:linear-gradient(180deg,var(--gn-cab-cr-top),var(--gn-surf-solid))}

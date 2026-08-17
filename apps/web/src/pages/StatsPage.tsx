@@ -621,6 +621,7 @@ const BLACKJACK_GAME_NAME = SESSION_PACKS.blackjack.gameName;
 const ROULETTE_GAME_NAME = SESSION_PACKS.roulette.gameName;
 const CRAPS_GAME_NAME = SESSION_PACKS.craps.gameName;
 const CASINO_RUN_GAME_NAME = SESSION_PACKS.casinorun.gameName;
+const POKER_GAME_NAME = SESSION_PACKS.poker.gameName;
 
 /**
  * The casino group's lifetime panel: MONEY, which no other pack has.
@@ -642,6 +643,15 @@ interface CashMetaBag {
   bestStreak?: number | null;
   longestRoll?: number | null;
   points?: number | null;
+  /** Poker: how many of that night's games this player dealt. */
+  dealt?: number | null;
+  /** Poker: how many games the night ran to, on every row of it. */
+  games?: number | null;
+  /**
+   * Poker: the variants that night ran, on EVERY participant row. A list rather
+   * than a number, so it is read by hand below instead of through maxMeta.
+   */
+  variants?: string[] | null;
 }
 
 /** The money half, per stakes. `sessions: 0` means do not render it at all. */
@@ -924,6 +934,47 @@ function BlackjackPanel(props: PackPanelProps) {
         if (bet != null) bits.push(`biggest bet ${formatCents(bet)}`);
         if (win != null) bits.push(`biggest win ${formatCents(win)}`);
         if (bj > 0) bits.push(`${bj} blackjack${bj === 1 ? "" : "s"}`);
+        return bits.join(" · ");
+      }}
+    />
+  );
+}
+
+/**
+ * POKER'S PANEL IS THE PROFIT SURFACE, and it needed no new aggregation.
+ *
+ * The whole point of putting placement in the ledger and money in `meta` is
+ * that this is free: `CasinoPanel` already reads `/api/groups/:id/:pack-stats`,
+ * which is `aggregateCashNights` on the server, and it already splits real from
+ * play and sorts by `compareCashLifetime`. Poker gets the same panel the other
+ * three cash packs get, and profit is its headline because that is what a poker
+ * player wants to know.
+ *
+ * Its extras are what is poker's: the variant somebody plays most, and how much
+ * of the dealing they have done. Both come out of meta bags the pack already
+ * writes, so neither costs an input.
+ */
+function PokerPanel(props: PackPanelProps) {
+  return (
+    <CasinoPanel
+      {...props}
+      pack="poker"
+      empty="No poker recorded yet. Play a table and the money shows up here."
+      extras={(p) => {
+        const dealt = sumMeta(p, "dealt");
+        // Most-played variant across every night, so one odd night of Razz does
+        // not rewrite what somebody plays. Same rule as roulette's favourite.
+        const counts = new Map<string, number>();
+        for (const m of p.metas) {
+          if (!Array.isArray(m.variants)) continue;
+          for (const v of m.variants) counts.set(v, (counts.get(v) ?? 0) + 1);
+        }
+        let top: string | null = null;
+        let best = 0;
+        for (const [v, n] of counts) if (n > best) [top, best] = [v, n];
+        const bits: string[] = [];
+        if (top) bits.push(`mostly ${top}`);
+        if (dealt > 0) bits.push(`dealt ${dealt}`);
         return bits.join(" · ");
       }}
     />
@@ -1348,6 +1399,8 @@ export default function StatsPage() {
                 ? `${count} roulette ${count === 1 ? "night" : "nights"}`
                 : tab === CRAPS_GAME_NAME
                 ? `${count} craps ${count === 1 ? "night" : "nights"}`
+                : tab === POKER_GAME_NAME
+                ? `${count} poker ${count === 1 ? "night" : "nights"}`
                 : tab === CASINO_RUN_GAME_NAME
                 ? `${count} casino ${count === 1 ? "run" : "runs"}`
                 : tab === BOARD_GAME_GAME_NAME
@@ -1400,6 +1453,8 @@ export default function StatsPage() {
           <RoulettePanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : tab === CRAPS_GAME_NAME && id ? (
           <CrapsPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
+        ) : tab === POKER_GAME_NAME && id ? (
+          <PokerPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : tab === CASINO_RUN_GAME_NAME && id ? (
           <CasinoRunPanel groupId={id} rows={shown ?? []} open={open} setOpen={setOpen} />
         ) : tab === BOARD_GAME_GAME_NAME && id ? (

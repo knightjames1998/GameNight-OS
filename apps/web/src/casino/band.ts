@@ -63,6 +63,19 @@ export const MAX_SEATS = 12;
 export interface BoardLoad {
   /** A pack's own headline above the board. Craps' shooter panel, today. */
   hero?: boolean;
+  /**
+   * What the hero costs, in board lines, when it is not the two a shooter panel
+   * costs. Ignored unless `hero` is set.
+   *
+   * HERO_LINES WAS A CONSTANT UNTIL POKER, and a constant was right while craps
+   * was the only pack with one: its shooter panel is a fixed two lines whatever
+   * the night is doing. Poker's hero is a settlement that GROWS with the table,
+   * a headline plus up to four payment rows plus an overflow line, so a flat two
+   * understated it by three lines at a full table and the ladder handed an eight
+   * seat board a band that does not fit it. Measured by tv-fit: eight seats came
+   * back 73px over on `tight`, which is the rung a flat two lands it on.
+   */
+  heroLines?: number;
   /** The balance warning row. */
   warning?: boolean;
   /** Any house-rule cards on the wall. */
@@ -122,7 +135,7 @@ export function moneyBoardBand(seats: number, load: BoardLoad = {}): BoardBand {
   if (seats > MAX_SEATS) return "full";
   const total =
     Math.max(0, Math.floor(seats)) +
-    (load.hero ? HERO_LINES : 0) +
+    (load.hero ? Math.max(0, Math.floor(load.heroLines ?? HERO_LINES)) : 0) +
     (load.warning ? WARNING_LINES : 0) +
     (load.rules ? RULES_LINES : 0);
   for (const [band, ceiling] of CEILINGS) {
