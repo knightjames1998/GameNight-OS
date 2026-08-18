@@ -7,6 +7,7 @@ import {
   groups,
   matches,
   matchParticipants,
+  memberships,
   rsvps,
   users,
   and,
@@ -17,6 +18,7 @@ import {
   buildStructure,
   computeBracket,
   downstreamOf,
+  normalizeEntrants,
   parseEntrants,
   placements,
   type BracketFormat,
@@ -71,8 +73,19 @@ tvRouter.get("/:id", async (req, res) => {
 });
 
 /**
- * Start a tournament for an event. Entrants = the RSVP yes-list in the
- * order they answered (first in, top seed: reward the committed).
+ * Start a tournament for an event.
+ *
+ * ENTRANTS COME FROM THE BODY, built on the setup screen (/tournament). The
+ * list is the SEEDING: first in the array is the top seed, which is why the
+ * screen prefills in RSVP answer order and offers a shuffle rather than
+ * sorting anything here.
+ *
+ * A REQUEST WITH NO `entrants` KEY FALLS BACK TO THE YES LIST, which is exactly
+ * what this endpoint did before the setup screen existed. That is deliberate
+ * and it is not a supported path: an installed PWA can be running a cached
+ * bundle on a game night, and the failure mode of deleting the fallback is a
+ * host who cannot start a tournament at all. The current client always sends
+ * entrants.
  */
 bracketsRouter.post("/events/:eventId/bracket", async (req: AuthedRequest, res) => {
   const db = getDb();
@@ -98,14 +111,37 @@ bracketsRouter.post("/events/:eventId/bracket", async (req: AuthedRequest, res) 
     return;
   }
 
-  const yesList = await db
-    .select({ userId: rsvps.userId })
-    .from(rsvps)
-    .where(and(eq(rsvps.eventId, event.id), eq(rsvps.status, "yes")))
-    .orderBy(rsvps.respondedAt);
+  let entrants: Entrant[];
+  if (req.body?.entrants === undefined) {
+    // The fallback. Same query, same order (first to answer is the top seed),
+    // same shape it has written since this endpoint shipped.
+    const yesList = await db
+      .select({ userId: rsvps.userId })
+      .from(rsvps)
+      .where(and(eq(rsvps.eventId, event.id), eq(rsvps.status, "yes")))
+      .orderBy(rsvps.respondedAt);
+    entrants = yesList.map((r) => ({ kind: "member" as const, userId: r.userId }));
+  } else {
+    // THE CREW, not the yes list: the whole point of the setup screen is that
+    // somebody who never opened the app is still addable by the host. Membership
+    // is checked server-side, and an id outside this crew is REJECTED rather
+    // than quietly downgraded to a guest (see normalizeEntrants).
+    const crew = await db
+      .select({ userId: memberships.userId })
+      .from(memberships)
+      .where(eq(memberships.groupId, event.groupId));
+    const normalized = normalizeEntrants(req.body.entrants, new Set(crew.map((m) => m.userId)));
+    if (typeof normalized === "string") {
+      res.status(400).json({ error: normalized });
+      return;
+    }
+    entrants = normalized;
+  }
 
-  if (yesList.length < 2) {
-    res.status(400).json({ error: "Need at least 2 yes RSVPs to start a bracket" });
+  // NOT "need 2 yes RSVPs" any more, which was the bug: needing an RSVP to be
+  // in a tournament is what locked half a crew out of their own game night.
+  if (entrants.length < 2) {
+    res.status(400).json({ error: "Need at least 2 entrants to start a bracket" });
     return;
   }
 
@@ -128,7 +164,7 @@ bracketsRouter.post("/events/:eventId/bracket", async (req: AuthedRequest, res) 
         gameId: game.id,
         format,
         status: "live",
-        entrants: yesList.map((r) => ({ kind: "member" as const, userId: r.userId })),
+        entrants,
         results: {},
       })
       .returning()
