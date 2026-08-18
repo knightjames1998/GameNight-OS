@@ -406,7 +406,12 @@ export async function guestNamesBracket(groupId: string): Promise<string[]> {
     .where(and(eq(brackets.groupId, groupId), eq(brackets.status, "completed")));
   const names = new Set<string>();
   for (const r of rows) {
-    for (const e of parseEntrants(r.entrants)) if (e.kind === "guest" && e.name) names.add(e.name);
+    // WALKS INTO TEAM ENTRANTS. Without this a guest who played inside a pair
+    // never appears in the link list, so they are unlinkable forever and
+    // nothing anywhere errors: the screen just quietly does not offer them.
+    for (const e of parseEntrants(r.entrants)) {
+      for (const m of entrantMembers(e)) if (m.kind === "guest" && m.name) names.add(m.name);
+    }
   }
   return [...names];
 }
@@ -444,7 +449,13 @@ export async function creditGuestBracket(
 
   for (const b of rows) {
     const entrants = parseEntrants(b.entrants);
-    const seedIdx = entrants.findIndex((e) => e.kind === "guest" && e.name === guestName);
+    // The FIRST slot this guest appears in, whether they played on their own or
+    // inside a pair. It is only used to preview the placement; the write below
+    // hands the whole link map to the materializer, which credits every slot
+    // they appear in and dedupes to the best finish.
+    const seedIdx = entrants.findIndex((e) =>
+      entrantMembers(e).some((m) => m.kind === "guest" && m.name === guestName),
+    );
     if (seedIdx < 0) continue;
     // A completed bracket materializes exactly one match, keyed by bracketId.
     const m = (
