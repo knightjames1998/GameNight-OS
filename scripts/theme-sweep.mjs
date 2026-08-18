@@ -76,7 +76,11 @@ const ROUTES = [
   // a shell screen rather than a pack one, so it paints out of index.css and the
   // interesting question here is the same as for /b/x: that it followed.
   "/tournament",
-  "/beerio", "/quick", "/g/x/stats", "/g/x/link-guest", "/me/stats",
+  // "/quick" came out on 2026-08-18 when its page was deleted. The address
+  // survives as a REDIRECT into /tournament, which is already in both lists
+  // below, so sweeping it would visit a screen that paints one line of hint
+  // text and then navigates away, which is a race rather than a measurement.
+  "/beerio", "/g/x/stats", "/g/x/link-guest", "/me/stats",
   "/g/x/member/y", "/friend/y", "/beerio/tv/ABCD",
   "/smash", "/smash/tv/x",
   "/mariokart", "/mariokart/tv/x",

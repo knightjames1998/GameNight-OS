@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api, ApiError, type Me } from "./api";
 import { readCache, writeCache, dropAll } from "./cache";
 import RouteBoundary, { RouteFallback } from "./RouteBoundary";
@@ -22,7 +22,6 @@ const RecapPage = lazy(() => import("./pages/RecapPage"));
 const EventTvPage = lazy(() => import("./pages/EventTvPage"));
 const BracketPage = lazy(() => import("./pages/BracketPage"));
 const TvPage = lazy(() => import("./pages/TvPage"));
-const QuickPlayPage = lazy(() => import("./pages/QuickPlayPage"));
 // The tournament's setup step. A route rather than a panel on the event page,
 // matching every pack (/smash?event=...&format=...), so the bracket is created
 // from a screen that can show a roster instead of from a tile that cannot.
@@ -68,6 +67,64 @@ function TournamentSearchKeyed() {
   // same-route navigation and will not remount on its own.
   const location = useLocation();
   return <TournamentSetupPage key={location.search} />;
+}
+
+/**
+ * /quick: mint a quick play event, then REPLACE into the shared tournament
+ * setup screen.
+ *
+ * WHAT THIS REPLACED. /quick used to be its own entrant screen (four typed name
+ * boxes, a format select, a game name box) that POSTed a bracket directly. It
+ * was a SECOND implementation of a thing the app already had, which is the only
+ * reason quick play silently missed crew-member entrants, the member versus
+ * guest distinction, seeding shuffle, team entrants and entrant validation when
+ * those shipped on 2026-08-17. The page is deleted; this address is not,
+ * because saved shortcuts and cached bundles both point at it.
+ *
+ * THE QUERY STRING IS READ INSIDE THE COMPONENT. At module scope it is
+ * evaluated once per page load and then frozen, which is exactly the shape that
+ * has pinned a stale event id in this app before.
+ *
+ * THE REDIRECT REPLACES. Pushing would leave /quick behind the setup screen in
+ * history, so Back would land on a route whose whole job is to mint ANOTHER
+ * event, and the crew would collect empty nights by pressing Back.
+ */
+function QuickStart() {
+  const navigate = useNavigate();
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    const format =
+      new URLSearchParams(window.location.search).get("format") === "double_elim"
+        ? "double_elim"
+        : "single_elim";
+    let cancelled = false;
+    api<{ eventId: string }>("/api/quickplay/tournament", {
+      method: "POST",
+      body: JSON.stringify({}),
+    })
+      .then(({ eventId }) => {
+        if (!cancelled) navigate(`/tournament?event=${eventId}&format=${format}`, { replace: true });
+      })
+      .catch((e) => {
+        if (!cancelled) setErr(e instanceof Error ? e.message : "Couldn't start a quick play night");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
+
+  return (
+    <main className="gn-app">
+      <div className="gn-wrap">
+        {err ? (
+          <p style={{ color: "var(--gn-danger)", marginTop: 12 }}>{err}</p>
+        ) : (
+          <p className="gn-hint" style={{ marginTop: 12 }}>Starting a quick play tournament...</p>
+        )}
+      </div>
+    </main>
+  );
 }
 
 function SmashSearchKeyed() {
@@ -240,7 +297,8 @@ export default function App() {
             <Route path="/b/:id" element={<BracketPage />} />
             <Route path="/tv/:id" element={<TvPage />} />
             <Route path="/beerio" element={<BeerioRoute />} />
-            <Route path="/quick" element={<QuickPlayPage />} />
+            {/* KEPT AS A ROUTE, and it is a redirect now. See QuickStart. */}
+            <Route path="/quick" element={<QuickStart />} />
             <Route path="/tournament" element={<TournamentSearchKeyed />} />
             <Route path="/g/:id/stats" element={<StatsPage />} />
             <Route path="/g/:id/link-guest" element={<LinkGuestPage />} />
