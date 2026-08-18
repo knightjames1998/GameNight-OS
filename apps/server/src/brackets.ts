@@ -15,6 +15,7 @@ import {
   inArray,
 } from "@gamenight/db";
 import {
+  bracketLedgerRows,
   buildStructure,
   computeBracket,
   downstreamOf,
@@ -375,33 +376,24 @@ async function materialize(
           .returning()
       )[0]!.id;
 
-  const rows = new Map<string, typeof matchParticipants.$inferInsert>();
-  for (const [seed, p] of place) {
-    const e = loaded.entrants[seed - 1];
-    if (!e) continue;
-    // ONE ROW PER CREDITING HUMAN IN THE SLOT. entrantMembers flattens all
-    // three kinds, so a solo entrant is a list of one and a pair is a list of
-    // two, and every member of the slot takes the SLOT's placement.
-    for (const m of entrantMembers(e)) {
-      // Members always credit; a guest credits only when linked (backfill).
-      const userId = m.kind === "member" ? m.userId : linkMap?.get(m.name);
-      if (!userId) continue;
-      // Two guest entrants typed with the same name link to one member, so
-      // dedupe before the single insert. `place` is built champion-first and
-      // then by finishing order, so the first write is the BEST placement,
-      // which is the row to keep.
-      if (rows.has(userId)) continue;
-      rows.set(userId, {
-        groupId: loaded.groupId,
-        matchId,
-        userId,
-        seed,
-        placement: p,
-        isWinner: p === 1,
-      });
-    }
-  }
-  await insertParticipants(db, [...rows.values()]);
+  // WHO GETS CREDITED AND WITH WHAT is a pure question about entrants and
+  // placements, so it is answered in packages/shared/src/entrants.ts where a
+  // test can reach it. All this does is put the group and match on each row.
+  // One row per crediting human, taking the SLOT's placement; the side rule and
+  // the guest handling both live in there.
+  const rows = bracketLedgerRows(loaded.entrants, place, (name) => linkMap?.get(name));
+  await insertParticipants(
+    db,
+    rows.map((r) => ({
+      groupId: loaded.groupId,
+      matchId,
+      userId: r.userId,
+      seed: r.seed,
+      placement: r.placement,
+      isWinner: r.isWinner,
+      side: r.side,
+    })),
+  );
 }
 
 // ---------- guest -> member backfill (see guest-link.ts) ----------

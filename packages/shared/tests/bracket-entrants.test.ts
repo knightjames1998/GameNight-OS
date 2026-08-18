@@ -40,6 +40,7 @@ import {
   MAX_TEAM_MEMBERS,
   MIN_ENTRANTS,
   MIN_TEAM_MEMBERS,
+  bracketLedgerRows,
   entrantLabel,
   entrantMembers,
   hasTeamEntrants,
@@ -610,4 +611,173 @@ test("placements is EMPTY while the bracket is still live", () => {
   const computed = computeBracket(8, structure, { W1M0: "A" });
   assert.equal(computed.championSeed, null);
   assert.equal(placements(structure, computed).size, 0);
+});
+
+// ---------- the lifetime ledger ----------
+//
+// What actually reaches match_participants when a bracket finishes. These are
+// derived from the placement maps pinned at the top of this file, which is why
+// those were pinned before anything moved.
+
+/** Entrants 1..n, all solo members, in seed order. */
+const solos = (n: number): Entrant[] =>
+  Array.from({ length: n }, (_, i) => ({ kind: "member", userId: `u${i + 1}` }));
+/** n pairs: slot i holds u{2i+1} and u{2i+2}. */
+const pairs = (n: number): Entrant[] =>
+  Array.from({ length: n }, (_, i) => ({
+    kind: "team",
+    members: [
+      { kind: "member", userId: `u${2 * i + 1}` },
+      { kind: "member", userId: `u${2 * i + 2}` },
+    ],
+  }));
+/** The chalk placement map for n slots: seed k finishes k-th. */
+const chalkPlaces = (n: number) => new Map(Array.from({ length: n }, (_, i) => [i + 1, i + 1]));
+
+test("ledger: an ALL-SOLO bracket writes side null on every row, as it always has", () => {
+  // The rule that keeps "null means no team structure" literally true. Writing
+  // "a" and "b" into a 1v1 would make meetingOutcome read two OPPONENTS as
+  // having played together, and nothing would error.
+  const rows = bracketLedgerRows(solos(4), chalkPlaces(4));
+  assert.deepEqual(rows, [
+    { userId: "u1", seed: 1, placement: 1, isWinner: true, side: null },
+    { userId: "u2", seed: 2, placement: 2, isWinner: false, side: null },
+    { userId: "u3", seed: 3, placement: 3, isWinner: false, side: null },
+    { userId: "u4", seed: 4, placement: 4, isWinner: false, side: null },
+  ]);
+});
+
+test("ledger: FOUR PAIRS place 1,1,2,2,3,3,4,4 and carry a side each", () => {
+  // Rule 2 in teams.ts: a team result ranks SIDES 1..N and writes that onto
+  // every member. Both people in the winning pair are placement 1 and both are
+  // winners; the pair that went out in the semis is placement 3 for both.
+  const rows = bracketLedgerRows(pairs(4), chalkPlaces(4));
+  assert.deepEqual(
+    rows.map((r) => [r.userId, r.placement, r.side, r.isWinner]),
+    [
+      ["u1", 1, "a", true],
+      ["u2", 1, "a", true],
+      ["u3", 2, "b", false],
+      ["u4", 2, "b", false],
+      ["u5", 3, "c", false],
+      ["u6", 3, "c", false],
+      ["u7", 4, "d", false],
+      ["u8", 4, "d", false],
+    ],
+  );
+  // Teammates share a side; opponents do not. That equality is the only thing
+  // anything ever does with this column.
+  assert.equal(rows[0]!.side, rows[1]!.side);
+  assert.notEqual(rows[0]!.side, rows[2]!.side);
+});
+
+test("ledger: in a MIXED bracket a solo entrant is a side of one", () => {
+  // A doubles night with an odd person out. Leaving them null would say "this
+  // match had no teams" about a match that plainly did.
+  const entrants: Entrant[] = [
+    { kind: "team", members: [{ kind: "member", userId: "u1" }, { kind: "member", userId: "u2" }] },
+    { kind: "member", userId: "u3" },
+  ];
+  const rows = bracketLedgerRows(entrants, chalkPlaces(2));
+  assert.deepEqual(rows, [
+    { userId: "u1", seed: 1, placement: 1, isWinner: true, side: "a" },
+    { userId: "u2", seed: 1, placement: 1, isWinner: true, side: "a" },
+    { userId: "u3", seed: 2, placement: 2, isWinner: false, side: "b" },
+  ]);
+});
+
+test("ledger: PAST THE EIGHTH SIDE the ids keep going", () => {
+  // validateSides is deliberately not called here: its MAX_SIDES of 8 is a
+  // session-level rule about one match, and a sixteen-team bracket is a
+  // legitimate thing. sideIdAt falls back past the eighth id and equality is
+  // all anything needs.
+  const rows = bracketLedgerRows(pairs(10), chalkPlaces(10));
+  const sides = rows.filter((_, i) => i % 2 === 0).map((r) => r.side);
+  assert.deepEqual(sides, ["a", "b", "c", "d", "e", "f", "g", "h", "s8", "s9"]);
+  assert.equal(new Set(sides).size, 10, "two slots share a side id");
+});
+
+test("ledger: a GUEST inside a pair is skipped, and credited once linked", () => {
+  const entrants: Entrant[] = [
+    { kind: "team", members: [{ kind: "member", userId: "u1" }, { kind: "guest", name: "Sam" }] },
+    { kind: "team", members: [{ kind: "member", userId: "u2" }, { kind: "member", userId: "u3" }] },
+  ];
+  // Live completion: nobody to credit the guest to yet, and their partner is
+  // still credited normally.
+  assert.deepEqual(bracketLedgerRows(entrants, chalkPlaces(2)), [
+    { userId: "u1", seed: 1, placement: 1, isWinner: true, side: "a" },
+    { userId: "u2", seed: 2, placement: 2, isWinner: false, side: "b" },
+    { userId: "u3", seed: 2, placement: 2, isWinner: false, side: "b" },
+  ]);
+  // The backfill, once the host says who Sam was. Same seed, same placement,
+  // same side as the partner they actually played with.
+  const linked = bracketLedgerRows(entrants, chalkPlaces(2), (n) => (n === "Sam" ? "u9" : undefined));
+  assert.deepEqual(linked.find((r) => r.userId === "u9"), {
+    userId: "u9", seed: 1, placement: 1, isWinner: true, side: "a",
+  });
+});
+
+test("ledger: a top-level guest still credits nothing until linked", () => {
+  const entrants: Entrant[] = [{ kind: "member", userId: "u1" }, { kind: "guest", name: "Sam" }];
+  assert.deepEqual(bracketLedgerRows(entrants, chalkPlaces(2)), [
+    { userId: "u1", seed: 1, placement: 1, isWinner: true, side: null },
+  ]);
+});
+
+test("ledger: DEDUPED BY userId, and the BEST placement is the row that survives", () => {
+  // Two guest slots typed with the same name resolve to one member through the
+  // link map, and the ledger's unique index is (matchId, userId). The rows are
+  // walked in placement order so the better finish wins rather than whichever
+  // the map yielded first.
+  const entrants: Entrant[] = [
+    { kind: "guest", name: "Sam" },
+    { kind: "member", userId: "u1" },
+    { kind: "guest", name: "Sam" },
+    { kind: "member", userId: "u2" },
+  ];
+  // Seed 3 finishes FIRST and seed 1 finishes last, so a naive seed-order walk
+  // would credit the wrong one.
+  const places = new Map([[3, 1], [2, 2], [4, 3], [1, 4]]);
+  const rows = bracketLedgerRows(entrants, places, () => "u9");
+  assert.equal(rows.filter((r) => r.userId === "u9").length, 1);
+  assert.deepEqual(rows.find((r) => r.userId === "u9"), {
+    userId: "u9", seed: 3, placement: 1, isWinner: true, side: null,
+  });
+});
+
+test("ledger: rows come out of a REAL played bracket, not just a handmade map", () => {
+  // The end to end shape, using the engine rather than a fixture: eight pairs,
+  // every upset, and the placement map pinned at the top of this file. Sixteen
+  // people, eight sides, every placement carried by exactly two of them.
+  const structure = buildStructure("single_elim", 8);
+  const results: BracketResults = {};
+  for (let guard = 0; guard < 100; guard++) {
+    const c = computeBracket(8, structure, results);
+    if (c.championSeed != null) break;
+    const open = Object.values(c.matches).filter((m) => m.playable && m.active);
+    if (!open.length) break;
+    const m = open[0]!;
+    const aSeed = m.a.kind === "player" ? m.a.seed : 0;
+    const bSeed = m.b.kind === "player" ? m.b.seed : 0;
+    results[m.def.id] = upset(aSeed, bSeed);
+  }
+  const computed = computeBracket(8, structure, results);
+  const rows = bracketLedgerRows(pairs(8), placements(structure, computed));
+
+  assert.equal(rows.length, 16, "sixteen people in eight pairs");
+  // Seed 8 won it (the pinned upset run), so its pair are the two winners.
+  assert.deepEqual(
+    rows.filter((r) => r.isWinner).map((r) => r.userId),
+    ["u15", "u16"],
+  );
+  // Every placement is carried by exactly two people, which is what "a team
+  // result ranks sides" means once it reaches the ledger.
+  const perPlacement = new Map<number, number>();
+  for (const r of rows) perPlacement.set(r.placement, (perPlacement.get(r.placement) ?? 0) + 1);
+  assert.deepEqual([...perPlacement.values()], [2, 2, 2, 2, 2, 2, 2, 2]);
+  // And teammates share a side while nobody else does.
+  for (const r of rows) {
+    const mates = rows.filter((o) => o.side === r.side);
+    assert.equal(mates.length, 2, `${r.userId} does not have exactly one teammate`);
+  }
 });

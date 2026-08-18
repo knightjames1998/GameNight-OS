@@ -13,6 +13,12 @@
 // is this too many, how long may a guest name be) has nothing to do with the
 // database and everything to do with what a bracket is, so it lives here where
 // a test can reach it without a schema.
+//
+// The one import is the team primitive's side ids, which is the right direction
+// and the only one that makes sense: an entrant knows it might be a side, and a
+// side has never heard of a bracket.
+
+import { sideIdAt } from "./teams.js";
 
 /**
  * ONE PERSON IN A BRACKET: a crew member (stats accrue) or a typed-in guest
@@ -246,4 +252,76 @@ export function normalizeEntrants(
   if (out.length < MIN_ENTRANTS) return `Need at least ${MIN_ENTRANTS} entrants to start a bracket`;
   if (out.length > MAX_ENTRANTS) return `A bracket holds at most ${MAX_ENTRANTS} entrants`;
   return out;
+}
+
+// ---------- the lifetime ledger ----------
+
+/** One row for one crediting human, ready to become a match_participants row. */
+export interface BracketLedgerRow {
+  userId: string;
+  seed: number;
+  placement: number;
+  isWinner: boolean;
+  /** The side id, or null when this bracket has no team structure. */
+  side: string | null;
+}
+
+/**
+ * Turn a finished bracket into its ledger rows.
+ *
+ * ONE ROW PER CREDITING HUMAN, taking the SLOT's placement. A pair that goes out
+ * in the semis is placement 3 for both of them, which is rule 2 in teams.ts: a
+ * team result ranks SIDES, 1..N, written onto every member. Do not reach for
+ * competition ranking here. placements() already ranks the entrants 1..N, and
+ * for team entrants that IS the rule, which is why this function does not need
+ * to know anything about ties.
+ *
+ * SIDE IS WRITTEN ONLY WHEN THE BRACKET HAS AT LEAST ONE TEAM ENTRANT, and that
+ * is the same rule sideIdFor holds for the session packs, stated once more here
+ * because the shape it applies to is different. An all-solo bracket keeps
+ * writing null, because null means "no team structure" and writing "a" and "b"
+ * into a 1v1 would make meetingOutcome classify two OPPONENTS as having played
+ * together. Nothing errors; the rivalry is simply wrong forever.
+ *
+ * In a bracket that HAS teams, EVERY entrant gets a side id including the solo
+ * ones: a solo entrant in a doubles bracket is a side of one, and leaving them
+ * null there would say "this match had no teams" on a match that did.
+ *
+ * SIDE IDS COME FROM THE SEED INDEX. Slot 1 is side "a", slot 2 is "b", and
+ * past the eighth sideIdAt falls back to s8, s9 and so on, which is why
+ * validateSides is deliberately NOT called here: its MAX_SIDES of 8 is a
+ * SESSION-level rule about how many sides one match can have, and a 16-team
+ * bracket is a legitimate thing that would fail it. The only thing anything
+ * does with `side` is compare it for equality.
+ *
+ * `linkedGuest` resolves a guest name to a member id and is how the guest-link
+ * backfill credits somebody who played as a guest. Without it, guests are
+ * skipped, which is what a live completion does.
+ *
+ * DEDUPED BY userId, BEST PLACEMENT WINS. Two guest slots typed with the same
+ * name both resolve to one member through the link map, and the ledger's unique
+ * index is (matchId, userId), so the caller must hand over one row per person.
+ * Rows are walked in placement order so the row that survives is the better
+ * finish rather than whichever the map happened to yield first.
+ */
+export function bracketLedgerRows(
+  entrants: readonly Entrant[],
+  placeBySeed: ReadonlyMap<number, number>,
+  linkedGuest: (name: string) => string | undefined = () => undefined,
+): BracketLedgerRow[] {
+  const teams = hasTeamEntrants(entrants);
+  const bySeed = [...placeBySeed.entries()].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  const rows = new Map<string, BracketLedgerRow>();
+
+  for (const [seed, placement] of bySeed) {
+    const e = entrants[seed - 1];
+    if (!e) continue;
+    const side = teams ? sideIdAt(seed - 1) : null;
+    for (const m of entrantMembers(e)) {
+      const userId = m.kind === "member" ? m.userId : linkedGuest(m.name);
+      if (!userId || rows.has(userId)) continue;
+      rows.set(userId, { userId, seed, placement, isWinner: placement === 1, side });
+    }
+  }
+  return [...rows.values()];
 }
