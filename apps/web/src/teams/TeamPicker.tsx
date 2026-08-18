@@ -1,4 +1,11 @@
-import { shuffleIntoSides, validateSides, type Side, type SideCheck } from "@gamenight/shared";
+import {
+  MAX_SIDES,
+  shuffleIntoSides,
+  sideIdAt,
+  validateSides,
+  type Side,
+  type SideCheck,
+} from "@gamenight/shared";
 
 // The TEAM PICKER: put a roster onto sides before a night starts.
 //
@@ -35,19 +42,48 @@ export interface TeamPickerStatus {
   ready: boolean;
 }
 
+/**
+ * A side's LETTER on this screen.
+ *
+ * A..Z, and then a numbered fallback, because String.fromCharCode(65 + i) walks
+ * off the end of the alphabet at twenty-six and starts labelling sides with
+ * punctuation. Eight was the ceiling everywhere until a bracket started using
+ * this picker; a doubles tournament can legitimately hold more sides than there
+ * are letters.
+ */
+export function sideLetter(i: number): string {
+  return i < 26 ? String.fromCharCode(65 + i) : `S${i + 1}`;
+}
+
 /** The sides as the primitive sees them, ids and names included. */
 export function sidesFromAssign(assign: readonly (readonly number[])[]): Side[] {
   return assign.map((members, i) => ({
-    id: String.fromCharCode(97 + i),
-    name: `Side ${String.fromCharCode(65 + i)}`,
+    // The primitive's own id, which keeps minting past the eighth rather than
+    // running off the alphabet. Nothing stores these: they exist so
+    // validateSides has something to compare for uniqueness.
+    id: sideIdAt(i),
+    name: `Side ${sideLetter(i)}`,
     memberIds: members.map(String),
   }));
 }
 
-export function teamPickerStatus(assign: readonly (readonly number[])[], rosterSize: number): TeamPickerStatus {
+/**
+ * `maxSides` is the CALLER's ceiling and defaults to the primitive's MAX_SIDES,
+ * which is a rule about how many sides one match can have. The tournament's
+ * setup screen passes its own entrant cap instead: a bracket's sides are slots
+ * in a draw rather than corners of one table, and sixteen pairs is an ordinary
+ * doubles tournament. It has to be threaded rather than checked afterwards,
+ * because the picker RENDERS check.error, so a screen that allowed nine sides
+ * and validated eight would show a refusal it was not going to act on.
+ */
+export function teamPickerStatus(
+  assign: readonly (readonly number[])[],
+  rosterSize: number,
+  maxSides: number = MAX_SIDES,
+): TeamPickerStatus {
   const placed = new Set(assign.flat());
   const unplaced = Array.from({ length: rosterSize }, (_, i) => i).filter((i) => !placed.has(i));
-  const check = validateSides(sidesFromAssign(assign));
+  const check = validateSides(sidesFromAssign(assign), maxSides);
   return { unplaced, check, ready: check.error === null && unplaced.length === 0 };
 }
 
@@ -84,7 +120,7 @@ export function TeamPicker({
   roster,
   assign,
   setAssign,
-  maxSides = 8,
+  maxSides = MAX_SIDES,
 }: {
   /** Class prefix, so the picker wears the pack's own palette: "pp", "tn". */
   cx: string;
@@ -93,7 +129,7 @@ export function TeamPicker({
   setAssign: (next: number[][]) => void;
   maxSides?: number;
 }) {
-  const { unplaced, check } = teamPickerStatus(assign, roster.length);
+  const { unplaced, check } = teamPickerStatus(assign, roster.length, maxSides);
 
   const putOn = (sideIdx: number, playerIdx: number) =>
     setAssign(assign.map((side, i) => (i === sideIdx ? [...side, playerIdx] : side.filter((n) => n !== playerIdx))));
@@ -106,7 +142,7 @@ export function TeamPicker({
       {assign.map((members, i) => (
         <div key={i} style={{ marginTop: 10 }}>
           <div className={`${cx}-lab`} style={{ display: "flex", justifyContent: "space-between" }}>
-            <span>Side {String.fromCharCode(65 + i)} ({members.length})</span>
+            <span>Side {sideLetter(i)} ({members.length})</span>
             {assign.length > 2 && <button className={`${cx}-textbtn`} onClick={() => dropSide(i)}>remove</button>}
           </div>
           <div className={`${cx}-seg`}>
@@ -126,7 +162,7 @@ export function TeamPicker({
               <span className={`${cx}-name`} style={{ flex: 1 }}>{roster[n]?.name}</span>
               <div className={`${cx}-seg`} style={{ flex: "0 0 auto", marginTop: 0 }}>
                 {assign.map((_, i) => (
-                  <button key={i} onClick={() => putOn(i, n)}>{String.fromCharCode(65 + i)}</button>
+                  <button key={i} onClick={() => putOn(i, n)}>{sideLetter(i)}</button>
                 ))}
               </div>
             </div>

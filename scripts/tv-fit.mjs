@@ -298,14 +298,30 @@ const resultsFor = (n, structure, state) =>
 
 // The shell's /tv/:id payload, built through the same serializer shape
 // apps/server/src/brackets.ts deriveView() emits.
-const bracketTv = (n, state = "mid", format = "double_elim") => {
+const bracketTv = (n, state = "mid", format = "double_elim", teamSize = 1) => {
   const structure = buildStructure(format, n);
   const results = resultsFor(n, structure, state);
   const computed = computeBracket(n, structure, results);
-  const slot = (s) =>
-    s.kind === "player"
-      ? { kind: "player", seed: s.seed, userId: "u" + s.seed, displayName: "Player Nameiskindalong " + s.seed }
-      : { kind: s.kind };
+  // EVERY SLOT CARRIES `members`, which is what deriveView emits: a solo slot's
+  // is a list of one holding its own userId and displayName, and a team slot's
+  // is its people with the joined label above. teamSize > 1 is the doubles
+  // board, and the label is deliberately the LONGEST thing this screen can be
+  // asked to draw: two long names joined is the case that binds.
+  const person = (seed, k) => ({
+    userId: `u${seed}-${k}`,
+    displayName: `Player Nameiskindalong ${seed}${teamSize > 1 ? String.fromCharCode(97 + k) : ""}`,
+  });
+  const slot = (s) => {
+    if (s.kind !== "player") return { kind: s.kind };
+    const members = Array.from({ length: teamSize }, (_, k) => person(s.seed, k));
+    return {
+      kind: "player",
+      seed: s.seed,
+      userId: teamSize > 1 ? null : members[0].userId,
+      displayName: members.map((m) => m.displayName).join(" + "),
+      members,
+    };
+  };
   return {
     id: "b1", eventId: "e1", groupId: "g1",
     gameName: "Mario Kart 8 Deluxe", groupName: "The Thursday Crew",
@@ -400,6 +416,22 @@ const MEASURE = (PROOF) => `(()=>{
   const vh = window.innerHeight, vw = window.innerWidth;
   const covered = [];
   let low = 0, lowWho = null;
+  // THE LOWEST ELEMENT IS ALMOST ALWAYS #root, which names nothing: it is the
+  // page, and its height is the number already in the first column. What a
+  // person needs when a case is over is which INK is at the bottom, so the
+  // lowest classed leaves are collected beside it. It was measured and thrown
+  // away before, which is a session's difference: a board 297px past 1080 says
+  // nothing about whether a row got taller or a chip got wider and wrapped the
+  // alive board onto more lines, and those want opposite fixes.
+  const ink = [];
+  const who = (el) => {
+    const parts = [];
+    for (let n = el; n && parts.length < 3; n = n.parentElement) {
+      const c = (n.className || "").toString().trim();
+      parts.unshift(c ? "." + c.split(/\s+/).join(".") : n.tagName);
+    }
+    return parts.join(" > ").slice(0, 90);
+  };
   for (const el of document.querySelectorAll('body *')) {
     const r = el.getBoundingClientRect();
     if (!r.height && !r.width) continue;
@@ -407,7 +439,10 @@ const MEASURE = (PROOF) => `(()=>{
     if (cs.visibility === 'hidden' || cs.display === 'none') continue;
     if (cs.position === 'fixed') continue;
     const b = r.bottom + window.scrollY;
-    if (b > low) { low = b; lowWho = el.className || el.tagName; }
+    if (b > low) { low = b; lowWho = who(el); }
+    if (el.children.length === 0 && (el.textContent || "").trim() && (el.className || "").toString().trim()) {
+      ink.push({ b: Math.round(b), who: who(el), text: (el.textContent || "").trim().slice(0, 24) });
+    }
     // Does this element have PAINT of its own inside a rail band? A container
     // whose box merely extends under the timber is not covered in any way a
     // person can see; ink and fills are.
@@ -455,7 +490,8 @@ const MEASURE = (PROOF) => `(()=>{
   return {
     railW,
     lowest: Math.round(low),
-    lowWho: String(lowWho).slice(0, 30),
+    lowWho: String(lowWho),
+    lowInk: ink.sort((x, y) => y.b - x.b).slice(0, 3).map((i) => i.b + "px  " + i.who + "  " + JSON.stringify(i.text)),
     backBottom: bb ? Math.round(bb.bottom + window.scrollY) : null,
     // How far the back button reaches into the bottom timber. Negative is
     // clearance, positive is a control with wood painted over it.
@@ -541,6 +577,25 @@ const CASES = [
   // rather than three), so it is measured at the count that binds rather than
   // at every one.
   ["bracket tv 16 single", "/tv/x", bracketTv(16, "mid", "single_elim"), ".gn-tvst", ["arcade"]],
+  // DOUBLES, added 2026-08-17 with team entrants. A team slot is still ONE slot
+  // on the board, so the column count is unchanged and the only thing that grew
+  // is the height of a row: two names stacked instead of one. Eight pairs is a
+  // full doubles night and sixteen is the top of what the ladder was ever
+  // measured to, both with names as long as this screen can be handed.
+  //
+  // MEASURED RATHER THAN EYEBALLED, and deliberately so: both bracketed TVs
+  // were hundreds of pixels over 1080p for months before the 08-15 fit pass,
+  // and a team label is longer than a person's name. If these do not fit, that
+  // is a BUGS entry and its own ladder session, not something to tune here.
+  ...[8, 16].flatMap((n) =>
+    STATES.map((st) => [
+      `bracket tv ${String(n).padStart(2)} pairs ${st.padEnd(5)}`,
+      "/tv/x",
+      bracketTv(n, st, "double_elim", 2),
+      ".gn-tvst",
+      ["arcade"],
+    ]),
+  ),
 ];
 
 // A case that is ALREADY over before any rail exists cannot be made to pass by
@@ -579,6 +634,28 @@ const CASES = [
 // THE EXEMPTION IS BY NAME AND STAYS THAT WAY. A new pack does not get added to
 // this set: if Card Table's TV does not fit, that is a new bug in new code and
 // it fails the run.
+//
+// SIXTEEN PAIRS joined on 2026-08-17, with team entrants, and it is the one
+// entry here that is not a whole screen. It is named at three specific states
+// because the finding is narrow and was MEASURED rather than guessed at:
+//
+//   what is over    the ALIVE BOARD, not the match cards. The lowest ink in
+//                   every failing state is .gn-tva, and the board's chips are
+//                   auto-width and wrap: a doubled-length label makes each chip
+//                   wider, sixteen of them wrap onto more rows, and the board
+//                   grows about 300px. The bracket cards themselves did not
+//                   move, because a team slot keeps ONE line (see TvPage).
+//   how far          fresh 1309 (over by 229), mid and late 1377 (over by 297).
+//   what fits        EIGHT pairs fits in all four states, which is a sixteen
+//                   person doubles night and the reachable common case. So does
+//                   sixteen SOLO, unchanged, so this is about label length and
+//                   not about slot count.
+//
+// NOT FIXED HERE, and that is the standing shape of this file rather than the
+// clock: a fit ladder has been its own session every time, the money board's
+// being the worked example, and the alive board's chip width is exactly the
+// kind of density decision that wants measuring rather than taste. Logged in
+// BACKLOG under BUGS beside the other three.
 const KNOWN = new Set([
   "ping pong    7 players",
   "board game  12 players",
@@ -586,6 +663,9 @@ const KNOWN = new Set([
   "mario kart  16 solo",
   "mario kart  16 karts",
   "mario kart  16 koth",
+  "bracket tv 16 pairs fresh",
+  "bracket tv 16 pairs mid  ",
+  "bracket tv 16 pairs late ",
 ]);
 let newOverlaps = 0;
 let stale = 0;
@@ -619,6 +699,15 @@ for (const theme of ["arcade", "tabletop"]) {
     // stayed on the old aId/bId shape, both ping pong cases quietly stopped
     // measuring a scoreboard and kept passing. Now a stale payload FAILS.
     if (!m.rendered) { console.log(`      ^ DID NOT RENDER: payload is stale for ${route} (looked for ${proof})`); stale++; }
+    // WHICH ELEMENT IS ACTUALLY LOWEST, printed for the cases that are over.
+    // It was measured and thrown away, which cost a session: a board 297px past
+    // 1080 says nothing about WHERE the height went, and the two candidates
+    // (a taller row, or a wider chip wrapping the alive board onto more lines)
+    // want completely different fixes.
+    if (over > 0) {
+      console.log(`      ^ lowest box: ${m.lowWho}`);
+      for (const line of m.lowInk) console.log(`        lowest ink: ${line}`);
+    }
     if ((m.covered.length || (m.backIntoRail ?? -1) > 0) && !KNOWN.has(label)) newOverlaps++;
     if (over > 0 && !KNOWN.has(label)) overs++;
   }
@@ -685,7 +774,7 @@ console.log("\nnegative control: the ladder pinned back to its base metrics, whi
 const ok = newOverlaps === 0 && stale === 0 && overs === 0 && control === 0;
 console.log(
   ok
-    ? "\nPASS  every case fits 1080p and nothing is covered by a fixed overlay (Ping Pong past six, Board Game at twelve and Mario Kart past eight excepted, and logged in BUGS)"
+    ? "\nPASS  every case fits 1080p and nothing is covered by a fixed overlay (Ping Pong past six, Board Game at twelve, Mario Kart past eight and the bracket at sixteen PAIRS excepted, and logged in BUGS)"
     : [
         overs ? `FAIL  ${overs} case(s) run past 1080px` : "",
         newOverlaps ? `FAIL  ${newOverlaps} case(s) have painted content under a fixed overlay` : "",

@@ -35,6 +35,9 @@
   --tr-guest-ink: var(--gn-faint);
   /* Something the host has to fix before starting. */
   --tr-err: var(--gn-danger);
+  /* Somebody who is already on a side: the picker's "on" chip. The confirm
+     colour, because being placed is a done thing rather than a warning. */
+  --tr-on: var(--gn-p2);
 }
 
 /* ---- the two ways out, on one line ---------------------------- */
@@ -55,6 +58,18 @@
   border-bottom: 1px solid var(--tr-line);
 }
 .tr-row:last-of-type { border-bottom: 0; }
+
+/* A settings row (the doubles toggle). Same shape as an entrant row and
+   deliberately NOT the same class: anything reading the roster would otherwise
+   count it as a player. */
+.tr-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 0;
+}
+.tr-opt .tr-name { flex: 1; }
 
 /* The seed. A badge rather than plain text, because the ORDER of this list is
    the seeding and a host who cannot see the numbers cannot see that. */
@@ -87,7 +102,48 @@
   padding: 2px 8px;
 }
 
-/* ---- add from crew -------------------------------------------- */
+/* ---- what TeamPicker renders ---------------------------------- */
+/* The picker is styled BY PREFIX rather than by a stylesheet of its own, so
+   these are the classes it asks this screen for. They are the shell's own
+   looks, written out here because the picker cannot reach for a .gn- class it
+   has never heard of. */
+.tr-lab {
+  color: var(--tr-dim);
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 12px;
+}
+.tr-hint {
+  color: var(--tr-dim);
+  font-size: 13px;
+}
+.tr-btn {
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: var(--gn-radius-tile);
+  border: 0;
+  background: var(--tr-raise);
+  color: var(--tr-ink);
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+}
+.tr-btn:disabled { opacity: .4; cursor: default; }
+.tr-btn--ghost { background: var(--tr-raise); }
+.tr-textbtn {
+  background: transparent;
+  border: 0;
+  color: var(--tr-dim);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 6px;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+/* ---- add from crew, and the picker's chips -------------------- */
 .tr-seg {
   display: flex;
   flex-wrap: wrap;
@@ -105,6 +161,12 @@
   padding: 8px 12px;
   min-height: 40px;
   cursor: pointer;
+}
+/* Somebody already ON this side. The picker marks them .on and tapping takes
+   them off again. */
+.tr-seg button.on {
+  border-color: var(--tr-on);
+  color: var(--tr-on);
 }
 
 /* ---- the guest box -------------------------------------------- */

@@ -133,14 +133,23 @@ export interface SideCheck {
  * So `even` is returned as a fact for the screen to warn with, and only the
  * genuinely broken arrangements (fewer than two sides, an empty side, a player
  * on two sides at once) are errors.
+ *
+ * THE CEILING IS A PARAMETER, defaulting to MAX_SIDES, because MAX_SIDES is a
+ * rule about ONE MATCH: eight is well past any number of sides a single game is
+ * played between. A BRACKET is a different shape wearing the same arrangement.
+ * Its sides are SLOTS in a draw rather than corners of one table, sixteen pairs
+ * is an ordinary doubles tournament, and sideIdAt already keeps minting ids past
+ * the eighth. So the bracket's setup screen passes its own entrant cap and every
+ * session pack keeps the eight it always had, rather than the two shapes sharing
+ * a number that only ever meant one of them.
  */
-export function validateSides(sides: readonly Side[]): SideCheck {
+export function validateSides(sides: readonly Side[], maxSides: number = MAX_SIDES): SideCheck {
   const sizes = sides.map((s) => s.memberIds.length);
   const even = sizes.length > 0 && sizes.every((n) => n === sizes[0]);
   const fail = (error: string): SideCheck => ({ error, even, sizes });
 
   if (sides.length < 2) return fail("Need at least 2 sides");
-  if (sides.length > MAX_SIDES) return fail(`At most ${MAX_SIDES} sides`);
+  if (sides.length > maxSides) return fail(`At most ${maxSides} sides`);
   if (new Set(sides.map((s) => s.id)).size !== sides.length) return fail("Two sides share an id");
   if (sizes.some((n) => n === 0)) return fail("Every side needs at least one player");
 

@@ -528,6 +528,45 @@ async function main() {
     seeds: trShuffled.map((r) => r.seed),
   };
 
+  // TEAMS, from a FRESH load so the roster is the deterministic prefill again
+  // (the shuffle above left it in a random order, which is the one thing that
+  // must never reach a snapshot). Three players into a 2v1 is the mixed case
+  // the ledger rules care most about: a pair takes one slot and the odd person
+  // out is a side of one.
+  await goto(`${ORIGIN}/tournament?event=e1&format=single_elim`);
+  const trPicker = () => evalJs(`(() => {
+    const labs = [...document.querySelectorAll('.tr-lab')].filter(l => /^Side /.test(l.textContent.trim()));
+    const sides = labs.map(l => ({
+      label: l.textContent.trim().replace(/\\s*remove$/, ''),
+      body: l.nextElementSibling ? l.nextElementSibling.textContent.trim().replace(/\\s+/g, ' ') : '',
+    }));
+    const rows = [...document.querySelectorAll('.tr-row')].filter(r => r.querySelector('.tr-seg button'));
+    const b = [...document.querySelectorAll('button.gn-btn')]
+      .find(x => /^(Start the tournament|\\d+ still|A side holds|Need at least|At most|Add at least)/.test(x.textContent.trim()));
+    return {
+      sides,
+      unplaced: rows.map(r => r.querySelector('.tr-name')?.textContent.trim()),
+      startLabel: b ? b.textContent.trim() : null,
+      startEnabled: b ? !b.disabled : null,
+    };
+  })()`);
+  await evalJs(`(() => { const b=[...document.querySelectorAll('button')].find(x=>x.getAttribute('aria-pressed')!==null&&/ON|OFF/.test(x.textContent)); if(b) b.click(); return !!b; })()`);
+  await sleep(400);
+  snap.trTeamsOpen = await trPicker();
+
+  // Ann and Ben onto side A, Cal onto side B. Always the FIRST unplaced row,
+  // because placing somebody removes their row and the list closes up.
+  for (const letter of ["A", "A", "B"]) {
+    await evalJs(`(() => {
+      const row = [...document.querySelectorAll('.tr-row')].filter(r => r.querySelector('.tr-seg button'))[0];
+      const b = row && [...row.querySelectorAll('.tr-seg button')].find(x => x.textContent.trim() === ${JSON.stringify(letter)});
+      if (!b) return false; b.click(); return true;
+    })()`);
+    await sleep(250);
+  }
+  await sleep(250);
+  snap.trTeamsPlaced = await trPicker();
+
   const out = JSON.stringify(snap, null, 1);
   if (COMPARE) {
     const want = JSON.parse(readFileSync(OUT, "utf8"));

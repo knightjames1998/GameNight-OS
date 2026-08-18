@@ -121,7 +121,7 @@
   ],
   "startEnabled": true
  },
- "trSetup": "← Back\n🎪 Event\nTournament\nThursday night\nDouble elimination · one loss drops you to the losers bracket\nWho is playing (3/32)\nTop of the list is the number 1 seed. Anyone in the crew can play, RSVP or not.\n1\nAnn\nremove\n2\nBen\nremove\n3\nCal\nremove\n🎲 Shuffle the seeding\nAdd from crew\n+ Dee\n+ Eli\n+ Fay\nAdd a guest\nAdd\nGuests play, but lifetime stats only count crew members. Add someone from the crew list above and their record follows them.\nStart the tournament (3)",
+ "trSetup": "← Back\n🎪 Event\nTournament\nThursday night\nDouble elimination · one loss drops you to the losers bracket\nWho is playing (3/32)\nTop of the list is the number 1 seed. Anyone in the crew can play, RSVP or not.\n1\nAnn\nremove\n2\nBen\nremove\n3\nCal\nremove\n🎲 Shuffle the seeding\nAdd from crew\n+ Dee\n+ Eli\n+ Fay\nAdd a guest\nAdd\nGuests play, but lifetime stats only count crew members. Add someone from the crew list above and their record follows them.\nDoubles and teams\nOFF\nOff means everybody plays for themselves, exactly as a tournament always has.\nStart the tournament (3)",
  "trAddedNonRsvp": [
   {
    "seed": "1",
@@ -206,5 +206,39 @@
    "3",
    "4"
   ]
+ },
+ "trTeamsOpen": {
+  "sides": [
+   {
+    "label": "Side A (0)",
+    "body": "nobody yet"
+   },
+   {
+    "label": "Side B (0)",
+    "body": "nobody yet"
+   }
+  ],
+  "unplaced": [
+   "Ann",
+   "Ben",
+   "Cal"
+  ],
+  "startLabel": "3 still to put on a side",
+  "startEnabled": false
+ },
+ "trTeamsPlaced": {
+  "sides": [
+   {
+    "label": "Side A (2)",
+    "body": "Ann ×Ben ×"
+   },
+   {
+    "label": "Side B (1)",
+    "body": "Cal ×"
+   }
+  ],
+  "unplaced": [],
+  "startLabel": "Start the tournament (2)",
+  "startEnabled": true
  }
 }

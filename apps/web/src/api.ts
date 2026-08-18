@@ -191,6 +191,23 @@ export type BracketSlot =
   | { kind: "bye" }
   | { kind: "tbd" };
 
+/**
+ * A slot's TEAM reading, or null when it holds one person (or nobody).
+ *
+ * `name` is only set when the slot carries a label that is not simply its
+ * people joined, which is what a NAMED team has. An unnamed pair's label is
+ * already "Ann + Ben", so repeating it under itself would be noise; the two
+ * screens stack the people instead, which is both shorter per line and what a
+ * room reads faster than one long joined string.
+ */
+export function slotTeam(
+  slot: BracketSlot,
+): { name: string | null; people: string[] } | null {
+  if (slot.kind !== "player" || slot.members.length < 2) return null;
+  const people = slot.members.map((m) => m.displayName);
+  return { name: people.join(" + ") === slot.displayName ? null : slot.displayName, people };
+}
+
 export interface BracketMatchView {
   id: string;
   a: BracketSlot;

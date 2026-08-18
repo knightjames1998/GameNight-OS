@@ -9,7 +9,7 @@ import {
   type AliveBoard as AliveBoardShape,
   type StripRound,
 } from "@gamenight/shared";
-import { api, type BracketView, type BracketMatchView } from "../api";
+import { api, slotTeam, type BracketView, type BracketMatchView } from "../api";
 import { bracketTvBand, TV_DECK_SLICE } from "./tv-band";
 import BackButton from "../BackButton";
 import { useBracketLive } from "../useLiveUpdates";
@@ -310,9 +310,26 @@ function TvRow({
   const won = decided && isPlayer && winnerSeed === slot.seed;
   const lost = decided && isPlayer && winnerSeed !== null && winnerSeed !== slot.seed;
   const tone = won ? "gn-tvm__row--win" : lost ? "gn-tvm__row--lose" : "";
+  // A TEAM SLOT KEEPS ONE LINE ON THE BIG SCREEN, and that is a measurement
+  // rather than a preference. An unnamed pair's label already IS its people
+  // joined ("Ann + Ben"), so one line loses nothing; stacking them was tried
+  // first and put this board 288px past 1080p at eight pairs and 297px at
+  // sixteen (scripts/tv-fit.mjs, both counts, every state). A television cannot
+  // be scrolled, so past 1080 is GONE, which is strictly worse than the ellipsis
+  // a long name has always taken here. The one thing a stack buys is the second
+  // line under a NAMED team, whose label does not say who is on it, and that
+  // one line is what is kept.
+  const team = slotTeam(slot);
   return (
     <div className={`gn-tvm__row ${tone}`}>
-      <span className="gn-tvm__nm">{label}</span>
+      {team?.name ? (
+        <span className="gn-tvm__team">
+          <span className="gn-tvm__nm">{team.name}</span>
+          <span className="gn-tvm__tmsub">{team.people.join(" + ")}</span>
+        </span>
+      ) : (
+        <span className="gn-tvm__nm">{label}</span>
+      )}
       {won ? (
         <span>🏆</span>
       ) : needs2 && isPlayer ? (

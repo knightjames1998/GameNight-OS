@@ -1410,6 +1410,14 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-bkt-slot--lose .gn-bkt-nm{text-decoration:line-through}
 .gn-bkt-slot--empty{color:var(--gn-faint);font-style:italic;font-weight:600}
 .gn-bkt-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* A TEAM SLOT: one card row, its people stacked inside it. The card is a fixed
+   76px holding two slots, so a pair fits comfortably and a trio just fits; past
+   that the card clips, which is the honest answer on a 194px column and the
+   full side is on the TV and in the recap. */
+.gn-bkt-team{display:flex;flex-direction:column;justify-content:center;gap:1px;min-width:0;flex:1;overflow:hidden}
+.gn-bkt-team .gn-bkt-nm{flex:none}
+.gn-bkt-tmsub{font-size:10px;font-weight:700;color:var(--gn-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gn-bkt-slot--lose .gn-bkt-team{text-decoration:line-through}
 .gn-bkt-meta{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .gn-bkt-seed{font-size:10px;color:var(--gn-faint);font-weight:800}
 .gn-bkt-div{height:2px;background:var(--gn-line);flex-shrink:0}
@@ -1534,6 +1542,19 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-tvm__row--lose{color:var(--gn-dim);opacity:.6}
 .gn-tvm__row--lose .gn-tvm__nm{text-decoration:line-through}
 .gn-tvm__nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+/* A NAMED team on the big screen: its name at full size, its people on a
+   smaller line under it, because a name does not say who is on the side. An
+   UNNAMED pair takes the ordinary one-line .gn-tvm__nm, since its label is
+   already its people joined and a second line there costs height a television
+   has not got. See the note in TvPage.tsx and the pairs cases in
+   scripts/tv-fit.mjs. */
+.gn-tvm__team{display:flex;flex-direction:column;gap:.2vmin;min-width:0;flex:1;overflow:hidden}
+.gn-tvm__team .gn-tvm__nm{flex:none}
+.gn-tvm__tmsub{
+  font-size:calc(var(--gn-tv-nm) * .74);font-weight:700;color:var(--gn-dim);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.gn-tvm__row--lose .gn-tvm__team{text-decoration:line-through}
 .gn-tvm__seed{font-size:1.5vmin;color:var(--gn-faint);font-weight:800;flex-shrink:0}
 .gn-tvm__vs{font-family:var(--gn-font-display);color:var(--gn-p1);font-size:2vmin;text-align:center;padding:.2vmin 0;letter-spacing:.1vmin}
 .gn-tvm__div{height:3px;background:var(--gn-line)}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, type BracketView, type BracketSlot, type BracketMatchView } from "../api";
+import { api, slotTeam, type BracketView, type BracketSlot, type BracketMatchView } from "../api";
 import { RecapModal } from "../recap";
 import { onIntent, routes } from "../prefetch";
 import { useBracketLive } from "../useLiveUpdates";
@@ -440,6 +440,11 @@ function SlotRow({
 }) {
   const label = slot.kind === "player" ? slot.displayName : slot.kind === "bye" ? "bye" : "TBD";
   const isPlayer = slot.kind === "player";
+  // A TEAM SLOT IS ONE SLOT holding several people, so it gets one card row and
+  // stacks its people inside it. Stacked rather than joined because "Alexandra
+  // + Christopher" on a 194px card is one ellipsis and no second name, and the
+  // whole point of a doubles bracket is seeing who is on a side.
+  const team = slotTeam(slot);
   const winnerSeed = m.winner?.kind === "player" ? m.winner.seed : null;
   const isWinner = m.decided && isPlayer && winnerSeed === slot.seed;
   const isLoser = m.decided && isPlayer && winnerSeed !== null && winnerSeed !== slot.seed;
@@ -452,11 +457,22 @@ function SlotRow({
         ? "gn-bkt-slot--lose"
         : "";
 
+  const who = team ? (
+    <span className="gn-bkt-team">
+      {team.name && <span className="gn-bkt-nm">{team.name}</span>}
+      {team.people.map((n, i) => (
+        <span key={i} className={team.name ? "gn-bkt-tmsub" : "gn-bkt-nm"}>{n}</span>
+      ))}
+    </span>
+  ) : (
+    <span className="gn-bkt-nm">{label}</span>
+  );
+
   // Undecided + real + you can score: tap to record this slot as the winner.
   if (m.playable && canScore && isPlayer) {
     return (
       <button className="gn-bkt-slot gn-bkt-slot--tap" onClick={() => onPick(m.id, side)}>
-        <span className="gn-bkt-nm">{label}</span>
+        {who}
         <span className="gn-bkt-meta"><span className="gn-bkt-seed">#{slot.seed}</span></span>
       </button>
     );
@@ -465,14 +481,14 @@ function SlotRow({
   if (isWinner && m.undoable && canScore) {
     return (
       <button className={`gn-bkt-slot ${tone} gn-bkt-slot--tap`} onClick={() => onUndo(m.id)} title="Tap to undo">
-        <span className="gn-bkt-nm">{label}</span>
+        {who}
         <span className="gn-bkt-meta">🏆</span>
       </button>
     );
   }
   return (
     <div className={`gn-bkt-slot ${tone}`}>
-      <span className="gn-bkt-nm">{label}</span>
+      {who}
       <span className="gn-bkt-meta">
         {isWinner ? "🏆" : isPlayer && !isLoser ? <span className="gn-bkt-seed">#{slot.seed}</span> : null}
       </span>

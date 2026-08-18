@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, type EventDetail } from "../api";
 import BackButton from "../BackButton";
-import { MAX_ENTRANTS, type Entrant } from "@gamenight/shared";
+import { MAX_ENTRANTS, MAX_TEAM_MEMBERS, type Entrant, type SoloEntrant } from "@gamenight/shared";
+import { TeamPicker, dropRosterIndex, teamPickerStatus } from "../teams/TeamPicker";
 import "./tournament.css";
 
 // THE TOURNAMENT SETUP SCREEN: who is actually in the bracket.
@@ -38,6 +39,18 @@ import "./tournament.css";
 // kept visibly apart: "Add from crew" carries a userId, the text box only ever
 // makes { kind: "guest" }, and the server rejects a member id that is not in
 // this crew rather than downgrading it.
+//
+// TEAMS ARE THE SAME ROSTER, ARRANGED. The doubles toggle does not build a
+// second list: the roster stays the source of truth and TeamPicker puts ROSTER
+// INDICES onto sides, which is why removing somebody has to go through
+// dropRosterIndex. A version that forgot would leave the sides pointing at the
+// wrong people, looking completely correct, with nothing to error about.
+//
+// THERE ARE TWO SHUFFLES AND THEY DO DIFFERENT THINGS. "Shuffle the seeding"
+// reorders the DRAW: in solo mode the roster, in teams mode the sides, because
+// the first side is the number 1 seed. TeamPicker's own shuffle deals PEOPLE
+// onto sides and does not touch the draw order. They are separate buttons
+// because they are separate questions.
 
 /** One roster row. `userId` null is a guest, exactly as every pack roster. */
 interface Slot {
@@ -73,6 +86,11 @@ export default function TournamentSetupPage() {
   const [guest, setGuest] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Solo is what a tournament has always been, so it stays the default and
+  // costs a host who does not want doubles nothing.
+  const [teams, setTeams] = useState(false);
+  // Side membership by ROSTER INDEX. See the note at the top of TeamPicker.
+  const [assign, setAssign] = useState<number[][]>([[], []]);
 
   // NOT THROUGH THE CLIENT CACHE, and for the reason usePackSession spells out
   // for the pack launch contexts: this payload carries the member list a roster
@@ -176,17 +194,39 @@ export default function TournamentSetupPage() {
     if (name && !full) setRoster([...roster, { userId: null, name }]);
     setGuest("");
   };
-  const removeAt = (i: number) => setRoster(roster.filter((_, j) => j !== i));
+  const removeAt = (i: number) => {
+    setRoster(roster.filter((_, j) => j !== i));
+    // The indices above the removed player all shift down by one, so the sides
+    // shift with them or they silently point at somebody else.
+    setAssign((a) => dropRosterIndex(a, i));
+  };
+
+  // The picker owns the sides; the ceiling passed in is the BRACKET's, not the
+  // team primitive's eight, because these sides are slots in a draw.
+  const { unplaced, check } = teamPickerStatus(assign, roster.length, MAX_ENTRANTS);
+  const oversized = assign.findIndex((side) => side.length > MAX_TEAM_MEMBERS);
+  const teamsReady = !teams || (check.error === null && unplaced.length === 0 && oversized < 0);
 
   async function start() {
-    if (busy || roster.length < 2) return;
+    if (busy || roster.length < 2 || !teamsReady) return;
     setBusy(true);
     setErr(null);
     // The member path carries the userId it was picked with. The guest path
     // never has one. Nothing here tries to match a typed name to a member.
-    const entrants: Entrant[] = roster.map((r) =>
-      r.userId ? { kind: "member", userId: r.userId } : { kind: "guest", name: r.name },
-    );
+    const personAt = (i: number): SoloEntrant => {
+      const r = roster[i]!;
+      return r.userId ? { kind: "member", userId: r.userId } : { kind: "guest", name: r.name };
+    };
+    const entrants: Entrant[] = teams
+      ? // A SIDE OF ONE IS A SOLO ENTRANT, not a team of one. The server refuses
+        // a one-member team, and rightly: a side id on a bracket with no team
+        // structure in it is the thing the whole side rule exists to prevent.
+        assign.map((side) =>
+          side.length === 1
+            ? personAt(side[0]!)
+            : { kind: "team", members: side.map(personAt) },
+        )
+      : roster.map((_, i) => personAt(i));
     try {
       const b = await api<{ id: string }>(`/api/events/${eventId}/bracket`, {
         method: "POST",
@@ -212,12 +252,16 @@ export default function TournamentSetupPage() {
           Who is playing ({roster.length}/{MAX_ENTRANTS})
         </div>
         <p className="gn-hint" style={{ marginTop: 4 }}>
-          Top of the list is the number 1 seed. Anyone in the crew can play, RSVP or not.
+          {teams
+            ? "Anyone in the crew can play, RSVP or not. Put everybody on a side below."
+            : "Top of the list is the number 1 seed. Anyone in the crew can play, RSVP or not."}
         </p>
 
         {roster.map((r, i) => (
           <div className="tr-row" key={`${r.userId ?? "g"}-${i}`}>
-            <span className="tr-seed">{i + 1}</span>
+            {/* In teams mode the DRAW is the sides, so a per-person seed number
+                here would name a seed that does not exist. */}
+            {!teams && <span className="tr-seed">{i + 1}</span>}
             <span className="tr-name">{r.name}</span>
             {!r.userId && <span className="tr-pill">guest</span>}
             <button className="gn-textbtn" onClick={() => removeAt(i)}>remove</button>
@@ -229,7 +273,7 @@ export default function TournamentSetupPage() {
           </p>
         )}
 
-        {roster.length > 1 && (
+        {roster.length > 1 && !teams && (
           <button
             className="gn-btn gn-btn--ghost tr-shuffle"
             onClick={() => setRoster(shuffled(roster))}
@@ -271,14 +315,70 @@ export default function TournamentSetupPage() {
         </p>
       </div>
 
+      <div className="gn-card">
+        {/* Its own class rather than .tr-row: a settings row is not an entrant,
+            and sharing the class made every reader of the roster (including the
+            screens harness) count the toggle as a player. */}
+        <div className="tr-opt">
+          <span className="tr-name">Doubles and teams</span>
+          <button
+            className={`gn-toggle ${teams ? "gn-toggle--on" : "gn-toggle--off"}`}
+            aria-pressed={teams}
+            onClick={() => setTeams(!teams)}
+          >
+            {teams ? "ON" : "OFF"}
+          </button>
+        </div>
+        <p className="gn-hint">
+          {teams
+            ? "Each side takes ONE slot in the draw. Side A is the number 1 seed, and everybody on a side shares whatever that side finishes."
+            : "Off means everybody plays for themselves, exactly as a tournament always has."}
+        </p>
+
+        {teams && (
+          <>
+            <TeamPicker
+              cx="tr"
+              roster={roster}
+              assign={assign}
+              setAssign={setAssign}
+              maxSides={MAX_ENTRANTS}
+            />
+            {oversized >= 0 && (
+              <p className="tr-err">A side holds at most {MAX_TEAM_MEMBERS} players.</p>
+            )}
+            {assign.length > 1 && (
+              <button
+                className="gn-btn gn-btn--ghost tr-shuffle"
+                onClick={() => setAssign(shuffled(assign))}
+              >
+                🎲 Shuffle the seeding
+              </button>
+            )}
+            <p className="gn-hint" style={{ marginTop: 8 }}>
+              Two different shuffles: the one above deals people onto sides, this one reorders the
+              draw.
+            </p>
+          </>
+        )}
+      </div>
+
       {err && <p className="tr-err">{err}</p>}
 
       <button
         className="gn-btn gn-btn--go tr-start"
-        disabled={busy || roster.length < 2}
+        disabled={busy || roster.length < 2 || !teamsReady}
         onClick={start}
       >
-        {roster.length < 2 ? "Add at least 2 players" : `Start the tournament (${roster.length})`}
+        {roster.length < 2
+          ? "Add at least 2 players"
+          : teams && unplaced.length > 0
+            ? `${unplaced.length} still to put on a side`
+            : teams && oversized >= 0
+              ? `A side holds at most ${MAX_TEAM_MEMBERS} players`
+              : teams && check.error
+                ? check.error
+                : `Start the tournament (${teams ? assign.length : roster.length})`}
       </button>
     </Frame>
   );
