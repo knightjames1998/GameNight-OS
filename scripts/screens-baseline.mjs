@@ -233,6 +233,22 @@ const trEvent = () => ({
   myStatus: "yes", myAttendance: null,
 });
 
+/**
+ * The QUICK PLAY shape of the same payload: a personal crew holding only the
+ * host, auto-RSVP'd yes. Since 2026-08-18 this is the screen's second most
+ * common use rather than an edge case, because the Home tile mints exactly this
+ * and opens the shared setup screen on it. Worth its own snapshot because
+ * nothing structural changes and ALL of the copy does: there is no crew to add
+ * from, and "lifetime stats only count crew members" is a strange thing to tell
+ * somebody whose crew is themselves.
+ */
+const trSoloEvent = () => ({
+  ...trEvent(),
+  title: "Tournament",
+  rsvps: [{ userId: "u0", displayName: NAMES[0], status: "yes" }],
+  noResponse: [],
+});
+
 const bgStats = {
   games: 7, titles: 3,
   byPlayer: [{ userId: "u0", name: "Ann", games: 7, wins: 3, winRate: 3 / 7, avgPlacement: 1.9, titles: 3 }],
@@ -303,6 +319,7 @@ async function main() {
   let sdPayload = null;
   let sdTvPayload = null;
   let rosterN = 4;
+  let trPayload = trEvent;
   ws.addEventListener("message", async (ev) => {
     const m = JSON.parse(ev.data);
     if (m.method !== "Fetch.requestPaused" || m.sessionId !== sessionId) return;
@@ -318,7 +335,7 @@ async function main() {
     else if (u.includes("/api/cardtable-context/")) body = ctx(4, ["Euchre"]);
     else if (u.includes("/api/pingpong-context/")) body = ctx(5);
     else if (u.includes("/api/auth/me")) body = { user: { id: "u0", displayName: "Ann" } };
-    else if (u.includes("/api/events/")) body = trEvent();
+    else if (u.includes("/api/events/")) body = trPayload();
     else if (u.includes("/boardgame-stats")) body = bgStats;
     else if (u.includes("/stats")) body = groupStats;
     else if (u.includes("boardgame/")) body = { session: bgPayload };
@@ -566,6 +583,11 @@ async function main() {
   }
   await sleep(250);
   snap.trTeamsPlaced = await trPicker();
+
+  // QUICK PLAY: the same screen on a crew of one.
+  trPayload = trSoloEvent;
+  await goto(`${ORIGIN}/tournament?event=e1&format=single_elim`);
+  snap.trQuickPlay = await text();
 
   const out = JSON.stringify(snap, null, 1);
   if (COMPARE) {

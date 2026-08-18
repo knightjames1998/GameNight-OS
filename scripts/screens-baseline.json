@@ -240,5 +240,6 @@
   "unplaced": [],
   "startLabel": "Start the tournament (2)",
   "startEnabled": true
- }
+ },
+ "trQuickPlay": "← Back\n🎪 Event\nTournament\nSingle elimination · one loss and you are out\nWho is playing (1/32)\nTop of the list is the number 1 seed. Add whoever turned up as a guest below.\n1\nAnn\nremove\nAdd a guest\nAdd\nGuests play, but lifetime stats only count you. Your own results are recorded either way.\nDoubles and teams\nOFF\nOff means everybody plays for themselves, exactly as a tournament always has.\nAdd at least 2 players"
 }

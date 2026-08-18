@@ -184,6 +184,13 @@ export default function TournamentSetupPage() {
 
   const full = roster.length >= MAX_ENTRANTS;
   const notAdded = crew.filter((m) => !roster.some((r) => r.userId === m.userId));
+  // A CREW OF ONE IS THE QUICK PLAY NIGHT, and since 2026-08-18 it is this
+  // screen's second most common use rather than an edge case: the Home tile
+  // mints a personal crew holding only the host and opens this screen on it.
+  // The copy below is the only thing that has to know, because everything
+  // structural already works: "Add from crew" hides itself when there is nobody
+  // left to add, and a guest is a guest in either kind of crew.
+  const soloCrew = crew.length <= 1;
 
   const addMember = (m: { userId: string; name: string }) => {
     if (full || roster.some((r) => r.userId === m.userId)) return;
@@ -253,8 +260,12 @@ export default function TournamentSetupPage() {
         </div>
         <p className="gn-hint" style={{ marginTop: 4 }}>
           {teams
-            ? "Anyone in the crew can play, RSVP or not. Put everybody on a side below."
-            : "Top of the list is the number 1 seed. Anyone in the crew can play, RSVP or not."}
+            ? soloCrew
+              ? "Add whoever turned up as a guest, then put everybody on a side below."
+              : "Anyone in the crew can play, RSVP or not. Put everybody on a side below."
+            : soloCrew
+              ? "Top of the list is the number 1 seed. Add whoever turned up as a guest below."
+              : "Top of the list is the number 1 seed. Anyone in the crew can play, RSVP or not."}
         </p>
 
         {roster.map((r, i) => (
@@ -269,7 +280,9 @@ export default function TournamentSetupPage() {
         ))}
         {roster.length === 0 && (
           <p className="gn-hint" style={{ marginTop: 10 }}>
-            Nobody yet. Add the crew below, or type in whoever turned up.
+            {soloCrew
+              ? "Nobody yet. Add yourself back below, or type in whoever turned up."
+              : "Nobody yet. Add the crew below, or type in whoever turned up."}
           </p>
         )}
 
@@ -310,8 +323,9 @@ export default function TournamentSetupPage() {
           </>
         )}
         <p className="gn-hint" style={{ marginTop: 10 }}>
-          Guests play, but lifetime stats only count crew members. Add someone from the crew
-          list above and their record follows them.
+          {soloCrew
+            ? "Guests play, but lifetime stats only count you. Your own results are recorded either way."
+            : "Guests play, but lifetime stats only count crew members. Add someone from the crew list above and their record follows them."}
         </p>
       </div>
 
@@ -334,6 +348,15 @@ export default function TournamentSetupPage() {
             ? "Each side takes ONE slot in the draw. Side A is the number 1 seed, and everybody on a side shares whatever that side finishes."
             : "Off means everybody plays for themselves, exactly as a tournament always has."}
         </p>
+        {teams && roster.length === 2 && (
+          // Two people into two sides is a 1v1 wearing the doubles shape. It is
+          // allowed and it is almost never what somebody means, and the side
+          // rule makes the difference invisible afterwards: two sides of one
+          // write side null, exactly like a solo bracket.
+          <p className="gn-hint" style={{ marginTop: 6 }}>
+            With two players this is a 1v1 either way. Add more before splitting sides.
+          </p>
+        )}
 
         {teams && (
           <>
@@ -413,7 +436,9 @@ function Frame({
           )}
         </div>
         <h1 className="gn-title text-2xl" style={{ marginTop: 6 }}>Tournament</h1>
-        {title && <p className="gn-hint">{title}</p>}
+        {/* A quick play night's event IS called "Tournament", so printing it
+            under the heading reads as a stutter rather than as context. */}
+        {title && title !== "Tournament" && <p className="gn-hint">{title}</p>}
         {children}
       </div>
     </main>
