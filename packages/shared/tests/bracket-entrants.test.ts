@@ -34,7 +34,14 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseEntrants } from "../src/index.js";
+import {
+  GUEST_NAME_MAX,
+  MAX_ENTRANTS,
+  MIN_ENTRANTS,
+  normalizeEntrants,
+  parseEntrants,
+  type Entrant,
+} from "../src/index.js";
 import {
   buildStructure,
   computeBracket,
@@ -83,6 +90,138 @@ test("parseEntrants drops junk instead of throwing", () => {
   assert.deepEqual(parseEntrants(null), []);
   assert.deepEqual(parseEntrants("nope"), []);
   assert.deepEqual(parseEntrants(undefined), []);
+});
+
+// ---------- normalizeEntrants ----------
+//
+// The pure half of the create route. It is tested WITHOUT a database on
+// purpose: everything interesting about a create request (is this a real crew
+// member, is this a duplicate, is this too many, how long may a guest name be)
+// is a fact about what a bracket is, and burying it behind Drizzle would mean
+// the only way to check it was to stand up a schema.
+
+const CREW = new Set(["u1", "u2", "u3"]);
+/** The answer, or assert.fail with the sentence it refused with. */
+const ok = (v: Entrant[] | string): Entrant[] => {
+  if (typeof v === "string") assert.fail(`expected entrants, got the error ${JSON.stringify(v)}`);
+  return v;
+};
+
+test("normalizeEntrants passes members and guests through in ORDER", () => {
+  // Order is the seeding. First in the list is the top seed, which is what the
+  // roster screen's drag-free "prefill in RSVP answer order" rule depends on.
+  const out = ok(
+    normalizeEntrants(
+      [
+        { kind: "member", userId: "u2" },
+        { kind: "guest", name: "Sam" },
+        { kind: "member", userId: "u1" },
+      ],
+      CREW,
+    ),
+  );
+  assert.deepEqual(out, [
+    { kind: "member", userId: "u2" },
+    { kind: "guest", name: "Sam" },
+    { kind: "member", userId: "u1" },
+  ]);
+});
+
+test("normalizeEntrants REJECTS a userId outside the crew, and never downgrades it", () => {
+  // The silent failure this whole change exists to remove. Turning an unknown
+  // id into a guest with the same name reads as forgiving and means somebody
+  // plays a whole tournament, places, and their record never hears about it.
+  const v = normalizeEntrants(
+    [{ kind: "member", userId: "u1" }, { kind: "member", userId: "stranger" }],
+    CREW,
+  );
+  assert.equal(typeof v, "string");
+  assert.match(String(v), /not in this crew/);
+});
+
+test("normalizeEntrants REJECTS the same member twice rather than deduping", () => {
+  // The roster screen cannot offer one person twice, so a repeat means the body
+  // did not come from that screen. Deduping would silently start a smaller
+  // bracket than the host asked for.
+  const v = normalizeEntrants(
+    [{ kind: "member", userId: "u1" }, { kind: "member", userId: "u1" }],
+    CREW,
+  );
+  assert.equal(typeof v, "string");
+  assert.match(String(v), /twice/);
+});
+
+test("two guests with the SAME NAME are allowed", () => {
+  // Two people called Sam is a real party. They are distinguishable by seed,
+  // and guest-link.ts has credited both of them to one member since it shipped.
+  const out = ok(
+    normalizeEntrants([{ kind: "guest", name: "Sam" }, { kind: "guest", name: "Sam" }], CREW),
+  );
+  assert.equal(out.length, 2);
+});
+
+test("normalizeEntrants trims a guest name and caps its length", () => {
+  const out = ok(
+    normalizeEntrants(
+      [{ kind: "guest", name: "   Sam   " }, { kind: "guest", name: "x".repeat(60) }],
+      CREW,
+    ),
+  );
+  assert.deepEqual(out[0], { kind: "guest", name: "Sam" });
+  assert.equal(out[1]!.kind === "guest" && out[1]!.name.length, GUEST_NAME_MAX);
+});
+
+test("a guest with a blank or whitespace name is refused", () => {
+  for (const name of ["", "   ", "\t"]) {
+    const v = normalizeEntrants([{ kind: "guest", name }, { kind: "member", userId: "u1" }], CREW);
+    assert.equal(typeof v, "string", `${JSON.stringify(name)} was accepted as a guest name`);
+  }
+});
+
+test("a member entrant with no userId is refused, not treated as a guest", () => {
+  const v = normalizeEntrants([{ kind: "member" }, { kind: "member", userId: "u1" }], CREW);
+  assert.equal(typeof v, "string");
+  assert.match(String(v), /missing their id/);
+});
+
+test("normalizeEntrants enforces both ends of the size range", () => {
+  const one = normalizeEntrants([{ kind: "member", userId: "u1" }], CREW);
+  assert.equal(typeof one, "string");
+  assert.match(String(one), new RegExp(`at least ${MIN_ENTRANTS}`));
+
+  const many = Array.from({ length: MAX_ENTRANTS + 1 }, (_, i) => ({ kind: "guest", name: `G${i}` }));
+  const over = normalizeEntrants(many, CREW);
+  assert.equal(typeof over, "string");
+  assert.match(String(over), new RegExp(`at most ${MAX_ENTRANTS}`));
+
+  // And the boundaries themselves pass, so the check is a range rather than an
+  // off-by-one that happens to reject the same bodies.
+  assert.equal(ok(normalizeEntrants(many.slice(0, MIN_ENTRANTS), CREW)).length, MIN_ENTRANTS);
+  assert.equal(ok(normalizeEntrants(many.slice(0, MAX_ENTRANTS), CREW)).length, MAX_ENTRANTS);
+});
+
+test("normalizeEntrants refuses anything that is not a list of tagged objects", () => {
+  for (const junk of [null, undefined, "u1,u2", 7, { kind: "member", userId: "u1" }]) {
+    assert.equal(typeof normalizeEntrants(junk, CREW), "string", `${JSON.stringify(junk)} passed`);
+  }
+  // A bare userId string is fine on READ (parseEntrants upgrades legacy rows)
+  // and is NOT fine on write: an incoming request has a client that can send
+  // the tagged shape, and accepting both would make the write path guess.
+  assert.equal(typeof normalizeEntrants(["u1", "u2"], CREW), "string");
+  assert.equal(typeof normalizeEntrants([{ kind: "player", userId: "u1" }], CREW), "string");
+});
+
+test("what normalizeEntrants returns round trips through parseEntrants unchanged", () => {
+  // The two halves of the same contract: what the write path accepts is exactly
+  // what the read path gives back, so a bracket cannot be stored in a shape its
+  // own reader would alter.
+  const out = ok(
+    normalizeEntrants(
+      [{ kind: "member", userId: "u1" }, { kind: "guest", name: "Sam" }, { kind: "member", userId: "u3" }],
+      CREW,
+    ),
+  );
+  assert.deepEqual(parseEntrants(JSON.parse(JSON.stringify(out))), out);
 });
 
 // ---------- placements ----------

@@ -48,29 +48,12 @@ export interface Rsvp {
 
 // ---------- Play ----------
 
-/**
- * A bracket entrant is either a crew member (stats accrue) or a typed-in
- * guest (no stats, linkable to a member later). Legacy rows stored bare
- * userId strings; parseEntrants() below upgrades them on read, so no data
- * migration was needed.
- */
-export type Entrant =
-  | { kind: "member"; userId: string }
-  | { kind: "guest"; name: string };
+// WHO IS IN A BRACKET lives in its own module now (entrants.ts), re-exported at
+// the bottom of this file with everything else. The type and its reader sat
+// here until a THIRD function had to agree with both of them: the normalizer a
+// create request runs its body through, which verifies crew membership rather
+// than silently downgrading an unknown id to a guest.
 
-export function parseEntrants(raw: unknown): Entrant[] {
-  if (!Array.isArray(raw)) return [];
-  const out: Entrant[] = [];
-  for (const e of raw) {
-    if (typeof e === "string") out.push({ kind: "member", userId: e });
-    else if (e && typeof e === "object") {
-      const o = e as Record<string, unknown>;
-      if (o.kind === "guest" && typeof o.name === "string") out.push({ kind: "guest", name: o.name });
-      else if (typeof o.userId === "string") out.push({ kind: "member", userId: o.userId });
-    }
-  }
-  return out;
-}
 // A "game" is anything with participants and results. Packs layer on top.
 
 export type BracketFormat = "single_elim" | "double_elim" | "round_robin";
@@ -140,6 +123,11 @@ export * from "./packs.js";
 // matches.format was read back by a label map on the client and a sort order on
 // the server, neither of which knew about the other, and both had drifted.
 export * from "./formats.js";
+// WHO IS IN A BRACKET: the entrant type, the reader that survives legacy rows,
+// and the normalizer the create route runs a request body through. Beside the
+// engine rather than in it: the engine counts SLOTS and never asks who is in
+// one.
+export * from "./entrants.js";
 export * from "./bracket.js";
 // The bracketed TVs' shared derivations (round order, the alive board, the
 // round strip). Beside the engine rather than in it: it reads what compute()
