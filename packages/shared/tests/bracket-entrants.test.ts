@@ -40,6 +40,8 @@ import {
   MAX_TEAM_MEMBERS,
   MIN_ENTRANTS,
   MIN_TEAM_MEMBERS,
+  BRACKET_GAME_NAME,
+  bracketGameName,
   bracketLedgerRows,
   entrantLabel,
   entrantMembers,
@@ -240,6 +242,26 @@ test("an entrant list ROUND TRIPS through jsonb-shaped input unchanged", () => {
     { kind: "guest", name: "Jo" },
   ];
   assert.deepEqual(parseEntrants(JSON.parse(JSON.stringify(entrants))), entrants);
+});
+
+// ---------- what a tournament is CALLED ----------
+
+test("bracketGameName is ALWAYS \"Tournament\" unless somebody sends a name", () => {
+  // Lifetime tournament history buckets on games.name, so this constant is what
+  // makes "my tournament record" one number rather than one per phrase anybody
+  // ever typed. Nothing in the app sends a name: the setup screen has no name
+  // box by decision, and quick play's typed title goes to the EVENT instead.
+  for (const nothing of [undefined, null, "", "   ", "\t\n"]) {
+    assert.equal(bracketGameName(nothing), BRACKET_GAME_NAME);
+  }
+  assert.equal(BRACKET_GAME_NAME, "Tournament");
+});
+
+test("bracketGameName still honours and caps a name a cached bundle sends", () => {
+  // The endpoint has always accepted gameName and an installed PWA can be
+  // running a bundle that passes one, so the parameter keeps working.
+  assert.equal(bracketGameName("  beer pong  "), "beer pong");
+  assert.equal(bracketGameName("x".repeat(80)).length, 50);
 });
 
 // ---------- normalizeEntrants ----------

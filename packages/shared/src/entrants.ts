@@ -160,6 +160,32 @@ export const MAX_TEAM_MEMBERS = 8;
 /** Team names get the same cap a guest name does. */
 export const TEAM_NAME_MAX = 24;
 
+// ---------- what a tournament is CALLED in the ledger ----------
+
+/**
+ * The name every generic bracket's `games` row carries.
+ *
+ * LIFETIME TOURNAMENT HISTORY BUCKETS ON `games.name`, so this being one
+ * constant is what makes "my tournament record" a single number instead of one
+ * per phrase anybody has ever typed. A host who names a night "beer pong" one
+ * week and "Mario Kart" the next would otherwise split their own record across
+ * three buckets, and nothing anywhere would error.
+ */
+export const BRACKET_GAME_NAME = "Tournament";
+
+/**
+ * Resolve the `games.name` for a bracket from a request body's `gameName`.
+ *
+ * A NAME IS ONLY HONOURED IF SOMETHING SENDS ONE, and nothing in the app does:
+ * the tournament setup screen has no name box by decision (2026-08-17), and the
+ * quick play route sends a typed title to the EVENT rather than to the game.
+ * The parameter exists because the endpoint has always accepted it and a cached
+ * bundle may still pass it; the fallback is the path every live caller takes.
+ */
+export function bracketGameName(raw: unknown): string {
+  return String(raw ?? "").trim().slice(0, 50) || BRACKET_GAME_NAME;
+}
+
 // ---------- normalization ----------
 
 /**

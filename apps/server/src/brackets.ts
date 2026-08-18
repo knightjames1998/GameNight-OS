@@ -15,6 +15,7 @@ import {
   inArray,
 } from "@gamenight/db";
 import {
+  bracketGameName,
   bracketLedgerRows,
   buildStructure,
   computeBracket,
@@ -149,13 +150,15 @@ bracketsRouter.post("/events/:eventId/bracket", async (req: AuthedRequest, res) 
     return;
   }
 
-  const gameName = String(req.body?.gameName ?? "").trim() || "Tournament";
+  // "Tournament", always, unless a cached bundle passes something. See
+  // bracketGameName: lifetime history buckets on games.name.
+  const gameName = bracketGameName(req.body?.gameName);
   const format: BracketFormat =
     req.body?.format === "double_elim" ? "double_elim" : "single_elim";
   const game = (
     await db
       .insert(games)
-      .values({ groupId: event.groupId, name: gameName.slice(0, 50), pack: "generic" })
+      .values({ groupId: event.groupId, name: gameName, pack: "generic" })
       .returning()
   )[0]!;
 
