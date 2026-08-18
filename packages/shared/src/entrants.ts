@@ -15,14 +15,40 @@
 // a test can reach it without a schema.
 
 /**
- * A bracket entrant is either a crew member (stats accrue) or a typed-in guest
- * (no stats, linkable to a member later). Legacy rows stored bare userId
- * strings; parseEntrants() below upgrades them on read, so no data migration
- * was needed.
+ * ONE PERSON IN A BRACKET: a crew member (stats accrue) or a typed-in guest
+ * (no stats, linkable to a member later).
  */
-export type Entrant =
+export type SoloEntrant =
   | { kind: "member"; userId: string }
   | { kind: "guest"; name: string };
+
+/**
+ * SEVERAL PEOPLE IN ONE BRACKET SLOT: a doubles pair, a 2v2 Smash team, a beer
+ * pong side.
+ *
+ * A TEAM ENTRANT IS ONE SLOT, and that sentence is the whole design. The engine
+ * counts entrants and never asks what is in one, so `entrants.length` stays the
+ * number of SLOTS and buildStructure, computeBracket, seedOrder and placements
+ * are untouched by teams existing. A doubles bracket of eight pairs is the same
+ * eight-slot bracket the engine has always built.
+ *
+ * `name` is optional because most pairs never get one: a team with no name
+ * reads as its members joined with " + ", which is what sideLabel does for the
+ * session packs and what a crew says out loud anyway.
+ */
+export interface TeamEntrant {
+  kind: "team";
+  name?: string;
+  members: SoloEntrant[];
+}
+
+/**
+ * A bracket entrant. Legacy rows stored bare userId strings; parseEntrants()
+ * below upgrades them on read, so no data migration was needed then and none is
+ * needed now: `entrants` is jsonb, and a bracket written before teams existed
+ * simply has no entrant of this third kind in it.
+ */
+export type Entrant = SoloEntrant | TeamEntrant;
 
 export function parseEntrants(raw: unknown): Entrant[] {
   if (!Array.isArray(raw)) return [];
@@ -32,10 +58,66 @@ export function parseEntrants(raw: unknown): Entrant[] {
     else if (e && typeof e === "object") {
       const o = e as Record<string, unknown>;
       if (o.kind === "guest" && typeof o.name === "string") out.push({ kind: "guest", name: o.name });
+      else if (o.kind === "team") {
+        // A team's members go through the SOLO reader, so a team cannot nest a
+        // team and junk inside one is dropped the same way junk beside one is.
+        const members = parseSolo(o.members);
+        const name = typeof o.name === "string" && o.name ? o.name : undefined;
+        if (members.length) out.push(name ? { kind: "team", name, members } : { kind: "team", members });
+      } else if (typeof o.userId === "string") out.push({ kind: "member", userId: o.userId });
+    }
+  }
+  return out;
+}
+
+/** The solo half of the reader, which is also what a team's members are read by. */
+function parseSolo(raw: unknown): SoloEntrant[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SoloEntrant[] = [];
+  for (const m of raw) {
+    if (typeof m === "string") out.push({ kind: "member", userId: m });
+    else if (m && typeof m === "object") {
+      const o = m as Record<string, unknown>;
+      if (o.kind === "guest" && typeof o.name === "string") out.push({ kind: "guest", name: o.name });
       else if (typeof o.userId === "string") out.push({ kind: "member", userId: o.userId });
     }
   }
   return out;
+}
+
+// ---------- reading an entrant of any kind ----------
+
+/**
+ * The people in an entrant, flat, whatever kind it is.
+ *
+ * A solo entrant is a list of one. That is what lets every caller stop asking
+ * which kind it has: the guest-name scan, the guest backfill and the ledger
+ * writer all walk this and are correct for all three kinds without a branch.
+ */
+export function entrantMembers(e: Entrant): SoloEntrant[] {
+  return e.kind === "team" ? e.members : [e];
+}
+
+/**
+ * What to show on a card, a TV row or a recap line.
+ *
+ * `nameOf` resolves a crew member's userId, because names live in the users
+ * table and this module has no database. A member whose name cannot be resolved
+ * reads "Unknown", which is what deriveView has always shown for that case.
+ */
+export function entrantLabel(e: Entrant, nameOf: (userId: string) => string | undefined): string {
+  if (e.kind === "guest") return e.name;
+  if (e.kind === "member") return nameOf(e.userId) ?? "Unknown";
+  // A NAME WINS IF THERE IS ONE, and most pairs will not have one: a team is
+  // usually just two people, and "Ann + Ben" is what the room calls them.
+  if (e.name) return e.name;
+  const names = e.members.map((m) => (m.kind === "guest" ? m.name : nameOf(m.userId) ?? "Unknown"));
+  return names.length ? names.join(" + ") : "Unknown";
+}
+
+/** Does this bracket have team structure at all? See the side rule below. */
+export function hasTeamEntrants(entrants: readonly Entrant[]): boolean {
+  return entrants.some((e) => e.kind === "team");
 }
 
 // ---------- limits ----------
@@ -54,6 +136,23 @@ export const MAX_ENTRANTS = 32;
 
 /** Guest names are trimmed to this, matching every other roster in the app. */
 export const GUEST_NAME_MAX = 24;
+
+/** A team is at least a pair. */
+export const MIN_TEAM_MEMBERS = 2;
+
+/**
+ * And at most eight, which is the team primitive's MAX_SIDES read sideways: a
+ * side that big is already past anything real.
+ *
+ * A SIDE OF ONE IS NOT A TEAM ENTRANT, it is a plain solo entrant. A doubles
+ * bracket that has an odd person out holds pairs and one member entrant, and
+ * the side rule below still gives that person a side id, because in a bracket
+ * that HAS teams a solo entrant is a side of one.
+ */
+export const MAX_TEAM_MEMBERS = 8;
+
+/** Team names get the same cap a guest name does. */
+export const TEAM_NAME_MAX = 24;
 
 // ---------- normalization ----------
 
@@ -91,32 +190,59 @@ export function normalizeEntrants(
   if (!Array.isArray(input)) return "Entrants must be a list";
 
   const out: Entrant[] = [];
+  // ACROSS THE WHOLE LIST, teams included: one person cannot be on two sides of
+  // the same bracket, and that is not a different rule from "not twice in the
+  // seeding", it is the same rule now that a slot can hold several people.
   const seenMembers = new Set<string>();
 
-  for (const raw of input) {
-    if (!raw || typeof raw !== "object") return "Every entrant needs a kind of member or guest";
-    const o = raw as Record<string, unknown>;
-
+  /** One person, wherever they appear: on their own, or inside a team. */
+  const solo = (o: Record<string, unknown>): SoloEntrant | string => {
     if (o.kind === "guest") {
       const name = String(o.name ?? "").trim().slice(0, GUEST_NAME_MAX);
       if (!name) return "A guest needs a name";
-      out.push({ kind: "guest", name });
-      continue;
+      return { kind: "guest", name };
     }
-
     if (o.kind === "member") {
       const userId = typeof o.userId === "string" ? o.userId : "";
       if (!userId) return "A crew member entrant is missing their id";
       if (!crewMemberIds.has(userId)) return "Someone on the list is not in this crew";
       if (seenMembers.has(userId)) return "Someone is on the list twice";
       seenMembers.add(userId);
-      out.push({ kind: "member", userId });
+      return { kind: "member", userId };
+    }
+    return "Every entrant needs a kind of member, guest or team";
+  };
+
+  for (const raw of input) {
+    if (!raw || typeof raw !== "object") return "Every entrant needs a kind of member, guest or team";
+    const o = raw as Record<string, unknown>;
+
+    if (o.kind === "team") {
+      if (!Array.isArray(o.members)) return "A team needs a list of members";
+      const members: SoloEntrant[] = [];
+      for (const m of o.members) {
+        if (!m || typeof m !== "object") return "Every entrant needs a kind of member, guest or team";
+        const one = solo(m as Record<string, unknown>);
+        if (typeof one === "string") return one;
+        members.push(one);
+      }
+      // A SIDE OF ONE IS A SOLO ENTRANT, not a team of one. Accepting a
+      // one-member team would put a side id on a bracket that has no team
+      // structure in it, which is the exact thing the side rule exists to stop.
+      if (members.length < MIN_TEAM_MEMBERS) return `A team needs at least ${MIN_TEAM_MEMBERS} players`;
+      if (members.length > MAX_TEAM_MEMBERS) return `A team holds at most ${MAX_TEAM_MEMBERS} players`;
+      const name = String(o.name ?? "").trim().slice(0, TEAM_NAME_MAX);
+      out.push(name ? { kind: "team", name, members } : { kind: "team", members });
       continue;
     }
 
-    return "Every entrant needs a kind of member or guest";
+    const one = solo(o);
+    if (typeof one === "string") return one;
+    out.push(one);
   }
 
+  // SLOTS, not people. A doubles bracket of eight pairs is eight entrants, and
+  // the cap is about how big a bracket the engine draws and a television shows.
   if (out.length < MIN_ENTRANTS) return `Need at least ${MIN_ENTRANTS} entrants to start a bracket`;
   if (out.length > MAX_ENTRANTS) return `A bracket holds at most ${MAX_ENTRANTS} entrants`;
   return out;

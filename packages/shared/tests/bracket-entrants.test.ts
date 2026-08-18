@@ -37,7 +37,12 @@ import assert from "node:assert/strict";
 import {
   GUEST_NAME_MAX,
   MAX_ENTRANTS,
+  MAX_TEAM_MEMBERS,
   MIN_ENTRANTS,
+  MIN_TEAM_MEMBERS,
+  entrantLabel,
+  entrantMembers,
+  hasTeamEntrants,
   normalizeEntrants,
   parseEntrants,
   type Entrant,
@@ -90,6 +95,150 @@ test("parseEntrants drops junk instead of throwing", () => {
   assert.deepEqual(parseEntrants(null), []);
   assert.deepEqual(parseEntrants("nope"), []);
   assert.deepEqual(parseEntrants(undefined), []);
+});
+
+// ---------- team entrants ----------
+//
+// A TEAM ENTRANT IS ONE SLOT. The engine counts entrants and never asks what is
+// in one, so nothing in bracket.ts changes for teams to work: a doubles bracket
+// of eight pairs is the same eight-slot bracket it has always built. What the
+// third kind costs is everything that reads an entrant, which is what these
+// three helpers exist to make uniform.
+
+const NAMES = new Map([["u1", "Ann"], ["u2", "Ben"], ["u3", "Cal"]]);
+const nameOf = (id: string) => NAMES.get(id);
+
+test("entrantMembers flattens all three kinds, and a solo entrant is a list of one", () => {
+  // The point of the helper: no caller has to branch on kind. The guest-name
+  // scan, the guest backfill and the ledger writer all walk this.
+  assert.deepEqual(entrantMembers({ kind: "member", userId: "u1" }), [
+    { kind: "member", userId: "u1" },
+  ]);
+  assert.deepEqual(entrantMembers({ kind: "guest", name: "Sam" }), [{ kind: "guest", name: "Sam" }]);
+  assert.deepEqual(
+    entrantMembers({
+      kind: "team",
+      members: [{ kind: "member", userId: "u1" }, { kind: "guest", name: "Sam" }],
+    }),
+    [{ kind: "member", userId: "u1" }, { kind: "guest", name: "Sam" }],
+  );
+});
+
+test("entrantLabel: a team with no name reads as its members joined", () => {
+  assert.equal(entrantLabel({ kind: "member", userId: "u1" }, nameOf), "Ann");
+  assert.equal(entrantLabel({ kind: "guest", name: "Sam" }, nameOf), "Sam");
+  assert.equal(
+    entrantLabel(
+      { kind: "team", members: [{ kind: "member", userId: "u1" }, { kind: "member", userId: "u2" }] },
+      nameOf,
+    ),
+    "Ann + Ben",
+  );
+  // A guest inside a pair reads as themselves, same as anywhere else.
+  assert.equal(
+    entrantLabel(
+      { kind: "team", members: [{ kind: "member", userId: "u1" }, { kind: "guest", name: "Sam" }] },
+      nameOf,
+    ),
+    "Ann + Sam",
+  );
+});
+
+test("entrantLabel: a NAMED team reads as its name", () => {
+  assert.equal(
+    entrantLabel(
+      {
+        kind: "team",
+        name: "The Kitchen",
+        members: [{ kind: "member", userId: "u1" }, { kind: "member", userId: "u2" }],
+      },
+      nameOf,
+    ),
+    "The Kitchen",
+  );
+});
+
+test("entrantLabel: an unresolvable member reads Unknown, as it always has", () => {
+  assert.equal(entrantLabel({ kind: "member", userId: "ghost" }, nameOf), "Unknown");
+  assert.equal(
+    entrantLabel(
+      { kind: "team", members: [{ kind: "member", userId: "u1" }, { kind: "member", userId: "ghost" }] },
+      nameOf,
+    ),
+    "Ann + Unknown",
+  );
+});
+
+test("hasTeamEntrants is true only when some slot holds a team", () => {
+  const solo: Entrant[] = [{ kind: "member", userId: "u1" }, { kind: "guest", name: "Sam" }];
+  assert.equal(hasTeamEntrants(solo), false);
+  assert.equal(
+    hasTeamEntrants([
+      ...solo,
+      { kind: "team", members: [{ kind: "member", userId: "u2" }, { kind: "member", userId: "u3" }] },
+    ]),
+    true,
+  );
+});
+
+test("parseEntrants reads a team, and still upgrades a legacy row beside it", () => {
+  // The mixed case is the one worth pinning: entrants is jsonb and nothing
+  // migrates, so a legacy bare string and a brand new team can sit in the same
+  // column of the same table.
+  assert.deepEqual(
+    parseEntrants([
+      "u1",
+      { kind: "team", members: [{ kind: "member", userId: "u2" }, { kind: "guest", name: "Sam" }] },
+      { kind: "guest", name: "Kit" },
+    ]),
+    [
+      { kind: "member", userId: "u1" },
+      { kind: "team", members: [{ kind: "member", userId: "u2" }, { kind: "guest", name: "Sam" }] },
+      { kind: "guest", name: "Kit" },
+    ],
+  );
+});
+
+test("parseEntrants keeps a team's name, and drops an empty one", () => {
+  const pair = [{ kind: "member", userId: "u1" }, { kind: "member", userId: "u2" }];
+  assert.deepEqual(parseEntrants([{ kind: "team", name: "The Kitchen", members: pair }]), [
+    { kind: "team", name: "The Kitchen", members: pair },
+  ]);
+  // No key at all rather than name: undefined, so the stored jsonb and the
+  // parsed value are the same object.
+  assert.deepEqual(parseEntrants([{ kind: "team", name: "", members: pair }]), [
+    { kind: "team", members: pair },
+  ]);
+});
+
+test("parseEntrants drops a team that cannot hold anybody, and never nests one", () => {
+  assert.deepEqual(parseEntrants([{ kind: "team", members: [] }]), []);
+  assert.deepEqual(parseEntrants([{ kind: "team" }]), []);
+  assert.deepEqual(parseEntrants([{ kind: "team", members: "u1" }]), []);
+  // A team inside a team is junk to the solo reader and is dropped, leaving the
+  // one real member behind rather than a nested structure nothing can render.
+  assert.deepEqual(
+    parseEntrants([
+      {
+        kind: "team",
+        members: [{ kind: "member", userId: "u1" }, { kind: "team", members: [{ kind: "member", userId: "u2" }] }],
+      },
+    ]),
+    [{ kind: "team", members: [{ kind: "member", userId: "u1" }] }],
+  );
+});
+
+test("an entrant list ROUND TRIPS through jsonb-shaped input unchanged", () => {
+  // What the database actually does to this value: JSON in, JSON out. A team
+  // that came back subtly different (a dropped name, a nested member, a key
+  // that became null) would be a bracket whose slots quietly changed people.
+  const entrants: Entrant[] = [
+    { kind: "member", userId: "u1" },
+    { kind: "team", name: "The Kitchen", members: [{ kind: "member", userId: "u2" }, { kind: "guest", name: "Sam" }] },
+    { kind: "team", members: [{ kind: "member", userId: "u3" }, { kind: "guest", name: "Kit" }] },
+    { kind: "guest", name: "Jo" },
+  ];
+  assert.deepEqual(parseEntrants(JSON.parse(JSON.stringify(entrants))), entrants);
 });
 
 // ---------- normalizeEntrants ----------
@@ -222,6 +371,123 @@ test("what normalizeEntrants returns round trips through parseEntrants unchanged
     ),
   );
   assert.deepEqual(parseEntrants(JSON.parse(JSON.stringify(out))), out);
+});
+
+test("normalizeEntrants accepts a team and keeps its members in order", () => {
+  const out = ok(
+    normalizeEntrants(
+      [
+        { kind: "team", members: [{ kind: "member", userId: "u1" }, { kind: "member", userId: "u2" }] },
+        { kind: "team", name: "  The Kitchen  ", members: [{ kind: "member", userId: "u3" }, { kind: "guest", name: " Sam " }] },
+      ],
+      CREW,
+    ),
+  );
+  assert.deepEqual(out, [
+    { kind: "team", members: [{ kind: "member", userId: "u1" }, { kind: "member", userId: "u2" }] },
+    { kind: "team", name: "The Kitchen", members: [{ kind: "member", userId: "u3" }, { kind: "guest", name: "Sam" }] },
+  ]);
+});
+
+test("a bracket may MIX teams and solo entrants", () => {
+  // A doubles night with an odd person out is a real night, and a side of one
+  // is a plain solo entrant rather than a team of one.
+  const out = ok(
+    normalizeEntrants(
+      [
+        { kind: "team", members: [{ kind: "member", userId: "u1" }, { kind: "member", userId: "u2" }] },
+        { kind: "member", userId: "u3" },
+      ],
+      CREW,
+    ),
+  );
+  assert.equal(out.length, 2);
+  assert.equal(out[0]!.kind, "team");
+  assert.equal(out[1]!.kind, "member");
+});
+
+test("a team of one is REFUSED, because a side of one is a solo entrant", () => {
+  const v = normalizeEntrants(
+    [
+      { kind: "team", members: [{ kind: "member", userId: "u1" }] },
+      { kind: "member", userId: "u2" },
+    ],
+    CREW,
+  );
+  assert.equal(typeof v, "string");
+  assert.match(String(v), new RegExp(`at least ${MIN_TEAM_MEMBERS}`));
+});
+
+test("a team past the member cap is refused, and the cap itself passes", () => {
+  const crew = new Set(Array.from({ length: 20 }, (_, i) => `m${i}`));
+  const team = (n: number, from: number) => ({
+    kind: "team",
+    members: Array.from({ length: n }, (_, i) => ({ kind: "member", userId: `m${from + i}` })),
+  });
+  const over = normalizeEntrants([team(MAX_TEAM_MEMBERS + 1, 0), team(2, 10)], crew);
+  assert.equal(typeof over, "string");
+  assert.match(String(over), new RegExp(`at most ${MAX_TEAM_MEMBERS}`));
+  assert.equal(ok(normalizeEntrants([team(MAX_TEAM_MEMBERS, 0), team(2, 10)], crew)).length, 2);
+});
+
+test("ONE PERSON CANNOT BE ON TWO SIDES of the same bracket", () => {
+  // Not a new rule: it is "not twice in the seeding", now that a slot can hold
+  // several people. Both directions, because the check has to see across the
+  // boundary between a team and a solo entrant rather than only within a list.
+  const acrossTeams = normalizeEntrants(
+    [
+      { kind: "team", members: [{ kind: "member", userId: "u1" }, { kind: "member", userId: "u2" }] },
+      { kind: "team", members: [{ kind: "member", userId: "u1" }, { kind: "member", userId: "u3" }] },
+    ],
+    CREW,
+  );
+  assert.equal(typeof acrossTeams, "string");
+  assert.match(String(acrossTeams), /twice/);
+
+  const teamAndSolo = normalizeEntrants(
+    [
+      { kind: "team", members: [{ kind: "member", userId: "u1" }, { kind: "member", userId: "u2" }] },
+      { kind: "member", userId: "u2" },
+    ],
+    CREW,
+  );
+  assert.equal(typeof teamAndSolo, "string");
+  assert.match(String(teamAndSolo), /twice/);
+});
+
+test("a stranger INSIDE a team is rejected exactly like a stranger beside one", () => {
+  const v = normalizeEntrants(
+    [
+      { kind: "team", members: [{ kind: "member", userId: "u1" }, { kind: "member", userId: "stranger" }] },
+      { kind: "member", userId: "u2" },
+    ],
+    CREW,
+  );
+  assert.equal(typeof v, "string");
+  assert.match(String(v), /not in this crew/);
+});
+
+test("a team with no members list, or junk in it, is refused", () => {
+  for (const bad of [
+    { kind: "team" },
+    { kind: "team", members: "u1" },
+    { kind: "team", members: [{ kind: "member", userId: "u1" }, null] },
+    { kind: "team", members: [{ kind: "member", userId: "u1" }, { kind: "nonsense" }] },
+  ]) {
+    const v = normalizeEntrants([bad, { kind: "member", userId: "u2" }], CREW);
+    assert.equal(typeof v, "string", `${JSON.stringify(bad)} was accepted`);
+  }
+});
+
+test("THE ENTRANT CAP COUNTS SLOTS, not people", () => {
+  // A doubles bracket of MAX_ENTRANTS pairs is twice as many humans and exactly
+  // as many slots, and slots are what the engine draws and a television shows.
+  const crew = new Set(Array.from({ length: MAX_ENTRANTS * 2 }, (_, i) => `m${i}`));
+  const pairs = Array.from({ length: MAX_ENTRANTS }, (_, i) => ({
+    kind: "team",
+    members: [{ kind: "member", userId: `m${2 * i}` }, { kind: "member", userId: `m${2 * i + 1}` }],
+  }));
+  assert.equal(ok(normalizeEntrants(pairs, crew)).length, MAX_ENTRANTS);
 });
 
 // ---------- placements ----------

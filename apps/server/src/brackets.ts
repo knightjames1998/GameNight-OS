@@ -18,6 +18,8 @@ import {
   buildStructure,
   computeBracket,
   downstreamOf,
+  entrantLabel,
+  entrantMembers,
   normalizeEntrants,
   parseEntrants,
   placements,
@@ -376,21 +378,27 @@ async function materialize(
   for (const [seed, p] of place) {
     const e = loaded.entrants[seed - 1];
     if (!e) continue;
-    // Members always credit; a guest credits only when linked (backfill).
-    const userId = e.kind === "member" ? e.userId : linkMap?.get(e.name);
-    if (!userId) continue;
-    // Two guest entrants typed with the same name link to one member, so
-    // dedupe before the single insert. Best (lowest) seed wins the row,
-    // which is the one the old sequential loop wrote first.
-    if (rows.has(userId)) continue;
-    rows.set(userId, {
-      groupId: loaded.groupId,
-      matchId,
-      userId,
-      seed,
-      placement: p,
-      isWinner: p === 1,
-    });
+    // ONE ROW PER CREDITING HUMAN IN THE SLOT. entrantMembers flattens all
+    // three kinds, so a solo entrant is a list of one and a pair is a list of
+    // two, and every member of the slot takes the SLOT's placement.
+    for (const m of entrantMembers(e)) {
+      // Members always credit; a guest credits only when linked (backfill).
+      const userId = m.kind === "member" ? m.userId : linkMap?.get(m.name);
+      if (!userId) continue;
+      // Two guest entrants typed with the same name link to one member, so
+      // dedupe before the single insert. `place` is built champion-first and
+      // then by finishing order, so the first write is the BEST placement,
+      // which is the row to keep.
+      if (rows.has(userId)) continue;
+      rows.set(userId, {
+        groupId: loaded.groupId,
+        matchId,
+        userId,
+        seed,
+        placement: p,
+        isWinner: p === 1,
+      });
+    }
   }
   await insertParticipants(db, [...rows.values()]);
 }
@@ -503,9 +511,12 @@ export async function creditGuestBracket(
 
 async function deriveView(loaded: LoadedBracket) {
   const db = getDb();
+  // Walks INTO team entrants, so a pair's names resolve the same way a solo
+  // entrant's does.
   const memberIds = loaded.entrants
-    .filter((e): e is { kind: "member"; userId: string } => e.kind === "member")
-    .map((e) => e.userId);
+    .flatMap(entrantMembers)
+    .filter((m): m is { kind: "member"; userId: string } => m.kind === "member")
+    .map((m) => m.userId);
   const entrantRows = memberIds.length
     ? await db
         .select({ id: users.id, displayName: users.displayName })
@@ -517,8 +528,12 @@ async function deriveView(loaded: LoadedBracket) {
   const labelOf = (seed: number): { userId: string | null; displayName: string } => {
     const e = loaded.entrants[seed - 1];
     if (!e) return { userId: null, displayName: "Unknown" };
-    if (e.kind === "guest") return { userId: null, displayName: e.name };
-    return { userId: e.userId, displayName: nameOf.get(e.userId) ?? "Unknown" };
+    // A TEAM SLOT HAS NO userId, because it is not one person. Solo entrants
+    // keep exactly the userId and displayName they always carried.
+    return {
+      userId: e.kind === "member" ? e.userId : null,
+      displayName: entrantLabel(e, (id) => nameOf.get(id)),
+    };
   };
 
   const structure = buildStructure(loaded.format, loaded.entrants.length);
