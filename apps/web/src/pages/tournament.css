@@ -1,0 +1,132 @@
+/* ============================================================
+   THE TOURNAMENT SETUP SCREEN.
+
+   NO PALETTE OF ITS OWN, and that is the decision rather than
+   an omission. Standing rule 3 puts every PACK's screens in
+   that pack's own design language, and a generic tournament is
+   not a pack: it is what a pack-less night runs on, it keeps
+   games.pack = "generic", and its bracket and its TV are already
+   painted out of the shell's tokens. A palette here would make
+   the setup step the one screen in the flow that belonged to
+   nobody.
+
+   So the block below aliases the shell's tokens under names
+   that say what each one is FOR on this screen. That is what
+   makes it themeable for free: Tabletop moves --gn-* and every
+   rule here follows, with no second block to keep in step. A
+   literal would not follow, which is why there are none and why
+   this file is in TOKENISED_CSS in copy-rules.test.ts from the
+   commit that created it.
+
+   The prefix is tr-, and everything structural reads var().
+   ============================================================ */
+
+/* :where() so a shell rule is never outranked by an alias. */
+:where(.tr-root) {
+  /* Body copy and the seed numbers beside it. */
+  --tr-ink: var(--gn-ink);
+  --tr-dim: var(--gn-dim);
+  /* The hairline under a roster row, and the chip edges. */
+  --tr-line: var(--gn-line);
+  /* The surface a chip or a seed badge sits on, one step up from the card. */
+  --tr-raise: var(--gn-raise);
+  /* The guest marker. Deliberately the "no stats" colour rather than an
+     alarm: a guest is a normal thing to be, they just do not accrue. */
+  --tr-guest-ink: var(--gn-faint);
+  /* Something the host has to fix before starting. */
+  --tr-err: var(--gn-danger);
+}
+
+/* ---- the two ways out, on one line ---------------------------- */
+.tr-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tr-nav .gn-actionbtn { text-decoration: none; }
+
+/* ---- one entrant ---------------------------------------------- */
+.tr-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--tr-line);
+}
+.tr-row:last-of-type { border-bottom: 0; }
+
+/* The seed. A badge rather than plain text, because the ORDER of this list is
+   the seeding and a host who cannot see the numbers cannot see that. */
+.tr-seed {
+  flex: 0 0 auto;
+  min-width: 26px;
+  text-align: center;
+  border-radius: 8px;
+  background: var(--tr-raise);
+  border: 1px solid var(--tr-line);
+  color: var(--tr-dim);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 3px 4px;
+}
+.tr-name {
+  flex: 1;
+  color: var(--tr-ink);
+  font-weight: 700;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.tr-pill {
+  flex: 0 0 auto;
+  color: var(--tr-guest-ink);
+  border: 1px solid var(--tr-line);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+}
+
+/* ---- add from crew -------------------------------------------- */
+.tr-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.tr-seg button {
+  background: var(--tr-raise);
+  border: 1px solid var(--tr-line);
+  color: var(--tr-ink);
+  border-radius: 999px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 12px;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+/* ---- the guest box -------------------------------------------- */
+.tr-guest {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.tr-guest .gn-btn { width: auto; padding: 0 16px; }
+
+/* ---- the two full-width buttons ------------------------------- */
+.tr-shuffle { width: 100%; margin-top: 12px; }
+.tr-start { width: 100%; margin-top: 12px; }
+.tr-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.tr-err {
+  color: var(--tr-err);
+  font-size: 13px;
+  margin-top: 12px;
+}

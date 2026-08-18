@@ -76,6 +76,7 @@ export const routes = {
   cardTable: () => import("./cardtable/CardTablePage"),
   deduction: () => import("./deduction/DeductionPage"),
   quickPlay: () => import("./pages/QuickPlayPage"),
+  tournamentSetup: () => import("./pages/TournamentSetupPage"),
 } as const;
 
 /**
@@ -108,5 +109,9 @@ export const packRoute: Record<PackKey | "beerio", Importer> = {
   // exists, which is the type doing exactly its job: the pack cannot be added
   // and then quietly left out of the one file that makes its tap feel fast.
   deduction: routes.deduction,
-  tournament: routes.bracket,
+  // The SETUP screen, not the bracket: since 2026-08-17 the Tournament tile
+  // leads to a roster step, so prefetching BracketPage would warm the chunk
+  // AFTER the one the tap actually opens. The bracket's own chunk is prefetched
+  // from the "open live bracket" tile, which is the tap that leads there.
+  tournament: routes.tournamentSetup,
 };

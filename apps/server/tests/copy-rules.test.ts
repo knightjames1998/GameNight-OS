@@ -129,6 +129,12 @@ const TOKENISED_CSS = [
   // literals in them; they are now --bg-* tokens, which is what let the same
   // two rules serve both a walnut page gradient and a cloth.
   "apps/web/src/boardgame/boardgame.css",
+  // THE TOURNAMENT SETUP SCREEN, which joins on the commit that created it for
+  // the same reason Social Deduction did. It has no palette of its own on
+  // purpose: a generic tournament is not a pack, so its block ALIASES the
+  // shell's tokens under names that say what each is for, and every structural
+  // rule reads var(). There is nothing for stage 4 to convert here.
+  "apps/web/src/pages/tournament.css",
 ];
 
 /** A hex colour, or an rgb()/rgba() literal. */

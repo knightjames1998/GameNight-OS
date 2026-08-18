@@ -1,5 +1,5 @@
-// Board Game's SCREENS and Ping Pong's TEAM PICKER, captured from the real built
-// bundle over CDP.
+// Board Game's SCREENS, Ping Pong's TEAM PICKER and the TOURNAMENT SETUP
+// screen, captured from the real built bundle over CDP.
 //
 // The title-night engine is already pinned by unit fixtures. What is not, and
 // what the screens extraction is about to move, is what the PAGE, the TV view
@@ -205,6 +205,34 @@ function sdTv() {
   };
 }
 
+/**
+ * The event payload the TOURNAMENT SETUP screen builds its roster from.
+ *
+ * The shape matters more than the numbers here. Three yes RSVPs (the prefill,
+ * in answer order, which is the seeding), one maybe and two who never answered:
+ * that is FOUR people the old tournament could not have entered at all, and the
+ * whole point of the screen is that they are one tap away. `bracket: null`
+ * because a night that already has one gets the "already has a tournament"
+ * card instead of a roster.
+ */
+const trEvent = () => ({
+  id: "e1", groupId: "g1", title: "Thursday night", bracket: null, beerioCode: null,
+  sessions: [], myRole: "owner", createdBy: "u0",
+  groupName: "The Thursday Crew", inviteCode: "ABCD",
+  scheduledFor: null, status: "scheduled",
+  rsvps: [
+    { userId: "u0", displayName: NAMES[0], status: "yes" },
+    { userId: "u1", displayName: NAMES[1], status: "yes" },
+    { userId: "u2", displayName: NAMES[2], status: "yes" },
+    { userId: "u3", displayName: NAMES[3], status: "maybe" },
+  ],
+  noResponse: [
+    { userId: "u4", displayName: NAMES[4] },
+    { userId: "u5", displayName: NAMES[5] },
+  ],
+  myStatus: "yes", myAttendance: null,
+});
+
 const bgStats = {
   games: 7, titles: 3,
   byPlayer: [{ userId: "u0", name: "Ann", games: 7, wins: 3, winRate: 3 / 7, avgPlacement: 1.9, titles: 3 }],
@@ -290,6 +318,7 @@ async function main() {
     else if (u.includes("/api/cardtable-context/")) body = ctx(4, ["Euchre"]);
     else if (u.includes("/api/pingpong-context/")) body = ctx(5);
     else if (u.includes("/api/auth/me")) body = { user: { id: "u0", displayName: "Ann" } };
+    else if (u.includes("/api/events/")) body = trEvent();
     else if (u.includes("/boardgame-stats")) body = bgStats;
     else if (u.includes("/stats")) body = groupStats;
     else if (u.includes("boardgame/")) body = { session: bgPayload };
@@ -443,6 +472,61 @@ async function main() {
   await click("🎲 Shuffle"); await sleep(400);
   const sh = await readPicker();
   snap.pickerShuffle = { counts: sh.sides.map((x) => x.count).sort(), startEnabled: sh.startEnabled };
+
+  // ---- the tournament setup screen ----
+  //
+  // FOUR SNAPSHOTS, because the four things this screen exists to do are all
+  // invisible to a unit test: the prefill and its seed numbers, adding somebody
+  // who never RSVP'd, adding a guest and having them MARKED as one, and
+  // removing an entrant so the seeds below them renumber. The shuffle is
+  // recorded as a multiset rather than an order, since a pinned order would
+  // either be a broken test or a broken shuffle.
+  await view(390, 844);
+  await goto(`${ORIGIN}/tournament?event=e1&format=double_elim`);
+  snap.trSetup = await text();
+
+  const clickText = (label) => evalJs(`(() => { const b=[...document.querySelectorAll('button, a')].find(x=>x.textContent.trim()===${JSON.stringify(label)}); if(!b) return false; b.click(); return true; })()`);
+  const trRoster = () => evalJs(`(() => [...document.querySelectorAll('.tr-row')].map(r => ({
+    seed: r.querySelector('.tr-seed')?.textContent.trim(),
+    name: r.querySelector('.tr-name')?.textContent.trim(),
+    guest: !!r.querySelector('.tr-pill'),
+  })))()`);
+
+  // Somebody who never answered, which the yes-RSVP bracket could not enter.
+  await clickText(`+ ${NAMES[4]}`);
+  await sleep(300);
+  snap.trAddedNonRsvp = await trRoster();
+
+  // A guest, who must be visibly marked as one: they play and earn nothing.
+  await evalJs(`(() => {
+    const i = document.querySelector('.tr-guest input');
+    if (!i) return false;
+    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    set.call(i, 'Ziggy');
+    i.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  await sleep(200);
+  await clickText("Add");
+  await sleep(300);
+  snap.trWithGuest = await trRoster();
+
+  // Removing the TOP SEED, which is the operation that renumbers everybody.
+  await evalJs(`(() => {
+    const row = [...document.querySelectorAll('.tr-row')][0];
+    const b = row && [...row.querySelectorAll('button')].find(x => x.textContent.trim() === 'remove');
+    if (!b) return false; b.click(); return true;
+  })()`);
+  await sleep(300);
+  snap.trAfterRemove = await trRoster();
+
+  await clickText("🎲 Shuffle the seeding");
+  await sleep(300);
+  const trShuffled = await trRoster();
+  snap.trShuffle = {
+    names: trShuffled.map((r) => r.name).sort(),
+    seeds: trShuffled.map((r) => r.seed),
+  };
 
   const out = JSON.stringify(snap, null, 1);
   if (COMPARE) {

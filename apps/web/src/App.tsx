@@ -23,6 +23,10 @@ const EventTvPage = lazy(() => import("./pages/EventTvPage"));
 const BracketPage = lazy(() => import("./pages/BracketPage"));
 const TvPage = lazy(() => import("./pages/TvPage"));
 const QuickPlayPage = lazy(() => import("./pages/QuickPlayPage"));
+// The tournament's setup step. A route rather than a panel on the event page,
+// matching every pack (/smash?event=...&format=...), so the bracket is created
+// from a screen that can show a roster instead of from a tile that cannot.
+const TournamentSetupPage = lazy(() => import("./pages/TournamentSetupPage"));
 const StatsPage = lazy(() => import("./pages/StatsPage"));
 const LinkGuestPage = lazy(() => import("./pages/LinkGuestPage"));
 const MyStatsPage = lazy(() => import("./pages/MyStatsPage"));
@@ -58,6 +62,13 @@ const CardTablePage = lazy(() => import("./cardtable/CardTablePage"));
 const CardTableTvPage = lazy(() => import("./cardtable/CardTableTvPage"));
 const DeductionPage = lazy(() => import("./deduction/DeductionPage"));
 const DeductionTvPage = lazy(() => import("./deduction/DeductionTvPage"));
+
+function TournamentSearchKeyed() {
+  // Same reason as the pack pages below: /tournament?event=A -> ?event=B is a
+  // same-route navigation and will not remount on its own.
+  const location = useLocation();
+  return <TournamentSetupPage key={location.search} />;
+}
 
 function SmashSearchKeyed() {
   // /smash?event=A -> /smash?event=B is a same-route navigation and won't
@@ -230,6 +241,7 @@ export default function App() {
             <Route path="/tv/:id" element={<TvPage />} />
             <Route path="/beerio" element={<BeerioRoute />} />
             <Route path="/quick" element={<QuickPlayPage />} />
+            <Route path="/tournament" element={<TournamentSearchKeyed />} />
             <Route path="/g/:id/stats" element={<StatsPage />} />
             <Route path="/g/:id/link-guest" element={<LinkGuestPage />} />
             <Route path="/me/stats" element={<MyStatsPage />} />

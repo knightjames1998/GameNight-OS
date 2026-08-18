@@ -242,7 +242,14 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
       })
       .from(rsvps)
       .innerJoin(users, eq(rsvps.userId, users.id))
-      .where(eq(rsvps.eventId, found.id)),
+      .where(eq(rsvps.eventId, found.id))
+      // ANSWER ORDER, and it is load bearing rather than cosmetic since
+      // 2026-08-17: the tournament setup screen prefills its roster from the
+      // yes list and the roster's order IS the seeding, so "first in, top seed"
+      // is only true if this comes back ordered. Without it Postgres is free to
+      // return the rows however it likes. The RSVP lists on the event page get
+      // a stable order out of the same change.
+      .orderBy(rsvps.respondedAt),
 
     db
       .select({ userId: users.id, displayName: users.displayName })

@@ -120,5 +120,91 @@
    2
   ],
   "startEnabled": true
+ },
+ "trSetup": "← Back\n🎪 Event\nTournament\nThursday night\nDouble elimination · one loss drops you to the losers bracket\nWho is playing (3/32)\nTop of the list is the number 1 seed. Anyone in the crew can play, RSVP or not.\n1\nAnn\nremove\n2\nBen\nremove\n3\nCal\nremove\n🎲 Shuffle the seeding\nAdd from crew\n+ Dee\n+ Eli\n+ Fay\nAdd a guest\nAdd\nGuests play, but lifetime stats only count crew members. Add someone from the crew list above and their record follows them.\nStart the tournament (3)",
+ "trAddedNonRsvp": [
+  {
+   "seed": "1",
+   "name": "Ann",
+   "guest": false
+  },
+  {
+   "seed": "2",
+   "name": "Ben",
+   "guest": false
+  },
+  {
+   "seed": "3",
+   "name": "Cal",
+   "guest": false
+  },
+  {
+   "seed": "4",
+   "name": "Eli",
+   "guest": false
+  }
+ ],
+ "trWithGuest": [
+  {
+   "seed": "1",
+   "name": "Ann",
+   "guest": false
+  },
+  {
+   "seed": "2",
+   "name": "Ben",
+   "guest": false
+  },
+  {
+   "seed": "3",
+   "name": "Cal",
+   "guest": false
+  },
+  {
+   "seed": "4",
+   "name": "Eli",
+   "guest": false
+  },
+  {
+   "seed": "5",
+   "name": "Ziggy",
+   "guest": true
+  }
+ ],
+ "trAfterRemove": [
+  {
+   "seed": "1",
+   "name": "Ben",
+   "guest": false
+  },
+  {
+   "seed": "2",
+   "name": "Cal",
+   "guest": false
+  },
+  {
+   "seed": "3",
+   "name": "Eli",
+   "guest": false
+  },
+  {
+   "seed": "4",
+   "name": "Ziggy",
+   "guest": true
+  }
+ ],
+ "trShuffle": {
+  "names": [
+   "Ben",
+   "Cal",
+   "Eli",
+   "Ziggy"
+  ],
+  "seeds": [
+   "1",
+   "2",
+   "3",
+   "4"
+  ]
  }
 }

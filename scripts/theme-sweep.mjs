@@ -72,6 +72,10 @@ const CHROME = "/opt/pw-browsers/chromium";
  */
 const ROUTES = [
   "/", "/g/x", "/e/x", "/e/x/recap", "/e/x/tv", "/b/x", "/tv/x",
+  // The tournament's setup step, added 2026-08-17 with the roster screen. It is
+  // a shell screen rather than a pack one, so it paints out of index.css and the
+  // interesting question here is the same as for /b/x: that it followed.
+  "/tournament",
   "/beerio", "/quick", "/g/x/stats", "/g/x/link-guest", "/me/stats",
   "/g/x/member/y", "/friend/y", "/beerio/tv/ABCD",
   "/smash", "/smash/tv/x",
@@ -105,6 +109,12 @@ const ROUTES = [
  */
 const RULE_ROUTES = [
   "/",
+  // tournament.css rides the setup screen's own lazy chunk, so the rule pass
+  // cannot see it until a route that imports it has been visited. Its whole
+  // palette is aliases of the shell's tokens, which is exactly the shape that
+  // would fail SILENTLY if an alias were dropped: the rules keep working and
+  // resolve to whatever the browser falls back to.
+  "/tournament",
   "/pingpong",
   "/pingpong/tv/x",
   "/smash",

@@ -54,19 +54,12 @@ export default function EventPage({ me }: { me: Me | null }) {
     () => load(),
   );
 
-  async function startBracket(format: "single_elim" | "double_elim") {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const b = await api<{ id: string }>(`/api/events/${id}/bracket`, {
-        method: "POST",
-        body: JSON.stringify({ format }),
-      });
-      navigate(`/b/${b.id}`);
-    } finally {
-      setBusy(false);
-    }
-  }
+  // The tournament tile used to CREATE the bracket from here, which is why it
+  // had no roster: a tile cannot show one. It now navigates to the setup step,
+  // which builds the entrant list and does the POST. Everything that made this
+  // an async host-only action moved with it.
+  const startBracket = (format: "single_elim" | "double_elim") =>
+    navigate(`/tournament?event=${id}&format=${format}`);
 
   // Optimistic RSVP: paint the change immediately, then reconcile with the
   // authoritative state the mutation response carries. On failure, roll
@@ -347,7 +340,7 @@ export default function EventPage({ me }: { me: Me | null }) {
 
       <section className="space-y-2">
         <h2 className="gn-h2">Games</h2>
-        <GamePicker games={eventGames(event, id!, (to) => navigate(to), startBracket, groupBy("yes").length)} />
+        <GamePicker games={eventGames(event, id!, (to) => navigate(to), startBracket)} />
       </section>
 
       <section className="space-y-4">
@@ -453,14 +446,15 @@ function tvLabel(event: EventDetail): string {
 
 // The event's game > format menu. Session packs (Beerio, Smash, Mario Kart
 // general) are plain links: those pages gate hosting themselves and show a
-// "waiting for the host" screen to members. Only Tournament needs gating
-// here, because starting a bracket happens on this screen.
+// "waiting for the host" screen to members. Tournament is gated HERE as well as
+// on its own setup screen, because its tile carries the format choice: a member
+// tapping through to a screen that only tells them to wait is a worse answer
+// than a tile that says so.
 function eventGames(
   event: EventDetail,
   id: string,
   navigate: (to: string) => void,
   startBracket: (f: "single_elim" | "double_elim") => void,
-  yesCount: number,
 ): PickerGame[] {
   const isHost = event.myRole === "owner" || event.myRole === "admin";
   const beerioSub = event.beerioCode
@@ -483,14 +477,15 @@ function eventGames(
     tournamentFormats = [
       { key: "wait", label: "Waiting for the host", sub: "an owner or admin starts it", onPick: () => {}, disabled: true },
     ];
-  } else if (yesCount >= 2) {
-    tournamentFormats = [
-      { key: "single", label: "Single elimination", sub: `${yesCount} players`, onPick: () => startBracket("single_elim") },
-      { key: "double", label: "Double elimination", sub: `${yesCount} players · losers bracket`, onPick: () => startBracket("double_elim") },
-    ];
   } else {
+    // NO RSVP GATE. It used to read `${yesCount} players`, and under it sat a
+    // disabled "Needs 2+ yes RSVPs" tile whenever fewer than two people had
+    // answered. Both were the same lie: the bracket is built on the next screen
+    // from the whole crew plus guests, so a night where nobody tracked their
+    // own RSVP is a perfectly startable tournament.
     tournamentFormats = [
-      { key: "need", label: "Needs 2+ yes RSVPs", sub: "get the crew to RSVP first", onPick: () => {}, disabled: true },
+      { key: "single", label: "Single elimination", sub: "pick who is playing next", onPick: () => startBracket("single_elim") },
+      { key: "double", label: "Double elimination", sub: "losers bracket · pick who is playing next", onPick: () => startBracket("double_elim") },
     ];
   }
 

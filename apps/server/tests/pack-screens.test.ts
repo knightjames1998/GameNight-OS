@@ -81,6 +81,11 @@ const SCREENS = [
   // and no registry entry: it is not a pack, it is what a pack-less tournament
   // runs on. Explicit for that reason rather than by oversight.
   "pages/BracketPage.tsx",
+  // And the tournament's SETUP screen, added 2026-08-17 with the roster step.
+  // It is the screen a host is sent to by the picker tile, so it is exactly the
+  // kind of screen this rule is about: arrive on it from a shared link with no
+  // history and, without the event link, the night is unreachable from it.
+  "pages/TournamentSetupPage.tsx",
 ];
 
 /**
@@ -99,8 +104,8 @@ test("the derived screen list covers every pack, and did not quietly shrink", ()
   // failure mode a hand-written list at least made visible.
   assert.equal(
     SCREENS.length,
-    SESSION_PACK_KEYS.length + 1,
-    "one screen per session pack, plus the generic bracket",
+    SESSION_PACK_KEYS.length + 2,
+    "one screen per session pack, plus the generic bracket and its setup screen",
   );
   for (const pack of SESSION_PACK_KEYS) {
     const route = SESSION_PACKS[pack].route;
@@ -124,6 +129,7 @@ test("the derived screen list covers every pack, and did not quietly shrink", ()
     "mariokart/MarioKartPage.tsx",
     "marioparty/MarioPartyPage.tsx",
     "pages/BracketPage.tsx",
+    "pages/TournamentSetupPage.tsx",
     "pingpong/PingPongPage.tsx",
     "poker/PokerPage.tsx",
     "roulette/RoulettePage.tsx",
