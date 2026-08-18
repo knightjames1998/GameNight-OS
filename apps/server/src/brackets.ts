@@ -28,6 +28,7 @@ import {
   type BracketStructure,
   type Entrant,
   type Slot,
+  type SoloEntrant,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { insertParticipants } from "./participants.js";
@@ -525,14 +526,32 @@ async function deriveView(loaded: LoadedBracket) {
     : [];
   const nameOf = new Map(entrantRows.map((u) => [u.id, u.displayName]));
 
-  const labelOf = (seed: number): { userId: string | null; displayName: string } => {
+  const personOf = (m: SoloEntrant) =>
+    m.kind === "guest"
+      ? { userId: null, displayName: m.name }
+      : { userId: m.userId, displayName: nameOf.get(m.userId) ?? "Unknown" };
+
+  /**
+   * What one slot is called, and who is actually in it.
+   *
+   * EVERY SLOT CARRIES `members`, including a solo one, where it is a list of
+   * one holding the same userId and displayName the slot itself carries. That
+   * is what makes the change invisible to every existing consumer: BracketPage,
+   * TvPage, the recap card and the TV harnesses all read `displayName`, and a
+   * solo entrant's `userId` and `displayName` are exactly what they were.
+   *
+   * A TEAM SLOT HAS userId: null, because it is not one person, the team label
+   * in `displayName`, and its people in `members`.
+   */
+  const labelOf = (
+    seed: number,
+  ): { userId: string | null; displayName: string; members: { userId: string | null; displayName: string }[] } => {
     const e = loaded.entrants[seed - 1];
-    if (!e) return { userId: null, displayName: "Unknown" };
-    // A TEAM SLOT HAS NO userId, because it is not one person. Solo entrants
-    // keep exactly the userId and displayName they always carried.
+    if (!e) return { userId: null, displayName: "Unknown", members: [] };
     return {
       userId: e.kind === "member" ? e.userId : null,
       displayName: entrantLabel(e, (id) => nameOf.get(id)),
+      members: entrantMembers(e).map(personOf),
     };
   };
 

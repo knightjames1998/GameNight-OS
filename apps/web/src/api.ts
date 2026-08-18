@@ -166,8 +166,28 @@ export interface EventTv {
   };
 }
 
+/** One person in a slot: a crew member, or a guest with no id to credit. */
+export interface BracketPerson {
+  userId: string | null;
+  displayName: string;
+}
+
+/**
+ * A slot on a bracket card.
+ *
+ * `members` is EVERY slot's people, and a solo entrant's is a list of one
+ * carrying the same userId and displayName the slot itself does. A team slot
+ * has userId null (it is not one person), the team's label in displayName, and
+ * its people in members.
+ */
 export type BracketSlot =
-  | { kind: "player"; seed: number; userId: string; displayName: string }
+  | {
+      kind: "player";
+      seed: number;
+      userId: string | null;
+      displayName: string;
+      members: BracketPerson[];
+    }
   | { kind: "bye" }
   | { kind: "tbd" };
 
