@@ -115,6 +115,34 @@ function Groups({
     }
   }
 
+  /**
+   * The tournament, and it is deliberately the SAME two lines as startSession.
+   *
+   * It used to go to /quick, a second entrant screen with four typed name
+   * boxes, and that is the only reason quick play missed crew-member entrants,
+   * the member versus guest distinction, the seeding shuffle, team entrants and
+   * the entrant validation when all of those shipped on 2026-08-17. It now
+   * mints the event and opens the SHARED setup screen, so whatever that screen
+   * offers, quick play offers, permanently and with nothing to keep in step.
+   *
+   * Not folded into startSession because the tournament is not a SessionPackKey
+   * and its screen is not /<pack>. One duplicated fetch is cheaper than a
+   * parameter that exists for one caller.
+   */
+  async function startTournament(format: "single_elim" | "double_elim") {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { eventId } = await api<{ eventId: string }>("/api/quickplay/tournament", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      navigate(`/tournament?event=${eventId}&format=${format}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // One catalogue, shared with the event page (src/packs.ts). Quick play has
   // no event, so every format starts a fresh session; Beerio and Tournament
   // go straight to their own routes.
@@ -129,9 +157,12 @@ function Groups({
       if (isSingleFormatPack(pack)) return startSession(pack);
       startSession(pack, `&format=${format}`);
     },
+    // The sub copy said "typed names", which was true of the screen this used
+    // to open and is not true of the one it opens now: the setup screen offers
+    // you, typed guests, doubles and a seeding shuffle.
     tournamentFormats: [
-      { key: "single", label: "Single elimination", sub: "typed names", onPick: () => navigate("/quick?format=single_elim") },
-      { key: "double", label: "Double elimination", sub: "losers bracket + grand final", onPick: () => navigate("/quick?format=double_elim") },
+      { key: "single", label: "Single elimination", sub: "you plus guests", onPick: () => startTournament("single_elim") },
+      { key: "double", label: "Double elimination", sub: "losers bracket + grand final", onPick: () => startTournament("double_elim") },
     ],
   });
 

@@ -75,7 +75,6 @@ export const routes = {
   boardGame: () => import("./boardgame/BoardGamePage"),
   cardTable: () => import("./cardtable/CardTablePage"),
   deduction: () => import("./deduction/DeductionPage"),
-  quickPlay: () => import("./pages/QuickPlayPage"),
   tournamentSetup: () => import("./pages/TournamentSetupPage"),
 } as const;
 
