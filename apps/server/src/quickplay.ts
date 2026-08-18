@@ -16,6 +16,7 @@ import {
   games,
   groups,
   memberships,
+  rsvps,
   and,
   eq,
 } from "@gamenight/db";
@@ -57,10 +58,26 @@ async function ensurePersonalGroup(userId: string, displayName: string) {
 }
 
 /**
- * Start a bracket with typed names, no crew or event required. Names that
- * match a crew member aren't special-cased here: quick play is explicitly
- * guest-based. Playing inside a real crew (the event flow) is what earns
- * stats.
+ * DEPRECATED, AND KEPT ON PURPOSE. Nothing in the app calls this any more.
+ *
+ * Replaced 2026-08-18 by POST /quickplay/tournament below, which mints the
+ * crew and the event and stops there, exactly like every session pack's quick
+ * play route, and then hands off to the SHARED setup screen
+ * (/tournament?event=...). The screen this endpoint was built for
+ * (QuickPlayPage.tsx, four typed name boxes) was a SECOND entrant
+ * implementation, which is why quick play silently missed crew-member
+ * entrants, the member/guest distinction, seeding shuffle, team entrants,
+ * normalizeEntrants and the entrant cap when those shipped on 08-17. It has
+ * been deleted; this has not.
+ *
+ * IT STAYS BECAUSE OF THE CACHE, not because it is still a design. This is an
+ * installed PWA and a phone runs whatever bundle it last cached for as long as
+ * it likes, so deleting the endpoint means a host whose start button 404s in
+ * front of the room. Same reasoning as the yes-RSVP fallback on the crew
+ * bracket route. Do not build on it, and do not port anything into it.
+ *
+ * Its behaviour is frozen at what it always did: every typed name is a guest,
+ * so nothing it creates reaches anybody's lifetime stats.
  */
 quickPlayRouter.post("/quickplay/bracket", async (req: AuthedRequest, res) => {
   const rawNames = Array.isArray(req.body?.names) ? req.body.names : [];
@@ -118,12 +135,31 @@ quickPlayRouter.post("/quickplay/bracket", async (req: AuthedRequest, res) => {
 });
 
 /**
- * Quick play for a session-based pack (Smash, Mario Kart): spin up a
- * personal crew + a live event and hand back the event id, so the pack's
- * normal event-keyed flow works with no crew or RSVP. The caller adds
- * players (themselves + typed guests) on the pack's own setup screen.
+ * THE WHOLE OF QUICK PLAY: a personal crew, a live event, and the host said
+ * yes. Every quick play route in this file is this function and a title.
+ *
+ * That is the design rather than an implementation detail. A quick play route
+ * mints context and stops; the caller then opens the pack's OWN screen at
+ * ?event=<id>, so quick play runs the identical setup, scoring and
+ * materializer a crew night runs. A feature added to a pack is in quick play
+ * the moment it ships, and nobody has to remember to port it. The tournament
+ * did NOT work this way until 2026-08-18 and it is the only place the app has
+ * ever had a quick play parity gap.
+ *
+ * THE HOST IS AUTO-RSVP'D YES, added 2026-08-18. Prefill everywhere in this app
+ * is the yes list, so without this every setup screen opens with an empty
+ * roster on a night whose one known player is the person looking at it. It is
+ * one insert here and it fixes that cold start for all thirteen tiles at once.
+ *
+ * A yes on a personal crew CANNOT inflate anybody's flake rate, and that was
+ * checked rather than assumed: attendanceFor() counts a past dated yes with no
+ * check-in as a flake, and all three of its callers exclude personal crews
+ * (/api/me/stats builds realCrewIds from isPersonal = false, the rivalry uses
+ * sharedGroupIds which filters the same way, and the crew profile takes an
+ * explicit groupId that the crew list in groups.ts never surfaces for a
+ * personal crew).
  */
-async function quickSessionEvent(req: AuthedRequest, fallbackTitle: string): Promise<string> {
+async function quickEvent(req: AuthedRequest, fallbackTitle: string): Promise<string> {
   const db = getDb();
   const groupId = await ensurePersonalGroup(req.user!.id, req.user!.displayName);
   const title = String(req.body?.title ?? "").trim().slice(0, 50) || fallbackTitle;
@@ -133,8 +169,33 @@ async function quickSessionEvent(req: AuthedRequest, fallbackTitle: string): Pro
       .values({ groupId, title, scheduledFor: new Date(), status: "live", createdBy: req.user!.id })
       .returning()
   )[0]!;
+  await db.insert(rsvps).values({
+    groupId,
+    eventId: event.id,
+    userId: req.user!.id,
+    status: "yes",
+  });
   return event.id;
 }
+
+/**
+ * Quick play for the TOURNAMENT, which is not a pack and so is not in the loop
+ * below: it has no registry entry, for the same reason pack-screens.test.ts
+ * lists BracketPage.tsx explicitly. It is what a pack-less night runs on.
+ *
+ * Identical in shape to every pack's route, which is the entire point of this
+ * commit: mint the context, return the event id, and let the client open the
+ * SHARED setup screen. What quick play offers is now whatever that screen
+ * offers, permanently, with nothing to keep in step.
+ *
+ * NOTE WHAT IS NOT HERE: no bracket, no entrants, no game row. The setup
+ * screen POSTs /api/events/:id/bracket, the same endpoint the crew path uses,
+ * which is what keeps games.name at "Tournament" and games.pack at "generic"
+ * so a lifetime history cannot split across typed names.
+ */
+quickPlayRouter.post("/quickplay/tournament", async (req: AuthedRequest, res) => {
+  res.json({ eventId: await quickEvent(req, "Tournament") });
+});
 
 // One route per session pack, registered from the registry rather than typed
 // out four times. The route segment and the fallback title both come from the
@@ -144,6 +205,6 @@ async function quickSessionEvent(req: AuthedRequest, fallbackTitle: string): Pro
 for (const key of SESSION_PACK_KEYS) {
   const pack = SESSION_PACKS[key];
   quickPlayRouter.post(`/quickplay/${pack.route}`, async (req: AuthedRequest, res) => {
-    res.json({ eventId: await quickSessionEvent(req, pack.quickTitle) });
+    res.json({ eventId: await quickEvent(req, pack.quickTitle) });
   });
 }
