@@ -12,8 +12,8 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-17 (the Poker session, before its own work)
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-08-19 (the second-tournament session, before its own work)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -50,40 +50,49 @@ anyone's memory of how many sessions have happened.
         Game's and Card Table's shared TV overflow as an OPEN bug.
       - 2026-08-15, the bracketed-TV fit pass. Zone 1 took the still-alive board; zone 2 was
         unchanged at 22; zone 5 swapped one for one; no row moved.
-      - 2026-08-17, this pass. Below.
+      - 2026-08-17, the Poker pass. Zone 1 REWROTE its tabletop item rather than adding a
+        second one; zone 2 went 22 to 24; zone 3's Poker item split in two; zone 5 went 11 to
+        15; row 1 grew 1600 -> 1950 in two steps inside the one pass and row 2 840 -> 1020.
+      - 2026-08-19, this pass. Below.
 
     What this pass changed beyond the counter:
-      - THE REDRAW WENT FIRST, which is what the previous pass owed and skipped. The counter
-        read 4 at the start of this session, not 3, because 2026-08-17's Tabletop repair
-        carried it forward with a logged skip rather than resetting it. That is the escape
-        clause working: the skip was visible in this block, it named what would need drawing,
-        and the next session did it before touching its own scope.
-      - ZONE 1 TOOK NO NEW ITEM AND REWROTE ONE, which is the 2026-08-04 precedent (that pass
-        absorbed three felt sessions into the same item). The tabletop entry claimed "real
-        felt tile" while the shipped tile was a 39-byte placeholder, so the repair does not
-        sit beside it as a second item, it makes the first one TRUE. Marked (NEW) because it
-        genuinely shipped this pass. The bracketed-TV item lost its (NEW) on schedule.
-      - ZONE 2 TOOK TWO, both (NEW), and went 22 to 24: Mario Kart pairs, and Board Game
-        wearing the cloth. Board Game's is a PACK item rather than part of zone 1's tabletop
-        entry, because what shipped is the pack's own identity and its own token block; the
-        shell mechanism that made it possible is what stayed in zone 1.
-      - ZONE 3'S FIRST ITEM SPLIT IN TWO AND ONLY HALF IS QUEUED. Poker was one item covering
-        a cash engine and a tournament format; the tournament half is now explicitly its own
-        session, because blind levels are a wall-clock timer shared across devices, which is
-        a live-sync problem rather than a money one. Stage 4 went from nine packs to eight
-        with its mechanism settled.
-      - ZONE 5 WENT 11 TO 15 AND ITS SHAPE CHANGED. It gained Mario Kart's TV overflow (found
-        08-16, after the last redraw) and three Watch traps out of the repair, and TWO items
-        flipped to FIXED: the felt reaching the packs, and the bracketed TVs, which the last
-        pass drew as OPEN on the day they were fixed. That was a reconcile miss and this is
-        the correction. Four OPEN, two FIXED, nine Watch.
-      - ROW 1 GREW 1600 TO 1950 IN TWO STEPS INSIDE ONE PASS, and the second step is the
-        measure-the-file rule paying for itself again. 1800 was sized to fit the two new zone
-        2 items and did, with 82px left; the Poker item this SAME session ships is a 130px
-        box, so 1800 would have shipped a map that overflowed before the week was out.
-        Row 2 grew 840 to 1020 for zone 5's four new entries and moved to y=2070.
+      - THE REDRAW WENT FIRST AGAIN, and this time it was the ordinary case rather than a
+        repaired skip: the counter read 3 at the start of the session, which is the threshold
+        exactly, and `>=` is the rule. Two passes in a row have now gone first. The session's
+        own work (a second tournament on the same night) is NOT drawn here, deliberately, and
+        that is the rule protecting the redraw from the drawing session's own scope.
+      - ZONE 1 TOOK TWO, both (NEW), and went 18 to 20: the tournament setup screen, and quick
+        play collapsing onto it. Both are zone 1 rather than zone 2 because the generic bracket
+        is not a pack, it is what a pack-less night runs on, which is the same reason
+        pack-screens.test.ts lists BracketPage.tsx by hand instead of deriving it. The tabletop
+        item lost its (NEW) on schedule.
+      - ZONE 2 TOOK ONE, (NEW), 24 to 25: Poker's cash game, which shipped on 2026-08-17 AFTER
+        that day's redraw had already been drawn. That is the ordinary lag rather than a miss:
+        a session that redraws before its own work always leaves its own work for the next pass.
+        Mario Kart pairs and Board Game's cloth both lost their (NEW).
+      - ZONE 3 IS FIVE ITEMS AND ONLY ITS FIRST CHANGED. Poker's queued half is now the
+        TOURNAMENT FORMAT alone, the cash game having shipped; the numbered three are Poker
+        tournament, Smash Tournament and Party games, all three of which land in zone 2.
+      - ZONE 4 SHRANK, 12 to 11, and one survivor was rewritten. Tournament entrants off the
+        yes-RSVP list shipped outright. The team-retrofit entry shipped by HALF: team entrants
+        on the bracket landed 08-18, so what is left is Smash 2v2 alone, and the item says which
+        half went rather than sitting there as a whole thing that is mostly done.
+      - ZONE 5 WENT 15 TO 17. It gained the bracketed TV's overflow at SIXTEEN PAIRS, found
+        08-17 by the session that made pairs possible, and Poker's TV flipped to FIXED on the
+        day that pack shipped. Five OPEN, three FIXED, nine Watch. The FIXED entries from
+        2026-08-17 are on their second consecutive redraw and age out at the next one.
+      - BOTH ROWS GREW, and only one of them was over. Zone 5 measured 1030px of content in a
+        1020px zone, which is the smallest overflow this file has recorded and the strongest
+        argument yet for reading the generated file back rather than sizing by eye: 10px is
+        invisible. Row 2 went 1020 -> 1200. Row 1 went 1950 -> 2150 PRE-EMPTIVELY, on the
+        08-17 test rather than on a measured overflow, and the arithmetic is worth writing
+        down because it is the first time that test was applied to the QUEUE rather than to
+        the drawing session's own work. At the old height zone 2 measured 138px of slack once
+        Poker was in it, and NEXT UP's numbered three are ALL zone 2 packs: 138 fits one of
+        the three. 2150 makes it 338, which fits all three. Row 2 moved 2070 -> 2270 to keep
+        the columns aligned.
     Zone heights checked against their contents by reading the generated file back, not
-    by hand. Canvas 1560x3090; panorama camera 1600x3140.
+    by hand. Canvas 1560x3470; panorama camera 1600x3520.
 
 ## MAP PROTOCOL
 How and when the Excalidraw project map gets redrawn. Written so any session reproduces
@@ -116,7 +125,7 @@ another reference section does not change the map; adding or renaming one of the
 above does, and must update this table in the same commit.
 
 **Layout (fixed, so redraws are stable):** 3 columns x 2 rows. Columns at x=40, 560, 1080,
-each 480 wide. Row 1 at y=95 (height 1950), row 2 at y=2070 (height 1020). Zone header text
+each 480 wide. Row 1 at y=95 (height 2150), row 2 at y=2270 (height 1200). Zone header text
 15px below zone top, fontSize 22. Items 440 wide, 40 tall, 46px step, first item 50px below
 zone top; give a taller box (52-70) to any item whose label wraps past one line. Row 1 grew
 from 540 to 730 on 2026-07-27 (SHIPPED FOUNDATION reached 14 items and overflowed its
@@ -128,10 +137,12 @@ the 46px one more item costs, from 920 to 990 on 2026-07-30, when zone 2 took th
 multi-line casino items in one pass, from 990 to 1120 on 2026-08-02, when zone 2 took
 declarative modifiers and Casino Run, from 1120 to 1400 on 2026-08-09, when zone 2 took
 the Board Game pack, the team primitive and the title-night layer in one pass, from 1400 to
-1600 on 2026-08-10 when zone 2 reached 22 items, and from 1600 to 1950 on 2026-08-17 in two
+1600 on 2026-08-10 when zone 2 reached 22 items, from 1600 to 1950 on 2026-08-17 in two
 steps within one pass: 1800 took zone 2's two new items, and reading the file back showed
 that left only 82px, which does not fit the Poker item the SAME session was about to ship,
-so it went to 1950. Each time it was raised pre-emptively rather than
+so it went to 1950, and from 1950 to 2150 on 2026-08-19, when zone 2 measured 138px of slack
+against a NEXT UP whose top three are all packs: 138 fits one of those three and not three.
+Each time it was raised pre-emptively rather than
 waiting for the next entry to overflow it, since the fix is mechanical and the trap would
 have landed on whoever added the next line.
 ROW 2 GREW FOR THE FIRST TIME on 2026-08-02, 530 to 660: it had been a fixed height through
@@ -147,7 +158,10 @@ it is row 1, push row 2 down by the same amount so the columns stay aligned.
 ROW 2 GREW AGAIN on 2026-08-17, 840 to 1020: zone 5 went to 15 items (a new OPEN for Mario
 Kart's TV, two entries flipping to FIXED, and three new Watch traps out of the Tabletop
 repair) and needed 920px of its 840. Row 2 also MOVED, 1720 to 2070, because row 1 grew and
-the columns stay aligned.
+the columns stay aligned. AND AGAIN on 2026-08-19, 1020 to 1200: zone 5 reached 17 and was
+the first zone to be measured genuinely OVER since 2026-08-03, by 10px, which is the smallest
+overflow this file has recorded and would have been invisible to anyone sizing by eye. Row 2
+moved 2070 to 2270 with row 1.
 A ZONE THAT SHRINKS DOES NOT SHRINK ITS ROW, and 2026-08-04 is the first pass where that
 came up: zone 5 dropped four aged-out FIXED items and needs 572px of its 840. The height
 stays, because the queue below it (a pack into zone 2, four items into zone 3) will refill
@@ -162,8 +176,8 @@ they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb).
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x3140 at the current zone heights; the canvas
-itself measures 1560x3090, read off the generated file rather than assumed. This line read
+on a panorama covering the full canvas (1600x3520 at the current zone heights; the canvas
+itself measures 1560x3470, read off the generated file rather than assumed. This line read
 2410 for four passes after the heights it describes had moved, which is why a redraw checks
 it against the file). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 
@@ -182,6 +196,8 @@ regenerated file in the same commit as the reconcile. If the MCP canvas is unava
 session, regenerating the committed file alone still counts as the redraw.
 
 ## SHIPPED — FOUNDATION
+- [x] QUICK PLAY IS ONE ROUTE, AND THE SECOND ENTRANT SCREEN IS GONE (2026-08-18). The tournament was the one tile out of thirteen that did not run the shared setup screen, and the gap was invisible because nothing failed: `QuickPlayPage.tsx` had its OWN entrant list, so when the roster screen shipped on 08-17 quick play silently stayed behind rather than breaking. **THE RULE, now stated and checked:** a quick play route MINTS CONTEXT AND STOPS. `POST /api/quickplay/tournament` creates the personal crew and a live event, returns `{ eventId }`, and the client opens the pack's own screen at `?event=<id>`. That is what the twelve session packs always did, and it is why they never drifted. **WHAT LANDED:** the tournament route beside the `SESSION_PACK_KEYS` loop (it has no registry entry, because it is not a pack, it is what a pack-less night runs on); both Home tiles opening `/tournament?event=<id>&format=<f>`; `QuickPlayPage.tsx` DELETED, with `/quick` surviving as an address that mints an event and REPLACES itself (pushing would leave a route behind whose whole job is to mint another event, so Back would collect empty nights); the setup screen's copy rewritten for a crew of one, which is now its second most common case rather than an edge; and `quickplay-parity.test.ts`, which pins THERE IS EXACTLY ONE ENTRANT SCREEN by source scan, in the style `pack-screens.test.ts` and `copy-rules.test.ts` already use. Every scan carries a control, because three of them pass by finding nothing and would pass forever against an empty walk. Quick play gained crew-member entrants, the member/guest distinction, the seeding shuffle, team entrants, `normalizeEntrants` validation and the entrant cap all at once, by running the screen they were built on rather than by porting any of them.
+- [x] THE TOURNAMENT GETS A SETUP SCREEN, AND THE BRACKET GETS TEAM ENTRANTS (2026-08-18). Two things that were priced separately and shipped together, because the first is what the second needed. `/tournament?event=<id>&format=<f>` matches every pack's address shape and holds the roster block Board Game and Card Table have had since they shipped: prefill from the yes RSVPs in answer order, add anyone in the CREW who never answered, type a guest, shuffle the seeding. **A TEAM ENTRANT IS ONE SLOT**, which is the decision that made the doubles half small: `entrants.length` stays the number of SLOTS, so `buildStructure`, `seedOrder`, `computeBracket` and `placements` were not touched at all. What the third kind cost was everything that READS an entrant, and `entrants.ts` now makes the kind stop mattering. Full writeups, including the yes-RSVP fallback that stays as insurance, are the two `[x] SHIPPED` entries under FEATURES TO ADD.
 - [x] TABLETOP REPAIR, AND THE CLOTH REACHES ITS FIRST PACK (2026-08-17). The shipped theme did not look like the approved renders, and the reason was one file. **`apps/web/src/textures/felt.webp` ON MAIN WAS 39 BYTES OF ASCII** reading `<base64-encoded-webp-from-user-image-1>`: a placeholder, never replaced. Vite inlines anything under 4KB as a data URI, the browser could not decode it, the background layer dropped silently, and Tabletop painted a flat green gradient on every screen. **NOTHING CAUGHT IT AND THAT IS THE FINDING.** `theme-sweep.mjs` compares computed values and the computed value of a broken `url()` is the same string as a working one; `felt-variance.mjs` had never been run against a build that carried the file. Fourth instance of this repo's recurring shape, a registration nothing verifies. `theme-contrast.test.ts` now reads the file's magic number (RIFF/WEBP) and a 5KB floor, so the tile is asserted rather than the reference to it.
   **THE GENERATOR COULD NOT RUN, WHICH IS WHY NOBODY REPLACED IT.** `scripts/generate-felt-tile.mjs` declared `const sd` twice in one injected browser scope and died with a SyntaxError before drawing a pixel. Renamed to `sdDec`. It then correctly REFUSED TO WRITE, and the guard was right: `--gn-dim` on the lit crown landed at 4.37 against its 4.5 floor. **THE GUARD'S OWN CONSTANTS HAD TO MOVE WITH THE LAMP**, which is the more interesting half. The revised lamp is a pool with its centre on the screen and its first stop at full strength, so the brightest surface a person reads against is now exactly `--gn-felt-lit` rather than 85% of it; `FELT_CROWN` and `crown()` in the test both moved to the full value, which is stricter than what either measured before. `--gn-dim` paled to `#ddd3bd` (ink-to-dim gap 1.45 to 1.31) and TARGET_SD came down 6.4 to 5.4. **AND THE TILE ITSELF HAD A SECOND DEFECT THAT ONLY A SCREENSHOT AT THE PAINTED SIZE COULD SHOW.** The field carries two low-frequency sinusoids for slow unevenness, at amplitudes 0.30 and 0.18, and the second is diagonal at half the tile's period. A 512px tile painted at 150px is downscaled 3.4x, which averages the fine fibre away and leaves those two almost untouched, so normalising on the total deviation meant the surviving structure was nearly all sinusoid and the screen filled with regular diagonal streaks every 75px. Cloth read as brushed metal. Caught by screenshotting the built bundle at the size the stylesheet paints rather than inspecting the tile at 1:1, where both versions look like felt, which is why it had shipped once already. The amplitudes are now a fifth of what they were. **RESULT: tile 512x512, decoded grey 109..146, sd 3.86, 19.5KB, worst relative cost 16.7% of the 20% allowed, every gated pair clear.** TARGET_SD came down 6.4 to 4.0 in two steps, and the second is worth reading: the same deviation built out of fine fibre has far longer tails than one built out of smooth sinusoids, and this guard's worst case is the single most extreme pixel, so 5.4 of the new field runs 104..153 where 5.4 of the old ran 112..144. Bytes went 9.8KB to 19.5KB because noise is what a lossy codec cannot compress. Measured in a real browser on the built bundle, `felt-variance.mjs` reports the cloth at a best-channel sd of 4.48 against a 2.5 floor.
   **THE CARD ARGUMENT WAS ABOUT THE WRONG VARIABLE.** The long `.24` versus `.5` debate was trying to stop the card reading as a hole cut in the cloth by making it more transparent. A panel reads as a hole because nothing CASTS. Given a drop, a contact edge and a lit top lip it reads as card stock at any alpha, which freed the alpha to be chosen for contrast: at `rgba(22,15,8,.62)`, SEVEN OF THE EIGHT parity exemptions in `theme-contrast.test.ts` closed and were deleted. Only `--gn-p2 on --gn-surf` survives, and that one is felt green against Arcade's neon teal rather than anything about the card. The 2px warm-brown border went with it: `--gn-card-border`, `--gn-card-shadow` and `--gn-card-pad` are tokens now, carrying Arcade's shipped values, so the card is the last shell surface a theme can re-make without an override.
