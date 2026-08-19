@@ -463,30 +463,56 @@ function eventGames(
       : "live now, watch"
     : "double elim & grand prix";
 
+  // NO RSVP GATE on either of these. They used to sit under a disabled
+  // "Needs 2+ yes RSVPs" tile whenever fewer than two people had answered,
+  // which was a lie: the bracket is built on the next screen from the whole
+  // crew plus guests, so a night where nobody tracked their own RSVP is a
+  // perfectly startable tournament.
+  const startFormats = (again: boolean): PickerFormat[] => [
+    {
+      key: "single",
+      label: "Single elimination",
+      sub: again ? "a second tournament · pick who is playing" : "pick who is playing next",
+      onPick: () => startBracket("single_elim"),
+    },
+    {
+      key: "double",
+      label: "Double elimination",
+      sub: again ? "a second tournament · losers bracket" : "losers bracket · pick who is playing next",
+      onPick: () => startBracket("double_elim"),
+    },
+  ];
+
+  // THE COMPLETED CASE OFFERS BOTH, and that is the whole client half of this
+  // change. `if (event.bracket)` used to swallow the start path entirely, so
+  // once a night's tournament finished the tile could only ever reopen it: the
+  // server said 409 to a second one and the screen never even asked. A
+  // finished tournament is history you can still look at, not a night that is
+  // over. While one is LIVE or in SETUP nothing changes, because the server
+  // still refuses a second, and offering what will be refused is worse than
+  // not offering it.
+  const done = event.bracket?.status === "completed";
+  const openBracket: PickerFormat = {
+    key: "open",
+    label: done ? "Open final bracket" : "Open live bracket",
+    sub: done ? "final bracket · tap to open" : "live now · tap to open",
+    onPick: () => navigate(`/b/${event.bracket!.id}`),
+  };
+
   let tournamentFormats: PickerFormat[];
-  if (event.bracket) {
-    tournamentFormats = [
-      {
-        key: "open",
-        label: event.bracket.status === "completed" ? "Open final bracket" : "Open live bracket",
-        sub: event.bracket.status === "completed" ? "final bracket · tap to open" : "live now · tap to open",
-        onPick: () => navigate(`/b/${event.bracket!.id}`),
-      },
-    ];
+  if (event.bracket && !done) {
+    tournamentFormats = [openBracket];
+  } else if (event.bracket) {
+    // Members get the finished bracket and nothing else: they could not start
+    // the first one either, and the wait tile would be noise beside a real
+    // thing to tap.
+    tournamentFormats = isHost ? [openBracket, ...startFormats(true)] : [openBracket];
   } else if (!isHost) {
     tournamentFormats = [
       { key: "wait", label: "Waiting for the host", sub: "an owner or admin starts it", onPick: () => {}, disabled: true },
     ];
   } else {
-    // NO RSVP GATE. It used to read `${yesCount} players`, and under it sat a
-    // disabled "Needs 2+ yes RSVPs" tile whenever fewer than two people had
-    // answered. Both were the same lie: the bracket is built on the next screen
-    // from the whole crew plus guests, so a night where nobody tracked their
-    // own RSVP is a perfectly startable tournament.
-    tournamentFormats = [
-      { key: "single", label: "Single elimination", sub: "pick who is playing next", onPick: () => startBracket("single_elim") },
-      { key: "double", label: "Double elimination", sub: "losers bracket · pick who is playing next", onPick: () => startBracket("double_elim") },
-    ];
+    tournamentFormats = startFormats(false);
   }
 
   // A pack running right now gets it said on the tile, the same way Beerio and
