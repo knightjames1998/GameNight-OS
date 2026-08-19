@@ -18,6 +18,15 @@
 // nothing to set, nothing to forget to clear, and nothing that can disagree
 // with what is actually happening.
 //
+// A NIGHT CAN HOLD MORE THAN ONE BRACKET, since 2026-08-19: once a tournament
+// is completed the crew can start another, so brackets arrive here as a LIST
+// and are filtered exactly the way pack sessions always were. This read used
+// to be `.limit(1)` with no `orderBy`, which was safe only because the
+// creation guard made a second row impossible; the guard relaxed, so the read
+// had to. Postgres would otherwise have been free to hand back the COMPLETED
+// bracket, which filters out, leaving the TV on the lobby while a live
+// tournament was being scored and nothing erroring anywhere.
+//
 // Public and read-only, like the other TV routes: typing a password on a TV is
 // misery, and the event's unguessable UUID is the access key, the same idea as
 // an invite link. This router must stay mounted with the other /api/tv routers,
@@ -83,7 +92,8 @@ export interface BeerioCandidate {
 
 export interface TvCandidates {
   packs: PackCandidate[];
-  bracket: BracketCandidate | null;
+  /** Every bracket on the night, completed ones included. Filtered here. */
+  brackets: BracketCandidate[];
   beerio: BeerioCandidate | null;
 }
 
@@ -100,6 +110,12 @@ export interface TvCandidates {
  * The pack half comes from the registry, in registry order, so a new pack
  * cannot be missing from it: an absent key would silently rank LAST and lose
  * every tie, which is the sort of thing nobody would ever think to test.
+ *
+ * TWO BRACKETS SHARE THIS KEY, so the key alone stopped being a full answer
+ * when a night gained the ability to run a second tournament. The last
+ * comparison is on the candidate's own id, which is why `tie` exists below:
+ * without it two rows carrying the same millisecond would rank equal and the
+ * winner would fall out of iteration order.
  */
 const TIEBREAK: readonly string[] = ["bracket", "beerio", ...SESSION_PACK_KEYS];
 
@@ -123,7 +139,9 @@ const at = (d: Date | null) => (d ? d.getTime() : 0);
  *   2. Of what remains, the most recently TOUCHED wins. Touched, not started:
  *      a bracket being scored all night beats a Ping Pong session someone
  *      opened an hour ago and walked away from.
- *   3. An exact tie falls to TIEBREAK above.
+ *   3. An exact tie falls to TIEBREAK above, and a tie WITHIN a tiebreak key
+ *      (two brackets, which is possible now) falls to the id, so the answer is
+ *      total rather than merely mostly ordered.
  *
  * Beerio is the awkward one and is normalised into the same shape by the
  * caller: it counts as live when a room code is set on the event AND that
@@ -133,37 +151,62 @@ const at = (d: Date | null) => (d ? d.getTime() : 0);
  * not exist.
  */
 export function resolveNow(c: TvCandidates): TvNow {
-  const running: { key: string; when: number; now: NonNullable<TvNow> }[] = [];
+  const running: { key: string; tie: string; when: number; now: NonNullable<TvNow> }[] = [];
 
   for (const p of c.packs) {
     if (p.status === "completed") continue;
     running.push({
       key: p.pack,
+      tie: p.pack,
       when: at(p.updatedAt),
       now: { kind: "pack", pack: p.pack, status: p.status },
     });
   }
 
-  if (c.bracket && c.bracket.status !== "completed") {
+  // Every bracket on the night, filtered the same way the packs above are: a
+  // completed tournament is history whatever its timestamp says, which is what
+  // lets a crew finish one and start another without the screen getting stuck
+  // on the finished one.
+  for (const b of c.brackets) {
+    if (b.status === "completed") continue;
     running.push({
       key: "bracket",
-      when: at(c.bracket.updatedAt),
-      now: { kind: "bracket", bracketId: c.bracket.bracketId, status: c.bracket.status },
+      tie: b.bracketId,
+      when: at(b.updatedAt),
+      now: { kind: "bracket", bracketId: b.bracketId, status: b.status },
     });
   }
 
   const b = c.beerio;
   if (b?.code && b.updatedAt && (!b.completedAt || at(b.updatedAt) > at(b.completedAt))) {
-    running.push({ key: "beerio", when: at(b.updatedAt), now: { kind: "beerio", code: b.code } });
+    running.push({
+      key: "beerio",
+      tie: b.code,
+      when: at(b.updatedAt),
+      now: { kind: "beerio", code: b.code },
+    });
   }
 
+  // Sorted here rather than in the query, deliberately: an ORDER BY would put
+  // the answer in Postgres's hands for the packs half too, and this comparison
+  // has to be total anyway. Newest first, then the declared key order, then the
+  // candidate's own id, which is the comparison that keeps two brackets from
+  // swapping places between refetches.
   let best: (typeof running)[number] | null = null;
   for (const r of running) {
-    if (!best || r.when > best.when || (r.when === best.when && rank(r.key) < rank(best.key))) {
-      best = r;
-    }
+    if (!best || better(r, best)) best = r;
   }
   return best ? best.now : null;
+}
+
+/** Strictly "a beats b", so an exact duplicate never displaces the incumbent. */
+function better(
+  a: { key: string; tie: string; when: number },
+  b: { key: string; tie: string; when: number },
+): boolean {
+  if (a.when !== b.when) return a.when > b.when;
+  if (rank(a.key) !== rank(b.key)) return rank(a.key) < rank(b.key);
+  return a.tie < b.tie;
 }
 
 // game_sessions.pack -> the pack key the client renders, from the one registry
@@ -221,11 +264,14 @@ eventTvRouter.get("/event/:eventId", async (req, res) => {
       .from(smashSessions)
       .where(eq(smashSessions.eventId, eventId))
       .limit(1),
+    // NO LIMIT AND NO ORDER BY, both on purpose. A night can hold more than
+    // one bracket now, so a limit would pick one arbitrarily; ordering here
+    // would only move the decision into the database, and resolveNow sorts
+    // totally anyway. Indexed on event_id.
     db
       .select({ id: brackets.id, status: brackets.status, updatedAt: brackets.updatedAt })
       .from(brackets)
-      .where(eq(brackets.eventId, eventId))
-      .limit(1),
+      .where(eq(brackets.eventId, eventId)),
     row.beerioCode
       ? db
           .select({ updatedAt: beerioSessions.updatedAt })
@@ -245,9 +291,11 @@ eventTvRouter.get("/event/:eventId", async (req, res) => {
 
   const now = resolveNow({
     packs,
-    bracket: bracketRows[0]
-      ? { bracketId: bracketRows[0].id, status: bracketRows[0].status, updatedAt: bracketRows[0].updatedAt }
-      : null,
+    brackets: bracketRows.map((b) => ({
+      bracketId: b.id,
+      status: b.status,
+      updatedAt: b.updatedAt,
+    })),
     beerio: {
       code: row.beerioCode,
       completedAt: row.beerioCompletedAt,
