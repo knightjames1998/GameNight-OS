@@ -145,13 +145,24 @@ bracketsRouter.post("/events/:eventId/bracket", async (req: AuthedRequest, res) 
     return;
   }
 
+  // ALL of them, not one: the question is whether anything is still RUNNING,
+  // which a single row cannot answer. This is the read that made the other two
+  // safe to write as `.limit(1)`, and relaxing it is what makes them wrong, so
+  // all three moved in the same session.
   const existing = await db
-    .select({ id: brackets.id })
+    .select({ id: brackets.id, status: brackets.status })
     .from(brackets)
-    .where(eq(brackets.eventId, event.id))
-    .limit(1);
-  if (existing[0]) {
-    res.status(409).json({ error: "This event already has a bracket", bracketId: existing[0].id });
+    .where(eq(brackets.eventId, event.id));
+  const allowed = canStartBracket(existing);
+  if (!allowed.ok) {
+    // The message names the actual condition. It used to say the event already
+    // HAS a bracket, which stopped being the rule: having one is fine, having
+    // an unfinished one is not. The id rides along because the client turns
+    // this into an offer to open the tournament already running.
+    res.status(409).json({
+      error: "This night already has a tournament running",
+      bracketId: allowed.bracketId,
+    });
     return;
   }
 
