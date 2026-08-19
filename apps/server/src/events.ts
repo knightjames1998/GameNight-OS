@@ -257,11 +257,16 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
       .innerJoin(users, eq(memberships.userId, users.id))
       .where(eq(memberships.groupId, found.groupId)),
 
+    // EVERY bracket on the night, not one. A night can run a second tournament
+    // once the first is completed, and this read used to be `.limit(1)` with no
+    // `orderBy`, which was only safe because the creation guard made a second
+    // row impossible. Which of them the tile should describe is decided below,
+    // in code, rather than left to whichever row Postgres felt like returning.
+    // Indexed on event_id.
     db
-      .select({ id: brackets.id, status: brackets.status })
+      .select({ id: brackets.id, status: brackets.status, updatedAt: brackets.updatedAt })
       .from(brackets)
-      .where(eq(brackets.eventId, found.id))
-      .limit(1),
+      .where(eq(brackets.eventId, found.id)),
 
     db
       .select({ role: memberships.role })
@@ -300,7 +305,27 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
   ]);
 
   const answered = new Set(responses.map((r) => r.userId));
-  const bracket = bracketRows[0];
+  // THE ONE THE TILE SHOULD TALK ABOUT: the tournament still going if there is
+  // one, and there is at most one by the start rule (see canStartBracket).
+  // Otherwise the most recently touched COMPLETED one, so a crew that just
+  // finished their second tournament is offered THAT final bracket rather than
+  // an arbitrary earlier night's. Ties fall to the id, for the same reason the
+  // TV resolver's do: two phones must not be told two different things.
+  const newer = (a: (typeof bracketRows)[number], b: (typeof bracketRows)[number]) => {
+    const at = (r: typeof a) => (r.updatedAt ? r.updatedAt.getTime() : 0);
+    if (at(a) !== at(b)) return at(a) > at(b);
+    return a.id < b.id;
+  };
+  let bracket: (typeof bracketRows)[number] | undefined;
+  for (const row of bracketRows) {
+    if (!bracket) {
+      bracket = row;
+      continue;
+    }
+    const running = row.status !== "completed";
+    const haveRunning = bracket.status !== "completed";
+    if (running !== haveRunning ? running : newer(row, bracket)) bracket = row;
+  }
   const myRole = myRoleRows[0]?.role;
   const attendance = attendanceRows[0];
   const group = groupRows[0];
@@ -322,7 +347,10 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
 
   return {
     ...found,
-    bracket: bracket ?? null,
+    // PROJECTED, not spread: updatedAt was added to the select for the choice
+    // above and has no business on the wire. The payload shape is byte-for-byte
+    // what it was, so apps/web/src/api.ts needs nothing.
+    bracket: bracket ? { id: bracket.id, status: bracket.status } : null,
     sessions,
     myRole,
     groupName: group?.name ?? "",
