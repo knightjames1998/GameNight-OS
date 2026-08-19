@@ -16,7 +16,11 @@ import assert from "node:assert/strict";
 import { crowdSplit, MAX_SHARES } from "../../web/src/beerio/crowd.js";
 
 /** Options in board order, which is the order ties must keep. */
-const opts = (...labels: string[]) => labels.map((label) => ({ label, value: label }));
+const opts = (...labels: string[]) =>
+  labels.map((label) => ({ label, value: label, color: "#" + label.slice(0, 3) }));
+
+/** The colour a label is given above, so expectations read as one thing. */
+const col = (label: string) => "#" + label.slice(0, 3);
 
 test("nobody has voted", () => {
   // PredictionBar returns null before it ever asks, but the helper answers
@@ -41,8 +45,8 @@ test("A TWO-WAY SPLIT IS THE CASE THE PERCENTAGES EXIST FOR", () => {
   assert.deepEqual(crowdSplit(opts("Ann", "Ben"), { Ann: 1, Ben: 2 }), {
     kind: "split",
     shares: [
-      { label: "Ben", pct: 67 },
-      { label: "Ann", pct: 33 },
+      { label: "Ben", pct: 67, color: col("Ben") },
+      { label: "Ann", pct: 33, color: col("Ann") },
     ],
     overflow: 0,
   });
@@ -52,9 +56,9 @@ test("shares are sorted descending, not left in board order", () => {
   assert.deepEqual(crowdSplit(opts("Ann", "Ben", "Cal"), { Ann: 1, Ben: 5, Cal: 3 }), {
     kind: "split",
     shares: [
-      { label: "Ben", pct: 56 },
-      { label: "Cal", pct: 33 },
-      { label: "Ann", pct: 11 },
+      { label: "Ben", pct: 56, color: col("Ben") },
+      { label: "Cal", pct: 33, color: col("Cal") },
+      { label: "Ann", pct: 11, color: col("Ann") },
     ],
     overflow: 0,
   });
@@ -69,9 +73,9 @@ test("AN EVEN THREE-WAY SPLIT READS 33/33/33 AND SUMS TO 99, ON PURPOSE", () => 
   assert.deepEqual(crowdSplit(opts("Ann", "Ben", "Cal"), { Ann: 1, Ben: 1, Cal: 1 }), {
     kind: "split",
     shares: [
-      { label: "Ann", pct: 33 },
-      { label: "Ben", pct: 33 },
-      { label: "Cal", pct: 33 },
+      { label: "Ann", pct: 33, color: col("Ann") },
+      { label: "Ben", pct: 33, color: col("Ben") },
+      { label: "Cal", pct: 33, color: col("Cal") },
     ],
     overflow: 0,
   });
@@ -84,9 +88,9 @@ test("and the other direction, where independent rounding sums to 101", () => {
   assert.deepEqual(r, {
     kind: "split",
     shares: [
-      { label: "Ann", pct: 67 },
-      { label: "Ben", pct: 17 },
-      { label: "Cal", pct: 17 },
+      { label: "Ann", pct: 67, color: col("Ann") },
+      { label: "Ben", pct: 17, color: col("Ben") },
+      { label: "Cal", pct: 17, color: col("Cal") },
     ],
     overflow: 0,
   });
@@ -119,8 +123,8 @@ test("an option nobody picked is dropped, not shown at 0%", () => {
   assert.deepEqual(crowdSplit(opts("Ann", "Ben", "Cal"), { Ann: 1, Cal: 1 }), {
     kind: "split",
     shares: [
-      { label: "Ann", pct: 50 },
-      { label: "Cal", pct: 50 },
+      { label: "Ann", pct: 50, color: col("Ann") },
+      { label: "Cal", pct: 50, color: col("Cal") },
     ],
     overflow: 0,
   });
@@ -136,11 +140,47 @@ test("equal shares keep the caller's order, so the row cannot reshuffle itself",
   assert.deepEqual(first, {
     kind: "split",
     shares: [
-      { label: "Ann", pct: 29 },
-      { label: "Ben", pct: 29 },
-      { label: "Cal", pct: 29 },
+      { label: "Ann", pct: 29, color: col("Ann") },
+      { label: "Ben", pct: 29, color: col("Ben") },
+      { label: "Cal", pct: 29, color: col("Cal") },
     ],
     overflow: 1,
   });
   assert.deepEqual(crowdSplit(board, tally), first);
+});
+
+test("EVERY SHARE CARRIES ITS OWN COLOUR, because the row and the bar are sorted differently", () => {
+  // THE REGRESSION THIS PINS, found by rendering the real screen rather than by
+  // reading the code. The bar draws its segments in BOARD order and this row is
+  // sorted by SHARE, so on any lopsided card the two disagree: measured on a
+  // 1-2 card, the row read "Player 8 67% · Player 1 33%" while the bar painted
+  // Player 1's red on the LEFT at 294px and Player 8's orange on the right at
+  // 589px. While the percentage lived inside the segment that mismatch was
+  // invisible, because the number sat on the fill it described. Taking the text
+  // out of the bar cut that tie and left a name with no way to say which colour
+  // it meant.
+  //
+  // The fix is the swatch, NOT re-ordering either side. Sorting the bar by share
+  // would make segments swap sides as votes land, and board order is what the
+  // match rows and the alive board above already use.
+  const board = [
+    { label: "Ann", value: "A", color: "#E10600" },
+    { label: "Ben", value: "B", color: "#FF7A00" },
+  ];
+  const r = crowdSplit(board, { A: 1, B: 2 });
+  assert.deepEqual(r, {
+    kind: "split",
+    shares: [
+      { label: "Ben", pct: 67, color: "#FF7A00" },
+      { label: "Ann", pct: 33, color: "#E10600" },
+    ],
+    overflow: 0,
+  });
+  // The row leads with Ben and the bar leads with Ann's colour. That is allowed,
+  // and it is exactly why each share has to carry its own colour.
+  assert.notEqual(
+    r.kind === "split" && r.shares[0]!.label,
+    board[0]!.label,
+    "this fixture must actually be lopsided, or it pins nothing",
+  );
 });

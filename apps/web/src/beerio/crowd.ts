@@ -26,6 +26,9 @@
 export interface CrowdShare {
   label: string;
   pct: number;
+  /** The racer's own colour, so the ROW can carry the colour coding the bar
+   *  used to carry by having the number painted on the fill. See below. */
+  color: string;
 }
 
 /**
@@ -66,13 +69,23 @@ export const MAX_SHARES = 3;
  * order, because Array.sort is stable and the caller's order is the board's
  * order: reordering equal shares away from the order the racers are drawn in
  * would be motion for no information.
+ *
+ * EVERY SHARE CARRIES ITS COLOUR, and that is not decoration. The row is sorted
+ * by SHARE and the bar is drawn in BOARD order, so on any lopsided card the two
+ * disagree: a 2-1 card lists the leader first and paints the trailer's colour on
+ * the left. While the percentage sat inside the segment that did not matter,
+ * because the number was on the fill it described. Taking the text out of the
+ * bar cut that tie, and the fix is a swatch beside each name rather than
+ * re-ordering either one: sorting the bar by share would make segments swap
+ * sides as votes land, and board order is what the match rows and the alive
+ * board above it already use.
  */
 export function crowdSplit(
-  options: { label: string; value: string }[],
+  options: { label: string; value: string; color: string }[],
   counts: Record<string, number>,
 ): CrowdSplit {
   const voted = options
-    .map((o) => ({ label: o.label, n: counts[o.value] ?? 0 }))
+    .map((o) => ({ label: o.label, color: o.color, n: counts[o.value] ?? 0 }))
     .filter((o) => o.n > 0);
   const total = voted.reduce((n, o) => n + o.n, 0);
 
@@ -87,6 +100,7 @@ export function crowdSplit(
     shares: ranked.slice(0, MAX_SHARES).map((o) => ({
       label: o.label,
       pct: Math.round((o.n / total) * 100),
+      color: o.color,
     })),
     overflow: Math.max(0, ranked.length - MAX_SHARES),
   };

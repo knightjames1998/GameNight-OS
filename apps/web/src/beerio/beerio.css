@@ -286,6 +286,18 @@
   text-overflow: ellipsis;
   min-width: 0;
 }
+/* The share's racer colour, so a name in this row says which segment it means.
+   SIZED IN em ON PURPOSE: it follows --bt-pb-l at every band by itself, so the
+   swatch scales down with the row and no band metric had to move for it. */
+.beerio-tvpb__sw {
+  display: inline-block;
+  width: .75em;
+  height: .75em;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  margin-right: .3em;
+  vertical-align: -.05em;
+}
 .beerio-tvpb__bar { height: var(--bt-pb-bar); }
 /* .beerio-tvpb__pct is GONE, not commented out. It sized the percentage that
    used to sit inside the bar, at .64 of the bar height, which was about 17px

@@ -139,6 +139,12 @@ function tally(preds: PredMap, key: string): Record<string, number> {
  *
  * The number moved UP, to the label row, which sits on --foam where contrast
  * was never in question and which is legible on the screen today.
+ *
+ * EACH SHARE WEARS ITS RACER'S COLOUR AS A SWATCH, which is not decoration. The
+ * row is sorted by share and the bar is drawn in board order, so a lopsided
+ * card lists the leader first and paints the trailer's colour on the left. The
+ * old percentage could not get that wrong because it sat ON the fill it
+ * described; taking it out cut the tie, and the swatch is what puts it back.
  */
 function PredictionBar({
   options,
@@ -157,8 +163,17 @@ function PredictionBar({
         <span className="beerio-tvpb__say">
           {split.kind === "agreed"
             ? `${split.total} ${split.total === 1 ? "vote" : "votes"}`
-            : split.shares.map((s) => `${s.label} ${s.pct}%`).join(" · ") +
-              (split.overflow > 0 ? ` · +${split.overflow} more` : "")}
+            : split.shares.map((s, i) => (
+                // Index in the key because two racers CAN share a name, and the
+                // order is deterministic (crowdSplit sorts, ties keep board
+                // order), so it is stable across renders.
+                <span key={i}>
+                  {i > 0 && " · "}
+                  <span className="beerio-tvpb__sw" style={{ background: s.color }} />
+                  {s.label} {s.pct}%
+                </span>
+              ))}
+          {split.kind === "split" && split.overflow > 0 && ` · +${split.overflow} more`}
         </span>
       </div>
       <div className="beerio-tvpb__bar flex rounded-full overflow-hidden border-[2px] border-[var(--ink)]">
