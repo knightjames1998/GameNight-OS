@@ -224,7 +224,18 @@ export const brackets = pgTable(
     // filtered out before ranking and a live one genuinely is current.
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (t) => [index("brackets_group_idx").on(t.groupId)],
+  (t) => [
+    index("brackets_group_idx").on(t.groupId),
+    // BY EVENT, added 2026-08-19 when a night gained the ability to run a
+    // second tournament. Three separate reads select brackets by event_id and
+    // none of them can use a LIMIT any more (the creation guard, the event
+    // page tile and the event TV resolver all need every row to decide), so
+    // what was one indexed-by-nothing lookup returning at most one row is now
+    // three sequential scans per event on every event page load and every TV
+    // poll. The TV route is deliberately uncached, which is what makes this
+    // worth an index rather than worth ignoring.
+    index("brackets_event_idx").on(t.eventId),
+  ],
 );
 
 export const matches = pgTable(
