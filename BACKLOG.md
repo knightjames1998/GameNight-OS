@@ -12,8 +12,8 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-19 (the second-tournament session, before its own work)
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-08-19, second pass (the nickname session, before its own work)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -53,53 +53,39 @@ anyone's memory of how many sessions have happened.
       - 2026-08-17, the Poker pass. Zone 1 REWROTE its tabletop item rather than adding a
         second one; zone 2 went 22 to 24; zone 3's Poker item split in two; zone 5 went 11 to
         15; row 1 grew 1600 -> 1950 in two steps inside the one pass and row 2 840 -> 1020.
-      - 2026-08-19, this pass. Below.
+      - 2026-08-19, the second-tournament pass. Zone 1 took two 08-18 items; zone 2 took
+        Poker; zone 4 shrank 12 to 11; zone 5 went 15 to 17 and was the first zone measured
+        genuinely OVER since 08-03, by 10px; row 1 grew 1950 -> 2150 and row 2 1020 -> 1200.
+      - 2026-08-19 second pass, this one. Below.
 
-    THE COUNTER READS 1 RATHER THAN 0 AFTER A PASS THAT REDREW, and that is the rule
-    rather than an oversight. The redraw reset it to 0; the SAME session then shipped a
-    feature, and a shipping session increments. 2026-08-17 did exactly this and left 1
-    behind, which is why 08-18's two sessions read 1 and 2 and the counter arrived at 3.
-    A redrawing session that shipped and left 0 would buy itself a free session and put
-    the next redraw four shipped sessions out instead of three.
+    THE COUNTER READS 0 AND THIS PASS SHIPS NOTHING OF ITS OWN YET, which is the one
+    arrangement the rule does not describe in a line. The redraw went first, as the counter
+    demanded; the session's own feature work follows it and increments to 1 in its own commit,
+    exactly as 2026-08-17 and the first 08-19 pass both did.
 
     What this pass changed beyond the counter:
-      - THE REDRAW WENT FIRST AGAIN, and this time it was the ordinary case rather than a
-        repaired skip: the counter read 3 at the start of the session, which is the threshold
-        exactly, and `>=` is the rule. Two passes in a row have now gone first. The session's
-        own work (a second tournament on the same night) is NOT drawn here, deliberately, and
-        that is the rule protecting the redraw from the drawing session's own scope.
-      - ZONE 1 TOOK TWO, both (NEW), and went 18 to 20: the tournament setup screen, and quick
-        play collapsing onto it. Both are zone 1 rather than zone 2 because the generic bracket
-        is not a pack, it is what a pack-less night runs on, which is the same reason
-        pack-screens.test.ts lists BracketPage.tsx by hand instead of deriving it. The tabletop
-        item lost its (NEW) on schedule.
-      - ZONE 2 TOOK ONE, (NEW), 24 to 25: Poker's cash game, which shipped on 2026-08-17 AFTER
-        that day's redraw had already been drawn. That is the ordinary lag rather than a miss:
-        a session that redraws before its own work always leaves its own work for the next pass.
-        Mario Kart pairs and Board Game's cloth both lost their (NEW).
-      - ZONE 3 IS FIVE ITEMS AND ONLY ITS FIRST CHANGED. Poker's queued half is now the
-        TOURNAMENT FORMAT alone, the cash game having shipped; the numbered three are Poker
-        tournament, Smash Tournament and Party games, all three of which land in zone 2.
-      - ZONE 4 SHRANK, 12 to 11, and one survivor was rewritten. Tournament entrants off the
-        yes-RSVP list shipped outright. The team-retrofit entry shipped by HALF: team entrants
-        on the bracket landed 08-18, so what is left is Smash 2v2 alone, and the item says which
-        half went rather than sitting there as a whole thing that is mostly done.
-      - ZONE 5 WENT 15 TO 17. It gained the bracketed TV's overflow at SIXTEEN PAIRS, found
-        08-17 by the session that made pairs possible, and Poker's TV flipped to FIXED on the
-        day that pack shipped. Five OPEN, three FIXED, nine Watch. The FIXED entries from
-        2026-08-17 are on their second consecutive redraw and age out at the next one.
-      - BOTH ROWS GREW, and only one of them was over. Zone 5 measured 1030px of content in a
-        1020px zone, which is the smallest overflow this file has recorded and the strongest
-        argument yet for reading the generated file back rather than sizing by eye: 10px is
-        invisible. Row 2 went 1020 -> 1200. Row 1 went 1950 -> 2150 PRE-EMPTIVELY, on the
-        08-17 test rather than on a measured overflow, and the arithmetic is worth writing
-        down because it is the first time that test was applied to the QUEUE rather than to
-        the drawing session's own work. At the old height zone 2 measured 138px of slack once
-        Poker was in it, and NEXT UP's numbered three are ALL zone 2 packs: 138 fits one of
-        the three. 2150 makes it 338, which fits all three. Row 2 moved 2070 -> 2270 to keep
-        the columns aligned.
+      - TWO REDRAWS IN ONE DAY, and that is the rule working rather than thrashing. The first
+        08-19 pass reset the counter to 0 and its own session then shipped three separate
+        pieces of work (the second tournament, the Beerio crowd bar, the two-host sync), each
+        incrementing, so the counter was legitimately back at 3 the same evening. A busy day
+        earns a second redraw the same way a quiet week earns none.
+      - ZONE 1 TOOK ONE, (NEW): a second tournament on the same night. The two 08-18 items
+        lost their (NEW) on schedule.
+      - ZONE 2 TOOK TWO, both (NEW), 25 to 27: the Beerio crowd bar and the two-host room
+        sync. Both are PACK items rather than shell ones because both are Beerio's own
+        screens, even though the second reaches into the vendored file. Poker lost its (NEW).
+      - ZONE 5 SHRANK, 17 to 16, and its shape changed more than that number suggests. It
+        gained TWO new OPEN bugs, the TV flip-back and Beerio's Grand Prix TV at twelve
+        racers, and lost THREE FIXED items (the felt reaching the packs, the bracketed TVs,
+        Poker's TV) which aged out exactly on the schedule the last pass predicted for them.
+        Six OPEN, none FIXED, ten Watch. A zone with no FIXED items in it is a first.
+      - ROW 1 GREW 2150 -> 2400, pre-emptively, on the same test and the same arithmetic as
+        the last pass: zone 2 measured 114px of slack, NEXT UP's numbered three are all zone 2
+        packs, and 114 fits one of them. 2400 makes it 364, which fits all three. Row 2 kept
+        its height and moved to y=2520, because zone 5 SHRANK and a zone that shrinks does not
+        shrink its row.
     Zone heights checked against their contents by reading the generated file back, not
-    by hand. Canvas 1560x3470; panorama camera 1600x3520.
+    by hand. Canvas 1560x3720; panorama camera 1600x3770.
 
 ## MAP PROTOCOL
 How and when the Excalidraw project map gets redrawn. Written so any session reproduces
@@ -132,7 +118,7 @@ another reference section does not change the map; adding or renaming one of the
 above does, and must update this table in the same commit.
 
 **Layout (fixed, so redraws are stable):** 3 columns x 2 rows. Columns at x=40, 560, 1080,
-each 480 wide. Row 1 at y=95 (height 2150), row 2 at y=2270 (height 1200). Zone header text
+each 480 wide. Row 1 at y=95 (height 2400), row 2 at y=2520 (height 1200). Zone header text
 15px below zone top, fontSize 22. Items 440 wide, 40 tall, 46px step, first item 50px below
 zone top; give a taller box (52-70) to any item whose label wraps past one line. Row 1 grew
 from 540 to 730 on 2026-07-27 (SHIPPED FOUNDATION reached 14 items and overflowed its
@@ -147,8 +133,10 @@ the Board Game pack, the team primitive and the title-night layer in one pass, f
 1600 on 2026-08-10 when zone 2 reached 22 items, from 1600 to 1950 on 2026-08-17 in two
 steps within one pass: 1800 took zone 2's two new items, and reading the file back showed
 that left only 82px, which does not fit the Poker item the SAME session was about to ship,
-so it went to 1950, and from 1950 to 2150 on 2026-08-19, when zone 2 measured 138px of slack
-against a NEXT UP whose top three are all packs: 138 fits one of those three and not three.
+so it went to 1950, from 1950 to 2150 on 2026-08-19, when zone 2 measured 138px of slack
+against a NEXT UP whose top three are all packs: 138 fits one of those three and not three,
+and from 2150 to 2400 on the SECOND 2026-08-19 pass, when zone 2 landed on 114px against the
+same unchanged queue and the same arithmetic gave the same answer.
 Each time it was raised pre-emptively rather than
 waiting for the next entry to overflow it, since the fix is mechanical and the trap would
 have landed on whoever added the next line.
@@ -183,8 +171,8 @@ they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb).
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x3520 at the current zone heights; the canvas
-itself measures 1560x3470, read off the generated file rather than assumed. This line read
+on a panorama covering the full canvas (1600x3770 at the current zone heights; the canvas
+itself measures 1560x3720, read off the generated file rather than assumed. This line read
 2410 for four passes after the heights it describes had moved, which is why a redraw checks
 it against the file). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 

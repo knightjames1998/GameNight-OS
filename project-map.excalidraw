@@ -79,7 +79,7 @@
    "x": 40,
    "y": 95,
    "width": 480,
-   "height": 2150,
+   "height": 2400,
    "angle": 0,
    "strokeColor": "#15803d",
    "backgroundColor": "#d3f9d8",
@@ -1388,7 +1388,7 @@
    "height": 88,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#c3fae8",
+   "backgroundColor": "#b2f2bb",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -1439,13 +1439,13 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "TOURNAMENT SETUP SCREEN: entrants off the CREW, not the yes list. Guests, a seeding shuffle, and a team entrant is ONE slot (doubles) (NEW)",
+   "text": "TOURNAMENT SETUP SCREEN: entrants off the CREW, not the yes list. Guests, a seeding shuffle, and a team entrant is ONE slot (doubles)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z0i18",
-   "originalText": "TOURNAMENT SETUP SCREEN: entrants off the CREW, not the yes list. Guests, a seeding shuffle, and a team entrant is ONE slot (doubles) (NEW)",
+   "originalText": "TOURNAMENT SETUP SCREEN: entrants off the CREW, not the yes list. Guests, a seeding shuffle, and a team entrant is ONE slot (doubles)",
    "lineHeight": 1.25
   },
   {
@@ -1457,7 +1457,7 @@
    "height": 88,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#c3fae8",
+   "backgroundColor": "#b2f2bb",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -1508,25 +1508,25 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "QUICK PLAY IS ONE ROUTE THAT MINTS CONTEXT AND STOPS: the second entrant screen deleted, /quick a redirect, a parity test pinning it (NEW)",
+   "text": "QUICK PLAY IS ONE ROUTE THAT MINTS CONTEXT AND STOPS: the second entrant screen deleted, /quick a redirect, a parity test pinning it",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z0i19",
-   "originalText": "QUICK PLAY IS ONE ROUTE THAT MINTS CONTEXT AND STOPS: the second entrant screen deleted, /quick a redirect, a parity test pinning it (NEW)",
+   "originalText": "QUICK PLAY IS ONE ROUTE THAT MINTS CONTEXT AND STOPS: the second entrant screen deleted, /quick a redirect, a parity test pinning it",
    "lineHeight": 1.25
   },
   {
-   "id": "zone1",
+   "id": "z0i20",
    "type": "rectangle",
-   "x": 560,
-   "y": 95,
-   "width": 480,
-   "height": 2150,
+   "x": 60,
+   "y": 1377,
+   "width": 440,
+   "height": 106,
    "angle": 0,
-   "strokeColor": "#15803d",
-   "backgroundColor": "#d3f9d8",
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "#c3fae8",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -1540,6 +1540,75 @@
    "seed": 1044,
    "version": 1,
    "versionNonce": 8275355,
+   "isDeleted": false,
+   "boundElements": [
+    {
+     "type": "text",
+     "id": "z0i20-label"
+    }
+   ],
+   "updated": 1,
+   "link": null,
+   "locked": false
+  },
+  {
+   "id": "z0i20-label",
+   "type": "text",
+   "x": 70,
+   "y": 1385,
+   "width": 420,
+   "height": 90,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "transparent",
+   "fillStyle": "solid",
+   "strokeWidth": 1,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "groupIds": [],
+   "frameId": null,
+   "roundness": null,
+   "seed": 1045,
+   "version": 1,
+   "versionNonce": 8283274,
+   "isDeleted": false,
+   "boundElements": null,
+   "updated": 1,
+   "link": null,
+   "locked": false,
+   "text": "A SECOND TOURNAMENT ON THE SAME NIGHT: allowed once every bracket is completed, never two at once. The guard, and the three limit-1 reads that agreed with it (NEW)",
+   "fontSize": 14,
+   "fontFamily": 1,
+   "textAlign": "center",
+   "verticalAlign": "middle",
+   "containerId": "z0i20",
+   "originalText": "A SECOND TOURNAMENT ON THE SAME NIGHT: allowed once every bracket is completed, never two at once. The guard, and the three limit-1 reads that agreed with it (NEW)",
+   "lineHeight": 1.25
+  },
+  {
+   "id": "zone1",
+   "type": "rectangle",
+   "x": 560,
+   "y": 95,
+   "width": 480,
+   "height": 2400,
+   "angle": 0,
+   "strokeColor": "#15803d",
+   "backgroundColor": "#d3f9d8",
+   "fillStyle": "solid",
+   "strokeWidth": 1,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "groupIds": [],
+   "frameId": null,
+   "roundness": {
+    "type": 3
+   },
+   "seed": 1046,
+   "version": 1,
+   "versionNonce": 8291193,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -1564,9 +1633,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1045,
+   "seed": 1047,
    "version": 1,
-   "versionNonce": 8283274,
+   "versionNonce": 8299112,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -1601,9 +1670,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1046,
+   "seed": 1048,
    "version": 1,
-   "versionNonce": 8291193,
+   "versionNonce": 8307031,
    "isDeleted": false,
    "boundElements": [
     {
@@ -1633,9 +1702,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1047,
+   "seed": 1049,
    "version": 1,
-   "versionNonce": 8299112,
+   "versionNonce": 8314950,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -1670,9 +1739,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1048,
+   "seed": 1050,
    "version": 1,
-   "versionNonce": 8307031,
+   "versionNonce": 8322869,
    "isDeleted": false,
    "boundElements": [
     {
@@ -1702,9 +1771,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1049,
+   "seed": 1051,
    "version": 1,
-   "versionNonce": 8314950,
+   "versionNonce": 8330788,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -1739,9 +1808,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1050,
+   "seed": 1052,
    "version": 1,
-   "versionNonce": 8322869,
+   "versionNonce": 8338707,
    "isDeleted": false,
    "boundElements": [
     {
@@ -1771,9 +1840,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1051,
+   "seed": 1053,
    "version": 1,
-   "versionNonce": 8330788,
+   "versionNonce": 8346626,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -1808,9 +1877,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1052,
+   "seed": 1054,
    "version": 1,
-   "versionNonce": 8338707,
+   "versionNonce": 8354545,
    "isDeleted": false,
    "boundElements": [
     {
@@ -1840,9 +1909,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1053,
+   "seed": 1055,
    "version": 1,
-   "versionNonce": 8346626,
+   "versionNonce": 8362464,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -1877,9 +1946,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1054,
+   "seed": 1056,
    "version": 1,
-   "versionNonce": 8354545,
+   "versionNonce": 8370383,
    "isDeleted": false,
    "boundElements": [
     {
@@ -1909,9 +1978,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1055,
+   "seed": 1057,
    "version": 1,
-   "versionNonce": 8362464,
+   "versionNonce": 8378302,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -1946,9 +2015,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1056,
+   "seed": 1058,
    "version": 1,
-   "versionNonce": 8370383,
+   "versionNonce": 8386221,
    "isDeleted": false,
    "boundElements": [
     {
@@ -1978,9 +2047,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1057,
+   "seed": 1059,
    "version": 1,
-   "versionNonce": 8378302,
+   "versionNonce": 8394140,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2015,9 +2084,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1058,
+   "seed": 1060,
    "version": 1,
-   "versionNonce": 8386221,
+   "versionNonce": 8402059,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2047,9 +2116,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1059,
+   "seed": 1061,
    "version": 1,
-   "versionNonce": 8394140,
+   "versionNonce": 8409978,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2084,9 +2153,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1060,
+   "seed": 1062,
    "version": 1,
-   "versionNonce": 8402059,
+   "versionNonce": 8417897,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2116,9 +2185,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1061,
+   "seed": 1063,
    "version": 1,
-   "versionNonce": 8409978,
+   "versionNonce": 8425816,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2153,9 +2222,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1062,
+   "seed": 1064,
    "version": 1,
-   "versionNonce": 8417897,
+   "versionNonce": 8433735,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2185,9 +2254,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1063,
+   "seed": 1065,
    "version": 1,
-   "versionNonce": 8425816,
+   "versionNonce": 8441654,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2222,9 +2291,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1064,
+   "seed": 1066,
    "version": 1,
-   "versionNonce": 8433735,
+   "versionNonce": 8449573,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2254,9 +2323,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1065,
+   "seed": 1067,
    "version": 1,
-   "versionNonce": 8441654,
+   "versionNonce": 8457492,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2291,9 +2360,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1066,
+   "seed": 1068,
    "version": 1,
-   "versionNonce": 8449573,
+   "versionNonce": 8465411,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2323,9 +2392,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1067,
+   "seed": 1069,
    "version": 1,
-   "versionNonce": 8457492,
+   "versionNonce": 8473330,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2360,9 +2429,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1068,
+   "seed": 1070,
    "version": 1,
-   "versionNonce": 8465411,
+   "versionNonce": 8481249,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2392,9 +2461,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1069,
+   "seed": 1071,
    "version": 1,
-   "versionNonce": 8473330,
+   "versionNonce": 8489168,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2429,9 +2498,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1070,
+   "seed": 1072,
    "version": 1,
-   "versionNonce": 8481249,
+   "versionNonce": 8497087,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2461,9 +2530,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1071,
+   "seed": 1073,
    "version": 1,
-   "versionNonce": 8489168,
+   "versionNonce": 8505006,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2498,9 +2567,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1072,
+   "seed": 1074,
    "version": 1,
-   "versionNonce": 8497087,
+   "versionNonce": 8512925,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2530,9 +2599,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1073,
+   "seed": 1075,
    "version": 1,
-   "versionNonce": 8505006,
+   "versionNonce": 8520844,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2567,9 +2636,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1074,
+   "seed": 1076,
    "version": 1,
-   "versionNonce": 8512925,
+   "versionNonce": 8528763,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2599,9 +2668,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1075,
+   "seed": 1077,
    "version": 1,
-   "versionNonce": 8520844,
+   "versionNonce": 8536682,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2636,9 +2705,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1076,
+   "seed": 1078,
    "version": 1,
-   "versionNonce": 8528763,
+   "versionNonce": 8544601,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2668,9 +2737,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1077,
+   "seed": 1079,
    "version": 1,
-   "versionNonce": 8536682,
+   "versionNonce": 8552520,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2705,9 +2774,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1078,
+   "seed": 1080,
    "version": 1,
-   "versionNonce": 8544601,
+   "versionNonce": 8560439,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2737,9 +2806,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1079,
+   "seed": 1081,
    "version": 1,
-   "versionNonce": 8552520,
+   "versionNonce": 8568358,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2774,9 +2843,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1080,
+   "seed": 1082,
    "version": 1,
-   "versionNonce": 8560439,
+   "versionNonce": 8576277,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2806,9 +2875,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1081,
+   "seed": 1083,
    "version": 1,
-   "versionNonce": 8568358,
+   "versionNonce": 8584196,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2843,9 +2912,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1082,
+   "seed": 1084,
    "version": 1,
-   "versionNonce": 8576277,
+   "versionNonce": 8592115,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2875,9 +2944,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1083,
+   "seed": 1085,
    "version": 1,
-   "versionNonce": 8584196,
+   "versionNonce": 8600034,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2912,9 +2981,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1084,
+   "seed": 1086,
    "version": 1,
-   "versionNonce": 8592115,
+   "versionNonce": 8607953,
    "isDeleted": false,
    "boundElements": [
     {
@@ -2944,9 +3013,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1085,
+   "seed": 1087,
    "version": 1,
-   "versionNonce": 8600034,
+   "versionNonce": 8615872,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -2981,9 +3050,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1086,
+   "seed": 1088,
    "version": 1,
-   "versionNonce": 8607953,
+   "versionNonce": 8623791,
    "isDeleted": false,
    "boundElements": [
     {
@@ -3013,9 +3082,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1087,
+   "seed": 1089,
    "version": 1,
-   "versionNonce": 8615872,
+   "versionNonce": 8631710,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -3050,9 +3119,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1088,
+   "seed": 1090,
    "version": 1,
-   "versionNonce": 8623791,
+   "versionNonce": 8639629,
    "isDeleted": false,
    "boundElements": [
     {
@@ -3082,9 +3151,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1089,
+   "seed": 1091,
    "version": 1,
-   "versionNonce": 8631710,
+   "versionNonce": 8647548,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -3119,9 +3188,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1090,
+   "seed": 1092,
    "version": 1,
-   "versionNonce": 8639629,
+   "versionNonce": 8655467,
    "isDeleted": false,
    "boundElements": [
     {
@@ -3151,9 +3220,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1091,
+   "seed": 1093,
    "version": 1,
-   "versionNonce": 8647548,
+   "versionNonce": 8663386,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -3188,9 +3257,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1092,
+   "seed": 1094,
    "version": 1,
-   "versionNonce": 8655467,
+   "versionNonce": 8671305,
    "isDeleted": false,
    "boundElements": [
     {
@@ -3220,9 +3289,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1093,
+   "seed": 1095,
    "version": 1,
-   "versionNonce": 8663386,
+   "versionNonce": 8679224,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -3246,7 +3315,7 @@
    "height": 88,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#c3fae8",
+   "backgroundColor": "#b2f2bb",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -3257,9 +3326,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1094,
+   "seed": 1096,
    "version": 1,
-   "versionNonce": 8671305,
+   "versionNonce": 8687143,
    "isDeleted": false,
    "boundElements": [
     {
@@ -3289,21 +3358,159 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1095,
+   "seed": 1097,
    "version": 1,
-   "versionNonce": 8679224,
+   "versionNonce": 8695062,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "POKER CASH GAME: the fourth pack on the cash engine, a THIRD bank type (no banker, the seats settle each other), and a table that has to add up (NEW)",
+   "text": "POKER CASH GAME: the fourth pack on the cash engine, a THIRD bank type (no banker, the seats settle each other), and a table that has to add up",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
    "containerId": "z1i24",
-   "originalText": "POKER CASH GAME: the fourth pack on the cash engine, a THIRD bank type (no banker, the seats settle each other), and a table that has to add up (NEW)",
+   "originalText": "POKER CASH GAME: the fourth pack on the cash engine, a THIRD bank type (no banker, the seats settle each other), and a table that has to add up",
+   "lineHeight": 1.25
+  },
+  {
+   "id": "z1i25",
+   "type": "rectangle",
+   "x": 580,
+   "y": 1913,
+   "width": 440,
+   "height": 106,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "#c3fae8",
+   "fillStyle": "solid",
+   "strokeWidth": 1,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "groupIds": [],
+   "frameId": null,
+   "roundness": {
+    "type": 3
+   },
+   "seed": 1098,
+   "version": 1,
+   "versionNonce": 8702981,
+   "isDeleted": false,
+   "boundElements": [
+    {
+     "type": "text",
+     "id": "z1i25-label"
+    }
+   ],
+   "updated": 1,
+   "link": null,
+   "locked": false
+  },
+  {
+   "id": "z1i25-label",
+   "type": "text",
+   "x": 590,
+   "y": 1921,
+   "width": 420,
+   "height": 90,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "transparent",
+   "fillStyle": "solid",
+   "strokeWidth": 1,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "groupIds": [],
+   "frameId": null,
+   "roundness": null,
+   "seed": 1099,
+   "version": 1,
+   "versionNonce": 8710900,
+   "isDeleted": false,
+   "boundElements": null,
+   "updated": 1,
+   "link": null,
+   "locked": false,
+   "text": "BEERIO CROWD BAR, READABLE FROM THE COUCH: the bar carries no text (17 of 32 palette colours clear 4.5:1), the split moves to the label row with swatches (NEW)",
+   "fontSize": 14,
+   "fontFamily": 1,
+   "textAlign": "center",
+   "verticalAlign": "middle",
+   "containerId": "z1i25",
+   "originalText": "BEERIO CROWD BAR, READABLE FROM THE COUCH: the bar carries no text (17 of 32 palette colours clear 4.5:1), the split moves to the label row with swatches (NEW)",
+   "lineHeight": 1.25
+  },
+  {
+   "id": "z1i26",
+   "type": "rectangle",
+   "x": 580,
+   "y": 2025,
+   "width": 440,
+   "height": 106,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "#c3fae8",
+   "fillStyle": "solid",
+   "strokeWidth": 1,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "groupIds": [],
+   "frameId": null,
+   "roundness": {
+    "type": 3
+   },
+   "seed": 1100,
+   "version": 1,
+   "versionNonce": 8718819,
+   "isDeleted": false,
+   "boundElements": [
+    {
+     "type": "text",
+     "id": "z1i26-label"
+    }
+   ],
+   "updated": 1,
+   "link": null,
+   "locked": false
+  },
+  {
+   "id": "z1i26-label",
+   "type": "text",
+   "x": 590,
+   "y": 2033,
+   "width": 420,
+   "height": 90,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "transparent",
+   "fillStyle": "solid",
+   "strokeWidth": 1,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "groupIds": [],
+   "frameId": null,
+   "roundness": null,
+   "seed": 1101,
+   "version": 1,
+   "versionNonce": 8726738,
+   "isDeleted": false,
+   "boundElements": null,
+   "updated": 1,
+   "link": null,
+   "locked": false,
+   "text": "TWO HOST DEVICES ON ONE BEERIO ROOM: the host page reads the room back instead of only writing it. A once-on-mount adopt made to repeat (NEW)",
+   "fontSize": 14,
+   "fontFamily": 1,
+   "textAlign": "center",
+   "verticalAlign": "middle",
+   "containerId": "z1i26",
+   "originalText": "TWO HOST DEVICES ON ONE BEERIO ROOM: the host page reads the room back instead of only writing it. A once-on-mount adopt made to repeat (NEW)",
    "lineHeight": 1.25
   },
   {
@@ -3312,7 +3519,7 @@
    "x": 1080,
    "y": 95,
    "width": 480,
-   "height": 2150,
+   "height": 2400,
    "angle": 0,
    "strokeColor": "#b45309",
    "backgroundColor": "#fff3bf",
@@ -3326,9 +3533,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1096,
+   "seed": 1102,
    "version": 1,
-   "versionNonce": 8687143,
+   "versionNonce": 8734657,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -3353,9 +3560,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1097,
+   "seed": 1103,
    "version": 1,
-   "versionNonce": 8695062,
+   "versionNonce": 8742576,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -3390,9 +3597,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1098,
+   "seed": 1104,
    "version": 1,
-   "versionNonce": 8702981,
+   "versionNonce": 8750495,
    "isDeleted": false,
    "boundElements": [
     {
@@ -3422,9 +3629,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1099,
+   "seed": 1105,
    "version": 1,
-   "versionNonce": 8710900,
+   "versionNonce": 8758414,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -3459,9 +3666,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1100,
+   "seed": 1106,
    "version": 1,
-   "versionNonce": 8718819,
+   "versionNonce": 8766333,
    "isDeleted": false,
    "boundElements": [
     {
@@ -3491,9 +3698,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1101,
+   "seed": 1107,
    "version": 1,
-   "versionNonce": 8726738,
+   "versionNonce": 8774252,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -3528,9 +3735,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1102,
+   "seed": 1108,
    "version": 1,
-   "versionNonce": 8734657,
+   "versionNonce": 8782171,
    "isDeleted": false,
    "boundElements": [
     {
@@ -3560,9 +3767,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1103,
+   "seed": 1109,
    "version": 1,
-   "versionNonce": 8742576,
+   "versionNonce": 8790090,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -3597,9 +3804,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1104,
+   "seed": 1110,
    "version": 1,
-   "versionNonce": 8750495,
+   "versionNonce": 8798009,
    "isDeleted": false,
    "boundElements": [
     {
@@ -3629,9 +3836,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1105,
+   "seed": 1111,
    "version": 1,
-   "versionNonce": 8758414,
+   "versionNonce": 8805928,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -3666,9 +3873,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1106,
+   "seed": 1112,
    "version": 1,
-   "versionNonce": 8766333,
+   "versionNonce": 8813847,
    "isDeleted": false,
    "boundElements": [
     {
@@ -3698,9 +3905,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1107,
+   "seed": 1113,
    "version": 1,
-   "versionNonce": 8774252,
+   "versionNonce": 8821766,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -3719,7 +3926,7 @@
    "id": "zone3",
    "type": "rectangle",
    "x": 40,
-   "y": 2270,
+   "y": 2520,
    "width": 480,
    "height": 1200,
    "angle": 0,
@@ -3735,9 +3942,9 @@
    "roundness": {
     "type": 3
    },
-   "seed": 1108,
+   "seed": 1114,
    "version": 1,
-   "versionNonce": 8782171,
+   "versionNonce": 8829685,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -3748,7 +3955,7 @@
    "id": "zone3h",
    "type": "text",
    "x": 60,
-   "y": 2285,
+   "y": 2535,
    "width": 165,
    "height": 27.5,
    "angle": 0,
@@ -3762,9 +3969,9 @@
    "groupIds": [],
    "frameId": null,
    "roundness": null,
-   "seed": 1109,
+   "seed": 1115,
    "version": 1,
-   "versionNonce": 8790090,
+   "versionNonce": 8837604,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
@@ -3783,214 +3990,7 @@
    "id": "z3i0",
    "type": "rectangle",
    "x": 60,
-   "y": 2320,
-   "width": 440,
-   "height": 52,
-   "angle": 0,
-   "strokeColor": "#1e1e1e",
-   "backgroundColor": "#a5d8ff",
-   "fillStyle": "solid",
-   "strokeWidth": 1,
-   "strokeStyle": "solid",
-   "roughness": 1,
-   "opacity": 100,
-   "groupIds": [],
-   "frameId": null,
-   "roundness": {
-    "type": 3
-   },
-   "seed": 1110,
-   "version": 1,
-   "versionNonce": 8798009,
-   "isDeleted": false,
-   "boundElements": [
-    {
-     "type": "text",
-     "id": "z3i0-label"
-    }
-   ],
-   "updated": 1,
-   "link": null,
-   "locked": false
-  },
-  {
-   "id": "z3i0-label",
-   "type": "text",
-   "x": 70,
-   "y": 2328,
-   "width": 420,
-   "height": 36,
-   "angle": 0,
-   "strokeColor": "#1e1e1e",
-   "backgroundColor": "transparent",
-   "fillStyle": "solid",
-   "strokeWidth": 1,
-   "strokeStyle": "solid",
-   "roughness": 1,
-   "opacity": 100,
-   "groupIds": [],
-   "frameId": null,
-   "roundness": null,
-   "seed": 1111,
-   "version": 1,
-   "versionNonce": 8805928,
-   "isDeleted": false,
-   "boundElements": null,
-   "updated": 1,
-   "link": null,
-   "locked": false,
-   "text": "PARTNER STATS: who you win most with (the primitive's missing payoff)",
-   "fontSize": 14,
-   "fontFamily": 1,
-   "textAlign": "center",
-   "verticalAlign": "middle",
-   "containerId": "z3i0",
-   "originalText": "PARTNER STATS: who you win most with (the primitive's missing payoff)",
-   "lineHeight": 1.25
-  },
-  {
-   "id": "z3i1",
-   "type": "rectangle",
-   "x": 60,
-   "y": 2378,
-   "width": 440,
-   "height": 52,
-   "angle": 0,
-   "strokeColor": "#1e1e1e",
-   "backgroundColor": "#a5d8ff",
-   "fillStyle": "solid",
-   "strokeWidth": 1,
-   "strokeStyle": "solid",
-   "roughness": 1,
-   "opacity": 100,
-   "groupIds": [],
-   "frameId": null,
-   "roundness": {
-    "type": 3
-   },
-   "seed": 1112,
-   "version": 1,
-   "versionNonce": 8813847,
-   "isDeleted": false,
-   "boundElements": [
-    {
-     "type": "text",
-     "id": "z3i1-label"
-    }
-   ],
-   "updated": 1,
-   "link": null,
-   "locked": false
-  },
-  {
-   "id": "z3i1-label",
-   "type": "text",
-   "x": 70,
-   "y": 2386,
-   "width": 420,
-   "height": 36,
-   "angle": 0,
-   "strokeColor": "#1e1e1e",
-   "backgroundColor": "transparent",
-   "fillStyle": "solid",
-   "strokeWidth": 1,
-   "strokeStyle": "solid",
-   "roughness": 1,
-   "opacity": 100,
-   "groupIds": [],
-   "frameId": null,
-   "roundness": null,
-   "seed": 1113,
-   "version": 1,
-   "versionNonce": 8821766,
-   "isDeleted": false,
-   "boundElements": null,
-   "updated": 1,
-   "link": null,
-   "locked": false,
-   "text": "Smash 2v2 team battles (the bracket's half of this shipped 08-18)",
-   "fontSize": 14,
-   "fontFamily": 1,
-   "textAlign": "center",
-   "verticalAlign": "middle",
-   "containerId": "z3i1",
-   "originalText": "Smash 2v2 team battles (the bracket's half of this shipped 08-18)",
-   "lineHeight": 1.25
-  },
-  {
-   "id": "z3i2",
-   "type": "rectangle",
-   "x": 60,
-   "y": 2436,
-   "width": 440,
-   "height": 52,
-   "angle": 0,
-   "strokeColor": "#1e1e1e",
-   "backgroundColor": "#a5d8ff",
-   "fillStyle": "solid",
-   "strokeWidth": 1,
-   "strokeStyle": "solid",
-   "roughness": 1,
-   "opacity": 100,
-   "groupIds": [],
-   "frameId": null,
-   "roundness": {
-    "type": 3
-   },
-   "seed": 1114,
-   "version": 1,
-   "versionNonce": 8829685,
-   "isDeleted": false,
-   "boundElements": [
-    {
-     "type": "text",
-     "id": "z3i2-label"
-    }
-   ],
-   "updated": 1,
-   "link": null,
-   "locked": false
-  },
-  {
-   "id": "z3i2-label",
-   "type": "text",
-   "x": 70,
-   "y": 2444,
-   "width": 420,
-   "height": 36,
-   "angle": 0,
-   "strokeColor": "#1e1e1e",
-   "backgroundColor": "transparent",
-   "fillStyle": "solid",
-   "strokeWidth": 1,
-   "strokeStyle": "solid",
-   "roughness": 1,
-   "opacity": 100,
-   "groupIds": [],
-   "frameId": null,
-   "roundness": null,
-   "seed": 1115,
-   "version": 1,
-   "versionNonce": 8837604,
-   "isDeleted": false,
-   "boundElements": null,
-   "updated": 1,
-   "link": null,
-   "locked": false,
-   "text": "Co-op titles (Pandemic): one side, everybody on it, win together",
-   "fontSize": 14,
-   "fontFamily": 1,
-   "textAlign": "center",
-   "verticalAlign": "middle",
-   "containerId": "z3i2",
-   "originalText": "Co-op titles (Pandemic): one side, everybody on it, win together",
-   "lineHeight": 1.25
-  },
-  {
-   "id": "z3i3",
-   "type": "rectangle",
-   "x": 60,
-   "y": 2494,
+   "y": 2570,
    "width": 440,
    "height": 52,
    "angle": 0,
@@ -4013,7 +4013,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z3i3-label"
+     "id": "z3i0-label"
     }
    ],
    "updated": 1,
@@ -4021,10 +4021,10 @@
    "locked": false
   },
   {
-   "id": "z3i3-label",
+   "id": "z3i0-label",
    "type": "text",
    "x": 70,
-   "y": 2502,
+   "y": 2578,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -4046,22 +4046,22 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Revisit the modifier wall's cut at three (the room exists now)",
+   "text": "PARTNER STATS: who you win most with (the primitive's missing payoff)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z3i3",
-   "originalText": "Revisit the modifier wall's cut at three (the room exists now)",
+   "containerId": "z3i0",
+   "originalText": "PARTNER STATS: who you win most with (the primitive's missing payoff)",
    "lineHeight": 1.25
   },
   {
-   "id": "z3i4",
+   "id": "z3i1",
    "type": "rectangle",
    "x": 60,
-   "y": 2552,
+   "y": 2628,
    "width": 440,
-   "height": 40,
+   "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#a5d8ff",
@@ -4082,7 +4082,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z3i4-label"
+     "id": "z3i1-label"
     }
    ],
    "updated": 1,
@@ -4090,12 +4090,12 @@
    "locked": false
   },
   {
-   "id": "z3i4-label",
+   "id": "z3i1-label",
    "type": "text",
    "x": 70,
-   "y": 2560,
+   "y": 2636,
    "width": 420,
-   "height": 24,
+   "height": 36,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -4115,22 +4115,22 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Unified event TV + single active pack",
+   "text": "Smash 2v2 team battles (the bracket's half of this shipped 08-18)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z3i4",
-   "originalText": "Unified event TV + single active pack",
+   "containerId": "z3i1",
+   "originalText": "Smash 2v2 team battles (the bracket's half of this shipped 08-18)",
    "lineHeight": 1.25
   },
   {
-   "id": "z3i5",
+   "id": "z3i2",
    "type": "rectangle",
    "x": 60,
-   "y": 2598,
+   "y": 2686,
    "width": 440,
-   "height": 40,
+   "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#a5d8ff",
@@ -4151,7 +4151,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z3i5-label"
+     "id": "z3i2-label"
     }
    ],
    "updated": 1,
@@ -4159,12 +4159,12 @@
    "locked": false
   },
   {
-   "id": "z3i5-label",
+   "id": "z3i2-label",
    "type": "text",
    "x": 70,
-   "y": 2606,
+   "y": 2694,
    "width": 420,
-   "height": 24,
+   "height": 36,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -4184,22 +4184,22 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Detailed personal stats block on Home",
+   "text": "Co-op titles (Pandemic): one side, everybody on it, win together",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z3i5",
-   "originalText": "Detailed personal stats block on Home",
+   "containerId": "z3i2",
+   "originalText": "Co-op titles (Pandemic): one side, everybody on it, win together",
    "lineHeight": 1.25
   },
   {
-   "id": "z3i6",
+   "id": "z3i3",
    "type": "rectangle",
    "x": 60,
-   "y": 2644,
+   "y": 2744,
    "width": 440,
-   "height": 40,
+   "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#a5d8ff",
@@ -4220,7 +4220,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z3i6-label"
+     "id": "z3i3-label"
     }
    ],
    "updated": 1,
@@ -4228,12 +4228,12 @@
    "locked": false
   },
   {
-   "id": "z3i6-label",
+   "id": "z3i3-label",
    "type": "text",
    "x": 70,
-   "y": 2652,
+   "y": 2752,
    "width": 420,
-   "height": 24,
+   "height": 36,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -4253,22 +4253,22 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Per-route dynamic link previews",
+   "text": "Revisit the modifier wall's cut at three (the room exists now)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z3i6",
-   "originalText": "Per-route dynamic link previews",
+   "containerId": "z3i3",
+   "originalText": "Revisit the modifier wall's cut at three (the room exists now)",
    "lineHeight": 1.25
   },
   {
-   "id": "z3i7",
+   "id": "z3i4",
    "type": "rectangle",
    "x": 60,
-   "y": 2690,
+   "y": 2802,
    "width": 440,
-   "height": 52,
+   "height": 40,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#a5d8ff",
@@ -4289,7 +4289,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z3i7-label"
+     "id": "z3i4-label"
     }
    ],
    "updated": 1,
@@ -4297,12 +4297,12 @@
    "locked": false
   },
   {
-   "id": "z3i7-label",
+   "id": "z3i4-label",
    "type": "text",
    "x": 70,
-   "y": 2698,
+   "y": 2810,
    "width": 420,
-   "height": 36,
+   "height": 24,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -4322,22 +4322,22 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Mario Kart crew-wide racer table; MP minigame H2H",
+   "text": "Unified event TV + single active pack",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z3i7",
-   "originalText": "Mario Kart crew-wide racer table; MP minigame H2H",
+   "containerId": "z3i4",
+   "originalText": "Unified event TV + single active pack",
    "lineHeight": 1.25
   },
   {
-   "id": "z3i8",
+   "id": "z3i5",
    "type": "rectangle",
    "x": 60,
-   "y": 2748,
+   "y": 2848,
    "width": 440,
-   "height": 52,
+   "height": 40,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#a5d8ff",
@@ -4358,7 +4358,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z3i8-label"
+     "id": "z3i5-label"
     }
    ],
    "updated": 1,
@@ -4366,12 +4366,12 @@
    "locked": false
   },
   {
-   "id": "z3i8-label",
+   "id": "z3i5-label",
    "type": "text",
    "x": 70,
-   "y": 2756,
+   "y": 2856,
    "width": 420,
-   "height": 36,
+   "height": 24,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -4391,22 +4391,22 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Smack talk feed; TV stats + predictions ticker",
+   "text": "Detailed personal stats block on Home",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z3i8",
-   "originalText": "Smack talk feed; TV stats + predictions ticker",
+   "containerId": "z3i5",
+   "originalText": "Detailed personal stats block on Home",
    "lineHeight": 1.25
   },
   {
-   "id": "z3i9",
+   "id": "z3i6",
    "type": "rectangle",
    "x": 60,
-   "y": 2806,
+   "y": 2894,
    "width": 440,
-   "height": 52,
+   "height": 40,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "#a5d8ff",
@@ -4427,7 +4427,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z3i9-label"
+     "id": "z3i6-label"
     }
    ],
    "updated": 1,
@@ -4435,12 +4435,12 @@
    "locked": false
   },
   {
-   "id": "z3i9-label",
+   "id": "z3i6-label",
    "type": "text",
    "x": 70,
-   "y": 2814,
+   "y": 2902,
    "width": 420,
-   "height": 36,
+   "height": 24,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -4460,20 +4460,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Cross-pack night net (blackjack + poker on one night)",
+   "text": "Per-route dynamic link previews",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z3i9",
-   "originalText": "Cross-pack night net (blackjack + poker on one night)",
+   "containerId": "z3i6",
+   "originalText": "Per-route dynamic link previews",
    "lineHeight": 1.25
   },
   {
-   "id": "z3i10",
+   "id": "z3i7",
    "type": "rectangle",
    "x": 60,
-   "y": 2864,
+   "y": 2940,
    "width": 440,
    "height": 52,
    "angle": 0,
@@ -4496,7 +4496,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z3i10-label"
+     "id": "z3i7-label"
     }
    ],
    "updated": 1,
@@ -4504,10 +4504,10 @@
    "locked": false
   },
   {
-   "id": "z3i10-label",
+   "id": "z3i7-label",
    "type": "text",
    "x": 70,
-   "y": 2872,
+   "y": 2948,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -4529,25 +4529,25 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Seasons; round robin; availability polling",
+   "text": "Mario Kart crew-wide racer table; MP minigame H2H",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z3i10",
-   "originalText": "Seasons; round robin; availability polling",
+   "containerId": "z3i7",
+   "originalText": "Mario Kart crew-wide racer table; MP minigame H2H",
    "lineHeight": 1.25
   },
   {
-   "id": "zone4",
+   "id": "z3i8",
    "type": "rectangle",
-   "x": 560,
-   "y": 2270,
-   "width": 480,
-   "height": 1200,
+   "x": 60,
+   "y": 2998,
+   "width": 440,
+   "height": 52,
    "angle": 0,
-   "strokeColor": "#b91c1c",
-   "backgroundColor": "#ffc9c9",
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "#a5d8ff",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -4562,20 +4562,25 @@
    "version": 1,
    "versionNonce": 8972227,
    "isDeleted": false,
-   "boundElements": null,
+   "boundElements": [
+    {
+     "type": "text",
+     "id": "z3i8-label"
+    }
+   ],
    "updated": 1,
    "link": null,
    "locked": false
   },
   {
-   "id": "zone4h",
+   "id": "z3i8-label",
    "type": "text",
-   "x": 580,
-   "y": 2285,
-   "width": 99,
-   "height": 27.5,
+   "x": 70,
+   "y": 3006,
+   "width": 420,
+   "height": 36,
    "angle": 0,
-   "strokeColor": "#b91c1c",
+   "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
    "fillStyle": "solid",
    "strokeWidth": 1,
@@ -4593,25 +4598,25 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "BUG FIXES",
-   "fontSize": 22,
+   "text": "Smack talk feed; TV stats + predictions ticker",
+   "fontSize": 14,
    "fontFamily": 1,
-   "textAlign": "left",
-   "verticalAlign": "top",
-   "containerId": null,
-   "originalText": "BUG FIXES",
+   "textAlign": "center",
+   "verticalAlign": "middle",
+   "containerId": "z3i8",
+   "originalText": "Smack talk feed; TV stats + predictions ticker",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i0",
+   "id": "z3i9",
    "type": "rectangle",
-   "x": 580,
-   "y": 2320,
+   "x": 60,
+   "y": 3056,
    "width": 440,
    "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#ffc9c9",
+   "backgroundColor": "#a5d8ff",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -4629,7 +4634,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i0-label"
+     "id": "z3i9-label"
     }
    ],
    "updated": 1,
@@ -4637,10 +4642,10 @@
    "locked": false
   },
   {
-   "id": "z4i0-label",
+   "id": "z3i9-label",
    "type": "text",
-   "x": 590,
-   "y": 2328,
+   "x": 70,
+   "y": 3064,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -4662,25 +4667,25 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "OPEN: the bracketed TV does not fit 1080p at SIXTEEN PAIRS. Measured: it is the alive board, not the cards",
+   "text": "Cross-pack night net (blackjack + poker on one night)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i0",
-   "originalText": "OPEN: the bracketed TV does not fit 1080p at SIXTEEN PAIRS. Measured: it is the alive board, not the cards",
+   "containerId": "z3i9",
+   "originalText": "Cross-pack night net (blackjack + poker on one night)",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i1",
+   "id": "z3i10",
    "type": "rectangle",
-   "x": 580,
-   "y": 2378,
+   "x": 60,
+   "y": 3114,
    "width": 440,
    "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#ffc9c9",
+   "backgroundColor": "#a5d8ff",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -4698,7 +4703,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i1-label"
+     "id": "z3i10-label"
     }
    ],
    "updated": 1,
@@ -4706,10 +4711,10 @@
    "locked": false
   },
   {
-   "id": "z4i1-label",
+   "id": "z3i10-label",
    "type": "text",
-   "x": 590,
-   "y": 2386,
+   "x": 70,
+   "y": 3122,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -4731,24 +4736,24 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "OPEN: Mario Kart's TV does not fit 1080p past EIGHT racers, and was never in the fit harness",
+   "text": "Seasons; round robin; availability polling",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i1",
-   "originalText": "OPEN: Mario Kart's TV does not fit 1080p past EIGHT racers, and was never in the fit harness",
+   "containerId": "z3i10",
+   "originalText": "Seasons; round robin; availability polling",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i2",
+   "id": "zone4",
    "type": "rectangle",
-   "x": 580,
-   "y": 2436,
-   "width": 440,
-   "height": 52,
+   "x": 560,
+   "y": 2520,
+   "width": 480,
+   "height": 1200,
    "angle": 0,
-   "strokeColor": "#1e1e1e",
+   "strokeColor": "#b91c1c",
    "backgroundColor": "#ffc9c9",
    "fillStyle": "solid",
    "strokeWidth": 1,
@@ -4764,25 +4769,20 @@
    "version": 1,
    "versionNonce": 9019741,
    "isDeleted": false,
-   "boundElements": [
-    {
-     "type": "text",
-     "id": "z4i2-label"
-    }
-   ],
+   "boundElements": null,
    "updated": 1,
    "link": null,
    "locked": false
   },
   {
-   "id": "z4i2-label",
+   "id": "zone4h",
    "type": "text",
-   "x": 590,
-   "y": 2444,
-   "width": 420,
-   "height": 36,
+   "x": 580,
+   "y": 2535,
+   "width": 99,
+   "height": 27.5,
    "angle": 0,
-   "strokeColor": "#1e1e1e",
+   "strokeColor": "#b91c1c",
    "backgroundColor": "transparent",
    "fillStyle": "solid",
    "strokeWidth": 1,
@@ -4800,20 +4800,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "OPEN: Casino Run's TV has the same back-button blind spot the money board had",
-   "fontSize": 14,
+   "text": "BUG FIXES",
+   "fontSize": 22,
    "fontFamily": 1,
-   "textAlign": "center",
-   "verticalAlign": "middle",
-   "containerId": "z4i2",
-   "originalText": "OPEN: Casino Run's TV has the same back-button blind spot the money board had",
+   "textAlign": "left",
+   "verticalAlign": "top",
+   "containerId": null,
+   "originalText": "BUG FIXES",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i3",
+   "id": "z4i0",
    "type": "rectangle",
    "x": 580,
-   "y": 2494,
+   "y": 2570,
    "width": 440,
    "height": 52,
    "angle": 0,
@@ -4836,7 +4836,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i3-label"
+     "id": "z4i0-label"
     }
    ],
    "updated": 1,
@@ -4844,10 +4844,10 @@
    "locked": false
   },
   {
-   "id": "z4i3-label",
+   "id": "z4i0-label",
    "type": "text",
    "x": 590,
-   "y": 2502,
+   "y": 2578,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -4869,20 +4869,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "OPEN: Ping Pong's TV does not fit 1080p past SIX players (pre-existing)",
+   "text": "OPEN: a late write to an ABANDONED session steals the TV off the game being played (touch-recency's cost)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i3",
-   "originalText": "OPEN: Ping Pong's TV does not fit 1080p past SIX players (pre-existing)",
+   "containerId": "z4i0",
+   "originalText": "OPEN: a late write to an ABANDONED session steals the TV off the game being played (touch-recency's cost)",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i4",
+   "id": "z4i1",
    "type": "rectangle",
    "x": 580,
-   "y": 2552,
+   "y": 2628,
    "width": 440,
    "height": 52,
    "angle": 0,
@@ -4905,7 +4905,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i4-label"
+     "id": "z4i1-label"
     }
    ],
    "updated": 1,
@@ -4913,10 +4913,10 @@
    "locked": false
   },
   {
-   "id": "z4i4-label",
+   "id": "z4i1-label",
    "type": "text",
    "x": 590,
-   "y": 2560,
+   "y": 2636,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -4938,25 +4938,25 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "OPEN: Board Game / Card Table TV is 156px over 1080p at TWELVE players",
+   "text": "OPEN: Beerio's GRAND PRIX TV is 1206px over 1080p at twelve racers, and was never in the fit harness",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i4",
-   "originalText": "OPEN: Board Game / Card Table TV is 156px over 1080p at TWELVE players",
+   "containerId": "z4i1",
+   "originalText": "OPEN: Beerio's GRAND PRIX TV is 1206px over 1080p at twelve racers, and was never in the fit harness",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i5",
+   "id": "z4i2",
    "type": "rectangle",
    "x": 580,
-   "y": 2610,
+   "y": 2686,
    "width": 440,
    "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#b2f2bb",
+   "backgroundColor": "#ffc9c9",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -4974,7 +4974,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i5-label"
+     "id": "z4i2-label"
     }
    ],
    "updated": 1,
@@ -4982,10 +4982,10 @@
    "locked": false
   },
   {
-   "id": "z4i5-label",
+   "id": "z4i2-label",
    "type": "text",
    "x": 590,
-   "y": 2618,
+   "y": 2694,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -5007,25 +5007,25 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "FIXED: the felt REACHES the packs. Mechanism plus Board Game; eight conversions are stage 4, not a bug",
+   "text": "OPEN: the bracketed TV does not fit 1080p at SIXTEEN PAIRS. Measured: it is the alive board, not the cards",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i5",
-   "originalText": "FIXED: the felt REACHES the packs. Mechanism plus Board Game; eight conversions are stage 4, not a bug",
+   "containerId": "z4i2",
+   "originalText": "OPEN: the bracketed TV does not fit 1080p at SIXTEEN PAIRS. Measured: it is the alive board, not the cards",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i6",
+   "id": "z4i3",
    "type": "rectangle",
    "x": 580,
-   "y": 2668,
+   "y": 2744,
    "width": 440,
    "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#b2f2bb",
+   "backgroundColor": "#ffc9c9",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -5043,7 +5043,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i6-label"
+     "id": "z4i3-label"
     }
    ],
    "updated": 1,
@@ -5051,10 +5051,10 @@
    "locked": false
   },
   {
-   "id": "z4i6-label",
+   "id": "z4i3-label",
    "type": "text",
    "x": 590,
-   "y": 2676,
+   "y": 2752,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -5076,25 +5076,25 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "FIXED 08-15: neither bracketed TV fitted 1080p, and neither ever had. Density ladder per screen",
+   "text": "OPEN: Mario Kart's TV does not fit 1080p past EIGHT racers, and was never in the fit harness",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i6",
-   "originalText": "FIXED 08-15: neither bracketed TV fitted 1080p, and neither ever had. Density ladder per screen",
+   "containerId": "z4i3",
+   "originalText": "OPEN: Mario Kart's TV does not fit 1080p past EIGHT racers, and was never in the fit harness",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i7",
+   "id": "z4i4",
    "type": "rectangle",
    "x": 580,
-   "y": 2726,
+   "y": 2802,
    "width": 440,
    "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#b2f2bb",
+   "backgroundColor": "#ffc9c9",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -5112,7 +5112,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i7-label"
+     "id": "z4i4-label"
     }
    ],
    "updated": 1,
@@ -5120,10 +5120,10 @@
    "locked": false
   },
   {
-   "id": "z4i7-label",
+   "id": "z4i4-label",
    "type": "text",
    "x": 590,
-   "y": 2734,
+   "y": 2810,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -5145,25 +5145,25 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "FIXED 08-17: Poker's TV was 73px over 1080p at eight seats, on the day the pack shipped",
+   "text": "OPEN: Casino Run's TV has the same back-button blind spot the money board had",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i7",
-   "originalText": "FIXED 08-17: Poker's TV was 73px over 1080p at eight seats, on the day the pack shipped",
+   "containerId": "z4i4",
+   "originalText": "OPEN: Casino Run's TV has the same back-button blind spot the money board had",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i8",
+   "id": "z4i5",
    "type": "rectangle",
    "x": 580,
-   "y": 2784,
+   "y": 2860,
    "width": 440,
    "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#fff3bf",
+   "backgroundColor": "#ffc9c9",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -5181,7 +5181,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i8-label"
+     "id": "z4i5-label"
     }
    ],
    "updated": 1,
@@ -5189,10 +5189,10 @@
    "locked": false
   },
   {
-   "id": "z4i8-label",
+   "id": "z4i5-label",
    "type": "text",
    "x": 590,
-   "y": 2792,
+   "y": 2868,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -5214,25 +5214,25 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Watch: cold delivery to new recipients while domain warms",
+   "text": "OPEN: Ping Pong's TV does not fit 1080p past SIX players (pre-existing)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i8",
-   "originalText": "Watch: cold delivery to new recipients while domain warms",
+   "containerId": "z4i5",
+   "originalText": "OPEN: Ping Pong's TV does not fit 1080p past SIX players (pre-existing)",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i9",
+   "id": "z4i6",
    "type": "rectangle",
    "x": 580,
-   "y": 2842,
+   "y": 2918,
    "width": 440,
    "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#fff3bf",
+   "backgroundColor": "#ffc9c9",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -5250,7 +5250,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i9-label"
+     "id": "z4i6-label"
     }
    ],
    "updated": 1,
@@ -5258,10 +5258,10 @@
    "locked": false
   },
   {
-   "id": "z4i9-label",
+   "id": "z4i6-label",
    "type": "text",
    "x": 590,
-   "y": 2850,
+   "y": 2926,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -5283,20 +5283,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Watch: countLastPlace IN list grows without bound",
+   "text": "OPEN: Board Game / Card Table TV is 156px over 1080p at TWELVE players",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i9",
-   "originalText": "Watch: countLastPlace IN list grows without bound",
+   "containerId": "z4i6",
+   "originalText": "OPEN: Board Game / Card Table TV is 156px over 1080p at TWELVE players",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i10",
+   "id": "z4i7",
    "type": "rectangle",
    "x": 580,
-   "y": 2900,
+   "y": 2976,
    "width": 440,
    "height": 52,
    "angle": 0,
@@ -5319,7 +5319,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i10-label"
+     "id": "z4i7-label"
     }
    ],
    "updated": 1,
@@ -5327,10 +5327,10 @@
    "locked": false
   },
   {
-   "id": "z4i10-label",
+   "id": "z4i7-label",
    "type": "text",
    "x": 590,
-   "y": 2908,
+   "y": 2984,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -5352,20 +5352,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Watch: ws hub broadcasts everything to everyone (no rooms)",
+   "text": "Watch: cold delivery to new recipients while domain warms",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i10",
-   "originalText": "Watch: ws hub broadcasts everything to everyone (no rooms)",
+   "containerId": "z4i7",
+   "originalText": "Watch: cold delivery to new recipients while domain warms",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i11",
+   "id": "z4i8",
    "type": "rectangle",
    "x": 580,
-   "y": 2958,
+   "y": 3034,
    "width": 440,
    "height": 52,
    "angle": 0,
@@ -5388,7 +5388,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i11-label"
+     "id": "z4i8-label"
     }
    ],
    "updated": 1,
@@ -5396,10 +5396,10 @@
    "locked": false
   },
   {
-   "id": "z4i11-label",
+   "id": "z4i8-label",
    "type": "text",
    "x": 590,
-   "y": 2966,
+   "y": 3042,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -5421,20 +5421,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Watch: drizzle push can no-op in CI, check build log",
+   "text": "Watch: countLastPlace IN list grows without bound",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i11",
-   "originalText": "Watch: drizzle push can no-op in CI, check build log",
+   "containerId": "z4i8",
+   "originalText": "Watch: countLastPlace IN list grows without bound",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i12",
+   "id": "z4i9",
    "type": "rectangle",
    "x": 580,
-   "y": 3016,
+   "y": 3092,
    "width": 440,
    "height": 52,
    "angle": 0,
@@ -5457,7 +5457,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i12-label"
+     "id": "z4i9-label"
     }
    ],
    "updated": 1,
@@ -5465,10 +5465,10 @@
    "locked": false
   },
   {
-   "id": "z4i12-label",
+   "id": "z4i9-label",
    "type": "text",
    "x": 590,
-   "y": 3024,
+   "y": 3100,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -5490,20 +5490,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Watch: color-mix's opaque fallback on pre-2023 browsers (shell-wide since stage 1)",
+   "text": "Watch: ws hub broadcasts everything to everyone (no rooms)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i12",
-   "originalText": "Watch: color-mix's opaque fallback on pre-2023 browsers (shell-wide since stage 1)",
+   "containerId": "z4i9",
+   "originalText": "Watch: ws hub broadcasts everything to everyone (no rooms)",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i13",
+   "id": "z4i10",
    "type": "rectangle",
    "x": 580,
-   "y": 3074,
+   "y": 3150,
    "width": 440,
    "height": 52,
    "angle": 0,
@@ -5526,7 +5526,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i13-label"
+     "id": "z4i10-label"
     }
    ],
    "updated": 1,
@@ -5534,10 +5534,10 @@
    "locked": false
   },
   {
-   "id": "z4i13-label",
+   "id": "z4i10-label",
    "type": "text",
    "x": 590,
-   "y": 3082,
+   "y": 3158,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -5559,20 +5559,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Watch: the canvas share cards follow NO theme (16 hardcoded colours, JS not CSS)",
+   "text": "Watch: drizzle push can no-op in CI, check build log",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i13",
-   "originalText": "Watch: the canvas share cards follow NO theme (16 hardcoded colours, JS not CSS)",
+   "containerId": "z4i10",
+   "originalText": "Watch: drizzle push can no-op in CI, check build log",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i14",
+   "id": "z4i11",
    "type": "rectangle",
    "x": 580,
-   "y": 3132,
+   "y": 3208,
    "width": 440,
    "height": 52,
    "angle": 0,
@@ -5595,7 +5595,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i14-label"
+     "id": "z4i11-label"
     }
    ],
    "updated": 1,
@@ -5603,10 +5603,10 @@
    "locked": false
   },
   {
-   "id": "z4i14-label",
+   "id": "z4i11-label",
    "type": "text",
    "x": 590,
-   "y": 3140,
+   "y": 3216,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -5628,20 +5628,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Watch: the sweep tracks no BOX-MODEL length, so padding and border-width move unseen",
+   "text": "Watch: color-mix's opaque fallback on pre-2023 browsers (shell-wide since stage 1)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i14",
-   "originalText": "Watch: the sweep tracks no BOX-MODEL length, so padding and border-width move unseen",
+   "containerId": "z4i11",
+   "originalText": "Watch: color-mix's opaque fallback on pre-2023 browsers (shell-wide since stage 1)",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i15",
+   "id": "z4i12",
    "type": "rectangle",
    "x": 580,
-   "y": 3190,
+   "y": 3266,
    "width": 440,
    "height": 52,
    "angle": 0,
@@ -5664,7 +5664,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i15-label"
+     "id": "z4i12-label"
     }
    ],
    "updated": 1,
@@ -5672,10 +5672,10 @@
    "locked": false
   },
   {
-   "id": "z4i15-label",
+   "id": "z4i12-label",
    "type": "text",
    "x": 590,
-   "y": 3198,
+   "y": 3274,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -5697,20 +5697,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Watch: judge a tiling texture at the PAINTED size; felt-variance scored a lattice higher",
+   "text": "Watch: the canvas share cards follow NO theme (16 hardcoded colours, JS not CSS)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i15",
-   "originalText": "Watch: judge a tiling texture at the PAINTED size; felt-variance scored a lattice higher",
+   "containerId": "z4i12",
+   "originalText": "Watch: the canvas share cards follow NO theme (16 hardcoded colours, JS not CSS)",
    "lineHeight": 1.25
   },
   {
-   "id": "z4i16",
+   "id": "z4i13",
    "type": "rectangle",
    "x": 580,
-   "y": 3248,
+   "y": 3324,
    "width": 440,
    "height": 52,
    "angle": 0,
@@ -5733,7 +5733,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z4i16-label"
+     "id": "z4i13-label"
     }
    ],
    "updated": 1,
@@ -5741,10 +5741,10 @@
    "locked": false
   },
   {
-   "id": "z4i16-label",
+   "id": "z4i13-label",
    "type": "text",
    "x": 590,
-   "y": 3256,
+   "y": 3332,
    "width": 420,
    "height": 36,
    "angle": 0,
@@ -5766,25 +5766,25 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Watch: Bevan overflows the stats tile on .gn-h2 at 390px (display face needs a width budget)",
+   "text": "Watch: the sweep tracks no BOX-MODEL length, so padding and border-width move unseen",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z4i16",
-   "originalText": "Watch: Bevan overflows the stats tile on .gn-h2 at 390px (display face needs a width budget)",
+   "containerId": "z4i13",
+   "originalText": "Watch: the sweep tracks no BOX-MODEL length, so padding and border-width move unseen",
    "lineHeight": 1.25
   },
   {
-   "id": "zone5",
+   "id": "z4i14",
    "type": "rectangle",
-   "x": 1080,
-   "y": 2270,
-   "width": 480,
-   "height": 1200,
+   "x": 580,
+   "y": 3382,
+   "width": 440,
+   "height": 52,
    "angle": 0,
-   "strokeColor": "#6d28d9",
-   "backgroundColor": "#e5dbff",
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "#fff3bf",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -5799,20 +5799,25 @@
    "version": 1,
    "versionNonce": 9257311,
    "isDeleted": false,
-   "boundElements": null,
+   "boundElements": [
+    {
+     "type": "text",
+     "id": "z4i14-label"
+    }
+   ],
    "updated": 1,
    "link": null,
    "locked": false
   },
   {
-   "id": "zone5h",
+   "id": "z4i14-label",
    "type": "text",
-   "x": 1100,
-   "y": 2285,
-   "width": 242,
-   "height": 27.5,
+   "x": 590,
+   "y": 3390,
+   "width": 420,
+   "height": 36,
    "angle": 0,
-   "strokeColor": "#6d28d9",
+   "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
    "fillStyle": "solid",
    "strokeWidth": 1,
@@ -5830,25 +5835,25 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "IDEAS — NOT SOLIDIFIED",
-   "fontSize": 22,
+   "text": "Watch: judge a tiling texture at the PAINTED size; felt-variance scored a lattice higher",
+   "fontSize": 14,
    "fontFamily": 1,
-   "textAlign": "left",
-   "verticalAlign": "top",
-   "containerId": null,
-   "originalText": "IDEAS — NOT SOLIDIFIED",
+   "textAlign": "center",
+   "verticalAlign": "middle",
+   "containerId": "z4i14",
+   "originalText": "Watch: judge a tiling texture at the PAINTED size; felt-variance scored a lattice higher",
    "lineHeight": 1.25
   },
   {
-   "id": "z5i0",
+   "id": "z4i15",
    "type": "rectangle",
-   "x": 1100,
-   "y": 2320,
+   "x": 580,
+   "y": 3440,
    "width": 440,
-   "height": 40,
+   "height": 52,
    "angle": 0,
    "strokeColor": "#1e1e1e",
-   "backgroundColor": "#d0bfff",
+   "backgroundColor": "#fff3bf",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -5866,7 +5871,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z5i0-label"
+     "id": "z4i15-label"
     }
    ],
    "updated": 1,
@@ -5874,12 +5879,12 @@
    "locked": false
   },
   {
-   "id": "z5i0-label",
+   "id": "z4i15-label",
    "type": "text",
-   "x": 1110,
-   "y": 2328,
+   "x": 590,
+   "y": 3448,
    "width": 420,
-   "height": 24,
+   "height": 36,
    "angle": 0,
    "strokeColor": "#1e1e1e",
    "backgroundColor": "transparent",
@@ -5899,25 +5904,25 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Draft night mode (snake drafts, TV board)",
+   "text": "Watch: Bevan overflows the stats tile on .gn-h2 at 390px (display face needs a width budget)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z5i0",
-   "originalText": "Draft night mode (snake drafts, TV board)",
+   "containerId": "z4i15",
+   "originalText": "Watch: Bevan overflows the stats tile on .gn-h2 at 390px (display face needs a width budget)",
    "lineHeight": 1.25
   },
   {
-   "id": "z5i1",
+   "id": "zone5",
    "type": "rectangle",
-   "x": 1100,
-   "y": 2366,
-   "width": 440,
-   "height": 40,
+   "x": 1080,
+   "y": 2520,
+   "width": 480,
+   "height": 1200,
    "angle": 0,
-   "strokeColor": "#1e1e1e",
-   "backgroundColor": "#d0bfff",
+   "strokeColor": "#6d28d9",
+   "backgroundColor": "#e5dbff",
    "fillStyle": "solid",
    "strokeWidth": 1,
    "strokeStyle": "solid",
@@ -5932,25 +5937,20 @@
    "version": 1,
    "versionNonce": 9288987,
    "isDeleted": false,
-   "boundElements": [
-    {
-     "type": "text",
-     "id": "z5i1-label"
-    }
-   ],
+   "boundElements": null,
    "updated": 1,
    "link": null,
    "locked": false
   },
   {
-   "id": "z5i1-label",
+   "id": "zone5h",
    "type": "text",
-   "x": 1110,
-   "y": 2374,
-   "width": 420,
-   "height": 24,
+   "x": 1100,
+   "y": 2535,
+   "width": 242,
+   "height": 27.5,
    "angle": 0,
-   "strokeColor": "#1e1e1e",
+   "strokeColor": "#6d28d9",
    "backgroundColor": "transparent",
    "fillStyle": "solid",
    "strokeWidth": 1,
@@ -5968,20 +5968,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Wager ledger (money allowed since 07-29)",
-   "fontSize": 14,
+   "text": "IDEAS — NOT SOLIDIFIED",
+   "fontSize": 22,
    "fontFamily": 1,
-   "textAlign": "center",
-   "verticalAlign": "middle",
-   "containerId": "z5i1",
-   "originalText": "Wager ledger (money allowed since 07-29)",
+   "textAlign": "left",
+   "verticalAlign": "top",
+   "containerId": null,
+   "originalText": "IDEAS — NOT SOLIDIFIED",
    "lineHeight": 1.25
   },
   {
-   "id": "z5i2",
+   "id": "z5i0",
    "type": "rectangle",
    "x": 1100,
-   "y": 2412,
+   "y": 2570,
    "width": 440,
    "height": 40,
    "angle": 0,
@@ -6004,7 +6004,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z5i2-label"
+     "id": "z5i0-label"
     }
    ],
    "updated": 1,
@@ -6012,10 +6012,10 @@
    "locked": false
   },
   {
-   "id": "z5i2-label",
+   "id": "z5i0-label",
    "type": "text",
    "x": 1110,
-   "y": 2420,
+   "y": 2578,
    "width": 420,
    "height": 24,
    "angle": 0,
@@ -6037,20 +6037,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Achievements + custom crew badges",
+   "text": "Draft night mode (snake drafts, TV board)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z5i2",
-   "originalText": "Achievements + custom crew badges",
+   "containerId": "z5i0",
+   "originalText": "Draft night mode (snake drafts, TV board)",
    "lineHeight": 1.25
   },
   {
-   "id": "z5i3",
+   "id": "z5i1",
    "type": "rectangle",
    "x": 1100,
-   "y": 2458,
+   "y": 2616,
    "width": 440,
    "height": 40,
    "angle": 0,
@@ -6073,7 +6073,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z5i3-label"
+     "id": "z5i1-label"
     }
    ],
    "updated": 1,
@@ -6081,10 +6081,10 @@
    "locked": false
   },
   {
-   "id": "z5i3-label",
+   "id": "z5i1-label",
    "type": "text",
    "x": 1110,
-   "y": 2466,
+   "y": 2624,
    "width": 420,
    "height": 24,
    "angle": 0,
@@ -6106,20 +6106,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Beer pong pack (the team primitive exists now)",
+   "text": "Wager ledger (money allowed since 07-29)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z5i3",
-   "originalText": "Beer pong pack (the team primitive exists now)",
+   "containerId": "z5i1",
+   "originalText": "Wager ledger (money allowed since 07-29)",
    "lineHeight": 1.25
   },
   {
-   "id": "z5i4",
+   "id": "z5i2",
    "type": "rectangle",
    "x": 1100,
-   "y": 2504,
+   "y": 2662,
    "width": 440,
    "height": 40,
    "angle": 0,
@@ -6142,7 +6142,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z5i4-label"
+     "id": "z5i2-label"
     }
    ],
    "updated": 1,
@@ -6150,10 +6150,10 @@
    "locked": false
   },
   {
-   "id": "z5i4-label",
+   "id": "z5i2-label",
    "type": "text",
    "x": 1110,
-   "y": 2512,
+   "y": 2670,
    "width": 420,
    "height": 24,
    "angle": 0,
@@ -6175,20 +6175,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Pool pack (rides ping pong's KOTH engine)",
+   "text": "Achievements + custom crew badges",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z5i4",
-   "originalText": "Pool pack (rides ping pong's KOTH engine)",
+   "containerId": "z5i2",
+   "originalText": "Achievements + custom crew badges",
    "lineHeight": 1.25
   },
   {
-   "id": "z5i5",
+   "id": "z5i3",
    "type": "rectangle",
    "x": 1100,
-   "y": 2550,
+   "y": 2708,
    "width": 440,
    "height": 40,
    "angle": 0,
@@ -6211,7 +6211,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z5i5-label"
+     "id": "z5i3-label"
     }
    ],
    "updated": 1,
@@ -6219,10 +6219,10 @@
    "locked": false
   },
   {
-   "id": "z5i5-label",
+   "id": "z5i3-label",
    "type": "text",
    "x": 1110,
-   "y": 2558,
+   "y": 2716,
    "width": 420,
    "height": 24,
    "angle": 0,
@@ -6244,20 +6244,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Cornhole and darts (poker is committed now)",
+   "text": "Beer pong pack (the team primitive exists now)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z5i5",
-   "originalText": "Cornhole and darts (poker is committed now)",
+   "containerId": "z5i3",
+   "originalText": "Beer pong pack (the team primitive exists now)",
    "lineHeight": 1.25
   },
   {
-   "id": "z5i6",
+   "id": "z5i4",
    "type": "rectangle",
    "x": 1100,
-   "y": 2596,
+   "y": 2754,
    "width": 440,
    "height": 40,
    "angle": 0,
@@ -6280,7 +6280,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z5i6-label"
+     "id": "z5i4-label"
     }
    ],
    "updated": 1,
@@ -6288,10 +6288,10 @@
    "locked": false
   },
   {
-   "id": "z5i6-label",
+   "id": "z5i4-label",
    "type": "text",
    "x": 1110,
-   "y": 2604,
+   "y": 2762,
    "width": 420,
    "height": 24,
    "angle": 0,
@@ -6313,20 +6313,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Capacitor native wrapper (push notifs)",
+   "text": "Pool pack (rides ping pong's KOTH engine)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z5i6",
-   "originalText": "Capacitor native wrapper (push notifs)",
+   "containerId": "z5i4",
+   "originalText": "Pool pack (rides ping pong's KOTH engine)",
    "lineHeight": 1.25
   },
   {
-   "id": "z5i7",
+   "id": "z5i5",
    "type": "rectangle",
    "x": 1100,
-   "y": 2642,
+   "y": 2800,
    "width": 440,
    "height": 40,
    "angle": 0,
@@ -6349,7 +6349,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z5i7-label"
+     "id": "z5i5-label"
     }
    ],
    "updated": 1,
@@ -6357,10 +6357,10 @@
    "locked": false
   },
   {
-   "id": "z5i7-label",
+   "id": "z5i5-label",
    "type": "text",
    "x": 1110,
-   "y": 2650,
+   "y": 2808,
    "width": 420,
    "height": 24,
    "angle": 0,
@@ -6382,20 +6382,20 @@
    "updated": 1,
    "link": null,
    "locked": false,
-   "text": "Offline score entry sync (PWA)",
+   "text": "Cornhole and darts (poker is committed now)",
    "fontSize": 14,
    "fontFamily": 1,
    "textAlign": "center",
    "verticalAlign": "middle",
-   "containerId": "z5i7",
-   "originalText": "Offline score entry sync (PWA)",
+   "containerId": "z5i5",
+   "originalText": "Cornhole and darts (poker is committed now)",
    "lineHeight": 1.25
   },
   {
-   "id": "z5i8",
+   "id": "z5i6",
    "type": "rectangle",
    "x": 1100,
-   "y": 2688,
+   "y": 2846,
    "width": 440,
    "height": 40,
    "angle": 0,
@@ -6418,7 +6418,7 @@
    "boundElements": [
     {
      "type": "text",
-     "id": "z5i8-label"
+     "id": "z5i6-label"
     }
    ],
    "updated": 1,
@@ -6426,10 +6426,10 @@
    "locked": false
   },
   {
-   "id": "z5i8-label",
+   "id": "z5i6-label",
    "type": "text",
    "x": 1110,
-   "y": 2696,
+   "y": 2854,
    "width": 420,
    "height": 24,
    "angle": 0,
@@ -6446,6 +6446,144 @@
    "seed": 1187,
    "version": 1,
    "versionNonce": 9407772,
+   "isDeleted": false,
+   "boundElements": null,
+   "updated": 1,
+   "link": null,
+   "locked": false,
+   "text": "Capacitor native wrapper (push notifs)",
+   "fontSize": 14,
+   "fontFamily": 1,
+   "textAlign": "center",
+   "verticalAlign": "middle",
+   "containerId": "z5i6",
+   "originalText": "Capacitor native wrapper (push notifs)",
+   "lineHeight": 1.25
+  },
+  {
+   "id": "z5i7",
+   "type": "rectangle",
+   "x": 1100,
+   "y": 2892,
+   "width": 440,
+   "height": 40,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "#d0bfff",
+   "fillStyle": "solid",
+   "strokeWidth": 1,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "groupIds": [],
+   "frameId": null,
+   "roundness": {
+    "type": 3
+   },
+   "seed": 1188,
+   "version": 1,
+   "versionNonce": 9415691,
+   "isDeleted": false,
+   "boundElements": [
+    {
+     "type": "text",
+     "id": "z5i7-label"
+    }
+   ],
+   "updated": 1,
+   "link": null,
+   "locked": false
+  },
+  {
+   "id": "z5i7-label",
+   "type": "text",
+   "x": 1110,
+   "y": 2900,
+   "width": 420,
+   "height": 24,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "transparent",
+   "fillStyle": "solid",
+   "strokeWidth": 1,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "groupIds": [],
+   "frameId": null,
+   "roundness": null,
+   "seed": 1189,
+   "version": 1,
+   "versionNonce": 9423610,
+   "isDeleted": false,
+   "boundElements": null,
+   "updated": 1,
+   "link": null,
+   "locked": false,
+   "text": "Offline score entry sync (PWA)",
+   "fontSize": 14,
+   "fontFamily": 1,
+   "textAlign": "center",
+   "verticalAlign": "middle",
+   "containerId": "z5i7",
+   "originalText": "Offline score entry sync (PWA)",
+   "lineHeight": 1.25
+  },
+  {
+   "id": "z5i8",
+   "type": "rectangle",
+   "x": 1100,
+   "y": 2938,
+   "width": 440,
+   "height": 40,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "#d0bfff",
+   "fillStyle": "solid",
+   "strokeWidth": 1,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "groupIds": [],
+   "frameId": null,
+   "roundness": {
+    "type": 3
+   },
+   "seed": 1190,
+   "version": 1,
+   "versionNonce": 9431529,
+   "isDeleted": false,
+   "boundElements": [
+    {
+     "type": "text",
+     "id": "z5i8-label"
+    }
+   ],
+   "updated": 1,
+   "link": null,
+   "locked": false
+  },
+  {
+   "id": "z5i8-label",
+   "type": "text",
+   "x": 1110,
+   "y": 2946,
+   "width": 420,
+   "height": 24,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "transparent",
+   "fillStyle": "solid",
+   "strokeWidth": 1,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "groupIds": [],
+   "frameId": null,
+   "roundness": null,
+   "seed": 1191,
+   "version": 1,
+   "versionNonce": 9439448,
    "isDeleted": false,
    "boundElements": null,
    "updated": 1,
