@@ -274,8 +274,24 @@
 
 .beerio-tvpb { padding: 0 var(--bt-pb-pad) calc(var(--bt-pb-pad) * .75); }
 .beerio-tvpb__l { font-size: var(--bt-pb-l); margin-bottom: .4vw; }
+/* THE ROW NEVER WRAPS. crowdSplit caps the shares at three, which keeps the
+   row sensible; this keeps a pathological name from beating the cap. A wrap
+   makes the row taller, and a taller row on a screen that fits 1080p exactly
+   is a fit regression rather than a typography one. min-width:0 is the part
+   that is easy to leave out and does the actual work: without it a flex child
+   refuses to shrink below its content and the ellipsis never fires. */
+.beerio-tvpb__say {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
 .beerio-tvpb__bar { height: var(--bt-pb-bar); }
-.beerio-tvpb__pct { font-size: calc(var(--bt-pb-bar) * .64); }
+/* .beerio-tvpb__pct is GONE, not commented out. It sized the percentage that
+   used to sit inside the bar, at .64 of the bar height, which was about 17px
+   on a 1080p television at the roomy band. The text left the bar for contrast
+   (see crowd.ts) and a dead sizing rule left behind reads to the next person
+   as the live one. */
 
 .beerio-tva { font-size: var(--bt-chip); padding: var(--bt-chip-pad) var(--bt-chip-padx); gap: .5vw; }
 .beerio-tva__dot { width: var(--bt-chip-dot); height: var(--bt-chip-dot); }
