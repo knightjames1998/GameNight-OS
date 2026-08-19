@@ -13,6 +13,7 @@ import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from
 // sites in this file and four of them added 1 to an already 1-based seed.
 import { racerLabel } from "./racer";
 import { roomStateKey, shouldAdopt } from "./roomsync";
+import { cleanSpecName, renameInPreds, SPEC_NAME_MAX } from "./specname";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1534,6 +1535,13 @@ function Predictions({canPick,preds,myName,onName,myPicks,onPick,items,scoreOf,d
 }){
   const [open,setOpen]=useState(defaultOpen);
   const [nameDraft,setNameDraft]=useState(myName);
+  const [editingName,setEditingName]=useState(false);
+  // myName can arrive AFTER this component mounts: the predictions poll adopts
+  // the name this device already had on the room, which is what makes a
+  // returning voter keep their identity. useState(myName) is an initial value
+  // only, so without this the draft would still be empty when the pencil is
+  // tapped and an edit would look like a fresh join.
+  useEffect(()=>{setNameDraft(myName);},[myName]);
   const sid=getSid();
   const board=Object.entries(preds)
     .map(([id,e])=>({id,name:(e?.name||"").trim()||"Mystery fan",...scoreOf(e?.picks||{})}))
@@ -1559,12 +1567,37 @@ function Predictions({canPick,preds,myName,onName,myPicks,onPick,items,scoreOf,d
         {open&&(
           <div className="px-4 py-3 flex flex-wrap gap-5 items-start">
             <div className="flex-1 min-w-[270px]">
-              {canPick&&!named&&(
+              {canPick&&(!named||editingName)&&(
                 <div className="mb-3 flex gap-2 items-center">
-                  <input value={nameDraft} onChange={e=>setNameDraft(e.target.value)} placeholder="Your name to start predicting" maxLength={18} autoComplete="off"
+                  <input value={nameDraft} onChange={e=>setNameDraft(e.target.value)}
+                    placeholder={named?"Your name":"Your name to start predicting"} maxLength={SPEC_NAME_MAX} autoComplete="off" autoFocus={editingName}
+                    onKeyDown={e=>{
+                      if(e.key==="Enter"){const n=cleanSpecName(nameDraft);if(n){onName(n);setEditingName(false);}}
+                      // Escape puts back what it was, so a half-typed change is
+                      // abandoned rather than left sitting in the box.
+                      if(e.key==="Escape"&&named){setNameDraft(myName);setEditingName(false);}
+                    }}
                     className="flex-1 min-w-0 px-2.5 py-2 bg-white border-2 border-[var(--ink)] rounded-[9px] font-[Nunito] text-[12.5px] font-bold text-[var(--ink)] outline-none placeholder:text-[#A9B2C2]"/>
-                  <button onClick={()=>{const n=nameDraft.trim();if(n)onName(n);}} style={{touchAction:"manipulation"}}
-                    className="flex-shrink-0 px-3 py-2 rounded-[9px] border-2 border-[var(--ink)] bg-[var(--sun)] font-[Fredoka] font-semibold text-[12px] text-[var(--ink)] shadow-[0_2px_0_rgba(22,35,59,.22)] active:translate-y-px cursor-pointer">Join</button>
+                  {/* Disabled rather than silently ignoring the tap: a blank name
+                      is refused (see cleanSpecName) and the button has to say so. */}
+                  <button onClick={()=>{const n=cleanSpecName(nameDraft);if(n){onName(n);setEditingName(false);}}} disabled={!cleanSpecName(nameDraft)} style={{touchAction:"manipulation"}}
+                    className="flex-shrink-0 px-3 py-2 rounded-[9px] border-2 border-[var(--ink)] bg-[var(--sun)] font-[Fredoka] font-semibold text-[12px] text-[var(--ink)] shadow-[0_2px_0_rgba(22,35,59,.22)] active:translate-y-px cursor-pointer disabled:opacity-45 disabled:cursor-default">{named?"Save":"Join"}</button>
+                  {named&&(
+                    <button onClick={()=>{setNameDraft(myName);setEditingName(false);}} style={{touchAction:"manipulation"}}
+                      className="flex-shrink-0 px-3 py-2 rounded-[9px] border-2 border-[var(--ink)] bg-white font-[Fredoka] font-semibold text-[12px] text-[var(--ink)] cursor-pointer">Cancel</button>
+                  )}
+                </div>
+              )}
+              {canPick&&named&&!editingName&&(
+                // The name is EDITABLE ALL NIGHT. It used to be whatever you
+                // typed first, permanently, because this row only rendered while
+                // you had no name at all. Changing it moves nothing: the crowd is
+                // keyed by a per-device id and the name is one field beside the
+                // picks.
+                <div className="mb-3 flex gap-2 items-center font-[Nunito] text-[12.5px] font-bold text-[var(--ink)]">
+                  <span className="min-w-0 truncate">Predicting as <span className="font-[Fredoka] font-bold">{myName}</span></span>
+                  <button onClick={()=>{setNameDraft(myName);setEditingName(true);}} style={{touchAction:"manipulation"}}
+                    className="flex-shrink-0 px-2.5 py-1 rounded-[8px] border-2 border-[var(--ink)] bg-white font-[Fredoka] font-semibold text-[11.5px] text-[var(--ink)] cursor-pointer">Edit name</button>
                 </div>
               )}
               {items.length===0?(
@@ -2143,10 +2176,19 @@ export default function App(){
     });
   },[pushMyPicks,specName]);
 
-  const handleSpecName=useCallback((n:string)=>{
+  const handleSpecName=useCallback((raw:string)=>{
+    const n=cleanSpecName(raw);
+    if(!n)return; // never save a blank: see specname.ts
     setSpecName(n);
     try{localStorage.setItem(SPEC_NAME_KEY,n);}catch{/* ignore */}
+    // The SAME sid and the SAME picks, which is what makes this a rename rather
+    // than a new voter. The push carries the current picks because the server
+    // stores name and picks as one entry; sending {} here would blank a night's
+    // predictions to change a label.
     setMyPicks(prev=>{pushMyPicks(n,prev);return prev;});
+    // Echo it on the local board now rather than waiting up to 4s for the poll.
+    // renameInPreds touches the name only, so this cannot drop a pick on the way.
+    setPreds(p=>renameInPreds(p,getSid(),n));
   },[pushMyPicks]);
   const liveUrl=useMemo(()=>(joinCode&&typeof location!=="undefined")?`${location.origin}${location.pathname}?s=${joinCode}`:"",[joinCode]);
   const snapshotUrl=useMemo(()=>shareOpen?buildShareURL({playerCount,names,results,series,format,gpLog,colors,seeded,hofCode:crew||undefined}):"",[shareOpen,playerCount,names,results,series,format,gpLog,colors,seeded,crew]);
