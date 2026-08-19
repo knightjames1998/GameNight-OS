@@ -12,6 +12,7 @@ import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from
 // The racer naming rule, stated once (./racer.ts). It lived inline at thirteen
 // sites in this file and four of them added 1 to an already 1-based seed.
 import { racerLabel } from "./racer";
+import { roomStateKey, shouldAdopt } from "./roomsync";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1808,17 +1809,73 @@ export default function App(){
     try{localStorage.setItem(STORAGE_KEY,JSON.stringify({playerCount,names,results,series,format,gpLog,colors,seeded}));}catch{/* quota */}
   },[isSpectator,playerCount,names,results,series,format,gpLog,colors,seeded]);
 
+  // The state this device last AGREED with the room on, whether it pushed that
+  // state or read it, and whether a push of ours is currently in flight. The
+  // two effects below are one sync and share these: see roomsync.ts for why the
+  // pair of them is what makes the exchange terminate instead of echoing.
+  const syncedRef=useRef<string|null>(null);
+  const pushingRef=useRef(false);
+
   // Host: push state to the live room (debounced) whenever it changes
   useEffect(()=>{
     if(isSpectator||!sessionCode)return;
+    const state={playerCount,names,results,series,format,gpLog,colors,seeded,hofCode:crew||undefined};
+    // Nothing of ours to say. This is what keeps a room the poll below just
+    // adopted from being pushed straight back at the device it came from.
+    const key=roomStateKey(state);
+    if(syncedRef.current===key)return;
+    pushingRef.current=true;
     const t=setTimeout(()=>{
       fetch(`${API}/sessions/${sessionCode}`,{method:"PUT",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({state:{playerCount,names,results,series,format,gpLog,colors,seeded,hofCode:crew||undefined}})})
-        .then(r=>{if(!r.ok)throw new Error();setLiveStatus("live");})
-        .catch(()=>setLiveStatus("error"));
+        body:JSON.stringify({state})})
+        .then(r=>{if(!r.ok)throw new Error();syncedRef.current=key;setLiveStatus("live");})
+        .catch(()=>setLiveStatus("error"))
+        .finally(()=>{pushingRef.current=false;});
     },600);
     return ()=>clearTimeout(t);
   },[isSpectator,sessionCode,playerCount,names,results,series,format,gpLog,colors,seeded,crew]);
+
+  // Host: READ the room back, which is the other half and was missing.
+  //
+  // The adopt itself is not new. The GameNight context effect above already does
+  // it for a host, with the reason on it: "adopt its state so the auto-sync
+  // effect can't overwrite the live night with this device's stale copy". That
+  // was right and it only ever ran ONCE, on mount, so a second host device (a
+  // laptop parked on the editable screen while the night is driven from a phone)
+  // sat on the state it loaded with until somebody refreshed the page. Refreshing
+  // was a person re-running this adopt by hand. It now runs on the same poll the
+  // rest of the pack uses, and on returning to the tab, which is the half the TV
+  // has always had and this screen never did.
+  useEffect(()=>{
+    if(isSpectator||!sessionCode)return;
+    let on=true;
+    const tick=async()=>{
+      try{
+        const r=await fetch(`${API}/sessions/${sessionCode}`);
+        if(!r.ok||!on)return;
+        const {state}=await r.json();
+        if(!state||!on)return;
+        if(!shouldAdopt({remote:roomStateKey(state),synced:syncedRef.current,pushing:pushingRef.current}))return;
+        syncedRef.current=roomStateKey(state);
+        const pc=Math.max(MIN_PLAYERS,Math.min(MAX_PLAYERS,Number(state.playerCount)||DEFAULT_COUNT));
+        setPlayerCount(pc);
+        setNames(()=>{const a=Array.isArray(state.names)?[...state.names].slice(0,pc):[];while(a.length<pc)a.push("");return a;});
+        setResults(state.results||{});
+        setSeries(state.series||{});
+        setFormat({...DEFAULT_FORMAT,...(state.format||{})});
+        setGpLog(Array.isArray(state.gpLog)?state.gpLog:[]);
+        setColors(normalizeColors(state.colors,pc));
+        setSeeded(state.seeded!==false);
+        setBR(buildBracket(pc));
+        setLiveStatus("live");
+      }catch{/* transient: the next tick tries again */}
+    };
+    tick();
+    const id=setInterval(tick,3000);
+    const onVis=()=>document.visibilityState==="visible"&&tick();
+    document.addEventListener("visibilitychange",onVis);
+    return()=>{on=false;clearInterval(id);document.removeEventListener("visibilitychange",onVis);};
+  },[isSpectator,sessionCode]);
 
   // Spectator: poll the live room every few seconds and mirror its state
   useEffect(()=>{
