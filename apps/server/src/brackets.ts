@@ -77,6 +77,45 @@ tvRouter.get("/:id", async (req, res) => {
   res.json({ ...view, canScore: false, canManage: false });
 });
 
+/** Just enough of a bracket row to answer the start question. */
+export interface ExistingBracket {
+  id: string;
+  status: "setup" | "live" | "completed";
+}
+
+/**
+ * May this event start ANOTHER tournament? PURE, for the same reason
+ * resolveNow in tv.ts is: the rule is the part that can be wrong, and it is
+ * worth testing without a Postgres anywhere near it.
+ *
+ * THE RULE: yes, once every bracket already on the event is COMPLETED. A crew
+ * that finishes a Smash bracket at nine and wants a Mario Kart one at ten used
+ * to be stuck, because the guard here asked whether the event had a bracket at
+ * all and there is no delete route, so an event could run exactly one
+ * tournament ever.
+ *
+ * NEVER TWO NON-COMPLETED AT ONCE, which is the half that keeps everything
+ * downstream simple: at most one bracket on a night is showable, so the TV
+ * resolver's answer stays unambiguous and nothing has to tiebreak between two
+ * live tournaments. Relaxing this later is a bigger change than it looks.
+ *
+ * The blocking bracket's id comes back with the refusal because that is what
+ * lets the client offer to OPEN the running tournament instead of just saying
+ * no. When more than one row is somehow non-completed (which this rule makes
+ * impossible, and which a hand-edited database could still produce) the lowest
+ * id wins, so the answer cannot depend on the order Postgres returned rows in.
+ */
+export function canStartBracket(
+  existing: ExistingBracket[],
+): { ok: true } | { ok: false; bracketId: string } {
+  let blocking: string | null = null;
+  for (const b of existing) {
+    if (b.status === "completed") continue;
+    if (blocking === null || b.id < blocking) blocking = b.id;
+  }
+  return blocking === null ? { ok: true } : { ok: false, bracketId: blocking };
+}
+
 /**
  * Start a tournament for an event.
  *
