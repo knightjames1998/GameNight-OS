@@ -16,6 +16,7 @@ import {
   type BeerioTvBand,
 } from "./band";
 import { racerLabel } from "./racer";
+import { crowdSplit } from "./crowd";
 import {
   buildBracket,
   compute,
@@ -125,7 +126,20 @@ function tally(preds: PredMap, key: string): Record<string, number> {
   return out;
 }
 
-/** The crowd's call, as a two-sided bar. Hidden until someone has voted. */
+/**
+ * The crowd's call. Hidden until someone has voted.
+ *
+ * THE BAR CARRIES NO TEXT, and that is forced rather than chosen. The
+ * percentage used to sit inside each segment in --ink on the racer's own
+ * colour, where it cleared 4.5:1 on 17 of the 32 palette colours and on only
+ * seven of the sixteen the app auto-assigns. See crowd.ts for the measurement
+ * and for the two reasons that survive even if the palette is ever re-picked.
+ * The bar is pure shape now: it answers "who did the crowd back" from the far
+ * side of a room, which is the one job it was ever doing well.
+ *
+ * The number moved UP, to the label row, which sits on --foam where contrast
+ * was never in question and which is legible on the screen today.
+ */
 function PredictionBar({
   options,
   counts,
@@ -135,12 +149,16 @@ function PredictionBar({
 }) {
   const total = options.reduce((n, o) => n + (counts[o.value] ?? 0), 0);
   if (total === 0) return null;
+  const split = crowdSplit(options, counts);
   return (
     <div className="beerio-tvpb">
-      <div className="beerio-tvpb__l flex items-center justify-between font-[Fredoka] font-semibold text-[var(--ink)] opacity-70">
-        <span>Crowd says</span>
-        <span>
-          {total} {total === 1 ? "vote" : "votes"}
+      <div className="beerio-tvpb__l flex items-center justify-between gap-[1vw] font-[Fredoka] font-semibold text-[var(--ink)] opacity-70">
+        <span className="shrink-0">Crowd says</span>
+        <span className="beerio-tvpb__say">
+          {split.kind === "agreed"
+            ? `${split.total} ${split.total === 1 ? "vote" : "votes"}`
+            : split.shares.map((s) => `${s.label} ${s.pct}%`).join(" · ") +
+              (split.overflow > 0 ? ` · +${split.overflow} more` : "")}
         </span>
       </div>
       <div className="beerio-tvpb__bar flex rounded-full overflow-hidden border-[2px] border-[var(--ink)]">
@@ -150,11 +168,8 @@ function PredictionBar({
           return (
             <div
               key={o.value}
-              className="beerio-tvpb__pct flex items-center justify-center font-[Fredoka] font-bold text-[var(--ink)]"
               style={{ width: `${(n / total) * 100}%`, background: o.color }}
-            >
-              {Math.round((n / total) * 100)}%
-            </div>
+            />
           );
         })}
       </div>
