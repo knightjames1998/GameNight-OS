@@ -50,9 +50,18 @@ count lives in the repo.
 - Auth: magic links (tap-through page, prefetch-proof) AND password accounts (scrypt, signup
   without email verification, a logged decision). 30-day session cookies.
 - Crew: groups, invite links, join flow, roles (owner/admin/member), promotion/demotion,
-  member removal, self-leave, crew deletion (owner only, cascades).
+  member removal, self-leave, crew deletion (owner only, cascades). CORRECTED 2026-08-20: this
+  section claimed crew deletion cascaded cleanly and it did not. On any crew that had ever
+  STARTED a session pack it deleted the crew's whole ledger, hit a foreign key violation on
+  the events row, and returned a 500 with everything already committed. Fixed that day; the
+  cascade now lives in one module and is checked against the schema by a test. Member removal
+  and self-leave still deliberately do NOT cascade: they delete the membership row and KEEP the
+  participant rows, because /api/me/stats depends on that.
 - Schedule: events with optional date, RSVP yes/no/maybe, event deletion (creator or admin,
-  cascades to brackets and stats).
+  cascades to brackets, stats and live pack sessions, in one transaction). The same 2026-08-20
+  correction applies here: "cascades to brackets and stats" was true of brackets and stats and
+  silently untrue of `game_sessions` and `smash_sessions`, which are what most tiles write
+  first.
 - Play: single AND double elim bracket engine in packages/shared/src/bracket.ts (entrants +
   sparse results map stored as jsonb; everything derived on read). Entrants are members OR
   typed guests. Byes, undo with downstream cascade, admin-only scoring by default. Tests via
@@ -108,6 +117,15 @@ count lives in the repo.
 - New libraries need a one-sentence reason. Current: cookie-parser, react-router-dom,
   qrcode.react, lz-string.
 - Any schema change ships with the exact deployment step called out explicitly.
+- A NEW TABLE CARRYING `group_id` OR `event_id` JOINS BOTH CASCADES IN
+  `apps/server/src/cascade.ts`, IN THE SAME COMMIT THAT ADDS IT.
+  `cascade-integrity.test.ts` derives the required set from the schema, so a missing table is
+  a red gate rather than a foreign key violation that destroys a crew's history mid-delete.
+  This is a rule because it was missed: `game_sessions` shipped 2026-07-16 as an additive
+  table and neither cascade learned about it for four months. It is about the TABLE, not about
+  the pack, so it applies to a shell or event-layer table just as much as a pack's. The full
+  version, including why a table with neither column stays out, is step 9 of ADDING A PACK in
+  BACKLOG.md.
 
 ## Hosting and deploy workflow
 - GitHub is the source of truth. Push to main = auto-deploy on Render. Postgres is on NEON
