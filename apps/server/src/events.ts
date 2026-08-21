@@ -104,7 +104,15 @@ eventsRouter.delete("/events/:id", async (req: AuthedRequest, res) => {
   // The ordered list lives in cascade.ts, checked against the schema by
   // cascade-integrity.test.ts. It is NOT repeated here: two copies drift, and
   // these two had, which is what cost a crew its history.
-  await deleteEventCascade(db, found.id);
+  //
+  // ONE TRANSACTION, same reasoning as the crew delete: either the whole event
+  // goes or none of it does, and the 500 stops lying about what survived. The
+  // broadcasts below stay outside it, after it commits, because telling every
+  // connected phone an event is gone while the delete can still roll back is
+  // worse than telling them late.
+  await db.transaction(async (tx) => {
+    await deleteEventCascade(tx, found.id);
+  });
 
   const origin = req.get("x-gn-client");
   broadcast({ type: "event_deleted", eventId: found.id, groupId: found.groupId }, origin);

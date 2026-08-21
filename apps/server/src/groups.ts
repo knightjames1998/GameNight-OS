@@ -126,7 +126,15 @@ groupsRouter.delete("/:id", async (req: AuthedRequest, res) => {
   // The ordered list lives in cascade.ts, checked against the schema by
   // cascade-integrity.test.ts. It is NOT repeated here: two copies drift, and
   // these two had, which is what cost a crew its history.
-  await deleteGroupCascade(db, groupId);
+  //
+  // ONE TRANSACTION. A cascade that raises partway through used to leave the
+  // crew standing with its whole ledger already deleted and hand back a 500 the
+  // user could retry forever. Now the 500 is honest: nothing was deleted. No
+  // retry and no catch here, deliberately. A rollback plus a 500 is the correct
+  // outcome, and swallowing it would put the silent half of the bug back.
+  await db.transaction(async (tx) => {
+    await deleteGroupCascade(tx, groupId);
+  });
 
   broadcast({ type: "group_members_changed", groupId }, req.get("x-gn-client"));
   res.json({ ok: true });

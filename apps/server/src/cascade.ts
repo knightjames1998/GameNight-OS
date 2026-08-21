@@ -35,7 +35,16 @@
 // crew's room and would fail the test's "deletes a table that does not
 // reference this root" half.
 //
-// Auth, lookup and broadcast all stay OUT of here and out of any transaction
+// BOTH FUNCTIONS RUN INSIDE A TRANSACTION and take the transaction handle, not
+// the database. That is what turns the failure above from data loss into an
+// honest 500: drizzle-orm/node-postgres over a real pg.Pool pins one connection
+// for the callback, issues a genuine BEGIN, and ROLLBACKs the whole sequence if
+// any statement raises, so a cascade that cannot finish deletes nothing at all.
+// Nothing in here may reach for getDb(): a statement on the pool is a statement
+// on a DIFFERENT connection, outside the transaction, and it would commit on its
+// own while the rest rolled back.
+//
+// Auth, lookup and broadcast all stay OUT of here and out of the transaction
 // wrapping it. Auth and lookup are read-only and hold nothing worth holding a
 // transaction open across; broadcasting inside one would tell every connected
 // phone about a deletion that can still roll back.
@@ -64,18 +73,13 @@ type Db = ReturnType<typeof getDb>;
  */
 export type CascadeTx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
-/**
- * Either handle, for as long as the callers are still passing the plain `db`.
- * The transaction wrapper is the next commit; this union goes away with it.
- */
-type CascadeHandle = CascadeTx | Db;
 
 /**
  * Delete a crew and everything under it: events, RSVPs, attendance, games,
  * brackets, every recorded match, every live session, and the memberships.
  * Children first, so no foreign key is ever pointing at a row that has gone.
  */
-export async function deleteGroupCascade(tx: CascadeHandle, groupId: string): Promise<void> {
+export async function deleteGroupCascade(tx: CascadeTx, groupId: string): Promise<void> {
   await tx.delete(matchParticipants).where(eq(matchParticipants.groupId, groupId));
   await tx.delete(matches).where(eq(matches.groupId, groupId));
   await tx.delete(brackets).where(eq(brackets.groupId, groupId));
@@ -94,7 +98,7 @@ export async function deleteGroupCascade(tx: CascadeHandle, groupId: string): Pr
  * minus the three things that outlive an event: the crew's games, its
  * memberships, and the crew row itself.
  */
-export async function deleteEventCascade(tx: CascadeHandle, eventId: string): Promise<void> {
+export async function deleteEventCascade(tx: CascadeTx, eventId: string): Promise<void> {
   const eventMatches = await tx
     .select({ id: matches.id })
     .from(matches)
