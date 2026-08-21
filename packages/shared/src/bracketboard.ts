@@ -233,3 +233,83 @@ export function roundStrip(rounds: readonly StripRound[]): StripCell[] {
       state: (playable > 0 ? "now" : total > 0 && decided >= total ? "done" : "next") as StripState,
     }));
 }
+
+// ---------- The on-deck list ----------
+
+export type DeckState = "ready" | "pending";
+
+/**
+ * One undecided match, reduced to the only things the deck rule looks at.
+ * Deliberately no names, no ids, no slots: both TVs reduce into this, so
+ * neither can qualify a match on something the other cannot see.
+ */
+export interface DeckCandidate extends RoundOrder {
+  /** A result is recorded, byes included. Decided matches are never on deck. */
+  decided: boolean;
+  /** Seats holding a REAL entrant: 2, 1 or 0. A bye seat is not real. */
+  known: 0 | 1 | 2;
+  /**
+   * Every match this one is still waiting on is playable RIGHT NOW. Only
+   * consulted at known === 0, where it is the whole difference between the
+   * losers round about to happen and one four rounds out.
+   */
+  feedersLive: boolean;
+}
+
+/**
+ * Which class of card this match is, or null when it does not belong on deck.
+ *
+ * THE OLD RULE WAS "both seats filled", and the ordering was never the
+ * problem: compareRoundOrder already sorts losers R1 above winners R2. The
+ * losers R1 CARD did not exist yet. So with a bye in play the room read a
+ * winners R2 matchup at the top of the column while the next race was a
+ * losers R1 one whose entrants were still being decided, and nobody in that
+ * match knew they were up.
+ *
+ * Three classes, and the third is the one worth arguing about:
+ *
+ *   ready    both seats real. What the board has always shown.
+ *   pending, one seat known    exactly one seat holds a real entrant. Always
+ *            eligible: somebody already knows they are playing next and the
+ *            board should say so.
+ *   pending, blank vs blank    neither seat known. Eligible ONLY when every
+ *            feeder it waits on is playable right now.
+ *
+ * THAT LAST CONDITION IS DELIBERATELY LOCAL AND NON-RECURSIVE, and it is the
+ * one a later session is most likely to want to "improve". It is the crisp
+ * reading of "next round": the matches that decide this one are on the table
+ * NOW. Follow the chain any further and every match in the bracket qualifies
+ * on day one, which is a list of the whole night rather than a list of what
+ * is next. Kept local, it is exactly what puts losers R1 on the screen at the
+ * start of a night with both seats reading "Loser of Ana vs Ben" and "Loser
+ * of Cal vs Dee", which is the most warning this board can honestly give.
+ */
+export function deckStateOf(c: DeckCandidate): DeckState | null {
+  if (c.decided) return null;
+  if (c.known === 2) return "ready";
+  if (c.known === 1) return "pending";
+  return c.feedersLive ? "pending" : null;
+}
+
+/**
+ * The eligible candidates, tagged with their class, in true play order.
+ *
+ * ONE MERGED LIST, NOT READY-FIRST. A pending losers R1 card sitting above a
+ * ready winners R2 card, and pushing a fourth ready card off the bottom of a
+ * sliced column, is the CORRECT outcome: that is the order the night is
+ * actually played in, and a board that hides it to protect a ready card is
+ * lying about what comes next. The "N ready" heading keeps counting ready
+ * matches only, so nothing is concealed by the reordering.
+ *
+ * Generic over T so each TV keeps its own row shape and gets `deck` added.
+ */
+export function buildDeck<T extends DeckCandidate>(
+  cands: readonly T[],
+): (T & { deck: DeckState })[] {
+  const out: (T & { deck: DeckState })[] = [];
+  for (const c of cands) {
+    const deck = deckStateOf(c);
+    if (deck) out.push({ ...c, deck });
+  }
+  return out.sort(compareRoundOrder);
+}
