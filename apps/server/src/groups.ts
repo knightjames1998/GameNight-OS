@@ -1,21 +1,8 @@
 import { Router } from "express";
 import crypto from "node:crypto";
-import {
-  getDb,
-  brackets,
-  eventAttendance,
-  events,
-  games,
-  groups,
-  matches,
-  matchParticipants,
-  memberships,
-  rsvps,
-  users,
-  and,
-  eq,
-} from "@gamenight/db";
+import { getDb, groups, memberships, users, and, eq } from "@gamenight/db";
 import { requireAuth, type AuthedRequest } from "./auth.js";
+import { deleteGroupCascade } from "./cascade.js";
 import { broadcast } from "./ws.js";
 
 export const groupsRouter = Router();
@@ -136,16 +123,10 @@ groupsRouter.delete("/:id", async (req: AuthedRequest, res) => {
     return;
   }
 
-  // Children first: foreign keys point inward.
-  await db.delete(matchParticipants).where(eq(matchParticipants.groupId, groupId));
-  await db.delete(matches).where(eq(matches.groupId, groupId));
-  await db.delete(brackets).where(eq(brackets.groupId, groupId));
-  await db.delete(rsvps).where(eq(rsvps.groupId, groupId));
-  await db.delete(eventAttendance).where(eq(eventAttendance.groupId, groupId));
-  await db.delete(events).where(eq(events.groupId, groupId));
-  await db.delete(games).where(eq(games.groupId, groupId));
-  await db.delete(memberships).where(eq(memberships.groupId, groupId));
-  await db.delete(groups).where(eq(groups.id, groupId));
+  // The ordered list lives in cascade.ts, checked against the schema by
+  // cascade-integrity.test.ts. It is NOT repeated here: two copies drift, and
+  // these two had, which is what cost a crew its history.
+  await deleteGroupCascade(db, groupId);
 
   broadcast({ type: "group_members_changed", groupId }, req.get("x-gn-client"));
   res.json({ ok: true });

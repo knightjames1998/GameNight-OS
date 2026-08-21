@@ -19,6 +19,7 @@ import {
 } from "@gamenight/db";
 import { PACK_BY_LEDGER, isSeriesSummary } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
+import { deleteEventCascade } from "./cascade.js";
 import { broadcast } from "./ws.js";
 
 // Schedule module. Events belong to a group; RSVPs belong to an event.
@@ -100,19 +101,10 @@ eventsRouter.delete("/events/:id", async (req: AuthedRequest, res) => {
     return;
   }
 
-  // Children first: FKs point inward.
-  const eventMatches = await db
-    .select({ id: matches.id })
-    .from(matches)
-    .where(eq(matches.eventId, found.id));
-  for (const m of eventMatches) {
-    await db.delete(matchParticipants).where(eq(matchParticipants.matchId, m.id));
-  }
-  await db.delete(matches).where(eq(matches.eventId, found.id));
-  await db.delete(brackets).where(eq(brackets.eventId, found.id));
-  await db.delete(rsvps).where(eq(rsvps.eventId, found.id));
-  await db.delete(eventAttendance).where(eq(eventAttendance.eventId, found.id));
-  await db.delete(events).where(eq(events.id, found.id));
+  // The ordered list lives in cascade.ts, checked against the schema by
+  // cascade-integrity.test.ts. It is NOT repeated here: two copies drift, and
+  // these two had, which is what cost a crew its history.
+  await deleteEventCascade(db, found.id);
 
   const origin = req.get("x-gn-client");
   broadcast({ type: "event_deleted", eventId: found.id, groupId: found.groupId }, origin);
