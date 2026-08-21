@@ -3,7 +3,13 @@ import { useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
   aliveBoard,
-  compareRoundOrder,
+  buildDeck,
+  type DeckState,
+  // Beerio declares its own SlotSource in BeerioApp.tsx and does not export it.
+  // The two are byte-for-byte the same union ({t:"seed";n} | {t:"win";m} |
+  // {t:"lose";m}), checked rather than assumed, so the shared one types this
+  // without an edit to the vendored file.
+  type SlotSource,
   roundOrderFromKey,
   roundStrip,
   type RoundOrder,
@@ -347,14 +353,34 @@ function BracketBoard({
 
   const all = Object.values(M).filter((m) => m.active && !m.phantom);
   const champ = getChampion(M);
-  // Ready to play: both seats filled, nobody has won it yet. ORDERED BY THE
-  // SHARED COMPARATOR (depth, then side) rather than left in buildBracket's
-  // insertion order, which is every winners round before any losers round:
-  // that looks right at the start of a night and mid-bracket floats a winners
-  // R2 matchup above a losers R1 one that has been waiting longer.
-  const live = all
-    .filter((m) => !m.decided && isRealPlayer(m.a) && isRealPlayer(m.b))
-    .sort((x, y) => compareRoundOrder(orderOf(x.def.grp), orderOf(y.def.grp)));
+
+  // Where a match sits, for the positional feeder label ("Loser of Winners R1
+  // #2") when the feeder is itself undecided and there is nobody to name.
+  const place = new Map<string, { title: string; pos: number }>();
+  for (const g of BR?.groups ?? []) {
+    g.ids.forEach((id, i) => place.set(id, { title: g.title, pos: i + 1 }));
+  }
+
+  // UP NEXT, and what enters it is the SHARED rule (buildDeck), the same one
+  // the shell's TV uses, so the two boards cannot disagree about what comes
+  // next. The old filter wanted both seats filled, which is why a losers R1
+  // card could not exist yet while this screen showed a winners R2 matchup
+  // instead. The ORDER is unchanged: same comparator, same coordinates.
+  const deckAll = buildDeck(
+    all.map((m) => {
+      const feeders = [m.def.a, m.def.b]
+        .filter((src) => src.t !== "seed")
+        .map((src) => M[(src as { m: string }).m]);
+      return {
+        ...m,
+        ...orderOf(m.def.grp),
+        known: ((isRealPlayer(m.a) ? 1 : 0) + (isRealPlayer(m.b) ? 1 : 0)) as 0 | 1 | 2,
+        feedersLive:
+          feeders.length > 0 &&
+          feeders.every((f) => !!f && !f.decided && isRealPlayer(f.a) && isRealPlayer(f.b)),
+      };
+    }),
+  );
 
   // Who is still in it. Everyone with a typed name is an entrant; a seat left
   // blank is a bye, and compute() already resolves it as one.
@@ -394,11 +420,16 @@ function BracketBoard({
   // a racer was drawn, most of it the wordmark and the QR beside it.
   const anyVotes = Object.values(preds).some((p) => p?.picks && Object.keys(p.picks).length > 0);
   const band = beerioTvBand({
+    // CARDS DRAWN, not matches ready. A pending card is the same height as a
+    // ready one, so it costs the column the same; counting only the ready ones
+    // would under-report the column by however many placeholders are up.
+    // beerioTvBand clamps to BEERIO_DECK_SLICE.roomy itself, so this is not
+    // circular.
     entrants: entrants.length,
-    ready: live.length,
+    ready: deckAll.length,
     predictions: anyVotes,
   });
-  const deck = live.slice(0, BEERIO_DECK_SLICE[band]);
+  const deck = deckAll.slice(0, BEERIO_DECK_SLICE[band]);
 
   return (
     <Shell band={band}>
@@ -415,7 +446,15 @@ function BracketBoard({
               </p>
             )}
             {deck.map((m) => (
-              <MatchCard key={m.def.id} m={m} state={state} preds={preds} highlight />
+              <MatchCard
+                key={m.def.id}
+                m={m}
+                state={state}
+                preds={preds}
+                highlight
+                deck={m.deck}
+                feeder={(side) => feederLabel(side === "a" ? m.def.a : m.def.b, M, state, place)}
+              />
             ))}
           </div>
         </section>
@@ -567,23 +606,56 @@ function RoundStrip({ cells }: { cells: ReturnType<typeof roundStrip> }) {
   );
 }
 
+/**
+ * What to call a seat nobody has won yet, in this pack's own voice.
+ *
+ * Same rule as the shell TV's: name the two racers about to decide it when the
+ * feeder has both its seats, and fall back to the position when it does not.
+ * The titles come from BR.groups, so "Loser of Winners Semis #2" reads the way
+ * the round strip above it already reads.
+ */
+function feederLabel(
+  src: SlotSource,
+  M: Record<string, MatchResult>,
+  state: SavedState,
+  place: Map<string, { title: string; pos: number }>,
+): string {
+  if (src.t === "seed") return "TBD";
+  const verb = src.t === "win" ? "Winner" : "Loser";
+  const f = M[src.m];
+  if (!f) return "TBD";
+  if (isRealPlayer(f.a) && isRealPlayer(f.b)) {
+    return `${verb} of ${racerLabel(f.a.seed, state.names[f.a.seed - 1])} vs ${racerLabel(f.b.seed, state.names[f.b.seed - 1])}`;
+  }
+  const p = place.get(src.m);
+  return p ? `${verb} of ${p.title} #${p.pos}` : "TBD";
+}
+
 function MatchCard({
   m,
   state,
   preds,
   highlight,
+  deck,
+  feeder,
 }: {
   m: MatchResult;
   state: SavedState;
   preds: PredMap;
   highlight?: boolean;
+  deck?: DeckState;
+  feeder?: (side: "a" | "b") => string;
 }) {
   const Row = ({ side }: { side: "a" | "b" }) => {
     const c = m[side];
     const real = isRealPlayer(c);
     // Bracket seeds are 1-based; the colors array is 0-based.
     const colorIdx = real ? c.seed - 1 : undefined;
-    const label = real ? racerLabel(c.seed, c.name) : "TBD";
+    // A seat still being decided names its feeder instead of saying TBD. It
+    // stays in .beerio-tvm__nm at the full name size, which is already one
+    // line with `truncate`, so a pending card is exactly the height of a ready
+    // one and spends from the same deck budget rather than extending it.
+    const label = real ? racerLabel(c.seed, c.name) : (feeder?.(side) ?? "TBD");
     const won = m.decided && m.winSlot === (side === "a" ? "A" : "B");
     const lost = m.decided && !won && real;
     return (
@@ -598,7 +670,7 @@ function MatchCard({
         <span
           className={`beerio-tvm__nm font-[Fredoka] font-bold text-[var(--ink)] flex-1 truncate ${
             lost ? "opacity-40 line-through" : ""
-          }`}
+          } ${!real ? "opacity-55" : ""}`}
         >
           {label}
         </span>
@@ -608,9 +680,15 @@ function MatchCard({
   };
 
   return (
+    // PENDING READS AS PENDING through the border alone, in this pack's own
+    // language: a dashed ink edge instead of the grass one a ready card gets.
+    // No extra row and no height change, which is what keeps the deck budget
+    // honest.
     <div
-      className="border-[3px] border-[var(--ink)] rounded-[14px] overflow-hidden bg-[var(--foam)] shadow-[0_4px_0_rgba(22,35,59,.18)]"
-      style={highlight ? { borderColor: "var(--grass)" } : undefined}
+      className={`border-[3px] border-[var(--ink)] rounded-[14px] overflow-hidden bg-[var(--foam)] shadow-[0_4px_0_rgba(22,35,59,.18)] ${
+        deck === "pending" ? "border-dashed" : ""
+      }`}
+      style={highlight && deck !== "pending" ? { borderColor: "var(--grass)" } : undefined}
     >
       <Row side="a" />
       <div className="border-t-[3px] border-[var(--ink)]" />
