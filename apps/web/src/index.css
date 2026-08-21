@@ -1536,6 +1536,14 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-tv-stack{display:flex;flex-direction:column;gap:var(--gn-tv-stack-gap);min-height:0}
 .gn-tvm{background:var(--gn-surf);border:3px solid var(--gn-line);border-radius:var(--gn-radius-card-tv);overflow:hidden}
 .gn-tvm--live{border-color:var(--gn-p2);box-shadow:0 0 3.2vmin color-mix(in srgb, var(--gn-p2) 20%, transparent)}
+/* A MATCH THAT IS NEXT BUT NOT YET PLAYABLE. Colour and border only: the card
+   is exactly the height of a ready one, which is what lets placeholders spend
+   from the same 4-card on-deck budget rather than extending it. Written after
+   --live so it wins the border on a card that carries both classes. Tokens
+   only; copy-rules.test.ts refuses a colour literal in this file. */
+.gn-tvm--pending{border-color:var(--gn-dim);border-style:dashed;box-shadow:none;background:color-mix(in srgb, var(--gn-dim) 6%, var(--gn-surf))}
+/* The seat that is still being decided, dimmed against the one that is not. */
+.gn-tvm__row--waiting{color:var(--gn-dim)}
 .gn-tvm__rt{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:var(--gn-tv-rt);letter-spacing:.18vmin;text-transform:uppercase;color:var(--gn-dim);padding:.7vmin 1.8vmin 0}
 .gn-tvm__row{display:flex;align-items:center;justify-content:space-between;gap:1.5vmin;padding:var(--gn-tv-row-pad) 1.8vmin;font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:var(--gn-tv-nm);color:var(--gn-ink)}
 .gn-tvm__row--win{color:var(--gn-p2);background:color-mix(in srgb, var(--gn-p2) 12%, transparent)}

@@ -3,10 +3,12 @@ import { useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
   aliveBoard,
-  compareRoundOrder,
+  buildDeck,
   loserSeedOf,
   roundStrip,
   type AliveBoard as AliveBoardShape,
+  type DeckState,
+  type SlotSource,
   type StripRound,
 } from "@gamenight/shared";
 import { api, slotTeam, type BracketView, type BracketMatchView } from "../api";
@@ -26,7 +28,13 @@ import { useBracketLive } from "../useLiveUpdates";
 
 type TvView = BracketView & { groupName: string };
 type Side = BracketView["rounds"][number]["side"];
-type FlatMatch = BracketMatchView & { round: string; side: Side; depth: number };
+type FlatMatch = BracketMatchView & {
+  round: string;
+  side: Side;
+  depth: number;
+  /** 1-based position within its round, for the positional feeder label. */
+  pos: number;
+};
 
 // The bracket id comes from /tv/:id, or from a prop when the event TV route
 // (/e/:id/tv) renders this view inside itself because a tournament is what the
@@ -81,7 +89,7 @@ export default function TvPage({ bracketId }: { bracketId?: string }) {
   const depthSeen: Record<string, number> = {};
   for (const r of bracket.rounds) {
     const depth = (depthSeen[r.side] = (depthSeen[r.side] ?? 0) + 1);
-    for (const m of r.matches) all.push({ ...m, round: r.title, side: r.side, depth });
+    r.matches.forEach((m, i) => all.push({ ...m, round: r.title, side: r.side, depth, pos: i + 1 }));
     rounds.push({
       // The payload carries a title and a side, not a key; this is the same
       // shape Beerio's groups already use, and it only has to be unique.
@@ -95,10 +103,33 @@ export default function TvPage({ bracketId }: { bracketId?: string }) {
     });
   }
 
-  // On deck: both seats filled, nobody has won yet, ordered by the SHARED
-  // comparator (depth then side: winners R1, losers R1, winners R2, losers
-  // R2, grand final last) so the losers path never reads as an afterthought.
-  const live = all.filter((m) => m.playable).sort(compareRoundOrder);
+  const byId = new Map(all.map((m) => [m.id, m]));
+
+  // ON DECK, and what enters it is the SHARED rule (buildDeck), not a filter
+  // written here: a match with one seat known is on deck, and a blank-vs-blank
+  // one is too when every feeder it waits on is playable right now. The old
+  // "both seats filled" filter is why a losers R1 card could not exist yet
+  // while the room was being shown a winners R2 matchup instead.
+  //
+  // The ORDER was never the problem and is unchanged: buildDeck sorts on the
+  // same compareRoundOrder this list always used.
+  const deckAll = buildDeck(
+    all.map((m) => {
+      const feeders = [m.aFrom, m.bFrom]
+        .filter((src) => src.t !== "seed")
+        .map((src) => byId.get((src as { m: string }).m));
+      return {
+        ...m,
+        known: [m.a, m.b].filter((sl) => sl.kind === "player").length as 0 | 1 | 2,
+        feedersLive: feeders.length > 0 && feeders.every((f) => !!f && f.playable),
+      };
+    }),
+  );
+  // THE HEADING KEEPS COUNTING READY MATCHES ONLY, off the deck entries rather
+  // than off a second filter, so the number and the cards can never describe
+  // two different lists. A pending card reordering the column never hides a
+  // ready match from this count.
+  const readyCount = deckAll.filter((d) => d.deck === "ready").length;
 
   // Who is still in it. `BracketMatchView` carries a, b and winner but no
   // loser, so the loser is whichever of the two the winner is not.
@@ -128,11 +159,18 @@ export default function TvPage({ bracketId }: { bracketId?: string }) {
   // one attribute (see tv-band.ts and the [data-band] blocks in index.css); this
   // screen did not fit a 1080p television at any entrant count before it.
   const band = bracketTvBand({
+    // CARDS DRAWN, not matches ready, and the difference is the point: a
+    // pending card costs the column exactly what a ready one does, because it
+    // is the same height (the feeder label rides in .gn-tvm__nm, which is
+    // already one line with an ellipsis). Costing this at readyCount would
+    // under-report the column by however many placeholders are up. The band
+    // clamps to TV_DECK_SLICE.roomy itself, which is what stops this being
+    // circular, so passing the full candidate count is safe and honest.
     entrants: bracket.entrantCount,
-    ready: live.length,
-    gfNote: live.some((m) => m.side === "GF"),
+    ready: deckAll.length,
+    gfNote: deckAll.some((m) => m.side === "GF"),
   });
-  const deck = live.slice(0, TV_DECK_SLICE[band]);
+  const deck = deckAll.slice(0, TV_DECK_SLICE[band]);
 
   return (
     <main className="gn-tv flex flex-col" data-band={band} style={{ padding: "calc(2.5rem + env(safe-area-inset-top, 0px)) calc(2.5rem + env(safe-area-inset-right, 0px)) calc(2.5rem + env(safe-area-inset-bottom, 0px)) calc(2.5rem + env(safe-area-inset-left, 0px))" }}>
@@ -182,12 +220,12 @@ export default function TvPage({ bracketId }: { bracketId?: string }) {
         <>
           <div className="gn-tv-cols">
             <section className="flex flex-col min-h-0">
-              <h2 className="gn-tv-h2">On deck <span>{live.length} ready</span></h2>
+              <h2 className="gn-tv-h2">On deck <span>{readyCount} ready</span></h2>
               <div className="gn-tv-stack">
                 {deck.length === 0 ? (
                   <p className="gn-tv-empty">Waiting on the next matchup…</p>
                 ) : (
-                  deck.map((m) => <TvMatch key={m.id} m={m} live />)
+                  deck.map((m) => <TvMatch key={m.id} m={m} live deck={m.deck} byId={byId} />)
                 )}
               </div>
             </section>
@@ -270,7 +308,42 @@ function RoundStrip({ cells }: { cells: ReturnType<typeof roundStrip> }) {
   );
 }
 
-function TvMatch({ m, live }: { m: FlatMatch; live?: boolean }) {
+/**
+ * What to call a seat nobody has won yet.
+ *
+ * "Loser of Ana vs Ben" when the feeder has both its own seats, which is the
+ * label worth putting on a television: the two people who are about to decide
+ * who walks into this match are named, so everyone involved can see it coming.
+ * When the feeder is itself undecided there is nobody to name, so it falls
+ * back to the position, "Loser of Winners R1 #2". The round title comes from
+ * the payload, so Final, Semifinals, Winners Final and Losers Semis all read
+ * correctly without a second naming rule living here.
+ *
+ * A `{ t: "seed" }` source cannot reach this: a seed slot is always resolved
+ * to a player or a bye. If one ever does, it says TBD rather than inventing a
+ * label out of a number that means something else.
+ */
+function feederLabel(src: SlotSource, byId: Map<string, FlatMatch>): string {
+  if (src.t === "seed") return "TBD";
+  const verb = src.t === "win" ? "Winner" : "Loser";
+  const f = byId.get(src.m);
+  if (!f) return "TBD";
+  const a = f.a.kind === "player" ? f.a.displayName : null;
+  const b = f.b.kind === "player" ? f.b.displayName : null;
+  return a && b ? `${verb} of ${a} vs ${b}` : `${verb} of ${f.round} #${f.pos}`;
+}
+
+function TvMatch({
+  m,
+  live,
+  deck,
+  byId,
+}: {
+  m: FlatMatch;
+  live?: boolean;
+  deck?: DeckState;
+  byId?: Map<string, FlatMatch>;
+}) {
   const winnerSeed = m.winner?.kind === "player" ? m.winner.seed : null;
   // Slot B of the grand final is always the losers-bracket finalist, who has
   // to win the first set AND the reset. Make that visible on the big screen.
@@ -279,11 +352,15 @@ function TvMatch({ m, live }: { m: FlatMatch; live?: boolean }) {
   const lbName = m.b.kind === "player" ? m.b.displayName : "the losers finalist";
   const rt = m.side === "GF" ? (isReset ? "Grand Final · Reset" : "Grand Final · Set 1") : m.round;
   return (
-    <div className={`gn-tvm ${live ? "gn-tvm--live" : ""}`}>
+    // A PENDING CARD IS THE SAME HEIGHT AS A READY ONE, which is what lets
+    // placeholders spend from the existing 4-card budget instead of extending
+    // it. Colour and border carry the difference, both from tokens, and no
+    // extra row is added.
+    <div className={`gn-tvm ${live ? "gn-tvm--live" : ""} ${deck === "pending" ? "gn-tvm--pending" : ""}`}>
       <div className="gn-tvm__rt">{rt}</div>
-      <TvRow slot={m.a} decided={m.decided} winnerSeed={winnerSeed} />
+      <TvRow slot={m.a} decided={m.decided} winnerSeed={winnerSeed} pending={byId && feederLabel(m.aFrom, byId)} />
       <div className="gn-tvm__div" />
-      <TvRow slot={m.b} decided={m.decided} winnerSeed={winnerSeed} needs2={!!live && isFirstGf} />
+      <TvRow slot={m.b} decided={m.decided} winnerSeed={winnerSeed} needs2={!!live && isFirstGf} pending={byId && feederLabel(m.bFrom, byId)} />
       {live && isFirstGf && (
         <div className="gn-tvm__note">
           {lbName} came up through the losers bracket and must win twice: win this set to force a reset game for the title.
@@ -299,17 +376,30 @@ function TvRow({
   decided,
   winnerSeed,
   needs2,
+  pending,
 }: {
   slot: BracketMatchView["a"];
   decided: boolean;
   winnerSeed: number | null;
   needs2?: boolean;
+  /** What this seat is waiting on, when it is waiting on something. */
+  pending?: string;
 }) {
   const isPlayer = slot.kind === "player";
-  const label = isPlayer ? slot.displayName : slot.kind === "bye" ? "bye" : "TBD";
+  // An unresolved seat names its feeder instead of saying TBD. It stays in
+  // .gn-tvm__nm at the full name size, which is deliberate: the string
+  // contains people's names, and TV_NAME_FLOOR_VMIN is asserted against the
+  // stylesheet. One line either way, since that class is already nowrap with
+  // an ellipsis.
+  const label = isPlayer
+    ? slot.displayName
+    : slot.kind === "bye"
+      ? "bye"
+      : (pending ?? "TBD");
   const won = decided && isPlayer && winnerSeed === slot.seed;
   const lost = decided && isPlayer && winnerSeed !== null && winnerSeed !== slot.seed;
   const tone = won ? "gn-tvm__row--win" : lost ? "gn-tvm__row--lose" : "";
+  const waiting = !isPlayer && slot.kind !== "bye" && !!pending;
   // A TEAM SLOT KEEPS ONE LINE ON THE BIG SCREEN, and that is a measurement
   // rather than a preference. An unnamed pair's label already IS its people
   // joined ("Ann + Ben"), so one line loses nothing; stacking them was tried
@@ -321,7 +411,7 @@ function TvRow({
   // one line is what is kept.
   const team = slotTeam(slot);
   return (
-    <div className={`gn-tvm__row ${tone}`}>
+    <div className={`gn-tvm__row ${tone} ${waiting ? "gn-tvm__row--waiting" : ""}`}>
       {team?.name ? (
         <span className="gn-tvm__team">
           <span className="gn-tvm__nm">{team.name}</span>
