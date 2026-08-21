@@ -63,6 +63,7 @@ import {
   rsvps,
   smashSessions,
   eq,
+  inArray,
 } from "@gamenight/db";
 
 type Db = ReturnType<typeof getDb>;
@@ -99,13 +100,19 @@ export async function deleteGroupCascade(tx: CascadeTx, groupId: string): Promis
  * memberships, and the crew row itself.
  */
 export async function deleteEventCascade(tx: CascadeTx, eventId: string): Promise<void> {
-  const eventMatches = await tx
-    .select({ id: matches.id })
-    .from(matches)
-    .where(eq(matches.eventId, eventId));
-  for (const m of eventMatches) {
-    await tx.delete(matchParticipants).where(eq(matchParticipants.matchId, m.id));
-  }
+  // ONE STATEMENT, not one per match. This used to select every match id for
+  // the event and issue a DELETE per row, which was merely wasteful while it
+  // ran outside a transaction and is worse inside one: an N+1 loop holds its
+  // locks across every round trip, so the transaction stays open for as long as
+  // the night was. A subselect over matches by event_id does the same work in
+  // one trip. (The crew cascade never needed this: match_participants carries
+  // group_id, so it deletes by group_id directly.)
+  await tx.delete(matchParticipants).where(
+    inArray(
+      matchParticipants.matchId,
+      tx.select({ id: matches.id }).from(matches).where(eq(matches.eventId, eventId)),
+    ),
+  );
   await tx.delete(matches).where(eq(matches.eventId, eventId));
   await tx.delete(brackets).where(eq(brackets.eventId, eventId));
   await tx.delete(rsvps).where(eq(rsvps.eventId, eventId));
