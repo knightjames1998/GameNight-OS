@@ -335,6 +335,9 @@ const bracketTv = (n, state = "mid", format = "double_elim", teamSize = 1) => {
           .filter((m) => m.active && !(m.a.kind === "bye" && m.b.kind === "bye"))
           .map((m) => ({
             id: m.def.id, a: slot(m.a), b: slot(m.b),
+            // The serializer's exact shape, feeder provenance included. A
+            // fixture missing these measures a screen the app does not have.
+            aFrom: m.def.a, bFrom: m.def.b,
             winner: m.decided ? slot(m.winner) : null,
             decided: m.decided, auto: m.auto, playable: m.playable,
             undoable: m.def.id in results, reset: !!m.def.resetOf,

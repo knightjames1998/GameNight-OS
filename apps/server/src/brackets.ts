@@ -644,6 +644,13 @@ async function deriveView(loaded: LoadedBracket) {
             id: m.def.id,
             a: slotView(m.a),
             b: slotView(m.b),
+            // WHERE AN EMPTY SEAT COMES FROM. The engine has always known
+            // ({ t: "win" | "lose", m }) and the payload dropped it, so the TV
+            // could only ever print "TBD" for a seat whose feeder it could
+            // name. Plain data already, so this is a projection rather than a
+            // derivation.
+            aFrom: m.def.a,
+            bFrom: m.def.b,
             winner: m.decided ? slotView(m.winner) : null,
             decided: m.decided,
             auto: m.auto,

@@ -2,6 +2,11 @@
 // automatically; this just centralizes JSON handling and errors.
 
 import type { SessionPackKey } from "@gamenight/shared/packs";
+// DEEP IMPORT, like the line above and for the same reason: this module is on
+// the entry path, and pulling the barrel drags every pack's content catalogue
+// into the entry chunk (cleanup phase 1, AUDIT-2026-08.md). Type-only either
+// way, but the convention in this file is the deep path.
+import type { SlotSource } from "@gamenight/shared/bracket";
 
 export class ApiError extends Error {
   status: number;
@@ -212,6 +217,9 @@ export interface BracketMatchView {
   id: string;
   a: BracketSlot;
   b: BracketSlot;
+  /** Where each seat comes from, so an empty one can name its feeder. */
+  aFrom: SlotSource;
+  bFrom: SlotSource;
   winner: BracketSlot | null;
   decided: boolean;
   auto: boolean;
