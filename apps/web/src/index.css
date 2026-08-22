@@ -1657,39 +1657,126 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   --gn-tv-strip-mt: 1.2vmin; --gn-tv-cols-mt: 1.4vmin;
   --gn-tv-h2: 2.2vmin; --gn-tv-h2-mb: .8vmin;
 }
+/* ---- THE EVENT TV, /e/:id/tv, AND ITS OWN LADDER ----
+   Every metric on this screen is a variable, spent by
+   apps/web/src/pages/event-tv-band.ts through [data-eband] exactly the way the
+   bracket TV's is spent through [data-band]. The base block below IS the roomy
+   band; each override after it is a diff.
+
+   THE ATTRIBUTE IS DELIBERATELY NOT data-band. Both screens wear .gn-tv, so one
+   attribute would mean the bracket TV's ladder silently re-tuning this screen's
+   shared classes (.gn-tv-stack, .gn-tv-h2, .gn-tv-cols) and vice versa. Two
+   screens, two ladders, two attributes, no collision possible.
+
+   THE NAME FLOOR IS 2.2vmin, the same one --gn-tv-nm and --gn-tv-chip use and
+   the same one the money board settled on 2026-08-02. --gn-etv-nm (a player in
+   the standings) and --gn-etv-chip (a name in the lobby list) never go below
+   it; ranks, counts, averages and game titles do, because those are recognised
+   rather than read. */
+.gn-tv{
+  --gn-etv-chip: 3vmin;       /* a name in the lobby list. FLOOR 2.2vmin. */
+  --gn-etv-chip-pad: 1vmin;
+  --gn-etv-chip-padx: 2.2vmin;
+  --gn-etv-chip-gap: 1.4vmin;
+  --gn-etv-nm: 3vmin;         /* a player in the standings. FLOOR 2.2vmin. */
+  --gn-etv-rank: 2.8vmin;
+  --gn-etv-rank-w: 3.4vmin;
+  --gn-etv-w: 2.6vmin;
+  --gn-etv-sub: 1.7vmin;
+  --gn-etv-row-pad: 1.3vmin;
+  --gn-etv-row-padx: 1.8vmin;
+  --gn-etv-row-gap: 1.6vmin;
+  --gn-etv-res: 2.4vmin;      /* a game title on the results side */
+  --gn-etv-title: 6vmin;      /* the night's name */
+  --gn-etv-meta: 2.2vmin;     /* the crew and date line under it */
+  --gn-etv-foot: 3vmin;       /* the "waiting on the host" line */
+  --gn-etv-gap: 3vmin;        /* between header, columns and footer */
+  --gn-etv-more: 1.8vmin;     /* the "+N more" line under a shortened list */
+}
 /* The event TV lobby: the yes-RSVP list, sized to read from the couch before
    anything has been started. Wraps rather than scrolls, since nobody is there
    to scroll it. */
-.gn-tv-names{display:flex;flex-wrap:wrap;gap:1.4vmin}
+.gn-tv-names{display:flex;flex-wrap:wrap;gap:var(--gn-etv-chip-gap)}
 .gn-tv-name{
-  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;color:var(--gn-ink);
-  background:var(--gn-surf);border:.3vmin solid var(--gn-line);border-radius:var(--gn-radius-card-tv);padding:1vmin 2.2vmin;
+  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:var(--gn-etv-chip);color:var(--gn-ink);
+  background:var(--gn-surf);border:.3vmin solid var(--gn-line);border-radius:var(--gn-radius-card-tv);
+  padding:var(--gn-etv-chip-pad) var(--gn-etv-chip-padx);
 }
 /* The event TV between-games screen: standings, and what was just won. Same
    card language as .gn-tvm so the waiting screen reads as part of the TV. */
 .gn-tvs{
-  display:flex;align-items:center;gap:1.6vmin;background:var(--gn-surf);
-  border:.35vmin solid var(--gn-line);border-radius:var(--gn-radius-card-tv);padding:1.3vmin 1.8vmin;
+  display:flex;align-items:center;gap:var(--gn-etv-row-gap);background:var(--gn-surf);
+  border:.35vmin solid var(--gn-line);border-radius:var(--gn-radius-card-tv);
+  padding:var(--gn-etv-row-pad) var(--gn-etv-row-padx);
 }
 .gn-tvs--lead{border-color:color-mix(in srgb, var(--gn-gold) 60%, transparent);background:color-mix(in srgb, var(--gn-gold) 10%, transparent)}
-.gn-tvs__rank{font-family:var(--gn-font-display);font-size:2.8vmin;color:var(--gn-dim);width:3.4vmin;flex-shrink:0}
+.gn-tvs__rank{font-family:var(--gn-font-display);font-size:var(--gn-etv-rank);color:var(--gn-dim);width:var(--gn-etv-rank-w);flex-shrink:0}
 .gn-tvs__nm{
-  flex:1;min-width:0;font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:3vmin;
+  flex:1;min-width:0;font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:var(--gn-etv-nm);
   color:var(--gn-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .gn-tvs--lead .gn-tvs__nm{color:var(--gn-gold)}
 .gn-tvs__fig{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;line-height:1.2}
-.gn-tvs__w{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:2.6vmin;color:var(--gn-p2)}
-.gn-tvs__sub{font-family:Nunito,system-ui,sans-serif;font-weight:700;font-size:1.7vmin;color:var(--gn-dim);white-space:nowrap}
+.gn-tvs__w{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:var(--gn-etv-w);color:var(--gn-p2)}
+.gn-tvs__sub{font-family:Nunito,system-ui,sans-serif;font-weight:700;font-size:var(--gn-etv-sub);color:var(--gn-dim);white-space:nowrap}
 .gn-tvr{
-  display:flex;align-items:center;justify-content:space-between;gap:1.6vmin;
-  background:var(--gn-surf);border:.35vmin solid var(--gn-line);border-radius:var(--gn-radius-card-tv);padding:1.3vmin 1.8vmin;
+  display:flex;align-items:center;justify-content:space-between;gap:var(--gn-etv-row-gap);
+  background:var(--gn-surf);border:.35vmin solid var(--gn-line);border-radius:var(--gn-radius-card-tv);
+  padding:var(--gn-etv-row-pad) var(--gn-etv-row-padx);
 }
 .gn-tvr__game{
-  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:2.4vmin;color:var(--gn-ink);
+  font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:var(--gn-etv-res);color:var(--gn-ink);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
-.gn-tvr__won{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:2.4vmin;color:var(--gn-p2);white-space:nowrap;flex-shrink:0}
+.gn-tvr__won{font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:var(--gn-etv-res);color:var(--gn-p2);white-space:nowrap;flex-shrink:0}
+/* The night's title, its date line, and the waiting line at the foot. These
+   were Tailwind text-6xl / text-2xl / text-3xl, which a ladder cannot spend:
+   the header and the footer are 200px of a 1080px screen between them and the
+   tighter bands need them back. */
+.gn-etv-title{font-size:var(--gn-etv-title)}
+.gn-etv-meta{font-size:var(--gn-etv-meta)}
+.gn-etv-foot{font-size:var(--gn-etv-foot);color:var(--gn-dim)}
+/* "+4 more", under a list the band could not show in full. THE WHOLE REASON
+   THIS SCREEN HAS A LADDER: the slices it replaced dropped people silently. */
+.gn-etv-more{
+  font-family:Nunito,system-ui,sans-serif;font-weight:700;font-size:var(--gn-etv-more);
+  color:var(--gn-dim);padding-left:var(--gn-etv-row-padx);
+}
+/* ---- The ladder ----
+   Three diffs off the base block above, each one MEASURED to land its own
+   player count inside 1080px against the lowest painted pixel, not a
+   proportional shrink of the last. --gn-etv-nm and --gn-etv-chip stop at
+   2.2vmin, which is the floor, and is why the tighter bands spend padding,
+   chrome and the QR block rather than type. */
+.gn-tv[data-eband="close"]{
+  --gn-etv-chip: 2.7vmin; --gn-etv-chip-pad: .8vmin; --gn-etv-chip-padx: 1.8vmin; --gn-etv-chip-gap: 1.1vmin;
+  --gn-etv-nm: 2.7vmin; --gn-etv-rank: 2.5vmin; --gn-etv-rank-w: 3.1vmin;
+  --gn-etv-w: 2.3vmin; --gn-etv-sub: 1.6vmin;
+  --gn-etv-row-pad: 1vmin; --gn-etv-row-padx: 1.6vmin; --gn-etv-row-gap: 1.3vmin;
+  --gn-etv-res: 2.2vmin; --gn-etv-title: 5vmin; --gn-etv-meta: 2vmin;
+  --gn-etv-foot: 2.3vmin; --gn-etv-gap: 2vmin; --gn-etv-more: 1.7vmin;
+  --gn-tv-stack-gap: 1.1vmin; --gn-tv-cols-mt: 2.2vmin; --gn-tv-h2: 2.7vmin; --gn-tv-h2-mb: 1.2vmin;
+}
+.gn-tv[data-eband="tight"]{
+  --gn-etv-chip: 2.4vmin; --gn-etv-chip-pad: .6vmin; --gn-etv-chip-padx: 1.5vmin; --gn-etv-chip-gap: .9vmin;
+  --gn-etv-nm: 2.4vmin; --gn-etv-rank: 2.2vmin; --gn-etv-rank-w: 2.8vmin;
+  --gn-etv-w: 2.1vmin; --gn-etv-sub: 1.5vmin;
+  --gn-etv-row-pad: .62vmin; --gn-etv-row-padx: 1.4vmin; --gn-etv-row-gap: 1.1vmin;
+  --gn-etv-res: 2vmin; --gn-etv-title: 4.2vmin; --gn-etv-meta: 1.8vmin;
+  --gn-etv-foot: 1.9vmin; --gn-etv-gap: 1.5vmin; --gn-etv-more: 1.6vmin;
+  --gn-tv-stack-gap: .85vmin; --gn-tv-cols-mt: 1.7vmin; --gn-tv-h2: 2.4vmin; --gn-tv-h2-mb: .9vmin;
+}
+/* The floor of the ladder. A crew has no cap, so a roster past what was
+   measured degrades here rather than at the roomiest metrics. */
+.gn-tv[data-eband="packed"]{
+  --gn-etv-chip: 2.2vmin; --gn-etv-chip-pad: .45vmin; --gn-etv-chip-padx: 1.2vmin; --gn-etv-chip-gap: .7vmin;
+  --gn-etv-nm: 2.2vmin; --gn-etv-rank: 2vmin; --gn-etv-rank-w: 2.6vmin;
+  --gn-etv-w: 1.9vmin; --gn-etv-sub: 1.4vmin;
+  --gn-etv-row-pad: .42vmin; --gn-etv-row-padx: 1.2vmin; --gn-etv-row-gap: 1vmin;
+  --gn-etv-res: 1.9vmin; --gn-etv-title: 3.6vmin; --gn-etv-meta: 1.7vmin;
+  --gn-etv-foot: 1.7vmin; --gn-etv-gap: 1.1vmin; --gn-etv-more: 1.5vmin;
+  --gn-tv-stack-gap: .6vmin; --gn-tv-cols-mt: 1.1vmin; --gn-tv-h2: 2.2vmin; --gn-tv-h2-mb: .6vmin;
+}
 /* The night's live-now marker on a game-picker tile. */
 .gn-live-tag{
   font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:11px;letter-spacing:.5px;

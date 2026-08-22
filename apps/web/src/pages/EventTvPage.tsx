@@ -5,6 +5,14 @@ import { PACK_WS_TYPES, type SessionPackKey } from "@gamenight/shared";
 import { api, type EventTv } from "../api";
 import BackButton from "../BackButton";
 import { useLiveRefetch } from "../useLiveUpdates";
+import {
+  ETV_PLAYER_SLICE,
+  ETV_QR,
+  ETV_RESULT_SLICE,
+  eventTvBand,
+  shown,
+  type EventTvBand,
+} from "./event-tv-band";
 
 // ONE TV BUTTON PER NIGHT.
 //
@@ -163,6 +171,15 @@ export default function EventTvPage() {
 function Lobby({ tv }: { tv: EventTv }) {
   const { event, lobby } = tv;
   const recap = lobby.recap;
+  // THE DENSITY LADDER. Every metric on this screen comes off this one
+  // attribute (see event-tv-band.ts and the [data-eband] blocks in index.css).
+  // Before it, the between-games face was 152px past 1080p AND hid everybody
+  // past the eighth player to get there.
+  const band = eventTvBand({
+    players: recap?.players.length ?? 0,
+    results: recap?.games.length ?? 0,
+    waiting: recap ? 0 : lobby.yes.length,
+  });
   const when = event.scheduledFor
     ? new Date(event.scheduledFor).toLocaleString([], {
         weekday: "long",
@@ -177,27 +194,31 @@ function Lobby({ tv }: { tv: EventTv }) {
     : `${window.location.origin}/e/${event.id}`;
 
   return (
-    <Frame align="stretch">
-      <div className="flex flex-col" style={{ width: "100%", gap: "3vmin" }}>
+    <Frame align="stretch" band={band}>
+      <div className="flex flex-col" style={{ width: "100%", gap: "var(--gn-etv-gap)" }}>
         <header className="flex items-start justify-between gap-6 shrink-0">
           <div className="min-w-0">
             <BackButton className="!text-lg mb-2 block" />
-            <h1 className="gn-tv-title text-6xl">{event.title}</h1>
-            <p className="text-2xl mt-3" style={{ color: "var(--gn-dim)" }}>
+            <h1 className="gn-tv-title gn-etv-title">{event.title}</h1>
+            <p className="gn-etv-meta mt-3" style={{ color: "var(--gn-dim)" }}>
               {event.groupName} &middot; {when}
               {recap && ` · ${recap.totalGames} ${recap.totalGames === 1 ? "game" : "games"} played`}
             </p>
           </div>
           <div className="text-center shrink-0">
             <div className="bg-white p-2 rounded-lg">
-              <QRCodeSVG value={joinUrl} size={130} fgColor="#17111f" />
+              {/* Sized by the band: at base metrics the header is 169px and the
+                  QR is 130 of it, which makes this the cheapest chrome lever on
+                  the screen. It is a prop rather than a stylesheet value, so it
+                  cannot ride the CSS variables the rest of the ladder spends. */}
+              <QRCodeSVG value={joinUrl} size={ETV_QR[band]} fgColor="#17111f" />
             </div>
             <p className="gn-hint text-sm mt-1">scan to join</p>
           </div>
         </header>
 
         {recap ? (
-          <NightSoFar recap={recap} />
+          <NightSoFar recap={recap} band={band} />
         ) : (
           <section className="flex flex-col min-h-0">
             <h2 className="gn-tv-h2">
@@ -219,7 +240,7 @@ function Lobby({ tv }: { tv: EventTv }) {
           </section>
         )}
 
-        <p className="text-3xl shrink-0" style={{ color: "var(--gn-dim)" }}>
+        <p className="gn-etv-foot shrink-0">
           {recap
             ? "Waiting on the host to start the next game. This screen follows the night on its own."
             : "Waiting on the host to start a game. This screen follows the night on its own."}
@@ -237,9 +258,28 @@ function Lobby({ tv }: { tv: EventTv }) {
  * standings are already sorted by the MVP rule (most wins, then best average
  * finish), so the top row IS who is leading the night and gets said so.
  */
-function NightSoFar({ recap }: { recap: NonNullable<EventTv["lobby"]["recap"]> }) {
+function NightSoFar({
+  recap,
+  band,
+}: {
+  recap: NonNullable<EventTv["lobby"]["recap"]>;
+  band: EventTvBand;
+}) {
+  // THE SLICES ARE THE BAND'S NOW, and that is the fix rather than a tidy-up.
+  // These were `slice(0, 8)` and `slice(-6)`, two hardcoded caps with nothing
+  // behind them: a twelve-person night dropped four people off a television and
+  // the screen said nothing, while STILL running 152px past 1080p with them
+  // hidden. The band decides what fits, and whatever does not fit is COUNTED
+  // and printed rather than discarded.
+  // The standings list carries a "+N more" line, so its slice pays for one.
+  const people = shown(recap.players.length, ETV_PLAYER_SLICE[band], true);
+  // The results list does NOT, and that is a difference rather than an
+  // oversight: its heading already reads "Latest results / N played", so
+  // showing the most recent few of a stated total is the feature. A standings
+  // list headed "12 playing" that draws eight rows is the bug.
+  const games = shown(recap.games.length, ETV_RESULT_SLICE[band]);
   // Newest first: between games, what just happened is the interesting part.
-  const latest = recap.games.slice(-6).reverse();
+  const latest = recap.games.slice(-games.take).reverse();
   return (
     <div className="gn-tv-cols" style={{ marginTop: 0 }}>
       <section className="flex flex-col min-h-0">
@@ -247,7 +287,7 @@ function NightSoFar({ recap }: { recap: NonNullable<EventTv["lobby"]["recap"]> }
           Tonight so far <span>{recap.players.length} playing</span>
         </h2>
         <div className="gn-tv-stack">
-          {recap.players.slice(0, 8).map((p, i) => (
+          {recap.players.slice(0, people.take).map((p, i) => (
             <div className={`gn-tvs ${i === 0 ? "gn-tvs--lead" : ""}`} key={p.userId}>
               <span className="gn-tvs__rank">{i + 1}</span>
               <span className="gn-tvs__nm">
@@ -263,6 +303,9 @@ function NightSoFar({ recap }: { recap: NonNullable<EventTv["lobby"]["recap"]> }
               </span>
             </div>
           ))}
+          {people.hidden > 0 && (
+            <p className="gn-etv-more">+{people.hidden} more not shown</p>
+          )}
         </div>
       </section>
 
@@ -291,13 +334,17 @@ function NightSoFar({ recap }: { recap: NonNullable<EventTv["lobby"]["recap"]> }
 function Frame({
   children,
   align = "center",
+  band,
 }: {
   children: React.ReactNode;
   align?: "center" | "stretch";
+  /** Absent on the loading and error faces, which are one line and never tight. */
+  band?: EventTvBand;
 }) {
   return (
     <main
       className={`gn-tv flex ${align === "center" ? "items-center justify-center" : "flex-col"}`}
+      data-eband={band}
       style={{
         padding:
           "calc(2.5rem + env(safe-area-inset-top, 0px)) calc(2.5rem + env(safe-area-inset-right, 0px)) calc(2.5rem + env(safe-area-inset-bottom, 0px)) calc(2.5rem + env(safe-area-inset-left, 0px))",

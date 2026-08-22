@@ -791,15 +791,17 @@ const CASES = [
 // and the 20px is what the assumption was hiding. The shared ladder has to land
 // the TALLER of the two, which is Card Table's, not Board Game's.
 //
-// THE EVENT TV'S BETWEEN-GAMES SCREEN. 1232px, over by 152, in both themes, at
-// EIGHT, TWELVE AND SIXTEEN players IDENTICALLY, and that constant is the whole
-// finding. The screen does not grow with the roster because
-// recap.players.slice(0, 8) and recap.games.slice(-6) cap it, so a twelve
-// person night silently drops four people off the television AND the screen is
-// STILL 152px over at the capped size. Two bugs stacked: a cap that hides
-// people, over a layout that does not fit even with them hidden. Four players
-// fits at 1080 exactly. The LOBBY state fits at every count measured, so this is
-// the between-games face only.
+// THE EVENT TV'S BETWEEN-GAMES SCREEN WAS HERE AND IS FIXED (2026-08-22, in the
+// commit after the one that measured it). It was 1232px in both themes at
+// EIGHT, TWELVE AND SIXTEEN players IDENTICALLY, over by 152, and that constant
+// was the whole finding: the screen did not grow with the roster because
+// recap.players.slice(0, 8) and recap.games.slice(-6) capped it, so a twelve
+// person night dropped four people off a television silently AND the screen was
+// still 152px over with them hidden. Now on its own ladder
+// (apps/web/src/pages/event-tv-band.ts, [data-eband] in index.css): every count
+// from 4 to 24 fits, twelve players are shown in full, and past that the list
+// prints how many it is holding back. Its name is out of KNOWN, which is what
+// that set shrinking means.
 //
 // BEERIO'S GRAND PRIX. 1148 / 1717 / 2286px at 4 / 8 / 12 racers, over by
 // 68 / 637 / 1206. BUGS recorded only the twelve, and measuring the other two
@@ -840,9 +842,6 @@ const KNOWN = new Set([
   "bracket tv 16 pairs fresh",
   "bracket tv 16 pairs mid  ",
   "bracket tv 16 pairs late ",
-  "event tv night  8",
-  "event tv night 12",
-  "event tv night 16",
   "beerio gp   4 racers",
   "beerio gp   8 racers",
   "beerio gp  12 racers",
@@ -932,6 +931,22 @@ const NEUTRALISE = `
     --bt-chip:1.6vw;--bt-chip-pad:.4vw;--bt-chip-padx:1vw;--bt-chip-dot:1.3vw;
     --bt-chip-gap:.7vw;--bt-grp-gap:1vw;--bt-lbl:1.2vw;--bt-lbl-mb:.5vw;
     --bt-st-nm:1vw;--bt-st-n:.9vw;--bt-st-pad:.45vw;--bt-st-top:.7vw;
+  }
+  /* THE EVENT TV, added 2026-08-22 with its ladder. Unlike the two above, these
+     ARE the roomy rung's values, and that is correct for this screen rather
+     than sloppy: /e/:id/tv had NO ladder at all, so its base block was written
+     to be the pre-ladder screen exactly (3vmin names, 1.3vmin row padding,
+     1.4vmin chip gaps, the lot). Pinning every band back to it restores the
+     screen as it shipped, which is the thing a control has to be able to see.
+     Doubled selector for the same specificity reason as the two above. */
+  .gn-tv.gn-tv[data-eband]{
+    --gn-etv-chip:3vmin;--gn-etv-chip-pad:1vmin;--gn-etv-chip-padx:2.2vmin;--gn-etv-chip-gap:1.4vmin;
+    --gn-etv-nm:3vmin;--gn-etv-rank:2.8vmin;--gn-etv-rank-w:3.4vmin;
+    --gn-etv-w:2.6vmin;--gn-etv-sub:1.7vmin;
+    --gn-etv-row-pad:1.3vmin;--gn-etv-row-padx:1.8vmin;--gn-etv-row-gap:1.6vmin;
+    --gn-etv-res:2.4vmin;--gn-etv-title:6vmin;--gn-etv-meta:2.2vmin;
+    --gn-etv-foot:3vmin;--gn-etv-gap:3vmin;--gn-etv-more:1.8vmin;
+    --gn-tv-stack-gap:1.3vmin;--gn-tv-cols-mt:2.6vmin;--gn-tv-h2:3vmin;--gn-tv-h2-mb:1.6vmin;
   }`;
 let control = 0;
 console.log("\nnegative control: the ladder pinned back to its base metrics, which must NOT fit");
@@ -942,6 +957,12 @@ console.log("\nnegative control: the ladder pinned back to its base metrics, whi
   for (const [label, route, payload, proof] of [
     ["bracket tv 16 mid  ", "/tv/x", bracketTv(16, "mid"), ".gn-tvst"],
     ["beerio tv  16 mid  ", "/beerio/tv/ABCD", beerioTv(16, "mid"), ".beerio-tv-strip"],
+    // TWELVE, not sixteen, and that is the case that binds rather than the
+    // biggest one. At sixteen the component draws eleven rows and a "+5 more"
+    // line; at twelve it draws all twelve, which is the most rows this screen
+    // ever puts on a television and therefore the hardest thing for the pinned
+    // metrics to fit.
+    ["event tv night 12 ", "/e/x/tv", eventTv(12, true), ".gn-tvs"],
   ]) {
     const m = await measure("arcade", route, payload, proof);
     const over = m.lowest - 1080;

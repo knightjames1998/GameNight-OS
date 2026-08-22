@@ -61,7 +61,22 @@ const INDEX_HTML = path.join(DIST, "index.html");
  */
 const BUDGET = {
   js: 75_000,
-  css: 16_000,
+  // RAISED 16_000 -> 18_000 on 2026-08-22, and the reason is written here
+  // because the test below exists to make a raise argue for itself.
+  //
+  // WHAT HAPPENED: the TV session adds SIX density ladders (the event TV, Ping
+  // Pong, the shared Board Game / Card Table component, Mario Kart, the
+  // bracketed TV's chips, Beerio's Grand Prix). A ladder is a base variable
+  // block plus three [data-band] diffs, and the first one measured cost ~380
+  // gzipped bytes: 15_240 before it, 15_620 after.
+  //
+  // WHY ONCE RATHER THAN SIX TIMES: six raises of a few hundred bytes each is
+  // exactly the reflex this test was written to stop, and each one would be
+  // argued more weakly than the last. One raise, sized against six measured
+  // ladders rather than against the next byte, is the honest shape. If the
+  // session ships fewer ladders than planned, this number comes back down with
+  // it rather than being left as free room.
+  css: 18_000,
 };
 
 /**
