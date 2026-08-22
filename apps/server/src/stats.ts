@@ -18,12 +18,17 @@ import {
   memberships,
   rsvps,
   users,
+  alias,
   and,
   eq,
   inArray,
+  isNotNull,
+  isNull,
+  ne,
+  or,
   sql,
 } from "@gamenight/db";
-import { isSeriesSummary, formatOrderIndex } from "@gamenight/shared";
+import { isSeriesSummary, formatOrderIndex, SERIES_LABEL } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 
 export const statsRouter = Router();
@@ -842,6 +847,166 @@ export function meetingStreaks(outcomes: MeetingOutcome[]): {
   return { run, myLongest, theirLongest };
 }
 
+// ---------- partner stats ----------
+//
+// WHO YOU WIN WITH. `side` has been in the ledger since 2026-08-02 and
+// `meetingOutcome` has classified a shared side as `together` for just as
+// long, but nothing anywhere said who you win most WITH, so the team
+// primitive changed what was recorded without changing anything anyone saw.
+//
+// DELIBERATELY NOT PART OF THE Agg BLOCK, and that is the whole placement
+// decision. `feedAgg` / `finishAgg` / `ResultRow` / `resultCols` are all
+// untouched by this feature: `resultCols` selects no side and no userId, and
+// `aggFor` filters to one user, so every row that aggregation sees is the
+// requesting person's own. Partner stats need the OTHER participants on those
+// matches, which is a different query however it is arranged. That is the good
+// news rather than the bad: it means this is genuinely additive and the crew
+// leaderboard cannot move. `finishAgg` is sync and query-free BECAUSE the crew
+// leaderboard calls it once per player, so anything that costs a query goes
+// beside `finishAggDeep` and never inside it. This costs a query.
+//
+// ONE SELF-JOIN, NOT A CLIENT-BUILT ID LIST. `countLastPlace` above builds an
+// `inArray` of every match id the player has ever played, and it is logged as
+// a Watch trap in BUGS for exactly that reason: the IN list grows without
+// bound. This does not repeat that pattern. Postgres never receives an id
+// list; it receives one join of match_participants to itself and does the
+// matching internally, so the cost is an index lookup rather than a parameter
+// list that gets longer every night the crew plays.
+
+/**
+ * Games together before a partner can be called your best or your worst.
+ *
+ * WITHOUT A FLOOR THE TOP OF THE LIST IS WHOEVER YOU PLAYED WITH ONCE AND
+ * WON, at a triumphant 100%, and the bottom is whoever you played with once
+ * and lost. Both are noise presented as a verdict, and on a screen somebody
+ * screenshots. Three is the same floor MIN_CHAR_GAMES uses and for the same
+ * reason; it is a constant rather than a literal so it can move without a
+ * hunt. There is NO floor on "most played with", because that one is a count
+ * rather than a rate and a count of one is honestly a count of one.
+ */
+export const PARTNER_MIN_GAMES = 3;
+
+/** One person you have been on a side with, and how it went. */
+export interface PartnerRow {
+  userId: string;
+  displayName: string;
+  /** Matches the two of you were on the same non-null side of. */
+  played: number;
+  /** How many of those you won. Teammates share an outcome, so this is both of you. */
+  wins: number;
+  winRate: number;
+}
+
+/**
+ * The three headline views, derived in JS from the one result set.
+ *
+ * Pure, and exported, so the floor and the tiebreaks are testable without a
+ * database: the SQL below is what is hard to test here, and the arithmetic is
+ * what is easy to get quietly wrong.
+ */
+export function derivePartners(rows: PartnerRow[]) {
+  // Sorted once, and the sort is total: played, then wins, then name, then id.
+  // Without the last two a crew with two equally-played partners would get a
+  // different "most played with" on different requests, because Postgres is
+  // under no obligation to return groups in a stable order.
+  const partners = [...rows].sort(
+    (a, b) =>
+      b.played - a.played ||
+      b.wins - a.wins ||
+      a.displayName.localeCompare(b.displayName) ||
+      a.userId.localeCompare(b.userId),
+  );
+
+  const eligible = partners.filter((p) => p.played >= PARTNER_MIN_GAMES);
+  // Tiebreak on `played` in BOTH directions, deliberately: between two people
+  // you win 60% with, the one you have played twelve games with is the more
+  // honest answer than the one you have played three with, whether the label
+  // is "best" or "worst".
+  const best = eligible.reduce<PartnerRow | null>(
+    (acc, p) => (!acc || p.winRate > acc.winRate || (p.winRate === acc.winRate && p.played > acc.played) ? p : acc),
+    null,
+  );
+  const worst = eligible.reduce<PartnerRow | null>(
+    (acc, p) => (!acc || p.winRate < acc.winRate || (p.winRate === acc.winRate && p.played > acc.played) ? p : acc),
+    null,
+  );
+
+  return {
+    partners,
+    mostPlayedWith: partners[0] ?? null,
+    bestPartner: best,
+    // ONE ELIGIBLE PARTNER IS NOT A BEST AND A WORST. With a single name over
+    // the floor, `best` and `worst` are the same row, and printing one person
+    // as both reads as a bug rather than as a small sample. Null here, and the
+    // client renders nothing, which is the truthful version of "not enough
+    // people yet".
+    worstPartner: eligible.length > 1 ? worst : null,
+    minGames: PARTNER_MIN_GAMES,
+  };
+}
+
+/**
+ * Who this user has been on a side with, across a set of crews.
+ *
+ * Signature mirrors `attendanceFor` on purpose: same shape, same call site,
+ * same place in the Promise.all beside it.
+ *
+ * TWO ROWS ON ONE MATCH WITH THE SAME NON-NULL `side` WERE TEAMMATES. That is
+ * the whole rule, it is the same one `meetingOutcome` applies in JS, and both
+ * spellings are pinned by partner-stats-baseline.test.ts so they cannot drift
+ * apart. Note that the join gets the null case free rather than by testing for
+ * it: in SQL `null = null` is null, not true, so free-for-all rows (which are
+ * most rows in this ledger) never match each other. The explicit isNotNull is
+ * there for the reader and the planner, not for correctness.
+ */
+async function partnersFor(db: Db, groupIds: string[], userId: string) {
+  if (!groupIds.length) return derivePartners([]);
+
+  const them = alias(matchParticipants, "them");
+  const rows = await db
+    .select({
+      userId: them.userId,
+      displayName: users.displayName,
+      played: sql<number>`count(*)::int`,
+      wins: sql<number>`count(*) filter (where ${matchParticipants.isWinner})::int`,
+    })
+    .from(matchParticipants)
+    .innerJoin(
+      them,
+      and(
+        eq(them.matchId, matchParticipants.matchId),
+        eq(them.side, matchParticipants.side),
+        ne(them.userId, matchParticipants.userId),
+      ),
+    )
+    .innerJoin(matches, eq(matches.id, matchParticipants.matchId))
+    .innerJoin(users, eq(users.id, them.userId))
+    .where(
+      and(
+        eq(matchParticipants.userId, userId),
+        isNotNull(matchParticipants.side),
+        eq(matches.status, "completed"),
+        inArray(matchParticipants.groupId, groupIds),
+        // THE SERIES SUMMARY EXCLUSION, the same one feedAgg applies to the
+        // aggregation. A Smashdown series row summarizes battles that are
+        // already in this same result set, so without this a series counts on
+        // top of every battle inside it and inflates the partner record. The
+        // constant is imported rather than typed out, so renaming it moves
+        // both spellings together.
+        or(isNull(matches.label), ne(matches.label, SERIES_LABEL)),
+      ),
+    )
+    .groupBy(them.userId, users.displayName);
+
+  return derivePartners(
+    rows.map((r) => {
+      const played = Number(r.played);
+      const wins = Number(r.wins);
+      return { userId: r.userId, displayName: r.displayName, played, wins, winRate: played ? wins / played : 0 };
+    }),
+  );
+}
+
 /** Me vs them across a set of crews: both sides' stats + the h2h ledger. */
 async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: string) {
   const mineAgg = newAgg();
@@ -1069,13 +1234,30 @@ statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
   // counting them would dilute the rate with nights that cannot be missed.
   const realCrewIds = myGroups.filter((g) => !g.isPersonal).map((g) => g.id);
 
+  // Three independent reads, so they go together rather than one after the
+  // other. Partner stats are the new one and they are one query; awaiting them
+  // in sequence would have made this endpoint slower for a block that renders
+  // in three lines.
+  //
+  // PARTNERS SPAN EVERY CREW YOU PLAY IN, personal ones included, because a
+  // partner is a person rather than a membership and quick play still records
+  // real sides. That is deliberately a different set from realCrewIds above,
+  // which excludes personal crews because there is nobody to flake on in one.
+  const allCrewIds = myGroups.map((g) => g.id);
+  const [deep, attendance, partners] = await Promise.all([
+    finishAggDeep(db, total),
+    attendanceFor(db, realCrewIds, req.user!.id),
+    partnersFor(db, allCrewIds, req.user!.id),
+  ]);
+
   res.json({
-    ...(await finishAggDeep(db, total)),
+    ...deep,
     byFormat: [...byFormat.values()].sort((x, y) => y.wins - x.wins || y.played - x.played),
     byCrew: [...byCrew.values()].sort((x, y) => y.played - x.played),
     // The crew profile has always shown this; the cross-crew view did not,
     // so the same person read differently on two pages.
-    attendance: await attendanceFor(db, realCrewIds, req.user!.id),
+    attendance,
+    partners,
   });
 });
 
@@ -1105,11 +1287,18 @@ statsRouter.get("/groups/:id/members/:userId/stats", async (req: AuthedRequest, 
     return;
   }
 
+  const [agg, attendance, partners] = await Promise.all([
+    aggFor(db, [groupId], targetId),
+    attendanceFor(db, [groupId], targetId),
+    partnersFor(db, [groupId], targetId),
+  ]);
+
   res.json({
     userId: targetId,
     displayName: target[0].displayName,
-    ...(await aggFor(db, [groupId], targetId)),
-    attendance: await attendanceFor(db, [groupId], targetId),
+    ...agg,
+    attendance,
+    partners,
   });
 });
 
@@ -1212,12 +1401,19 @@ statsRouter.get("/friends/:userId/stats", async (req: AuthedRequest, res) => {
     .from(groups)
     .where(inArray(groups.id, shared));
 
+  const [agg, attendance, partners] = await Promise.all([
+    aggFor(db, shared, targetId),
+    attendanceFor(db, shared, targetId),
+    partnersFor(db, shared, targetId),
+  ]);
+
   res.json({
     userId: targetId,
     displayName: target.displayName,
     crews: crews.map((c) => c.name).sort(),
-    ...(await aggFor(db, shared, targetId)),
-    attendance: await attendanceFor(db, shared, targetId),
+    ...agg,
+    attendance,
+    partners,
   });
 });
 
