@@ -744,9 +744,13 @@ the yes-RSVP list and tonight's standings with the same names and win counts, so
 class of data over a longer window, but it IS a widening and it belongs in a decision log rather
 than in a diff.
 
-**A SCREEN WITH NO HARNESS CASE HAS NO OWNER, and this is the SIXTH instance of one root cause**
-(2026-08-22). Board Game (2026-08-09), both bracketed TVs (08-15), Mario Kart (08-16), Beerio's
-Grand Prix (08-19), and the event TV (08-22). Every one of them: a screen shipped, nothing added
+**A SCREEN WITH NO HARNESS CASE HAS NO OWNER, and this is the FIFTH instance of one root cause**
+(2026-08-22, corrected from "sixth" the same day). BUGS keeps this count itself and a session
+continues it rather than restarting it: Board Game (2026-08-09) was the first, both bracketed
+TVs (08-15) the second, Mario Kart (08-16) says "the third time", Beerio's Grand Prix (08-19)
+says "the fourth time", and the event TV (08-22) is the fifth. THE TWO BRACKETED TVs ARE ONE
+INSTANCE, not two: one session, one finding, one BUGS entry, and counting them separately is
+exactly how the first draft of this entry got six. Every one of them: a screen shipped, nothing added
 it to `scripts/tv-fit.mjs`, and it ran hundreds of pixels off a television for weeks or months
 with nothing erroring. Two of them had never fitted at ANY count.
   **THE ADDING A PACK CHECKLIST CANNOT CATCH THIS ANY MORE, and that is the new part.** Four of

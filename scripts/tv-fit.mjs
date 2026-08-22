@@ -249,10 +249,14 @@ const deduction = (n) => {
 
 // THE EVENT TV, /e/:id/tv, AND IT HAD NO CASE HERE AT ALL UNTIL 2026-08-22.
 //
-// THIS IS THE SIXTH INSTANCE OF ONE ROOT CAUSE, and it is worth naming as a
-// pattern rather than as a sixth accident: Board Game (2026-08-09), both
-// bracketed TVs (08-15), Mario Kart (08-16), Beerio's Grand Prix (08-19), and
-// now this. A SCREEN WITH NO HARNESS CASE HAS NO OWNER. The event TV is in
+// THIS IS THE FIFTH INSTANCE OF ONE ROOT CAUSE, and BUGS keeps that count
+// itself rather than each session restarting it: Board Game (2026-08-09) was
+// the first, both bracketed TVs (08-15) the second, Mario Kart (08-16) says
+// "the third time", Beerio's Grand Prix (08-19) says "the fourth time", and
+// the event TV is the fifth. THE TWO BRACKETED TVs ARE ONE INSTANCE, not two:
+// one session, one finding, one BUGS entry. Counting them separately is exactly
+// how a first draft of this comment said "sixth".
+// A SCREEN WITH NO HARNESS CASE HAS NO OWNER. The event TV is in
 // theme-sweep's ROUTES, so it has been colour-swept for weeks, and nothing had
 // ever asked whether it fits a television. It is also not a pack, so the
 // ADDING A PACK checklist could never have caught it.

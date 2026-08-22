@@ -151,15 +151,17 @@ const RULE_ROUTES = [
   // nothing. It is in ROUTES, which is the pass that walks screens.
   "/beerio",
   "/beerio/tv/ABCD",
-  // /e/x/tv joined on 2026-08-22, with the event TV's own band ladder. It is
-  // listed for a DIFFERENT reason than the pack routes above: it paints out of
-  // index.css, which "/" already loads, so on the argument that keeps /tv/x out
-  // of this list it would prove nothing. What it does have is its own
-  // [data-eband] override blocks, and a rule pass that never visits a screen
-  // carrying a ladder cannot notice the day one of those blocks stops
-  // resolving. The blocks are in index.css and "/" would see them, but "/"
-  // cannot tell whether the SCREEN spends them.
-  "/e/x/tv",
+  // /e/x/tv WAS ADDED HERE ON 2026-08-22 AND TAKEN BACK OUT THE SAME DAY, which
+  // is worth a note because the reasoning for adding it was wrong in a way that
+  // looked right. The argument was: the event TV now carries [data-eband]
+  // blocks, so a rule pass that never visits it cannot notice the day one stops
+  // resolving. THIS PASS DOES NOT DO THAT. It collects RULE DECLARATIONS from
+  // the loaded stylesheets, keyed by stylesheet, and the event TV's ladder
+  // lives in index.css, which "/" already loads. Visiting the route collects
+  // the identical declarations a second time and proves nothing, for the same
+  // reason /tv/x is deliberately absent two lines up. Whether a SCREEN spends
+  // its variables is a question for scripts/tv-fit.mjs, which measures the
+  // rendered page, and which now has ten cases for this route.
 ];
 
 /**
