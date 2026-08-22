@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, type Friend, type GroupSummary, type Me } from "../api";
+import { api, type AttendanceStats, type Friend, type GroupSummary, type Me } from "../api";
 import { useCachedApi } from "../cache";
 import Login from "./Login";
 import GamePicker from "../GamePicker";
@@ -9,6 +9,9 @@ import AddToHomeHint from "../AddToHomeHint";
 import { GroupListSkeleton } from "../Skeleton";
 import { onIntent, routes } from "../prefetch";
 import { THEMES, useTheme } from "../useTheme";
+// The form pips and their type, from the component the stats page and the crew
+// leaderboard already share. Home renders the same five, at the small size.
+import { Pip, type FormStats } from "../FormStats";
 
 export default function Home({
   me,
@@ -186,8 +189,13 @@ function Groups({
           <label className="gn-lab" htmlFor="home-name">
             Your name (what your crew sees)
           </label>
-          <div className="grid grid-cols-3 gap-2 sm:gap-4">
-            <div className="col-span-2 space-y-2 min-w-0">
+          {/* STACKS ON A PHONE, which the three-column grid never did. The
+              panel used to be two lines and survived a third of 390px; it is
+              seven now, and 130px is not a column, it is a wrapping accident.
+              Full width under the account controls below sm, the right third
+              above it. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+            <div className="col-span-1 sm:col-span-2 space-y-2 min-w-0">
               <div className="flex gap-2 min-w-0">
                 <input
                   id="home-name"
@@ -399,40 +407,130 @@ function Friends() {
   );
 }
 
-// The "Your stats" button on Home: fills the right third of the account row
-// and opens the full stats page. Shows a headline (wins + win rate) once the
-// player has a record.
-interface StatsHeadline {
+// The personal stats panel on Home: the right third of the account row on a
+// wide screen, a full-width block under it on a phone, and a link into the
+// full stats page either way.
+//
+// EVERY FIELD BELOW WAS ALREADY IN THE PAYLOAD. This panel adds NO request and
+// NO server work: it reads the same /api/me/stats through the same useCachedApi
+// under the same `me:stats` key MyStatsPage uses, which is what makes opening
+// the full page from here instant. What changed is only how much of that
+// payload gets rendered: it used to show wins and win rate and throw the rest
+// away.
+//
+// IT STAYS A ROUTER LINK, never a raw <a href>: an <a> is a full document load
+// that discards the cache, the service worker warmth and the live socket, on
+// the one screen a returning user lands on first. The onIntent prefetch stays
+// with it.
+interface HomeStats {
   played: number;
   wins: number;
   winRate: number;
+  /** Best (lowest) placement and the average. Returned since 07-27, never rendered HERE. */
+  best: number | null;
+  avgPlacement: number | null;
+  nightsPlayed?: number;
+  form?: FormStats;
+  attendance?: AttendanceStats;
+  /** Only the main is read here; the full table is a page away. */
+  characters?: { mostPlayed: string | null };
+}
+
+/**
+ * One line of the panel. Label left, value right, both on the shell's normal
+ * face at 12px, because this block sits in a third of a row on desktop and a
+ * value that wraps is worse than a value that is not shown at all.
+ */
+function PanelRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2" style={{ minWidth: 0 }}>
+      <span className="gn-hint" style={{ fontSize: 11, whiteSpace: "nowrap" }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        {children}
+      </span>
+    </div>
+  );
 }
 
 function StatsButton() {
-  // Cached under the same key MyStatsPage uses: it is the same endpoint and
-  // StatsHeadline is just a narrower view of that payload, so opening the full
-  // stats page from here already has the data in hand.
-  const { data: stats } = useCachedApi<StatsHeadline>("me:stats", "/api/me/stats");
+  const { data: stats } = useCachedApi<HomeStats>("me:stats", "/api/me/stats");
 
   const has = !!stats && stats.played > 0;
+  const form = stats?.form;
+  const att = stats?.attendance;
+  const main = stats?.characters?.mostPlayed;
   return (
     <Link
       to="/me/stats"
       {...onIntent(routes.myStats)}
-      className="gn-card col-span-1 min-w-0 flex flex-col justify-center"
-      style={{ height: "100%", padding: "10px 12px", textDecoration: "none", color: "var(--gn-ink)" }}
+      className="gn-card col-span-1 min-w-0 flex flex-col"
+      style={{ padding: "10px 12px", textDecoration: "none", color: "var(--gn-ink)", gap: 4 }}
     >
       <div className="flex items-center justify-between gap-1">
         <span className="gn-h2" style={{ whiteSpace: "nowrap", fontSize: 15 }}>Your stats</span>
         <span aria-hidden="true" className="gn-hint" style={{ fontSize: 14, color: "var(--gn-p2)" }}>›</span>
       </div>
-      <div className="gn-hint" style={{ fontSize: 12, marginTop: 3 }}>
-        {has ? (
-          <><b style={{ color: "var(--gn-gold)" }}>{stats!.wins}</b>W · {Math.round(stats!.winRate * 100)}%</>
-        ) : (
-          "see details"
-        )}
-      </div>
+
+      {/* A BRAND NEW ACCOUNT GETS ONE LINE, not a wall of zeroes. Every row
+          below is about a record that does not exist yet, and rendering seven
+          of them reading 0 and "-" is a worse first screen than saying so. */}
+      {!has ? (
+        <div className="gn-hint" style={{ fontSize: 12 }}>No games yet · see details</div>
+      ) : (
+        <>
+          <div style={{ fontSize: 12 }}>
+            <b style={{ color: "var(--gn-gold)" }}>{stats!.wins}</b>W ·{" "}
+            <b>{Math.round(stats!.winRate * 100)}%</b>{" "}
+            <span className="gn-hint">of {stats!.played}</span>
+          </div>
+
+          {/* Free: the endpoint has returned both since 2026-07-27 and Home
+              has never printed either. */}
+          <PanelRow label="best · avg">
+            {stats!.best ? `#${stats!.best}` : "-"}
+            <span className="gn-hint" style={{ fontWeight: 400 }}>
+              {" · "}
+              {stats!.avgPlacement ? stats!.avgPlacement.toFixed(1) : "-"}
+            </span>
+          </PanelRow>
+
+          {form && form.tracked > 0 && (
+            <PanelRow label="streak">
+              <span style={{ color: form.currentStreak >= 3 ? "var(--gn-gold)" : undefined }}>
+                {form.currentStreak}
+                {form.currentStreak >= 3 ? " 🔥" : ""}
+              </span>
+              <span className="gn-hint" style={{ fontWeight: 400 }}>{` · best ${form.longestStreak}`}</span>
+            </PanelRow>
+          )}
+
+          {form && form.last5.length > 0 && (
+            <div className="flex items-center gap-1" style={{ marginTop: 1 }}>
+              {/* Most recent first, the same order and the same component the
+                  stats page and the crew leaderboard use. */}
+              {form.last5.map((r, i) => (
+                <Pip key={i} r={r} size={18} />
+              ))}
+            </div>
+          )}
+
+          {!!stats!.nightsPlayed && <PanelRow label="nights">{stats!.nightsPlayed}</PanelRow>}
+
+          {/* attendanceFor returns zeroes for somebody with no tracked nights,
+              so this hides on the same test ShowUpRecord uses rather than
+              printing a 0% show rate at somebody who has never been asked. */}
+          {att && att.tracked > 0 && (
+            <PanelRow label="show rate">
+              {Math.round((att.showRate ?? 0) * 100)}%
+              <span className="gn-hint" style={{ fontWeight: 400 }}>
+                {att.flaked > 0 ? ` · ${att.flaked} flake${att.flaked === 1 ? "" : "s"}` : ""}
+              </span>
+            </PanelRow>
+          )}
+
+          {main && <PanelRow label="main">{main}</PanelRow>}
+        </>
+      )}
     </Link>
   );
 }
