@@ -44,6 +44,7 @@ import {
   bracketTvBand,
   type TvBand,
   type TvLoad,
+  bracketChipBand,
 } from "../../web/src/pages/tv-band.js";
 import {
   BEERIO_DECK_SLICE,
@@ -359,4 +360,79 @@ test("the floors on the two screens are the same physical size", () => {
     Math.abs(shellPx - beerioPx) < 1,
     `the floors have drifted apart: ${shellPx.toFixed(1)}px vs ${beerioPx.toFixed(1)}px at 1920x1080`,
   );
+});
+
+// ---------- the chip cap, added 2026-08-22 with the sixteen-pairs fix ----------
+//
+// THE ALIVE BOARD'S OVERFLOW AT SIXTEEN PAIRS IS A WIDTH PROBLEM, not a slot
+// count one, which is why it needed a THIRD answer rather than a tighter rung
+// on the existing two. Measured: sixteen SOLO fits, eight PAIRS fits in all
+// four states, sixteen PAIRS runs 229px over fresh and 297 mid and late.
+//
+// The tests below pin the two things that went wrong while building it, both
+// caught by measuring rather than by reasoning, and both the same mistake:
+// spending a cap on a board that did not need one.
+
+test("the chip cap NEVER fires on a solo board, at any count", () => {
+  // A solo label is one display name. Sixteen solo already sits at "tight" on
+  // entrant count and was never the broken case: an early draft folded the chip
+  // rung into bracketTvBand, and the tight block's cap started ellipsising
+  // 24-character solo names to fix a screen they are not on.
+  for (const n of [4, 8, 12, 16, 24]) {
+    assert.equal(bracketChipBand(n, 24), "roomy", `${n} solo entrants should never cap chips`);
+  }
+});
+
+test("the chip cap NEVER fires at eight entrants or fewer, however long the label", () => {
+  // Eight pairs was MEASURED fitting in all four states. A second draft keyed
+  // the cap on label length alone and truncated eight pairs to fix sixteen,
+  // which is the same trade one count over.
+  for (const n of [2, 4, 6, 8]) {
+    assert.equal(bracketChipBand(n, 52), "roomy", `${n} entrants should never cap chips`);
+  }
+});
+
+test("the chip cap DOES fire on a big doubles board, which is the case it exists for", () => {
+  assert.notEqual(bracketChipBand(16, 52), "roomy");
+  assert.notEqual(bracketChipBand(12, 52), "roomy");
+});
+
+test("the chip cap is monotonic in the label length", () => {
+  // A longer label never buys a roomier cap.
+  let prev = -1;
+  for (const chars of [10, 20, 26, 30, 34, 40, 44, 60, 200]) {
+    const i = TV_BANDS.indexOf(bracketChipBand(16, chars));
+    assert.ok(i >= prev, `label of ${chars} chars loosened the cap`);
+    prev = i;
+  }
+});
+
+test("garbage label length gets the roomiest cap rather than a crash", () => {
+  // Roomiest, not tightest, and that is deliberate: an unknown label length is
+  // not evidence that a board is wide, and capping on no evidence truncates
+  // names for nothing. The BAND still clamps tight on garbage; this one clamps
+  // the other way because the failure it prevents is different.
+  assert.equal(bracketChipBand(16, undefined), "roomy");
+  assert.equal(bracketChipBand(16, NaN), "roomy");
+  assert.equal(bracketChipBand(NaN, 52), "roomy");
+});
+
+test("TvPage emits data-chip, or the cap exists in CSS and is never applied", () => {
+  const shell = read("pages/TvPage.tsx");
+  assert.ok(shell.includes("bracketChipBand("), "TvPage.tsx does not call bracketChipBand");
+  assert.ok(/data-chip=\{/.test(shell), "TvPage.tsx computes a chip band but never renders data-chip");
+});
+
+test("every chip rung the ladder can return has rules in index.css", () => {
+  const css = read("index.css");
+  for (const band of TV_BANDS) {
+    // "roomy" is the base block's 100%, which is the whole point of it: a solo
+    // board renders exactly as it did before this feature existed.
+    if (band === "roomy") continue;
+    assert.ok(
+      css.includes(`.gn-tv[data-chip="${band}"]`),
+      `bracketChipBand can return "${band}" and index.css has no rules for it`,
+    );
+  }
+  assert.ok(css.includes("--gn-tv-chip-max"), "the chip cap variable is gone from index.css");
 });

@@ -12,7 +12,7 @@ import {
   type StripRound,
 } from "@gamenight/shared";
 import { api, slotTeam, type BracketView, type BracketMatchView } from "../api";
-import { bracketTvBand, TV_DECK_SLICE } from "./tv-band";
+import { bracketChipBand, bracketTvBand, TV_DECK_SLICE } from "./tv-band";
 import BackButton from "../BackButton";
 import { useBracketLive } from "../useLiveUpdates";
 
@@ -170,10 +170,20 @@ export default function TvPage({ bracketId }: { bracketId?: string }) {
     ready: deckAll.length,
     gfNote: deckAll.some((m) => m.side === "GF"),
   });
+  // THE CHIP CAP IS A SEPARATE ANSWER on a separate attribute, decided by the
+  // LONGEST LABEL the alive board will draw rather than by the entrant count.
+  // A team entrant's displayName is its members joined, so it is roughly twice
+  // a solo name, and chip WIDTH is what made sixteen pairs overflow while
+  // sixteen solo fitted unchanged. Folding it into the band above made solo
+  // worse; see bracketChipBand.
+  const chip = bracketChipBand(
+    bracket.entrantCount,
+    Math.max(0, ...[...nameOf.values()].map((n) => n.length)),
+  );
   const deck = deckAll.slice(0, TV_DECK_SLICE[band]);
 
   return (
-    <main className="gn-tv flex flex-col" data-band={band} style={{ padding: "calc(2.5rem + env(safe-area-inset-top, 0px)) calc(2.5rem + env(safe-area-inset-right, 0px)) calc(2.5rem + env(safe-area-inset-bottom, 0px)) calc(2.5rem + env(safe-area-inset-left, 0px))" }}>
+    <main className="gn-tv flex flex-col" data-band={band} data-chip={chip} style={{ padding: "calc(2.5rem + env(safe-area-inset-top, 0px)) calc(2.5rem + env(safe-area-inset-right, 0px)) calc(2.5rem + env(safe-area-inset-bottom, 0px)) calc(2.5rem + env(safe-area-inset-left, 0px))" }}>
       <header className="flex items-start justify-between gap-6 shrink-0">
         <div>
           <BackButton className="!text-lg mb-2 block" />

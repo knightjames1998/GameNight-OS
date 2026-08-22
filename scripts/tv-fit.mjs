@@ -799,70 +799,35 @@ const CASES = [
 // this set: if Card Table's TV does not fit, that is a new bug in new code and
 // it fails the run.
 //
-// SIXTEEN PAIRS joined on 2026-08-17, with team entrants, and it is the one
-// entry here that is not a whole screen. It is named at three specific states
-// because the finding is narrow and was MEASURED rather than guessed at:
+// SIXTEEN PAIRS WAS HERE AND IS FIXED (2026-08-22). It joined on 08-17 with
+// team entrants, at three specific states, and the finding was narrow and
+// MEASURED rather than guessed at:
 //
-//   what is over    the ALIVE BOARD, not the match cards. The lowest ink in
-//                   every failing state is .gn-tva, and the board's chips are
-//                   auto-width and wrap: a doubled-length label makes each chip
-//                   wider, sixteen of them wrap onto more rows, and the board
-//                   grows about 300px. The bracket cards themselves did not
-//                   move, because a team slot keeps ONE line (see TvPage).
+//   what was over   the ALIVE BOARD, not the match cards. The lowest ink in
+//                   every failing state was .gn-tva: chips are auto-width and
+//                   the row wraps, so a doubled label made each chip wider,
+//                   sixteen of them wrapped onto more rows, and the board grew
+//                   about 300px. The cards did not move, because a team slot
+//                   keeps ONE line.
 //   how far          fresh 1309 (over by 229), mid and late 1377 (over by 297).
-//   what fits        EIGHT pairs fits in all four states, which is a sixteen
-//                   person doubles night and the reachable common case. So does
-//                   sixteen SOLO, unchanged, so this is about label length and
-//                   not about slot count.
+//   what fitted      EIGHT pairs in all four states, and SIXTEEN SOLO
+//                   unchanged. So it was about LABEL WIDTH, not slot count.
 //
-// NOT FIXED HERE, and that is the standing shape of this file rather than the
-// clock: a fit ladder has been its own session every time, the money board's
-// being the worked example, and the alive board's chip width is exactly the
-// kind of density decision that wants measuring rather than taste. Logged in
-// BACKLOG under BUGS beside the other three.
+// THE FIX IS A THIRD ANSWER, not a tighter rung: `bracketChipBand` caps
+// --gn-tv-chip-max on its own [data-chip] attribute, so a long joined label
+// ellipsises instead of wrapping the board off the screen. It rides a separate
+// attribute because sixteen SOLO already sits at [data-band="tight"] and
+// capping there would have truncated 24-character solo names to fix a board
+// they are not on; and it does nothing at eight entrants or fewer, because
+// eight pairs was measured fitting. Both of those are pinned by unit tests in
+// bracket-tv-fit.test.ts, since both were mistakes made while building it.
 //
-// THREE SCREENS JOINED ON 2026-08-22, the day each was first measured, and all
-// three for the same reason every entry above joined: nothing had ever asked.
+// AND THE FOUR-ENTRANT FRESH REGRESSION IS FIXED WITH IT. DECK_CEILINGS put
+// four on-deck cards at "roomy" and four cards do not fit there; the ceiling
+// had never been exercised because until 2026-08-21 a four-entrant fresh
+// bracket held two cards, not four.
 //
-// BOARD GAME AND CARD TABLE AT TWELVE WERE BOTH HERE AND ARE FIXED (2026-08-22).
-// Board Game had been named since 08-09, Card Table only got measured on 08-22,
-// and MEASURING THE SECOND ONE BROKE THE ASSUMPTION BUGS WAS BUILT ON: the file
-// had said since 08-09 that this was one bug on two packs drawing one
-// component, and the two are not the same height. Board Game was 1256 Arcade /
-// 1236 Tabletop; Card Table was 1256 in BOTH. Same component, different tokens,
-// 20px apart under Tabletop. The shared ladder
-// (apps/web/src/titlenight/titlenight-tv-band.ts, [data-tnband]) is tuned
-// against the TALLER of the two, which is Card Table's: tuning against Board
-// Game would have landed one pack and left the other 20px over, which is
-// exactly the shape of miss this file's own history is full of. Both now fit at
-// 4, 8, 10, 12, 14 and 16 in both themes with the back button clear.
-//
-// AND ONE THAT IS A REGRESSION RATHER THAN AN ANCIENT OVERFLOW, which is why it
-// is called out separately: BRACKET TV AT FOUR ENTRANTS, FRESH. 1128px, over by
-// 48, both themes, and ONLY in the `fresh` state and ONLY at four. It is caused
-// by the 2026-08-21 on-deck placeholder work, and that session's closeout says
-// "tv-fit: PASS, every case fits", so this shipped believing it was measured.
-// VERIFIED AGAINST A CLEAN CHECKOUT of that commit rather than assumed.
-//
-// THE INPUT IS NOT STALE, WHICH IS THE INTERESTING PART. TvPage passes
-// `ready: deckAll.length` with a comment saying in as many words that a pending
-// card costs what a ready one does, so the band is being asked the right
-// question. What is wrong is the ANSWER: DECK_CEILINGS puts four cards at
-// "roomy", and four cards do not fit at roomy metrics. That ceiling was never
-// exercised before, because until 08-21 a four-entrant fresh bracket had only
-// TWO ready matches and the column never held four cards at that count. The
-// deck rule made a four-card deck reachable at the one entrant count whose
-// board ceiling is roomy, and the ladder had no measurement there.
-//
-// Eight, twelve and sixteen all still fit fresh, because their entrant count
-// pushes the board sub-ladder to close or tighter and drags the deck metrics
-// down with it. Fixed in the bracketed-TV ladder commit, not here: this file
-// measures.
 const KNOWN = new Set([
-  "bracket tv  4 fresh",
-  "bracket tv 16 pairs fresh",
-  "bracket tv 16 pairs mid  ",
-  "bracket tv 16 pairs late ",
   "beerio gp   4 racers",
   "beerio gp   8 racers",
   "beerio gp  12 racers",
@@ -936,6 +901,7 @@ for (const theme of ["arcade", "tabletop"]) {
 // the first time it ran, which is the whole reason a negative control is worth
 // having: it caught itself.
 const NEUTRALISE = `
+  .gn-tv.gn-tv[data-chip]{--gn-tv-chip-max:100%}
   .gn-tv.gn-tv[data-band]{
     --gn-tv-nm:3vmin;--gn-tv-rt:1.7vmin;--gn-tv-row-pad:1.5vmin;--gn-tv-stack-gap:1.6vmin;
     --gn-tv-note:1.7vmin;
@@ -1011,6 +977,12 @@ console.log("\nnegative control: the ladder pinned back to its base metrics, whi
     // two packs and the control should bind on the same one.
     ["card table 12      ", "/cardtable/tv/x", titlenight(12), ".tn-tv__panel"],
     ["mario kart 16 solo ", "/mariokart/tv/x", mariokart(16, false), ".mk-tv__panel"],
+    // SIXTEEN PAIRS, whose fix is the CHIP CAP rather than the band, so the
+    // neutraliser above has to pin --gn-tv-chip-max back to 100% as well. It
+    // did not at first and this control reported "FITS, so this check is
+    // blind", which is the control catching itself for the second time in this
+    // file's life (Beerio's did the same on 2026-08-15).
+    ["bracket 16 pairs   ", "/tv/x", bracketTv(16, "mid", "double_elim", 2), ".gn-tvst"],
   ]) {
     const m = await measure("arcade", route, payload, proof);
     const over = m.lowest - 1080;

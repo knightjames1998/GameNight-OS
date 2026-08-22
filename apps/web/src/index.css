@@ -1515,6 +1515,15 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   --gn-tv-stack-gap: 1.3vmin;
   --gn-tv-note: 1.5vmin;      /* the grand-final "needs 2" explainer */
   --gn-tv-chip: 2.4vmin;      /* a name on the alive board. FLOOR 2.2vmin. */
+  /* HOW WIDE ONE CHIP MAY GET before its label ellipsises. 100% is "as wide as
+     the row", which is what shipped and is right for solo names. A DOUBLES
+     label is two names joined and roughly twice as wide, so sixteen of them
+     wrap onto far more rows and the board grows ~300px: that is the sixteen-
+     pairs overflow, and it is a WIDTH problem rather than a slot-count one.
+     The tighter chip rungs cap it, so a long label ellipsises instead of
+     pushing the board off the bottom. A television cannot be scrolled, so an
+     ellipsis is strictly better than a row that is gone. */
+  --gn-tv-chip-max: 100%;
   --gn-tv-chip-pad: .7vmin;
   --gn-tv-chip-padx: 1.8vmin;
   --gn-tv-chip-gap: 1.1vmin;
@@ -1613,7 +1622,7 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-tva{
   font-family:Fredoka,system-ui,sans-serif;font-weight:800;font-size:var(--gn-tv-chip);color:var(--gn-ink);
   background:var(--gn-surf);border:.3vmin solid var(--gn-line);border-radius:var(--gn-radius-pill);
-  padding:var(--gn-tv-chip-pad) var(--gn-tv-chip-padx);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  padding:var(--gn-tv-chip-pad) var(--gn-tv-chip-padx);max-width:var(--gn-tv-chip-max);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .gn-tva--clean{border-color:var(--gn-p2);color:var(--gn-p2)}
 .gn-tva--one{border-color:var(--gn-gold);color:var(--gn-gold)}
@@ -1693,6 +1702,17 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   --gn-etv-gap: 3vmin;        /* between header, columns and footer */
   --gn-etv-more: 1.8vmin;     /* the "+N more" line under a shortened list */
 }
+/* THE CHIP CAP RIDES ITS OWN ATTRIBUTE, not [data-band], and that separation is
+   load-bearing. The alive board's overflow at SIXTEEN PAIRS is a WIDTH problem:
+   a team label is two names joined, chips are auto-width, the row wraps, and
+   sixteen wide chips cost ~300px of extra rows. But sixteen SOLO already sits
+   at [data-band="tight"] on entrant count and was never broken, so capping
+   chips there would ellipsise 24-character solo names to fix a screen they are
+   not on. data-chip is decided by LABEL LENGTH alone (bracketChipBand), so a
+   solo board keeps 100% and renders exactly as it always has. */
+.gn-tv[data-chip="close"]{--gn-tv-chip-max:30vmin}
+.gn-tv[data-chip="tight"]{--gn-tv-chip-max:24vmin}
+.gn-tv[data-chip="packed"]{--gn-tv-chip-max:19vmin}
 /* The event TV lobby: the yes-RSVP list, sized to read from the couch before
    anything has been started. Wraps rather than scrolls, since nobody is there
    to scroll it. */

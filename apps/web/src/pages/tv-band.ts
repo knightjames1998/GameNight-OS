@@ -89,6 +89,37 @@ export const TV_DECK_SLICE: Readonly<Record<TvBand, number>> = {
   packed: 3,
 };
 
+/**
+ * THE LONGEST ENTRANT LABEL, in characters, that each band's chips can carry
+ * before the alive board starts costing extra rows.
+ *
+ * THIS IS THE WHOLE FIX FOR THE SIXTEEN-PAIRS OVERFLOW and it is a different
+ * axis from the entrant count, which is why the count-based ladder could not
+ * see it. Measured 2026-08-17 and confirmed 2026-08-22: SIXTEEN SOLO FITS
+ * UNCHANGED and EIGHT PAIRS FITS IN ALL FOUR STATES, so the board is not
+ * failing on slot count. What fails is width: `.gn-tva` chips are auto-width
+ * and `.gn-tv-alive__row` wraps, so a doubled label ("Ana Somebody + Ben
+ * Someone-Else") makes every chip wider, fewer fit per row, sixteen of them
+ * wrap onto more rows, and the board grows about 300px.
+ *
+ * A solo label is one display name (~24 chars at the harness's worst case); a
+ * pair is two joined with " + " (~51). So the rungs sit either side of that.
+ * A CREW WITH SHORT REAL NAMES DOES NOT PAY FOR THIS: "Ana + Ben" is 9
+ * characters and stays at the roomiest chip rung, which is the ladder
+ * responding to what is actually on the screen rather than to the format.
+ */
+/**
+ * The entrant count at or below which chips are NEVER capped, whatever the
+ * labels say. Eight pairs was measured fitting in all four states.
+ */
+const CHIP_CAP_FROM = 8;
+
+const CHIP_CEILINGS: readonly (readonly [TvBand, number])[] = [
+  ["roomy", 26],
+  ["close", 34],
+  ["tight", 44],
+];
+
 /** The largest roster this ladder was MEASURED against. */
 export const TV_MEASURED_TO = 16;
 
@@ -111,6 +142,14 @@ export interface TvLoad {
   ready: number;
   /** A grand final is on deck, so a card carries the "needs 2" note. */
   gfNote?: boolean;
+  /**
+   * The LONGEST entrant label on the board, in characters. A team entrant's is
+   * its members joined, so this is what tells a doubles board from a solo one
+   * WITHOUT the ladder having to know what a team is. Absent is treated as a
+   * solo-length label, which is what every payload written before doubles
+   * existed effectively had.
+   */
+  labelChars?: number;
 }
 
 /**
@@ -128,7 +167,15 @@ const BOARD_CEILINGS: readonly (readonly [TvBand, number])[] = [
  * this only ever binds when the grand-final note is up.
  */
 const DECK_CEILINGS: readonly (readonly [TvBand, number])[] = [
-  ["roomy", 4],
+  // WAS ["roomy", 4] AND FOUR CARDS DO NOT FIT AT ROOMY. Corrected 2026-08-22
+  // after tv-fit measured `bracket tv 4 fresh` at 1128px, over by 48, in both
+  // themes. The ceiling had never been exercised: until the 2026-08-21 on-deck
+  // placeholder work a four-entrant fresh bracket had TWO ready matches and the
+  // column never held four cards at the one entrant count whose board ceiling
+  // is roomy. The deck rule made a four-card deck reachable there and the
+  // ladder had no measurement for it. Eight and up were never affected, because
+  // their entrant count drags the band down through the board sub-ladder.
+  ["roomy", 3],
   ["close", 5],
   ["tight", 5],
 ];
@@ -175,4 +222,33 @@ export function bracketTvBand(load: TvLoad): TvBand {
   const shown = Math.min(Math.max(0, Math.floor(ready)), TV_DECK_SLICE.roomy);
   const deck = pick(DECK_CEILINGS, shown + (gfNote ? GF_NOTE_CARDS : 0));
   return tighter(board, deck);
+}
+
+/**
+ * The CHIP rung, which is a separate answer from the band above and rides its
+ * own attribute (`data-chip`) for a reason worth stating plainly.
+ *
+ * IT MUST NOT TIGHTEN THE WHOLE SCREEN. An early draft folded this into
+ * `bracketTvBand` and it made SIXTEEN SOLO worse: that board already sits at
+ * `tight` on entrant count, so the tight block's chip cap started ellipsising
+ * 24-character solo names that had always rendered in full. Sixteen solo was
+ * never the broken case, and a fix that truncates it to repair a doubles board
+ * has traded one screen for another.
+ *
+ * So this decides ONE property, `--gn-tv-chip-max`, and nothing else. A solo
+ * board keeps `100%` and is byte-identical to what shipped; a doubles board
+ * caps its chips so a long joined label ellipsises instead of wrapping the
+ * alive board onto rows that fall off a television.
+ */
+export function bracketChipBand(entrants: number, labelChars?: number): TvBand {
+  if (!Number.isFinite(labelChars) || !Number.isFinite(entrants)) return TV_BANDS[0]!;
+  // BELOW NINE ENTRANTS THE CAP IS NEVER APPLIED, and that is measured rather
+  // than cautious. EIGHT PAIRS FITS IN ALL FOUR STATES with full-length joined
+  // labels, because eight wide chips do not wrap into enough rows to matter.
+  // An early draft keyed this on label length ALONE and it truncated eight
+  // pairs to fix sixteen: the same mistake as folding it into the band, one
+  // count over. A cap is a loss of information, so it is only spent on a board
+  // that would otherwise lose whole rows off the bottom of a television.
+  if (Math.floor(entrants) <= CHIP_CAP_FROM) return TV_BANDS[0]!;
+  return pick(CHIP_CEILINGS, Math.max(0, Math.floor(labelChars as number)));
 }
