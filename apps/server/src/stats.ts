@@ -28,7 +28,7 @@ import {
   or,
   sql,
 } from "@gamenight/db";
-import { isSeriesSummary, formatOrderIndex, SERIES_LABEL } from "@gamenight/shared";
+import { isSeriesSummary, formatOrderIndex, SERIES_LABEL, SESSION_PACKS } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 
 export const statsRouter = Router();
@@ -884,6 +884,51 @@ export function meetingStreaks(outcomes: MeetingOutcome[]): {
  * hunt. There is NO floor on "most played with", because that one is a count
  * rather than a rate and a count of one is honestly a count of one.
  */
+/**
+ * WHETHER A CO-OP RUN COUNTS AS A PARTNERSHIP. Default false.
+ *
+ * `side` MEANS THREE DIFFERENT THINGS IN THIS LEDGER and only one of them is
+ * "who you win with". Traced through `sideIdFor` rather than guessed:
+ *
+ *   Ping Pong doubles          a competitive TEAM      2 sides
+ *   Mario Kart Double Dash     a competitive TEAM      2 to 8 sides
+ *   Bracket team entrants      a competitive TEAM      2 per match
+ *   Casino Run                 ONE co-op team, whole table   1 side
+ *   Social Deduction           a FACTION, mostly dealt at random   2+ sides
+ *
+ * Casino Run writes the single constant `CRUN_SIDE` to every player, which is
+ * CORRECT for the column (a co-op run is one team) and ruinous for this
+ * feature: one eight-person run yields TWENTY-EIGHT partner pairings with
+ * identical outcomes, where a doubles ping pong match yields one. Counted
+ * naively, "who you win with" silently becomes "who else turns up to Casino
+ * Run", doubles ping pong disappears into the noise, and nothing errors.
+ *
+ * EXCLUDED BY SHAPE RATHER THAN BY NAME: the SQL drops any match where every
+ * participant shares one side. That kills Casino Run for what it IS rather than
+ * for what it is called, and it will keep killing the next co-op pack nobody
+ * has written yet (Pandemic on Board Game is already in FEATURES).
+ */
+const PARTNER_COUNTS_COOP_RUNS = false;
+
+/**
+ * WHETHER A HIDDEN-ROLE FACTION COUNTS AS A PARTNERSHIP. Default false.
+ *
+ * Social Deduction's sides ARE factions (`sdSidesFromOrder`, then `sideIdFor`).
+ * A twelve-player Werewolf with nine villagers yields THIRTY-SIX villager
+ * pairings per game, every game, and the pairing was assigned by the deal
+ * rather than chosen by anybody. "Who you win with" would become "who else
+ * shows up to Werewolf".
+ *
+ * EXCLUDED BY PACK, because no shape test separates it: its factions are
+ * genuinely multi-side, so the co-op filter above cannot see it. The ledger key
+ * comes off the shared registry rather than a typed string, so renaming the
+ * pack moves this with it.
+ */
+const PARTNER_COUNTS_FACTION_GAMES = false;
+
+/** Social Deduction's ledger spelling, off the registry rather than typed. */
+const DEDUCTION_LEDGER = SESSION_PACKS.deduction.ledger;
+
 export const PARTNER_MIN_GAMES = 3;
 
 /** One person you have been on a side with, and how it went. */
@@ -980,6 +1025,7 @@ async function partnersFor(db: Db, groupIds: string[], userId: string) {
       ),
     )
     .innerJoin(matches, eq(matches.id, matchParticipants.matchId))
+    .leftJoin(games, eq(games.id, matches.gameId))
     .innerJoin(users, eq(users.id, them.userId))
     .where(
       and(
@@ -987,6 +1033,25 @@ async function partnersFor(db: Db, groupIds: string[], userId: string) {
         isNotNull(matchParticipants.side),
         eq(matches.status, "completed"),
         inArray(matchParticipants.groupId, groupIds),
+        // A CO-OP RUN IS NOT A PARTNERSHIP, and it is excluded by SHAPE rather
+        // than by pack name: keep this match only if somebody on it was NOT on
+        // my side. Casino Run puts the whole table on one side, so no such row
+        // exists and the match drops out; doubles ping pong has opponents, so
+        // it stays. `is distinct from` rather than `<>` because a null side on
+        // the other row is still "not on my side" and `null <> 'a'` is null.
+        PARTNER_COUNTS_COOP_RUNS
+          ? undefined
+          : sql`exists (
+              select 1 from ${matchParticipants} o
+              where o.match_id = ${matchParticipants.matchId}
+                and o.side is distinct from ${matchParticipants.side}
+            )`,
+        // A DEALT FACTION IS NOT A PARTNERSHIP, and this one has to go by pack
+        // because its sides are genuinely multi-side and the shape test above
+        // cannot see it. Ledger key off the registry, never typed.
+        PARTNER_COUNTS_FACTION_GAMES
+          ? undefined
+          : or(isNull(games.pack), ne(games.pack, DEDUCTION_LEDGER)),
         // THE SERIES SUMMARY EXCLUSION, the same one feedAgg applies to the
         // aggregation. A Smashdown series row summarizes battles that are
         // already in this same result set, so without this a series counts on

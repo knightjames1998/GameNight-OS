@@ -143,3 +143,81 @@ test("derivePartners does not mutate the rows it is given", () => {
   derivePartners(rows);
   assert.deepEqual(rows.map((x) => x.displayName), before);
 });
+
+// ---------- what a `side` actually MEANS, added 2026-08-22 ----------
+//
+// THE BUG THIS EXISTS TO PREVENT SHIPPED ONCE AND WAS CAUGHT BY REVIEW, not by
+// a test, which is why there are tests now. `side` means THREE different things
+// in this ledger and only one of them is "who you win with":
+//
+//   Ping Pong doubles        a competitive TEAM              2 sides
+//   Mario Kart Double Dash   a competitive TEAM              2 to 8 sides
+//   Bracket team entrants    a competitive TEAM              2 per match
+//   Casino Run               ONE co-op team, whole table     1 side
+//   Social Deduction         a FACTION, mostly dealt         2+ sides
+//
+// Counted naively, one eight-person Casino Run yields 28 partner pairings with
+// identical outcomes and one twelve-player Werewolf yields 36 villager pairings
+// PER GAME, so "who you win with" silently becomes "who else turns up to
+// Werewolf and Casino Run" and doubles ping pong disappears into the noise.
+// Nothing errors. That is the exact silent-failure shape this repo keeps a
+// decision log for.
+//
+// These assert against the SOURCE, the same way bracket-tv-fit.test.ts asserts
+// that TvPage actually emits its data attribute: the failure being guarded
+// against is a filter being deleted, and a filter that is gone throws nothing.
+
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { SESSION_PACKS } from "@gamenight/shared";
+
+const statsSrc = readFileSync(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src", "stats.ts"),
+  "utf8",
+);
+
+test("the co-op exclusion is by SHAPE, so the next co-op pack is covered without being named", () => {
+  // "keep this match only if somebody on it was NOT on my side". Casino Run
+  // puts the whole table on one side, so nothing satisfies it and the match
+  // drops; doubles ping pong has opponents, so it stays. Pandemic on Board
+  // Game is already in FEATURES and will be caught by this without an edit.
+  assert.match(statsSrc, /exists \(/, "the co-op shape filter is gone from partnersFor");
+  assert.match(
+    statsSrc,
+    /o\.side is distinct from/,
+    "the shape filter must use `is distinct from`: a null side on the other row is still not-my-side, and `null <> 'a'` is null",
+  );
+});
+
+test("the faction exclusion is by PACK, and the key comes off the registry", () => {
+  // Social Deduction's factions are genuinely multi-side, so the shape filter
+  // above cannot see them. This one has to name the pack, and naming it via
+  // SESSION_PACKS means renaming the pack moves the filter with it.
+  assert.match(statsSrc, /SESSION_PACKS\.deduction\.ledger/, "the deduction ledger key is typed rather than taken from the registry");
+  assert.doesNotMatch(
+    statsSrc.slice(statsSrc.indexOf("async function partnersFor")),
+    /"deduction"/,
+    "partnersFor contains a hardcoded pack string",
+  );
+  assert.equal(SESSION_PACKS.deduction.ledger, "deduction");
+});
+
+test("BOTH EXCLUSIONS DEFAULT TO OFF, and flipping either is one visible line", () => {
+  // The decision is "headline partner figures count competitive team sides
+  // only". It is a default rather than a law: these constants exist so that
+  // changing it is a one-line, reviewable edit rather than a rewrite, and this
+  // test exists so it cannot be changed silently.
+  assert.match(statsSrc, /const PARTNER_COUNTS_COOP_RUNS = false;/);
+  assert.match(statsSrc, /const PARTNER_COUNTS_FACTION_GAMES = false;/);
+});
+
+test("the exclusions sit in partnersFor and nowhere near the shared aggregation", () => {
+  // The whole safety argument for this feature is that feedAgg / finishAgg /
+  // ResultRow / resultCols are untouched, so the crew leaderboard cannot move.
+  // A filter that leaked into feedAgg would change every player's lifetime
+  // totals, which is a much larger blast radius than this feature has.
+  const agg = statsSrc.slice(statsSrc.indexOf("export function feedAgg"), statsSrc.indexOf("type Db ="));
+  assert.doesNotMatch(agg, /PARTNER_COUNTS_/, "a partner exclusion has leaked into the aggregation block");
+  assert.doesNotMatch(agg, /is distinct from/);
+});

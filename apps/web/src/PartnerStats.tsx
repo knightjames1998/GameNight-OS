@@ -6,6 +6,14 @@
 // undo the route splitting. One implementation, and each page only pays for
 // what it uses.
 //
+// WHAT COUNTS AS A PARTNER, and it is narrower than "shared a side". `side`
+// means three things in this ledger: a competitive TEAM (ping pong doubles,
+// Double Dash karts, bracket team entrants), ONE co-op team holding the whole
+// table (Casino Run), and a dealt FACTION (Social Deduction). Only the first is
+// "who you win with". The server excludes the other two, so this block is about
+// TEAM GAMES and says so on screen rather than quietly averaging a Werewolf
+// faction into a doubles record.
+//
 // WHY THIS IS A TOP-LEVEL SECTION AND NOT INSIDE "More stats". The team
 // primitive has shipped across five packs and, until this block, changed what
 // the ledger RECORDED without changing anything anybody SAW. Burying the one
@@ -39,6 +47,23 @@ const pct = (r: number) => `${Math.round(r * 100)}%`;
  */
 const sample = (p: PartnerRow) => `${p.played} together · ${p.wins}W`;
 
+/**
+ * The heading says TEAM GAMES out loud, because the number underneath is not
+ * "who you win with across everything you have played". Co-op runs and dealt
+ * factions are excluded on the server, and a reader who has played a lot of
+ * Werewolf would otherwise reasonably expect to see it here.
+ */
+function Heading() {
+  return (
+    <h2 className="gn-h2">
+      Who you win with{" "}
+      <span className="gn-hint" style={{ fontSize: "12px", fontWeight: 400 }}>
+        team games
+      </span>
+    </h2>
+  );
+}
+
 function Line({ labels, p, accent }: { labels: string[]; p: PartnerRow; accent?: string }) {
   return (
     <div className="flex justify-between items-baseline gap-3">
@@ -71,8 +96,11 @@ export default function PartnerStatsCard({ partners: s }: { partners?: PartnerSt
   if (s.partners.length === 0) {
     return (
       <div className="gn-card space-y-2">
-        <h2 className="gn-h2">Who you win with</h2>
-        <p className="gn-hint">No team games recorded yet.</p>
+        <Heading />
+        <p className="gn-hint">
+          No team games recorded yet. Doubles ping pong, Double Dash karts and team
+          brackets all count here.
+        </p>
       </div>
     );
   }
@@ -102,7 +130,7 @@ export default function PartnerStatsCard({ partners: s }: { partners?: PartnerSt
 
   return (
     <div className="gn-card space-y-2">
-      <h2 className="gn-h2">Who you win with</h2>
+      <Heading />
       {lines.map((l) => (
         <Line key={l.p.userId} labels={l.labels} p={l.p} accent={l.accent} />
       ))}
