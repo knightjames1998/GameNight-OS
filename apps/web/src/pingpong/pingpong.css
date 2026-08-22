@@ -237,28 +237,94 @@
      class rule beats the zero-specificity shell inset in index.css, so it
      has to do it here like mk-tv / sm-tv / mp-tv already did. */
   padding:
-    calc(4vmin + env(safe-area-inset-top, 0px))
-    calc(4vmin + env(safe-area-inset-right, 0px))
-    calc(4vmin + env(safe-area-inset-bottom, 0px))
-    calc(4vmin + env(safe-area-inset-left, 0px));
+    calc(var(--pp-tv-pad, 4vmin) + env(safe-area-inset-top, 0px))
+    calc(var(--pp-tv-pad, 4vmin) + env(safe-area-inset-right, 0px))
+    calc(var(--pp-tv-pad, 4vmin) + env(safe-area-inset-bottom, 0px))
+    calc(var(--pp-tv-pad, 4vmin) + env(safe-area-inset-left, 0px));
   background:
     radial-gradient(var(--gn-lamp-geom), var(--pp-felt-lit) 0%, transparent var(--gn-lamp-fade)),
     linear-gradient(180deg, var(--pp-felt-top), var(--pp-felt-deep-tv));
   color: var(--gn-ink); font-family: Nunito, system-ui, sans-serif;
 }
+/* ---- THE LADDER'S BASE BLOCK (the roomy rung) ----
+   Every metric on this screen is a variable, spent by
+   apps/web/src/pingpong/pingpong-tv-band.ts through [data-ppband]. This screen
+   has not fitted 1080p past SIX players since it shipped: 1126px at seven, over
+   by 46, with the back button already into the rail. The name floor is 2.2vmin,
+   the same one the money board settled on and both other TV ladders use;
+   --pp-tv-line carries a player's name and never goes below it. */
+.pp-tv {
+  --pp-tv-pad: 4vmin;
+  --pp-tv-brand: 6vmin;
+  --pp-tv-meta: 2.4vmin;      /* the mode/format line under the brand */
+  --pp-tv-now-mt: 3vmin;
+  --pp-tv-now-pad: 3vmin;
+  --pp-tv-now-lbl: 2.4vmin;   /* "NOW PLAYING" / "Between matches" */
+  --pp-tv-vs-gap: 4vmin;
+  --pp-tv-vs-mt: 1.5vmin;
+  --pp-tv-pl: 5vmin;
+  --pp-tv-sc: 7vmin;
+  --pp-tv-grid-mt: 3vmin;
+  --pp-tv-grid-gap: 2vmin;
+  --pp-tv-panel-pad: 2vmin;
+  --pp-tv-panel-padx: 2.5vmin;
+  --pp-tv-h3: 2.6vmin;
+  --pp-tv-h3-mb: 1.5vmin;
+  --pp-tv-line: 3vmin;        /* a player's NAME. FLOOR 2.2vmin. */
+  --pp-tv-line-pad: .8vmin;
+  --pp-tv-back-mt: 3vmin;
+}
 .pp-tv__brand {
-  font-family: var(--gn-font-display); font-size: 6vmin; color: var(--gn-brand-ink); text-transform: uppercase;
+  font-family: var(--gn-font-display); font-size: var(--pp-tv-brand); color: var(--gn-brand-ink); text-transform: uppercase;
   text-shadow: var(--pp-glow-brand-tv);
 }
 .pp-tv__muted { color: var(--gn-dim); }
 .pp-tv__now {
-  margin-top: 3vmin; border: 3px solid var(--pp-line); border-radius: var(--gn-radius-card-tv); padding: 3vmin;
+  margin-top: var(--pp-tv-now-mt); border: 3px solid var(--pp-line); border-radius: var(--gn-radius-card-tv);
+  padding: var(--pp-tv-now-pad);
   background: color-mix(in srgb, var(--pp-felt) 70%, transparent); text-align: center;
 }
-.pp-tv__vs { display: flex; align-items: center; justify-content: center; gap: 4vmin; margin-top: 1.5vmin; }
-.pp-tv__pl { font-family: Fredoka, sans-serif; font-weight: 800; font-size: 5vmin; }
-.pp-tv__sc { font-family: var(--gn-font-display); color: var(--pp-accent); font-size: 7vmin; }
-.pp-tv__grid { display: grid; grid-template-columns: 1fr; gap: 2vmin; margin-top: 3vmin; }
-.pp-tv__panel { border: 2px solid var(--pp-edge); border-radius: var(--gn-radius-card-tv); padding: 2vmin 2.5vmin; background: color-mix(in srgb, var(--pp-felt) 50%, transparent); }
-.pp-tv__panel h3 { font-family: Fredoka, sans-serif; font-weight: 800; font-size: 2.6vmin; margin: 0 0 1.5vmin; color: var(--gn-dim); text-transform: uppercase; letter-spacing: 0.3vmin; }
-.pp-tv__line { display: flex; justify-content: space-between; font-size: 3vmin; padding: 0.8vmin 0; }
+.pp-tv__vs { display: flex; align-items: center; justify-content: center; gap: var(--pp-tv-vs-gap); margin-top: var(--pp-tv-vs-mt); }
+.pp-tv__pl { font-family: Fredoka, sans-serif; font-weight: 800; font-size: var(--pp-tv-pl); }
+.pp-tv__sc { font-family: var(--gn-font-display); color: var(--pp-accent); font-size: var(--pp-tv-sc); }
+.pp-tv__grid { display: grid; grid-template-columns: 1fr; gap: var(--pp-tv-grid-gap); margin-top: var(--pp-tv-grid-mt); }
+.pp-tv__panel { border: 2px solid var(--pp-edge); border-radius: var(--gn-radius-card-tv); padding: var(--pp-tv-panel-pad) var(--pp-tv-panel-padx); background: color-mix(in srgb, var(--pp-felt) 50%, transparent); }
+.pp-tv__panel h3 { font-family: Fredoka, sans-serif; font-weight: 800; font-size: var(--pp-tv-h3); margin: 0 0 var(--pp-tv-h3-mb); color: var(--gn-dim); text-transform: uppercase; letter-spacing: 0.3vmin; }
+.pp-tv__line { display: flex; justify-content: space-between; font-size: var(--pp-tv-line); padding: var(--pp-tv-line-pad) 0; }
+.pp-tv__meta { font-size: var(--pp-tv-meta); }
+.pp-tv__nowlbl { font-size: var(--pp-tv-now-lbl); }
+.pp-tv__back { margin-top: var(--pp-tv-back-mt); }
+/* ---- The ladder ----
+   Three diffs off the base block, each MEASURED to land its own player count
+   inside 1080px against the lowest painted pixel AND to keep the back button
+   clear of the rail, which on this screen leaves the page at the same count the
+   content does. */
+.pp-tv[data-ppband="close"] {
+  --pp-tv-pad: 3.2vmin; --pp-tv-brand: 5vmin; --pp-tv-meta: 2.1vmin;
+  --pp-tv-now-mt: 2vmin; --pp-tv-now-pad: 2vmin; --pp-tv-now-lbl: 2.1vmin;
+  --pp-tv-vs-gap: 3.2vmin; --pp-tv-vs-mt: 1vmin; --pp-tv-pl: 4vmin; --pp-tv-sc: 5.4vmin;
+  --pp-tv-grid-mt: 2vmin; --pp-tv-grid-gap: 1.5vmin;
+  --pp-tv-panel-pad: 1.5vmin; --pp-tv-panel-padx: 2vmin;
+  --pp-tv-h3: 2.3vmin; --pp-tv-h3-mb: 1vmin;
+  --pp-tv-line: 2.6vmin; --pp-tv-line-pad: .55vmin; --pp-tv-back-mt: 2vmin;
+}
+.pp-tv[data-ppband="tight"] {
+  --pp-tv-pad: 2.6vmin; --pp-tv-brand: 4.2vmin; --pp-tv-meta: 1.9vmin;
+  --pp-tv-now-mt: 1.5vmin; --pp-tv-now-pad: 1.4vmin; --pp-tv-now-lbl: 1.9vmin;
+  --pp-tv-vs-gap: 2.6vmin; --pp-tv-vs-mt: .7vmin; --pp-tv-pl: 3.3vmin; --pp-tv-sc: 4.4vmin;
+  --pp-tv-grid-mt: 1.5vmin; --pp-tv-grid-gap: 1.2vmin;
+  --pp-tv-panel-pad: 1.1vmin; --pp-tv-panel-padx: 1.6vmin;
+  --pp-tv-h3: 2vmin; --pp-tv-h3-mb: .7vmin;
+  --pp-tv-line: 2.35vmin; --pp-tv-line-pad: .38vmin; --pp-tv-back-mt: 1.5vmin;
+}
+/* The floor. Ping Pong's roster is capped well under this, so past-the-end is
+   not reachable through the app, but a payload is a payload. */
+.pp-tv[data-ppband="packed"] {
+  --pp-tv-pad: 2.2vmin; --pp-tv-brand: 3.6vmin; --pp-tv-meta: 1.8vmin;
+  --pp-tv-now-mt: 1.1vmin; --pp-tv-now-pad: 1.1vmin; --pp-tv-now-lbl: 1.8vmin;
+  --pp-tv-vs-gap: 2.2vmin; --pp-tv-vs-mt: .5vmin; --pp-tv-pl: 2.8vmin; --pp-tv-sc: 3.6vmin;
+  --pp-tv-grid-mt: 1.1vmin; --pp-tv-grid-gap: 1vmin;
+  --pp-tv-panel-pad: .85vmin; --pp-tv-panel-padx: 1.3vmin;
+  --pp-tv-h3: 1.8vmin; --pp-tv-h3-mb: .5vmin;
+  --pp-tv-line: 2.2vmin; --pp-tv-line-pad: .25vmin; --pp-tv-back-mt: 1.1vmin;
+}

@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { SESSION_PACKS, sideLabel, type Side } from "@gamenight/shared";
 import { api } from "../api";
 import BackButton from "../BackButton";
+import { pingPongTvBand } from "./pingpong-tv-band";
 import { usePackLive } from "../useLiveUpdates";
 import "./pingpong.css";
 
@@ -72,18 +73,23 @@ export default function PingPongTvPage({ eventId: propEventId }: { eventId?: str
   const label = (side: Side | undefined) => (side ? sideLabel(side, (id) => nameOf.get(id)) : "");
   const labelById = (id: string) => label(session.sides.find((x) => x.id === id));
 
+  // THE DENSITY LADDER. This screen has not fitted a 1080p television past six
+  // players since it shipped, and its back button left the screen at the same
+  // count (see pingpong-tv-band.ts and the [data-ppband] blocks in pingpong.css).
+  const band = pingPongTvBand({ players: players.length });
+
   return (
-    <div className="pp-tv">
+    <div className="pp-tv" data-ppband={band}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div className="pp-tv__brand">Ping Pong</div>
-        <div className="pp-tv__muted" style={{ fontSize: "2.4vmin" }}>
+        <div className="pp-tv__muted pp-tv__meta">
             {session.mode === "koth" ? "King of the Hill" : session.doubles ? "Doubles" : "Singles"} · {session.bestOf === 1 ? "free play" : `best of ${session.bestOf}`} · {session.matches.length} {session.bestOf === 1 ? "games" : "matches"}
         </div>
       </div>
 
       {cur ? (
         <div className="pp-tv__now">
-          <div className="pp-tv__muted" style={{ fontSize: "2.4vmin", textTransform: "uppercase", letterSpacing: "0.3vmin" }}>
+          <div className="pp-tv__muted pp-tv__nowlbl" style={{ textTransform: "uppercase", letterSpacing: "0.3vmin" }}>
             {session.bestOf === 1 ? "On the table · free play" : `On the table · first to ${session.needed}`}
             {session.mode === "koth" && session.koth && session.koth.queue.length > 1
               ? ` · next ${session.koth.queue.slice(1, 3).map(labelById).join(", ")}`
@@ -100,7 +106,7 @@ export default function PingPongTvPage({ eventId: propEventId }: { eventId?: str
           </div>
         </div>
       ) : (
-        <div className="pp-tv__now"><span className="pp-tv__muted" style={{ fontSize: "3vmin" }}>Between matches</span></div>
+        <div className="pp-tv__now"><span className="pp-tv__muted pp-tv__nowlbl">Between matches</span></div>
       )}
 
       <div className="pp-tv__grid">
@@ -127,7 +133,7 @@ export default function PingPongTvPage({ eventId: propEventId }: { eventId?: str
         </div>
       </div>
 
-      <div style={{ marginTop: "3vmin" }}><BackButton className="pp-textbtn" /></div>
+      <div className="pp-tv__back"><BackButton className="pp-textbtn" /></div>
     </div>
   );
 }

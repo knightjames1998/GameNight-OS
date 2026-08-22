@@ -20,11 +20,15 @@
 //
 //   node scripts/tv-fit.mjs        exits non-zero on a NEW overlap
 //
-// KNOWN AND LOGGED (see BACKLOG, BUGS): Ping Pong's TV does not fit 1080p past
-// six players and never has. Its back button is already 3px off the bottom in
-// Arcade, and under Tabletop the rail deepens that to 17px. That is a pack fit
-// ladder, its own session, and it is exempted by name here rather than by
-// softening the check.
+// KNOWN AND LOGGED (see BACKLOG, BUGS): a handful of screens are named in the
+// KNOWN set below with their measured numbers, and a name comes OUT of that set
+// on the commit that fixes it rather than when somebody remembers.
+//
+// PING PONG WAS THE FIRST ENTRY HERE AND IS GONE (fixed 2026-08-22). It did not
+// fit past six players and never had: 1126px at seven, over by 46, with the
+// back button 3px into the rail under Arcade and 17px under Tabletop. It now
+// has its own ladder (apps/web/src/pingpong/pingpong-tv-band.ts) and fits to
+// sixteen with the button clear in both themes.
 
 import { spawn } from "node:child_process";
 // THE REAL ENGINE, imported straight from source (node strips the types), so
@@ -640,6 +644,13 @@ const CASES = [
   ["poker       12 seats", "/poker/tv/x", poker(12), ".cg-tv__line"],
   ["ping pong    6 players", "/pingpong/tv/x", pingpong(6), ".pp-tv__panel"],
   ["ping pong    7 players", "/pingpong/tv/x", pingpong(7), ".pp-tv__panel"],
+  // ADDED 2026-08-22 WITH THE LADDER. Six and seven were the old boundary and
+  // the old failure; a ladder measured only at the count it was built for is a
+  // ladder proved at one point. These are the other three rungs and the top of
+  // what it was measured to.
+  ["ping pong    9 players", "/pingpong/tv/x", pingpong(9), ".pp-tv__panel"],
+  ["ping pong   12 players", "/pingpong/tv/x", pingpong(12), ".pp-tv__panel"],
+  ["ping pong   16 players", "/pingpong/tv/x", pingpong(16), ".pp-tv__panel"],
   ["mario kart   8 solo", "/mariokart/tv/x", mariokart(8, false), ".mk-tv__panel"],
   ["mario kart   8 karts", "/mariokart/tv/x", mariokart(8, true), ".mk-tv__panel"],
   ["mario kart  12 solo", "/mariokart/tv/x", mariokart(12, false), ".mk-tv__panel"],
@@ -857,7 +868,6 @@ const CASES = [
 // measures.
 const KNOWN = new Set([
   "bracket tv  4 fresh",
-  "ping pong    7 players",
   "board game  12 players",
   "card table  12 players",
   "mario kart  12 solo",
@@ -964,6 +974,15 @@ const NEUTRALISE = `
      1.4vmin chip gaps, the lot). Pinning every band back to it restores the
      screen as it shipped, which is the thing a control has to be able to see.
      Doubled selector for the same specificity reason as the two above. */
+  .pp-tv.pp-tv[data-ppband]{
+    --pp-tv-pad:4vmin;--pp-tv-brand:6vmin;--pp-tv-meta:2.4vmin;
+    --pp-tv-now-mt:3vmin;--pp-tv-now-pad:3vmin;--pp-tv-now-lbl:2.4vmin;
+    --pp-tv-vs-gap:4vmin;--pp-tv-vs-mt:1.5vmin;--pp-tv-pl:5vmin;--pp-tv-sc:7vmin;
+    --pp-tv-grid-mt:3vmin;--pp-tv-grid-gap:2vmin;
+    --pp-tv-panel-pad:2vmin;--pp-tv-panel-padx:2.5vmin;
+    --pp-tv-h3:2.6vmin;--pp-tv-h3-mb:1.5vmin;
+    --pp-tv-line:3vmin;--pp-tv-line-pad:.8vmin;--pp-tv-back-mt:3vmin;
+  }
   .gn-tv.gn-tv[data-eband]{
     --gn-etv-chip:3vmin;--gn-etv-chip-pad:1vmin;--gn-etv-chip-padx:2.2vmin;--gn-etv-chip-gap:1.4vmin;
     --gn-etv-nm:3vmin;--gn-etv-rank:2.8vmin;--gn-etv-rank-w:3.4vmin;
@@ -988,6 +1007,7 @@ console.log("\nnegative control: the ladder pinned back to its base metrics, whi
     // ever puts on a television and therefore the hardest thing for the pinned
     // metrics to fit.
     ["event tv night 12 ", "/e/x/tv", eventTv(12, true), ".gn-tvs"],
+    ["ping pong  16      ", "/pingpong/tv/x", pingpong(16), ".pp-tv__panel"],
   ]) {
     const m = await measure("arcade", route, payload, proof);
     const over = m.lowest - 1080;
@@ -1000,7 +1020,7 @@ console.log("\nnegative control: the ladder pinned back to its base metrics, whi
 const ok = newOverlaps === 0 && stale === 0 && overs === 0 && control === 0;
 console.log(
   ok
-    ? "\nPASS  every case fits 1080p and nothing is covered by a fixed overlay (Ping Pong past six, Board Game at twelve, Mario Kart past eight and the bracket at sixteen PAIRS excepted, and logged in BUGS)"
+    ? "\nPASS  every case fits 1080p and nothing is covered by a fixed overlay (everything still named in KNOWN excepted, and logged in BUGS)"
     : [
         overs ? `FAIL  ${overs} case(s) run past 1080px` : "",
         newOverlaps ? `FAIL  ${newOverlaps} case(s) have painted content under a fixed overlay` : "",
