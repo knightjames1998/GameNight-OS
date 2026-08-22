@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, type AttendanceStats, type Friend, type GroupSummary, type Me } from "../api";
+import { api, type Friend, type GroupSummary, type Me } from "../api";
 import { useCachedApi } from "../cache";
 import Login from "./Login";
 import GamePicker from "../GamePicker";
@@ -9,9 +9,11 @@ import AddToHomeHint from "../AddToHomeHint";
 import { GroupListSkeleton } from "../Skeleton";
 import { onIntent, routes } from "../prefetch";
 import { THEMES, useTheme } from "../useTheme";
-// The form pips and their type, from the component the stats page and the crew
-// leaderboard already share. Home renders the same five, at the small size.
-import { Pip, type FormStats } from "../FormStats";
+// THE STATS PAGE'S OWN COMPONENTS, imported rather than reimplemented. Home is
+// the third consumer of each: MyStatsPage and MemberPage were the first two,
+// which is why they are standalone modules at all.
+import FormStatsCard, { type FormStats } from "../FormStats";
+import { Stat } from "../ShowUpRecord";
 
 export default function Home({
   me,
@@ -418,6 +420,20 @@ function Friends() {
 // payload gets rendered: it used to show wins and win rate and throw the rest
 // away.
 //
+// IT IMPORTS THE STATS PAGE'S OWN COMPONENTS RATHER THAN REIMPLEMENTING THEM,
+// and that is the whole shape of this block. `FormStatsCard`, `ShowUpRecord`
+// and `Stat` are already standalone modules precisely because MyStatsPage and
+// MemberPage both use them, so Home is a THIRD consumer rather than a second
+// spelling. An earlier draft of this panel hand-rolled a label/value row and
+// re-derived streak, nights, show rate and main from the raw payload, which is
+// four chances for Home to disagree with the stats page about one person.
+//
+// THEY ARE NOT RESTYLED FOR HOME EITHER. A component that does not fit gets
+// DROPPED, not forked: `CharacterStatsCard` renders the full character table
+// (one row per character plus a count line), which is a page section rather
+// than a panel row, so the main-character line is not here at all. It is one
+// tap away on /me/stats, which is what this whole panel links to.
+//
 // IT STAYS A ROUTER LINK, never a raw <a href>: an <a> is a full document load
 // that discards the cache, the service worker warmth and the live socket, on
 // the one screen a returning user lands on first. The onIntent prefetch stays
@@ -426,54 +442,32 @@ interface HomeStats {
   played: number;
   wins: number;
   winRate: number;
-  /** Best (lowest) placement and the average. Returned since 07-27, never rendered HERE. */
+  /** Best (lowest) placement and the average. On /me/stats, not on Home until now. */
   best: number | null;
   avgPlacement: number | null;
   nightsPlayed?: number;
   form?: FormStats;
-  attendance?: AttendanceStats;
-  /** Only the main is read here; the full table is a page away. */
-  characters?: { mostPlayed: string | null };
-}
-
-/**
- * One line of the panel. Label left, value right, both on the shell's normal
- * face at 12px, because this block sits in a third of a row on desktop and a
- * value that wraps is worse than a value that is not shown at all.
- */
-function PanelRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-2" style={{ minWidth: 0 }}>
-      <span className="gn-hint" style={{ fontSize: 11, whiteSpace: "nowrap" }}>{label}</span>
-      <span style={{ fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-        {children}
-      </span>
-    </div>
-  );
 }
 
 function StatsButton() {
   const { data: stats } = useCachedApi<HomeStats>("me:stats", "/api/me/stats");
 
   const has = !!stats && stats.played > 0;
-  const form = stats?.form;
-  const att = stats?.attendance;
-  const main = stats?.characters?.mostPlayed;
   return (
     <Link
       to="/me/stats"
       {...onIntent(routes.myStats)}
       className="gn-card col-span-1 min-w-0 flex flex-col"
-      style={{ padding: "10px 12px", textDecoration: "none", color: "var(--gn-ink)", gap: 4 }}
+      style={{ padding: "10px 12px", textDecoration: "none", color: "var(--gn-ink)", gap: 8 }}
     >
       <div className="flex items-center justify-between gap-1">
         <span className="gn-h2" style={{ whiteSpace: "nowrap", fontSize: 15 }}>Your stats</span>
         <span aria-hidden="true" className="gn-hint" style={{ fontSize: 14, color: "var(--gn-p2)" }}>›</span>
       </div>
 
-      {/* A BRAND NEW ACCOUNT GETS ONE LINE, not a wall of zeroes. Every row
-          below is about a record that does not exist yet, and rendering seven
-          of them reading 0 and "-" is a worse first screen than saying so. */}
+      {/* A BRAND NEW ACCOUNT GETS ONE LINE, not a stack of empty sections. Every
+          component below returns null on an empty record anyway, so this is
+          about saying something rather than rendering nothing at all. */}
       {!has ? (
         <div className="gn-hint" style={{ fontSize: 12 }}>No games yet · see details</div>
       ) : (
@@ -484,53 +478,35 @@ function StatsButton() {
             <span className="gn-hint">of {stats!.played}</span>
           </div>
 
-          {/* Free: the endpoint has returned both since 2026-07-27 and Home
-              has never printed either. */}
-          <PanelRow label="best · avg">
-            {stats!.best ? `#${stats!.best}` : "-"}
-            <span className="gn-hint" style={{ fontWeight: 400 }}>
-              {" · "}
-              {stats!.avgPlacement ? stats!.avgPlacement.toFixed(1) : "-"}
-            </span>
-          </PanelRow>
+          {/* Free: the endpoint has returned both since 2026-07-27 and Home has
+              never printed either. Same Stat tile ShowUpRecord and the crew
+              profile use, so the three screens cannot render one differently. */}
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <Stat label="best" value={stats!.best ? `#${stats!.best}` : "-"} />
+            <Stat
+              label="avg place"
+              value={stats!.avgPlacement ? stats!.avgPlacement.toFixed(1) : "-"}
+            />
+          </div>
 
-          {form && form.tracked > 0 && (
-            <PanelRow label="streak">
-              <span style={{ color: form.currentStreak >= 3 ? "var(--gn-gold)" : undefined }}>
-                {form.currentStreak}
-                {form.currentStreak >= 3 ? " 🔥" : ""}
-              </span>
-              <span className="gn-hint" style={{ fontWeight: 400 }}>{` · best ${form.longestStreak}`}</span>
-            </PanelRow>
-          )}
+          {/* Streak, best streak, nights and the last-five pips, all of it. This
+              is the stats page's own component, unmodified; `series` is left off
+              because a Smashdown tile is a fourth cell in a third of a row. */}
+          <FormStatsCard form={stats!.form} nightsPlayed={stats!.nightsPlayed} />
 
-          {form && form.last5.length > 0 && (
-            <div className="flex items-center gap-1" style={{ marginTop: 1 }}>
-              {/* Most recent first, the same order and the same component the
-                  stats page and the crew leaderboard use. */}
-              {form.last5.map((r, i) => (
-                <Pip key={i} r={r} size={18} />
-              ))}
-            </div>
-          )}
-
-          {!!stats!.nightsPlayed && <PanelRow label="nights">{stats!.nightsPlayed}</PanelRow>}
-
-          {/* attendanceFor returns zeroes for somebody with no tracked nights,
-              so this hides on the same test ShowUpRecord uses rather than
-              printing a 0% show rate at somebody who has never been asked. */}
-          {att && att.tracked > 0 && (
-            <PanelRow label="show rate">
-              {Math.round((att.showRate ?? 0) * 100)}%
-              <span className="gn-hint" style={{ fontWeight: 400 }}>
-                {att.flaked > 0 ? ` · ${att.flaked} flake${att.flaked === 1 ? "" : "s"}` : ""}
-              </span>
-            </PanelRow>
-          )}
-
-          {main && <PanelRow label="main">{main}</PanelRow>}
+          {/* ATTENDANCE IS DELIBERATELY NOT HERE, and it is a LENGTH call rather
+              than a value one. `ShowUpRecord` measured 117px on a phone and
+              184px in the 223px desktop column (its three tiles wrap there, the
+              same way FormStatsCard's cells go 159 -> 232). With it the panel
+              was 430px on a 390px phone and 570px on desktop, against 313 and
+              386 without: roughly half a phone viewport for one Home card.
+              The rule for this panel is cut a row rather than add a disclosure,
+              and attendance is the last row in the payoff order that still had
+              somewhere to go. It is unchanged and in full on /me/stats, which is
+              what this whole panel is a link to. */}
         </>
       )}
     </Link>
   );
 }
+
