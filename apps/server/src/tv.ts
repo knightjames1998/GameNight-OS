@@ -40,7 +40,10 @@ import {
   brackets,
   events,
   gameSessions,
+  games,
   groups,
+  matches,
+  matchParticipants,
   rsvps,
   smashSessions,
   users,
@@ -49,6 +52,12 @@ import {
 } from "@gamenight/db";
 import { PACK_BY_LEDGER, SESSION_PACK_KEYS, type SessionPackKey } from "@gamenight/shared";
 import { eventRecap } from "./events.js";
+// THE SHARED AGGREGATION, called rather than reimplemented. newAgg / feedAgg /
+// finishAgg are exported from stats.ts precisely so a second consumer cannot
+// invent its own idea of what a player's record is, and this is that second
+// consumer. stats.ts itself is NOT modified by this: the crew leaderboard and
+// every profile still go through the same three functions they always did.
+import { newAgg, feedAgg, finishAgg } from "./stats.js";
 
 export const eventTvRouter = Router();
 
@@ -228,6 +237,83 @@ function better(
  * a stale scoreboard on a big screen is worse than a spinner, and that goes
  * double for the thing deciding WHICH scoreboard.
  */
+/**
+ * The crew's LIFETIME standings, for the between-games screen.
+ *
+ * WHY THIS IS COMPUTED HERE AND NOT READ FROM /api/groups/:id/stats, which is
+ * what the backlog line assumed: THAT ENDPOINT REQUIRES AUTH AND A MEMBERSHIP.
+ * `statsRouter.use(requireAuth)` gates it and the handler then checks that the
+ * caller is in the crew. A television is the one screen in this app that is
+ * reliably NOT signed in, which is the whole reason every /api/tv route is
+ * public and why the header at the top of this file says typing a password on a
+ * TV is misery. Pointing the big screen at an authed endpoint would have made
+ * the feature invisible on exactly the device it is for.
+ *
+ * SO IT IS THE SAME DATA THROUGH THE SAME AGGREGATION, on the endpoint the
+ * screen already calls, rather than a new route: newAgg / feedAgg / finishAgg
+ * are what the crew leaderboard uses, so the TV and the Stats page cannot quote
+ * different numbers for the same person. The query is narrower than the
+ * leaderboard's because this screen renders one row per player and none of the
+ * per-pack buckets.
+ *
+ * WHAT THIS PUTS ON A PUBLIC LINK: crew member display names with their wins,
+ * games and average finish. The same link ALREADY exposes the yes-RSVP list and
+ * tonight's standings with the same names and win counts, so this is the same
+ * class of data over a longer window rather than a new kind of disclosure. It
+ * is still a widening, and it is called out in the closeout rather than
+ * slipped in.
+ */
+async function crewLifetime(db: ReturnType<typeof getDb>, groupId: string) {
+  const rows = await db
+    .select({
+      matchId: matchParticipants.matchId,
+      userId: matchParticipants.userId,
+      displayName: users.displayName,
+      placement: matchParticipants.placement,
+      isWinner: matchParticipants.isWinner,
+      gameName: games.name,
+      character: matchParticipants.character,
+      playedAt: matches.playedAt,
+      eventId: matches.eventId,
+      label: matches.label,
+    })
+    .from(matchParticipants)
+    .innerJoin(matches, eq(matchParticipants.matchId, matches.id))
+    .innerJoin(users, eq(matchParticipants.userId, users.id))
+    .leftJoin(games, eq(matches.gameId, games.id))
+    .where(and(eq(matchParticipants.groupId, groupId), eq(matches.status, "completed")));
+
+  const byUser = new Map<string, { name: string; agg: ReturnType<typeof newAgg> }>();
+  for (const r of rows) {
+    let e = byUser.get(r.userId);
+    if (!e) {
+      e = { name: r.displayName, agg: newAgg() };
+      byUser.set(r.userId, e);
+    }
+    // feedAgg skips Smashdown series summaries itself, so a series cannot count
+    // on top of the battles inside it here any more than it can anywhere else.
+    feedAgg(e.agg, r);
+  }
+
+  return [...byUser.entries()]
+    .map(([userId, e]) => {
+      const f = finishAgg(e.agg);
+      return { userId, name: e.name, games: f.played, wins: f.wins, avgPlacement: f.avgPlacement };
+    })
+    // A member with no completed games is not a standings row, they are a
+    // person who has not played yet. The leaderboard shows them; a television
+    // between games has 1080px and should spend it on people with a record.
+    .filter((p) => p.games > 0)
+    // The MVP rule, the same ordering eventRecap sorts tonight's players by, so
+    // the two faces of this screen rank people the same way.
+    .sort(
+      (a, b) =>
+        b.wins - a.wins ||
+        (a.avgPlacement ?? 99) - (b.avgPlacement ?? 99) ||
+        a.name.localeCompare(b.name),
+    );
+}
+
 eventTvRouter.get("/event/:eventId", async (req, res) => {
   const db = getDb();
   const eventId = String(req.params.eventId);
@@ -240,6 +326,7 @@ eventTvRouter.get("/event/:eventId", async (req, res) => {
         scheduledFor: events.scheduledFor,
         beerioCode: events.beerioCode,
         beerioCompletedAt: events.beerioCompletedAt,
+        groupId: events.groupId,
         groupName: groups.name,
         inviteCode: groups.inviteCode,
       })
@@ -309,8 +396,8 @@ eventTvRouter.get("/event/:eventId", async (req, res) => {
   // anything has been played it shows the night so far rather than an empty
   // waiting screen. Both reads are skipped entirely while a game is live,
   // since nothing renders them then.
-  const [yesRows, recap] = now
-    ? [[], null]
+  const [yesRows, recap, lifetime] = now
+    ? [[], null, []]
     : await Promise.all([
         db
           .select({ displayName: users.displayName })
@@ -321,6 +408,11 @@ eventTvRouter.get("/event/:eventId", async (req, res) => {
         // The SAME rollup the recap card uses, so the big screen and the card
         // can never quote different numbers for the same night.
         eventRecap(row, row.groupName),
+        // Beside the other two rather than after them: this is the third
+        // independent read of a screen that is only ever drawn when nothing is
+        // being played, and awaiting it in sequence would add a round trip to
+        // the state the TV spends most of the evening in.
+        crewLifetime(db, row.groupId),
       ]);
 
   res.json({
@@ -337,6 +429,11 @@ eventTvRouter.get("/event/:eventId", async (req, res) => {
       // Null until something has actually been played, so the client has one
       // obvious branch: nothing yet -> who's in; anything -> the night so far.
       recap: recap && recap.totalGames > 0 ? recap : null,
+      // The crew's record across every night, for the column that alternates
+      // with tonight's. Null rather than an empty list when a crew has no
+      // completed games at all, so the client has the same one-branch test it
+      // has for `recap` rather than a length check.
+      lifetime: lifetime.length ? lifetime : null,
     },
   });
 });

@@ -168,7 +168,27 @@ export interface EventTv {
      * The same rollup the recap card uses, so the two can never disagree.
      */
     recap: EventRecap | null;
+    /**
+     * The crew's lifetime standings, which the between-games screen alternates
+     * with tonight's. Null when the crew has no completed games at all.
+     *
+     * SERVED FROM THIS PAYLOAD RATHER THAN /api/groups/:id/stats, and that is
+     * not a duplication: the stats endpoint requires auth AND a membership, and
+     * a television is the one screen in this app that is reliably signed out.
+     * The server computes it through the same newAgg/feedAgg/finishAgg the crew
+     * leaderboard uses, so the two cannot disagree about a person.
+     */
+    lifetime: LifetimeStanding[] | null;
   };
+}
+
+/** One crew member's lifetime record, shaped to render in the same row as a night standing. */
+export interface LifetimeStanding {
+  userId: string;
+  name: string;
+  games: number;
+  wins: number;
+  avgPlacement: number | null;
 }
 
 /** One person in a slot: a crew member, or a guest with no id to credit. */

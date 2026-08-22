@@ -266,7 +266,7 @@ const deduction = (n) => {
 // MEASURED AT 4, 8, 12 AND 16 in both themes. Sixteen is what the shell's
 // bracket can reach off an uncapped yes list, and twelve is where the player
 // slice starts silently discarding people.
-const eventTv = (n, withRecap) => {
+const eventTv = (n, withRecap, crew) => {
   const names = Array.from({ length: n }, (_, i) => "Player Nameiskindalong " + (i + 1));
   const event = {
     id: "e1",
@@ -304,6 +304,18 @@ const eventTv = (n, withRecap) => {
             })),
             mvp: { userId: "u0", name: names[0] },
           }
+        : null,
+      // THE CREW'S LIFETIME BOARD, which the left column alternates with
+      // tonight's every 12s. Defaults LONGER than the night's roster because
+      // that is the normal case (everybody who has ever played, against
+      // everybody playing tonight) and it is the one that binds: the band is
+      // taken off the larger of the two, or the screen fits tonight and
+      // overflows twelve seconds later with nobody holding the device.
+      lifetime: withRecap
+        ? Array.from({ length: crew ?? n }, (_, i) => ({
+            userId: "L" + i, name: "Player Nameiskindalong " + (i + 1),
+            games: 40 - i, wins: 22 - i > 0 ? 22 - i : 0, avgPlacement: 1 + i * 0.2,
+          }))
         : null,
     },
   };
@@ -604,12 +616,16 @@ const MEASURE = (PROOF) => `(()=>{
 })()`;
 
 let seeder = null;
-async function measure(theme, route, payload, proof) {
+async function measure(theme, route, payload, proof, waitMs) {
   PAYLOAD = payload;
   if (seeder) await send("Page.removeScriptToEvaluateOnNewDocument", { identifier: seeder });
   ({ identifier: seeder } = (await send("Page.addScriptToEvaluateOnNewDocument", { source: `try{localStorage.setItem("gamenight.pref.theme","${theme}")}catch(e){}` })).result);
   await send("Page.navigate", { url: `http://127.0.0.1:${PORT}${route}` });
-  await sleep(2300);
+  // 2300ms is enough for every screen here to paint. ONE case needs longer: the
+  // event TV's left column alternates on a 12s timer, and the LIFETIME face is
+  // the taller of the two, so measuring it means waiting for the flip rather
+  // than measuring the face that happens to be up first.
+  await sleep(waitMs ?? 2300);
   return await ev(MEASURE(proof));
 }
 
@@ -711,6 +727,15 @@ const CASES = [
     [`event tv lobby ${String(n).padStart(2)}`, "/e/x/tv", eventTv(n, false), ".gn-tv-name"],
     [`event tv night ${String(n).padStart(2)}`, "/e/x/tv", eventTv(n, true), ".gn-tvs"],
   ]),
+  // A SMALL NIGHT INSIDE A BIG CREW, which is the shape the band has to serve:
+  // four people playing, sixteen on the all-time board. Arcade only and one
+  // count, because what is being proved is the band's INPUT (the larger of the
+  // two lists) rather than a new layout.
+  ["event tv 4 of crew 16", "/e/x/tv", eventTv(4, true, 16), ".gn-tvs", ["arcade"]],
+  // THE ROTATED FACE, measured AFTER the 12s flip rather than assumed. This is
+  // the only case in this file that waits, and it waits because the taller of
+  // the two columns is the one nobody is holding a device for when it appears.
+  ["event tv lifetime 16", "/e/x/tv", eventTv(4, true, 16), ".gn-tvs", ["arcade"], 14500],
   // BEERIO GRAND PRIX, the other half of a route that has been half-measured
   // since it was added. Arcade only, for the same reason every other Beerio
   // case is: the pack is permanently exempt from theming and paints identically
@@ -859,11 +884,11 @@ let stale = 0;
 let overs = 0;
 console.log("case                      theme     rail  lowest  backBtm  vs 1080      back v rail   covered by the rail");
 for (const theme of ["arcade", "tabletop"]) {
-  for (const [label, route, payload, proof, themes] of CASES) {
+  for (const [label, route, payload, proof, themes, waitMs] of CASES) {
     // A case may name the themes it is measured in. Only Beerio does, because
     // it is permanently exempt from theming and paints identically in both.
     if (themes && !themes.includes(theme)) continue;
-    const m = await measure(theme, route, payload, proof);
+    const m = await measure(theme, route, payload, proof, waitMs);
     const over = m.lowest - 1080;
     const back = m.backIntoRail === null ? "no button"
       : m.backIntoRail > 0 ? `UNDER by ${m.backIntoRail}` : `clear by ${-m.backIntoRail}`;
