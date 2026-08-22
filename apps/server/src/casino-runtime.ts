@@ -396,7 +396,15 @@ export function registerCasinoRoutes<S extends CashPackState>(
       return;
     }
 
-    const bank: CashBank = cfg.fixedBank ?? (req.body?.bank === "casino" ? "casino" : "player");
+    // A CASINO IS THE DEFAULT, matching the setup screen. Anything that is not
+    // the word "player" is a casino, and that direction is deliberate for the
+    // same reason `stakes` defaults to real below: it is the answer that is
+    // cheaper to be wrong about. A player-banked table DERIVES one person's net
+    // from everyone else's, so a malformed or older body that omitted `bank`
+    // would previously have had somebody's money worked out for them rather
+    // than counted, and nothing would have said so. Deriving nobody is the
+    // safer failure. A pack that pins its bank still wins over both.
+    const bank: CashBank = cfg.fixedBank ?? (req.body?.bank === "player" ? "player" : "casino");
     // Anything that is not the word "play" is real. Defaulting the OTHER way
     // would mean a malformed body could quietly record a real-money night as
     // play money, which is the more damaging mistake of the two.

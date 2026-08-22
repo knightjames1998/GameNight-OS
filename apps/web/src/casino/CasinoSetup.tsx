@@ -47,6 +47,7 @@ export default function CasinoSetup({
   busy,
   ledger,
   copy,
+  fixedBank,
   extra,
   onStart,
 }: {
@@ -61,11 +62,24 @@ export default function CasinoSetup({
    */
   ledger: string;
   copy: CasinoSetupCopy;
+  /**
+   * A bank this pack does not let the host choose. Poker pins "table" on the
+   * server (`fixedBank` in poker.ts) and IGNORES `bank` on the request, so
+   * without this the screen renders a "Who is banking?" control whose answer
+   * is thrown away, which is worse than not offering it.
+   */
+  fixedBank?: CashBank;
   /** A pack's own setup card, rendered above the start button. */
   extra?: ReactNode;
   onStart: (payload: Record<string, unknown>) => void;
 }) {
-  const [bank, setBank] = useState<CashBank>("player");
+  // A CASINO IS THE DEFAULT. Most nights on this app are played against a real
+  // house, and the alternative default is the one that costs something when it
+  // is wrong: a player-banked table DERIVES one person's net from everyone
+  // else's, so a host who never touched this control would have had somebody's
+  // money worked out for them rather than counted. Defaulting to the answer
+  // that derives nobody is the safer of the two.
+  const [bank, setBank] = useState<CashBank>("casino");
   // Real money by default. A host who means play money says so; the reverse
   // default would let a real night be recorded as pretend, which is the more
   // damaging mistake of the two.
@@ -118,7 +132,16 @@ export default function CasinoSetup({
     setSeats(seats.map((s, j) => (j === i ? { ...s, buyIn: cents } : s)));
 
   const notAdded = ctx.members.filter((m) => !seats.some((r) => r.userId === m.userId));
-  const minPlayers = bank === "player" ? 2 : 1;
+  // What the table is ACTUALLY banked by: a pinned bank wins over the picker,
+  // because on those packs the server ignores the picker anyway.
+  const effBank: CashBank = fixedBank ?? bank;
+  // ONLY A CASINO-BANKED TABLE CAN HAVE ONE SEAT, and that is the real rule
+  // rather than "not player-banked": one person against a real house is a
+  // legitimate session, a player-banked table needs a banker plus somebody to
+  // bank against, and a table-banked one needs two people to have a game at
+  // all. Written as "casino" rather than "not player" because poker pins
+  // "table" and would otherwise have been openable with a single seat.
+  const minPlayers = effBank === "casino" ? 1 : 2;
   const m = money(stakes);
   const fallback = defaultBuyIn ?? 0;
   const amountOf = (s: Seat) => s.buyIn ?? fallback;
@@ -151,6 +174,7 @@ export default function CasinoSetup({
         </p>
       </div>
 
+      {!fixedBank && (
       <div className="cg-card">
         <div className="cg-h">Who is banking?</div>
         <div className="cg-seg">
@@ -167,6 +191,7 @@ export default function CasinoSetup({
             : "The house is a real casino, so nobody here is the banker and every net stands on its own. Nothing to balance."}
         </p>
       </div>
+      )}
 
       <div className="cg-card">
         <div className="cg-h">Buy-ins</div>
@@ -174,7 +199,7 @@ export default function CasinoSetup({
         <MoneyInput value={defaultBuyIn} onChange={setDefaultBuyIn} ariaLabel="Default buy-in" />
         <p className="cg-hint" style={{ marginTop: 8 }}>
           What everyone starts on unless you give them their own amount below.
-          {bank === "player" &&
+          {effBank === "player" &&
             " The banker's is the float they put up, so it is usually the biggest number here."}
         </p>
 
@@ -188,7 +213,7 @@ export default function CasinoSetup({
                 <span className="cg-seat__who">
                   <span className="cg-name">{s.name}</span>
                   {!s.userId && <span className="cg-pill cg-pill--muted" style={{ marginLeft: 6 }}>guest</span>}
-                  {bank === "player" && (
+                  {effBank === "player" && (
                     <button
                       className={`cg-pill ${bankerIndex === i ? "" : "cg-pill--muted"}`}
                       style={{ marginLeft: 6 }}
@@ -309,9 +334,9 @@ export default function CasinoSetup({
         disabled={busy || !ready}
         onClick={() =>
           onStart({
-            bank,
+            bank: effBank,
             stakes,
-            bankerIndex: bank === "player" ? bankerIndex : undefined,
+            bankerIndex: effBank === "player" ? bankerIndex : undefined,
             defaultBuyIn,
             // Only the seats the host deliberately overrode. Everything else
             // is the default, and sending it explicitly would freeze a number
@@ -326,8 +351,10 @@ export default function CasinoSetup({
         }
       >
         {seats.length < minPlayers
-          ? bank === "player"
+          ? effBank === "player"
             ? "Add the banker plus at least one player"
+            : effBank === "table"
+            ? "Add at least 2 players"
             : "Add at least 1 player"
           : defaultBuyIn === null
           ? "Set a default buy-in"

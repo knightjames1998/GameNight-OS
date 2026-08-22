@@ -127,6 +127,9 @@ export default function PokerPage() {
             finished={session?.status === "completed" ? session.summary : null}
             busy={busy}
             ledger={PACK.ledger}
+            // The server pins this pack to "table" and ignores `bank` on the
+            // request (see poker.ts), so the picker is not offered here.
+            fixedBank="table"
             onStart={startSession}
             copy={{
               noun: "the table",
