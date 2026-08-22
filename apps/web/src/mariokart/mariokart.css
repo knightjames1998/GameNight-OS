@@ -81,11 +81,68 @@
 .mk-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 
 /* TV mode: bigger, meant for a room to read across it */
-.mk-tv { min-height: 100dvh; background: radial-gradient(130% 90% at 50% 0%, #0e2f7a, #060a14); color: #fff; padding: calc(3vmin + env(safe-area-inset-top, 0px)) calc(4vmin + env(safe-area-inset-right, 0px)) calc(3vmin + env(safe-area-inset-bottom, 0px)) calc(4vmin + env(safe-area-inset-left, 0px)); }
-.mk-tv__brand { font-family: var(--gn-font-display); font-size: 6vmin; text-transform: uppercase; text-shadow: 0 0 22px rgba(255, 70, 70, 0.6); }
-.mk-tv__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2vmin; margin-top: 3vmin; }
-.mk-tv__panel { background: rgba(0, 0, 0, 0.35); border: 1px solid #2a4f9a; border-radius: 6px; padding: 2.4vmin; }
-.mk-tv__panel h3 { font-size: 2.6vmin; color: #ff9a6a; margin: 0 0 1.4vmin; text-transform: uppercase; letter-spacing: 0.5px; }
-.mk-tv__line { display: flex; justify-content: space-between; font-size: 3vmin; padding: 0.8vmin 0; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+/* ---- THE LADDER'S BASE BLOCK (the roomy rung) ----
+   Every metric on this screen is a variable, spent by
+   apps/web/src/mariokart/mariokart-tv-band.ts through [data-mkband]. This TV
+   has never fitted 1080p past EIGHT racers and the server seats sixteen. The
+   name floor is 2.2vmin (--mk-tv-line carries a racer's name), the same one
+   every other TV ladder in this app uses. */
+.mk-tv {
+  --mk-tv-pad-y: 3vmin;
+  --mk-tv-pad-x: 4vmin;
+  --mk-tv-brand: 6vmin;
+  --mk-tv-meta: 2.4vmin;      /* the format line under the brand */
+  --mk-tv-lbl: 2.6vmin;       /* "ON THE GRID" */
+  --mk-tv-grid-mt: 3vmin;
+  --mk-tv-grid-gap: 2vmin;
+  --mk-tv-panel-pad: 2.4vmin;
+  --mk-tv-h3: 2.6vmin;
+  --mk-tv-h3-mb: 1.4vmin;
+  --mk-tv-line: 3vmin;        /* a racer's NAME. FLOOR 2.2vmin. */
+  --mk-tv-line-pad: .8vmin;
+  --mk-tv-sub: 2.2vmin;       /* the "(character)" tail and the kart racers */
+  --mk-tv-back-mt: 3vmin;
+  min-height: 100dvh; background: radial-gradient(130% 90% at 50% 0%, #0e2f7a, #060a14); color: #fff;
+  padding: calc(var(--mk-tv-pad-y) + env(safe-area-inset-top, 0px)) calc(var(--mk-tv-pad-x) + env(safe-area-inset-right, 0px)) calc(var(--mk-tv-pad-y) + env(safe-area-inset-bottom, 0px)) calc(var(--mk-tv-pad-x) + env(safe-area-inset-left, 0px));
+}
+.mk-tv__brand { font-family: var(--gn-font-display); font-size: var(--mk-tv-brand); text-transform: uppercase; text-shadow: 0 0 22px rgba(255, 70, 70, 0.6); }
+.mk-tv__grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mk-tv-grid-gap); margin-top: var(--mk-tv-grid-mt); }
+.mk-tv__panel { background: rgba(0, 0, 0, 0.35); border: 1px solid #2a4f9a; border-radius: 6px; padding: var(--mk-tv-panel-pad); }
+.mk-tv__panel h3 { font-size: var(--mk-tv-h3); color: #ff9a6a; margin: 0 0 var(--mk-tv-h3-mb); text-transform: uppercase; letter-spacing: 0.5px; }
+.mk-tv__line { display: flex; justify-content: space-between; font-size: var(--mk-tv-line); padding: var(--mk-tv-line-pad) 0; border-top: 1px solid rgba(255, 255, 255, 0.08); }
 .mk-tv__line:first-of-type { border-top: none; }
 .mk-tv__muted { color: #9fb6e6; }
+.mk-tv__meta { font-size: var(--mk-tv-meta); }
+.mk-tv__lbl { font-size: var(--mk-tv-lbl); }
+.mk-tv__sub { font-size: var(--mk-tv-sub); }
+.mk-tv__back { margin-top: var(--mk-tv-back-mt); }
+/* ---- The ladder ----
+   Three diffs off the base block, each MEASURED to land its own racer count
+   inside 1080px against the lowest painted pixel and to keep the back button
+   out of the rail, which at sixteen was 334px into it. */
+.mk-tv[data-mkband="close"] {
+  --mk-tv-pad-y: 2.4vmin; --mk-tv-pad-x: 3.2vmin;
+  --mk-tv-brand: 4.8vmin; --mk-tv-meta: 2.1vmin; --mk-tv-lbl: 2.2vmin;
+  --mk-tv-grid-mt: 2.2vmin; --mk-tv-grid-gap: 1.6vmin; --mk-tv-panel-pad: 1.8vmin;
+  --mk-tv-h3: 2.2vmin; --mk-tv-h3-mb: 1vmin;
+  --mk-tv-line: 2.6vmin; --mk-tv-line-pad: .5vmin; --mk-tv-sub: 2vmin;
+  --mk-tv-back-mt: 2.2vmin;
+}
+.mk-tv[data-mkband="tight"] {
+  --mk-tv-pad-y: 1.9vmin; --mk-tv-pad-x: 2.6vmin;
+  --mk-tv-brand: 4vmin; --mk-tv-meta: 1.9vmin; --mk-tv-lbl: 1.9vmin;
+  --mk-tv-grid-mt: 1.6vmin; --mk-tv-grid-gap: 1.3vmin; --mk-tv-panel-pad: 1.3vmin;
+  --mk-tv-h3: 1.9vmin; --mk-tv-h3-mb: .7vmin;
+  --mk-tv-line: 2.35vmin; --mk-tv-line-pad: .32vmin; --mk-tv-sub: 1.8vmin;
+  --mk-tv-back-mt: 1.6vmin;
+}
+/* The floor. The server caps a Mario Kart roster at sixteen, so this rung is
+   what sixteen lands on rather than a defensive flourish. */
+.mk-tv[data-mkband="packed"] {
+  --mk-tv-pad-y: 1.5vmin; --mk-tv-pad-x: 2.2vmin;
+  --mk-tv-brand: 3.4vmin; --mk-tv-meta: 1.8vmin; --mk-tv-lbl: 1.8vmin;
+  --mk-tv-grid-mt: 1.2vmin; --mk-tv-grid-gap: 1.1vmin; --mk-tv-panel-pad: 1vmin;
+  --mk-tv-h3: 1.8vmin; --mk-tv-h3-mb: .5vmin;
+  --mk-tv-line: 2.2vmin; --mk-tv-line-pad: .2vmin; --mk-tv-sub: 1.7vmin;
+  --mk-tv-back-mt: 1.2vmin;
+}

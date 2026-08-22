@@ -657,6 +657,11 @@ const CASES = [
   ["mario kart  16 solo", "/mariokart/tv/x", mariokart(16, false), ".mk-tv__panel"],
   ["mario kart  16 karts", "/mariokart/tv/x", mariokart(16, true), ".mk-tv__panel"],
   ["mario kart  16 koth", "/mariokart/tv/x", mariokart(16, true, "koth"), ".mk-tv__panel"],
+  // The two rungs between eight and sixteen, added with the ladder: a ladder
+  // proved at its endpoints is a ladder proved nowhere, which is written down
+  // at the top of this file about the bracketed TVs and applies here too.
+  ["mario kart  10 solo", "/mariokart/tv/x", mariokart(10, false), ".mk-tv__panel"],
+  ["mario kart  14 solo", "/mariokart/tv/x", mariokart(14, false), ".mk-tv__panel"],
   ["casino run   6 mid-run", "/casinorun/tv/x", crun(6), ".crun-tv"],
   ["casino run  12 mid-run", "/casinorun/tv/x", crun(12), ".crun-tv"],
   ["board game   4 players", "/boardgame/tv/x", titlenight(4), ".tn-tv__panel"],
@@ -775,24 +780,20 @@ const CASES = [
 // twice. A fit ladder has been its own session every time (the money board's,
 // which is the worked example) and this is no different.
 //
-// MARIO KART AT TWELVE AND SIXTEEN joined on 2026-08-16, the day this TV was
-// first measured at all, and for exactly the reason Board Game did: it shipped
-// a TV and was never added here. It seats sixteen through the server's roster
-// cap, so this is reachable rather than theoretical.
+// MARIO KART AT TWELVE AND SIXTEEN WAS HERE AND IS FIXED (2026-08-22). It had
+// been named since 08-16, the day this TV was first measured at all, and for
+// the same reason Board Game was: it shipped a TV and was never added here. It
+// seats sixteen through the server's roster cap, so both failing counts were
+// reachable rather than theoretical. 1179px at twelve (over by 99) and 1447 at
+// sixteen (over by 367, back button 334px into the rail); now 8 / 10 / 12 / 14 /
+// 16 all fit in both themes with the button clear by at least 194px.
 //
-// IT IS NOT THE KARTS, AND THAT WAS MEASURED RATHER THAN ASSUMED. The pairs
-// session that added these cases checked out the PREVIOUS commit's TV component
-// and ran the same three payloads through it: 1447px, over by 367, identical to
-// the digit in every case. The Players panel is per RACER whether or not karts
-// are shared, so it is the tall column either way, and the Karts panel replaces
-// the Racers panel rather than sitting beside it (karts are never more numerous
-// than racers). The kart work added zero pixels. Twelve is where it first goes
-// over; eight fits with 201px of clearance in Arcade, which covers a Double
-// Dash night, so the reachable-and-common case is fine.
-//
-// NOT FIXED HERE. This is a density ladder, and a fit ladder has been its own
-// session every time (the money board's is the worked example). Logged in
-// BACKLOG under BUGS beside Ping Pong's and Board Game's.
+// IT WAS NEVER THE KARTS, AND THAT WAS MEASURED RATHER THAN ASSUMED. The pairs
+// session checked out the PREVIOUS commit's TV component and ran the same three
+// payloads through it: 1447px, identical to the digit. The Players panel is per
+// RACER whether or not karts are shared, and the Karts panel REPLACES the
+// Racers panel rather than sitting beside it. The kart work added zero pixels,
+// and the ladder is about the roster.
 //
 // THE EXEMPTION IS BY NAME AND STAYS THAT WAY. A new pack does not get added to
 // this set: if Card Table's TV does not fit, that is a new bug in new code and
@@ -859,10 +860,6 @@ const CASES = [
 // measures.
 const KNOWN = new Set([
   "bracket tv  4 fresh",
-  "mario kart  12 solo",
-  "mario kart  16 solo",
-  "mario kart  16 karts",
-  "mario kart  16 koth",
   "bracket tv 16 pairs fresh",
   "bracket tv 16 pairs mid  ",
   "bracket tv 16 pairs late ",
@@ -963,6 +960,12 @@ const NEUTRALISE = `
      1.4vmin chip gaps, the lot). Pinning every band back to it restores the
      screen as it shipped, which is the thing a control has to be able to see.
      Doubled selector for the same specificity reason as the two above. */
+  .mk-tv.mk-tv[data-mkband]{
+    --mk-tv-pad-y:3vmin;--mk-tv-pad-x:4vmin;--mk-tv-brand:6vmin;--mk-tv-meta:2.4vmin;
+    --mk-tv-lbl:2.6vmin;--mk-tv-grid-mt:3vmin;--mk-tv-grid-gap:2vmin;--mk-tv-panel-pad:2.4vmin;
+    --mk-tv-h3:2.6vmin;--mk-tv-h3-mb:1.4vmin;
+    --mk-tv-line:3vmin;--mk-tv-line-pad:.8vmin;--mk-tv-sub:2.2vmin;--mk-tv-back-mt:3vmin;
+  }
   .tn-tv.tn-tv[data-tnband]{
     --tn-tv-pad-y:3vmin;--tn-tv-pad-x:4vmin;--tn-tv-brand:5.4vmin;--tn-tv-meta:2.4vmin;
     --tn-tv-label:2.6vmin;--tn-tv-title:9vmin;--tn-tv-title-idle:5.6vmin;
@@ -1007,6 +1010,7 @@ console.log("\nnegative control: the ladder pinned back to its base metrics, whi
     // CARD TABLE, not Board Game: the ladder is tuned against the TALLER of the
     // two packs and the control should bind on the same one.
     ["card table 12      ", "/cardtable/tv/x", titlenight(12), ".tn-tv__panel"],
+    ["mario kart 16 solo ", "/mariokart/tv/x", mariokart(16, false), ".mk-tv__panel"],
   ]) {
     const m = await measure("arcade", route, payload, proof);
     const over = m.lowest - 1080;

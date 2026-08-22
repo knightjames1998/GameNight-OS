@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { SESSION_PACKS } from "@gamenight/shared";
 import { api } from "../api";
 import BackButton from "../BackButton";
+import { marioKartTvBand } from "./mariokart-tv-band";
 import { usePackLive } from "../useLiveUpdates";
 import "./mariokart.css";
 
@@ -55,7 +56,7 @@ export default function MarioKartTvPage({ eventId: propEventId }: { eventId?: st
       <div className="mk-tv">
         <div className="mk-tv__brand">Mario Kart</div>
         <p className="mk-tv__muted" style={{ fontSize: "3vmin", marginTop: "2vmin" }}>Waiting for the host to start the night.</p>
-        <div style={{ marginTop: "3vmin" }}><BackButton className="mk-textbtn" /></div>
+        <div className="mk-tv__back"><BackButton className="mk-textbtn" /></div>
       </div>
     );
   }
@@ -94,16 +95,25 @@ export default function MarioKartTvPage({ eventId: propEventId }: { eventId?: st
     ? cur.games.reduce((acc, g) => { if (g.winnerId === cur.aId) acc.a++; else if (g.winnerId === cur.bId) acc.b++; return acc; }, { a: 0, b: 0 })
     : { a: 0, b: 0 };
 
+  // THE DENSITY LADDER. This TV has never fitted a 1080p screen past eight
+  // racers and the server seats sixteen (see mariokart-tv-band.ts and the
+  // [data-mkband] blocks in mariokart.css). It is the PLAYERS panel that grows:
+  // the Racers/Karts panel is capped at eight by the view below.
+  const band = marioKartTvBand({
+    players: session.summary.players.length,
+    sides: session.pairs ? session.sides.length : session.summary.characters.length,
+  });
+
   return (
-    <div className="mk-tv">
+    <div className="mk-tv" data-mkband={band}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div className="mk-tv__brand">Mario Kart</div>
-        <div className="mk-tv__muted" style={{ fontSize: "2.4vmin" }}>{label}</div>
+        <div className="mk-tv__muted mk-tv__meta">{label}</div>
       </div>
 
       {session.format === "bestof" && cur && (
         <div style={{ marginTop: "2vmin" }}>
-          <div className="mk-tv__muted" style={{ fontSize: "2.6vmin", textTransform: "uppercase", letterSpacing: "0.3vmin" }}>On the grid</div>
+          <div className="mk-tv__muted mk-tv__lbl" style={{ textTransform: "uppercase", letterSpacing: "0.3vmin" }}>On the grid</div>
           <div style={{ fontSize: "5vmin", fontFamily: "Fredoka, sans-serif", fontWeight: 800, display: "flex", alignItems: "center", gap: "2vmin" }}>
             <span>{kartLabel(cur.aId)}</span>
             <span className="mk-tv__muted">{setWins.a} - {setWins.b}</span>
@@ -145,7 +155,7 @@ export default function MarioKartTvPage({ eventId: propEventId }: { eventId?: st
             {session.summary.players.length === 0 && <div className="mk-tv__muted">No races yet</div>}
             {session.summary.players.map((p) => (
               <div className="mk-tv__line" key={p.playerId}>
-                <span>{p.name} {p.mainCharacter ? <span className="mk-tv__muted" style={{ fontSize: "2.2vmin" }}>({p.mainCharacter})</span> : null}</span>
+                <span>{p.name} {p.mainCharacter ? <span className="mk-tv__muted mk-tv__sub">({p.mainCharacter})</span> : null}</span>
                 <span>{p.wins}W · {p.played}</span>
               </div>
             ))}
@@ -163,7 +173,7 @@ export default function MarioKartTvPage({ eventId: propEventId }: { eventId?: st
               {session.sides.slice(0, 8).map((k) => (
                 <div className="mk-tv__line" key={k.id}>
                   <span>{kartLabel(k.id)}</span>
-                  <span className="mk-tv__muted" style={{ fontSize: "2.2vmin" }}>{kartRacers(k.id)}</span>
+                  <span className="mk-tv__muted mk-tv__sub">{kartRacers(k.id)}</span>
                 </div>
               ))}
             </div>
