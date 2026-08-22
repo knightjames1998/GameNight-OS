@@ -332,7 +332,11 @@ test("NO BAND PUTS A PERSON'S NAME UNDER THE TYPE FLOOR", () => {
     }
   }
   const beerio = read("beerio/beerio.css");
-  for (const prop of ["--bt-nm", "--bt-chip"]) {
+  // --bt-gp-nm joined 2026-08-22 with the Grand Prix ladder. It carries a
+  // racer's name on the standings board, so it is held to the same floor as the
+  // bracket board's --bt-nm; the GP ladder buys its room by going TWO COLUMNS
+  // at the tighter rungs rather than by going under it.
+  for (const prop of ["--bt-nm", "--bt-chip", "--bt-gp-nm"]) {
     const values = declared(beerio, prop);
     assert.ok(values.length >= BEERIO_TV_BANDS.length, `${prop} is not declared in every band`);
     for (const v of values) {

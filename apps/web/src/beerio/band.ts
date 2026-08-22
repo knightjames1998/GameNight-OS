@@ -164,3 +164,73 @@ export function beerioTvBand(load: BeerioTvLoad): BeerioTvBand {
   const deck = pick(DECK_CEILINGS, shown + (predictions ? PREDICTION_CARDS : 0));
   return tighter(board, deck);
 }
+
+
+// ---------- GRAND PRIX ----------
+//
+// THE OTHER HALF OF /beerio/tv/:code, AND IT HAD NO LADDER AT ALL. `GpBoard`
+// rendered Shell and Header at band="roomy" HARDCODED while the bracket board
+// in the same file computed a band per payload, and the route had no fit case
+// either: scripts/tv-fit.mjs only ever ran this address with format.mode
+// "bracket". A screen with no case has no owner, and this one was the worst
+// example in the app.
+//
+// MEASURED 2026-08-22, the first time anything measured it at all:
+//
+//     four racers    1148px  OVER by 68
+//     eight racers   1717px  OVER by 637
+//     twelve racers  2286px  OVER by 1206
+//
+// IT HAS NEVER FITTED A TELEVISION AT ANY COUNT. BUGS recorded only the twelve,
+// found on 2026-08-19 from a photo of a real screen; measuring four and eight
+// found the other two. That is the largest gap of the five overflows this
+// session covers, and the only one with nothing to tighten.
+//
+// A GP ROW IS TALLER THAN A BRACKET CHIP and there is one per racer with no
+// cap, so this grows on exactly one axis: the roster. Beerio's own MAX_PLAYERS
+// is 16.
+
+/** What a Grand Prix board is being asked to draw. */
+export interface BeerioGpLoad {
+  /** Racers in the standings. One row each, uncapped. */
+  racers: number;
+  /** The next-race prediction bar is up, which costs a block above the board. */
+  predictions: boolean;
+}
+
+/**
+ * Racer ceilings for the standings board, measured at each band's row height.
+ * FOUR IS THE ROOMY RUNG AND IT STILL HAD TO MOVE: the base metrics were 68px
+ * over at four racers, so even the roomiest rung here is tighter than what
+ * shipped. That is unusual for a ladder in this repo and it is the honest
+ * consequence of a screen that never fitted at any count.
+ */
+const GP_CEILINGS: readonly (readonly [BeerioTvBand, number])[] = [
+  ["roomy", 4],
+  ["close", 6],
+  // `tight` and `packed` are also where the board goes TWO COLUMNS (see
+  // --bt-gp-cols in beerio.css), which is what makes the counts above eight
+  // reachable at all: a GP row carries a name and cannot shrink past this
+  // pack's 1.25vw floor, and sixteen single-column rows at that floor do not
+  // fit 1080p however tight the padding gets.
+  ["tight", 12],
+];
+
+/** What the prediction bar costs, in racer-row equivalents. Rounded UP. */
+const GP_PREDICTION_ROWS = 2;
+
+/**
+ * The band for a Grand Prix board carrying this load.
+ *
+ * PURE and exported for the same reason every other ladder here is: a ladder
+ * that exists in CSS and is never applied throws nothing and logs nothing.
+ * That is not hypothetical on this screen, it is precisely what band="roomy"
+ * hardcoded in the component was.
+ */
+export function beerioGpBand(load: BeerioGpLoad): BeerioTvBand {
+  const { racers, predictions } = load;
+  if (!Number.isFinite(racers)) return tightest;
+  const n = Math.max(0, Math.floor(racers));
+  if (n > BEERIO_MAX_RACERS) return tightest;
+  return pick(GP_CEILINGS, n + (predictions ? GP_PREDICTION_ROWS : 0));
+}

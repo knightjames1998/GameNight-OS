@@ -454,7 +454,7 @@ const BEERIO_COLORS = ["#E5352B", "#3B7BE8", "#2FB969", "#FFC02E", "#9B59D0", "#
 //
 // The prediction bar is up, because a race everybody voted on is the tallest
 // this board gets and those are up on exactly the nights people are watching.
-const beerioGp = (n, races = 3) => {
+const beerioGp = (n, races = 3, voted = true) => {
   const seeds = Array.from({ length: n }, (_, i) => i);
   // One finishing order per race. Rotated so the standings are not a straight
   // line, which is what makes the rank column render at its real width.
@@ -469,10 +469,12 @@ const beerioGp = (n, races = 3) => {
       seeded: true,
     },
     // Keyed H:{racesSoFar}, which is what GpBoard tallies for the next race.
-    predictions: {
-      s1: { name: "Spectator One", picks: { [`H:${races}`]: "0" } },
-      s2: { name: "Spectator Two", picks: { [`H:${races}`]: "1" } },
-    },
+    predictions: voted
+      ? {
+          s1: { name: "Spectator One", picks: { [`H:${races}`]: "0" } },
+          s2: { name: "Spectator Two", picks: { [`H:${races}`]: "1" } },
+        }
+      : {},
   };
 };
 const beerioTv = (n, state = "mid") => {
@@ -761,9 +763,13 @@ const CASES = [
   // since it was added. Arcade only, for the same reason every other Beerio
   // case is: the pack is permanently exempt from theming and paints identically
   // in both, so a second pass costs navigations and proves nothing.
-  ...[4, 8, 12].flatMap((n) => [
+  ...[4, 8, 12, 16].flatMap((n) => [
     [`beerio gp  ${String(n).padStart(2)} racers`, "/beerio/tv/ABCD", beerioGp(n), ".beerio-tv-gp", ["arcade"]],
   ]),
+  // NO VOTES, because the prediction bar is an OPTIONAL BLOCK the band charges
+  // two racer-rows for, and a ladder that has only ever seen it up has never
+  // been asked what happens when it is down.
+  ["beerio gp  16 no votes", "/beerio/tv/ABCD", beerioGp(16, 3, false), ".beerio-tv-gp", ["arcade"]],
 ];
 
 // A case that is ALREADY over before any rail exists cannot be made to pass by
@@ -827,11 +833,28 @@ const CASES = [
 // had never been exercised because until 2026-08-21 a four-entrant fresh
 // bracket held two cards, not four.
 //
-const KNOWN = new Set([
-  "beerio gp   4 racers",
-  "beerio gp   8 racers",
-  "beerio gp  12 racers",
-]);
+// BEERIO'S GRAND PRIX WAS HERE AND IS FIXED (2026-08-22), and it was the last
+// name in this set. Measured for the first time on 08-22: 1148 / 1717 / 2286px
+// at 4 / 8 / 12 racers, over by 68 / 637 / 1206. BUGS recorded only the twelve,
+// found from a photo of a real television on 08-19, and measuring the other two
+// found IT HAD NEVER FITTED AT ANY COUNT. Largest gap of the five and the only
+// one with nothing to tighten: GpBoard rendered Shell and Header at
+// band="roomy" HARDCODED while the bracket board in the same file computed one
+// per payload, and half of this route had no case here at all. It now has
+// `beerioGpBand` and its own --bt-gp-* rungs, and fits at 4, 6, 8, 10, 12, 14
+// and 16 with the prediction bar up and down.
+//
+// THE LAST TWO RUNGS GO TWO COLUMNS, which is a layout decision the ladder
+// makes rather than a shrink: a GP row carries a rank, a dot, a NAME, a record
+// and a points total, so it cannot go under this pack's 1.25vw name floor, and
+// sixteen single-column rows at that floor do not fit 1080p however tight the
+// padding gets. Sixteen in two columns do, at a size readable from a sofa.
+//
+// THE SET IS EMPTY NOW, for the first time since it was written. That is not a
+// promise that nothing will ever be added: it is what "KNOWN shrinks, never
+// grows, except for a genuinely new finding recorded with its numbers" looks
+// like when a session actually finishes the list.
+const KNOWN = new Set([]);
 let newOverlaps = 0;
 let stale = 0;
 // THE FIT WAS REPORTED AND NEVER ENFORCED until 2026-08-15. This file has asked
@@ -911,6 +934,12 @@ const NEUTRALISE = `
     --gn-tv-strip-mt:2.4vmin;--gn-tv-cols-mt:3vmin;--gn-tv-h2:3vmin;--gn-tv-h2-mb:1.8vmin;
   }
   .beerio-root.beerio-tv.beerio-tv[data-band]{
+    --bt-gp-cols:1;
+    --bt-gp-row-pad:.9vw;--bt-gp-row-padx:1.5vw;--bt-gp-row-gap:1.5vw;--bt-gp-stack-gap:.8vw;
+    --bt-gp-rank:2.6vw;--bt-gp-rank-w:4vw;--bt-gp-dot:2.2vw;--bt-gp-nm:2.4vw;
+    --bt-gp-sub:1.4vw;--bt-gp-pts:3vw;--bt-gp-pts-w:6vw;
+    --bt-gp-h2:2vw;--bt-gp-h2-mb:1vw;
+    --bt-gp-pred-mb:1vw;--bt-gp-pred-pt:.8vw;--bt-gp-pred-lbl:1.4vw;
     --bt-brand:5.5vw;--bt-brand-sh:6px;--bt-pill:1.5vw;--bt-pill-pad:.5vw;
     --bt-h2:2vw;--bt-h2-mb:1vw;--bt-shell-pad:2vw;--bt-shell-gap:1.5vw;--bt-board-gap:1.2vw;
     --bt-nm:1.9vw;--bt-row-pad:.7vw;--bt-dot:1.6vw;--bt-card-gap:1vw;
@@ -983,6 +1012,7 @@ console.log("\nnegative control: the ladder pinned back to its base metrics, whi
     // blind", which is the control catching itself for the second time in this
     // file's life (Beerio's did the same on 2026-08-15).
     ["bracket 16 pairs   ", "/tv/x", bracketTv(16, "mid", "double_elim", 2), ".gn-tvst"],
+    ["beerio gp 12       ", "/beerio/tv/ABCD", beerioGp(12), ".beerio-tv-gp"],
   ]) {
     const m = await measure("arcade", route, payload, proof);
     const over = m.lowest - 1080;

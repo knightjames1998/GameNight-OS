@@ -235,6 +235,29 @@
   --bt-h2: 2vw;
   --bt-h2-mb: 1vw;
   --bt-shell-pad: 2vw;
+  /* ---- GRAND PRIX, added 2026-08-22 with its ladder ----
+     This board rendered at band="roomy" HARDCODED and had never been measured:
+     1148 / 1717 / 2286px at 4 / 8 / 12 racers, over by 68 / 637 / 1206. It has
+     never fitted a television at any count, which is why even the roomy rung
+     below is tighter than what shipped. --bt-gp-nm carries a racer's NAME and
+     stops at the 1.25vw floor the rest of this pack uses. */
+  --bt-gp-cols: 1;
+  --bt-gp-row-pad: .9vw;
+  --bt-gp-row-padx: 1.5vw;
+  --bt-gp-row-gap: 1.5vw;
+  --bt-gp-stack-gap: .8vw;
+  --bt-gp-rank: 2.6vw;
+  --bt-gp-rank-w: 4vw;
+  --bt-gp-dot: 2.2vw;
+  --bt-gp-nm: 2.4vw;        /* a racer's NAME. FLOOR 1.25vw. */
+  --bt-gp-sub: 1.4vw;
+  --bt-gp-pts: 3vw;
+  --bt-gp-pts-w: 6vw;
+  --bt-gp-h2: 2vw;
+  --bt-gp-h2-mb: 1vw;
+  --bt-gp-pred-mb: 1vw;
+  --bt-gp-pred-pt: .8vw;
+  --bt-gp-pred-lbl: 1.4vw;
   --bt-shell-gap: 1.5vw;
   --bt-board-gap: 1.2vw;
 
@@ -261,6 +284,25 @@
   --bt-st-pad: .45vw;
   --bt-st-top: .7vw;
 }
+/* MULTI-COLUMN RATHER THAN FLEX, and --bt-gp-cols is a rung of the ladder.
+   A GP row carries a rank, a colour dot, a NAME, a record and a points total,
+   so it cannot shrink past --bt-gp-nm's 1.25vw floor, and sixteen rows at that
+   floor do not fit 1080p however tight the padding gets. Sixteen rows in TWO
+   columns do, at a size people can actually read from a sofa.
+   `columns` flows COLUMN-MAJOR (1-8 down the left, 9-16 down the right), which
+   is the reading order a standings board wants; a 2-up grid would have put
+   rank 1 and rank 2 side by side. Rows keep margin rather than gap because a
+   column box is not a flex container. */
+.beerio-tv-gp__stack { display: block; columns: var(--bt-gp-cols); column-gap: var(--bt-gp-row-gap); min-height: 0; flex: 1; }
+.beerio-tv-gp__row { display: flex; align-items: center; gap: var(--bt-gp-row-gap); padding: var(--bt-gp-row-pad) var(--bt-gp-row-padx); break-inside: avoid; margin-bottom: var(--bt-gp-stack-gap); }
+.beerio-tv-gp__rank { font-size: var(--bt-gp-rank); width: var(--bt-gp-rank-w); }
+.beerio-tv-gp__dot { width: var(--bt-gp-dot); height: var(--bt-gp-dot); }
+.beerio-tv-gp__nm { font-size: var(--bt-gp-nm); }
+.beerio-tv-gp__sub { font-size: var(--bt-gp-sub); }
+.beerio-tv-gp__pts { font-size: var(--bt-gp-pts); width: var(--bt-gp-pts-w); }
+.beerio-tv-gp__h2 { font-size: var(--bt-gp-h2); margin-bottom: var(--bt-gp-h2-mb); }
+.beerio-tv-gp__pred { margin-bottom: var(--bt-gp-pred-mb); padding-top: var(--bt-gp-pred-pt); }
+.beerio-tv-gp__predlbl { font-size: var(--bt-gp-pred-lbl); }
 .beerio-tv__shell { padding: calc(var(--bt-shell-pad) + env(safe-area-inset-top, 0px)) calc(var(--bt-shell-pad) + env(safe-area-inset-right, 0px)) calc(var(--bt-shell-pad) + env(safe-area-inset-bottom, 0px)) calc(var(--bt-shell-pad) + env(safe-area-inset-left, 0px)); gap: var(--bt-shell-gap); }
 .beerio-tv__brand { font-size: var(--bt-brand); text-shadow: var(--bt-brand-sh) var(--bt-brand-sh) 0 var(--ink); }
 .beerio-tv__pill { font-size: var(--bt-pill); padding: var(--bt-pill-pad) 1.5vw; }
@@ -323,6 +365,11 @@
    name the cliff is the chip WRAPPING to one per line, which doubles the board
    and costs more than any font change buys back. */
 .beerio-tv[data-band="close"] {
+  --bt-gp-row-pad: .62vw; --bt-gp-row-padx: 1.2vw; --bt-gp-row-gap: 1.2vw; --bt-gp-stack-gap: .55vw;
+  --bt-gp-rank: 2vw; --bt-gp-rank-w: 3.2vw; --bt-gp-dot: 1.7vw; --bt-gp-nm: 1.9vw;
+  --bt-gp-sub: 1.15vw; --bt-gp-pts: 2.3vw; --bt-gp-pts-w: 4.8vw;
+  --bt-gp-h2: 1.7vw; --bt-gp-h2-mb: .7vw;
+  --bt-gp-pred-mb: .7vw; --bt-gp-pred-pt: .6vw; --bt-gp-pred-lbl: 1.2vw;
   --bt-brand: 4.4vw; --bt-brand-sh: 5px; --bt-pill: 1.3vw; --bt-pill-pad: .4vw;
   --bt-h2: 1.7vw; --bt-h2-mb: .7vw; --bt-shell-pad: 1.6vw; --bt-shell-gap: 1vw;
   --bt-board-gap: .9vw;
@@ -334,6 +381,12 @@
   --bt-st-nm: .9vw; --bt-st-n: .8vw; --bt-st-pad: .35vw; --bt-st-top: .55vw;
 }
 .beerio-tv[data-band="tight"] {
+  --bt-gp-cols: 2;
+  --bt-gp-row-pad: .45vw; --bt-gp-row-padx: .9vw; --bt-gp-row-gap: .9vw; --bt-gp-stack-gap: .4vw;
+  --bt-gp-rank: 1.6vw; --bt-gp-rank-w: 2.6vw; --bt-gp-dot: 1.3vw; --bt-gp-nm: 1.5vw;
+  --bt-gp-sub: 1vw; --bt-gp-pts: 1.8vw; --bt-gp-pts-w: 3.8vw;
+  --bt-gp-h2: 1.45vw; --bt-gp-h2-mb: .5vw;
+  --bt-gp-pred-mb: .5vw; --bt-gp-pred-pt: .45vw; --bt-gp-pred-lbl: 1vw;
   --bt-brand: 3.4vw; --bt-brand-sh: 4px; --bt-pill: 1.1vw; --bt-pill-pad: .3vw;
   --bt-h2: 1.45vw; --bt-h2-mb: .5vw; --bt-shell-pad: 1.2vw; --bt-shell-gap: .7vw;
   --bt-board-gap: .7vw;
@@ -347,6 +400,12 @@
 /* The floor. The pack caps its roster at sixteen so nothing should reach here
    through the app, which is exactly why it must not be the untested case. */
 .beerio-tv[data-band="packed"] {
+  --bt-gp-cols: 2;
+  --bt-gp-row-pad: .32vw; --bt-gp-row-padx: .7vw; --bt-gp-row-gap: .7vw; --bt-gp-stack-gap: .3vw;
+  --bt-gp-rank: 1.4vw; --bt-gp-rank-w: 2.3vw; --bt-gp-dot: 1.15vw; --bt-gp-nm: 1.35vw;
+  --bt-gp-sub: .95vw; --bt-gp-pts: 1.6vw; --bt-gp-pts-w: 3.4vw;
+  --bt-gp-h2: 1.3vw; --bt-gp-h2-mb: .4vw;
+  --bt-gp-pred-mb: .4vw; --bt-gp-pred-pt: .35vw; --bt-gp-pred-lbl: .95vw;
   --bt-brand: 3vw; --bt-brand-sh: 3px; --bt-pill: 1vw; --bt-pill-pad: .25vw;
   --bt-h2: 1.35vw; --bt-h2-mb: .4vw; --bt-shell-pad: 1vw; --bt-shell-gap: .6vw;
   --bt-board-gap: .6vw;

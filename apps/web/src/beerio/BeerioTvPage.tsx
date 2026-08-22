@@ -16,6 +16,7 @@ import {
   type StripRound,
 } from "@gamenight/shared";
 import {
+  beerioGpBand,
   beerioTvBand,
   BEERIO_DECK_SLICE,
   BEERIO_QR_PX,
@@ -108,18 +109,40 @@ export default function BeerioTvPage({ code: propCode }: { code?: string }) {
   }
 
   const isGP = state.format?.mode === "gp";
-  // Grand Prix is not a bracket and has no ladder: it draws a fixed number of
-  // standings rows and always has. The band is the bracket board's, computed
-  // there and lifted to the shell so the header and the page padding can spend
-  // it too, which is where a quarter of this screen's 1080px goes.
+  // GRAND PRIX HAS ITS OWN LADDER NOW. It used to render at band="roomy"
+  // HARDCODED, with the comment here claiming it "draws a fixed number of
+  // standings rows and always has". It does not: it draws one per racer, and
+  // nothing had ever measured it. 1148 / 1717 / 2286px at 4 / 8 / 12 racers,
+  // so it has never fitted a television at any count. The band is computed from
+  // the same payload the board draws and lifted to the shell so the header and
+  // the page padding spend it too, which is where a quarter of this screen's
+  // 1080px goes, exactly as the bracket board already did.
+  const gpBand = beerioGpBand({
+    racers: state.names.filter((n) => n && n.trim()).length,
+    predictions: gpHasPredictions(state, preds),
+  });
   return isGP ? (
-    <Shell>
-      <Header code={String(code)} joinUrl={joinUrl} isGP band="roomy" />
+    <Shell band={gpBand}>
+      <Header code={String(code)} joinUrl={joinUrl} isGP band={gpBand} />
       <GpBoard state={state} preds={preds} />
     </Shell>
   ) : (
     <BracketBoard state={state} preds={preds} code={String(code)} joinUrl={joinUrl} />
   );
+}
+
+/**
+ * Is the next-race prediction bar up?
+ *
+ * EXPORTED AS A FUNCTION so the BAND and the BOARD cannot disagree about it.
+ * The band has to charge for the bar before the board renders it, and two
+ * copies of "is anybody predicting" is exactly how a ladder ends up costing a
+ * block that is not there, or not costing one that is.
+ */
+function gpHasPredictions(state: SavedState, preds: PredMap): boolean {
+  const races = state.gpLog?.length ?? 0;
+  const counts = tally(preds, `H:${races}`);
+  return Object.values(counts).reduce((a, b) => a + b, 0) > 0;
 }
 
 /** Count spectator picks for one predictable item. */
@@ -253,6 +276,9 @@ function Header({ code, joinUrl, isGP, band }: { code: string; joinUrl: string; 
 
 // ---------- Grand Prix ----------
 
+// No `band` prop: the Shell carries data-band and every --bt-gp-* variable
+// below resolves off it. Threading it in as well would be a second source of
+// truth for one attribute.
 function GpBoard({ state, preds }: { state: SavedState; preds: PredMap }) {
   const realCount = state.names.filter((n) => n && n.trim()).length;
   const rows = useMemo(
@@ -262,7 +288,9 @@ function GpBoard({ state, preds }: { state: SavedState; preds: PredMap }) {
   const races = state.gpLog?.length ?? 0;
   const nextKey = `H:${races}`;
   const counts = tally(preds, nextKey);
-  const voted = Object.values(counts).reduce((a, b) => a + b, 0) > 0;
+  // The same predicate the band was computed from, so the two cannot disagree
+  // about whether this block costs anything.
+  const voted = gpHasPredictions(state, preds);
 
   return (
     // beerio-tv-gp carries no styling: it is the stable hook scripts/tv-fit.mjs
@@ -272,8 +300,8 @@ function GpBoard({ state, preds }: { state: SavedState; preds: PredMap }) {
     // measures nothing.
     <div className="beerio-tv-gp flex-1 flex flex-col min-h-0">
       {voted && (
-        <div className="mb-[1vw] border-[3px] border-[var(--ink)] rounded-[14px] bg-[var(--foam)] pt-[0.8vw] shadow-[0_4px_0_rgba(22,35,59,.18)]">
-          <p className="font-[Fredoka] font-bold text-[1.4vw] text-[var(--ink)] px-[1.2vw]">
+        <div className="beerio-tv-gp__pred border-[3px] border-[var(--ink)] rounded-[14px] bg-[var(--foam)] shadow-[0_4px_0_rgba(22,35,59,.18)]">
+          <p className="beerio-tv-gp__predlbl font-[Fredoka] font-bold text-[var(--ink)] px-[1.2vw]">
             Race {races + 1} &middot; who takes it?
           </p>
           <PredictionBar
@@ -286,33 +314,33 @@ function GpBoard({ state, preds }: { state: SavedState; preds: PredMap }) {
           />
         </div>
       )}
-      <h2 className="font-[Fredoka] font-bold text-[2vw] text-[var(--ink)] mb-[1vw]">
+      <h2 className="beerio-tv-gp__h2 font-[Fredoka] font-bold text-[var(--ink)]">
         Standings <span className="opacity-60">&middot; {races} races in</span>
       </h2>
-      <div className="flex-1 flex flex-col gap-[0.8vw] min-h-0">
+      <div className="beerio-tv-gp__stack">
         {rows.map((r) => {
           const color = state.colors?.[r.seed] ?? "var(--foam)";
           const leader = r.rank === 1 && races > 0;
           return (
             <div
               key={r.seed}
-              className="flex items-center gap-[1.5vw] border-[3px] border-[var(--ink)] rounded-[14px] px-[1.5vw] py-[0.9vw] shadow-[0_4px_0_rgba(22,35,59,.18)]"
+              className="beerio-tv-gp__row border-[3px] border-[var(--ink)] rounded-[14px] shadow-[0_4px_0_rgba(22,35,59,.18)]"
               style={{ background: leader ? "var(--sun)" : "var(--foam)" }}
             >
-              <span className="font-[Luckiest_Guy,cursive] text-[2.6vw] text-[var(--ink)] w-[4vw]">
+              <span className="beerio-tv-gp__rank font-[Luckiest_Guy,cursive] text-[var(--ink)]">
                 {r.rank}
               </span>
               <span
-                className="w-[2.2vw] h-[2.2vw] rounded-full border-[3px] border-[var(--ink)] shrink-0"
+                className="beerio-tv-gp__dot rounded-full border-[3px] border-[var(--ink)] shrink-0"
                 style={{ background: color }}
               />
-              <span className="font-[Fredoka] font-bold text-[2.4vw] text-[var(--ink)] flex-1 truncate">
+              <span className="beerio-tv-gp__nm font-[Fredoka] font-bold text-[var(--ink)] flex-1 truncate">
                 {racerLabel(r.seed + 1, state.names[r.seed])}
               </span>
-              <span className="font-[Fredoka] text-[1.4vw] text-[var(--ink)] opacity-70">
+              <span className="beerio-tv-gp__sub font-[Fredoka] text-[var(--ink)] opacity-70">
                 {r.wins} {r.wins === 1 ? "win" : "wins"} &middot; {r.races} raced
               </span>
-              <span className="font-[Luckiest_Guy,cursive] text-[3vw] text-[var(--ink)] w-[6vw] text-right">
+              <span className="beerio-tv-gp__pts font-[Luckiest_Guy,cursive] text-[var(--ink)] text-right">
                 {r.points}
               </span>
             </div>
