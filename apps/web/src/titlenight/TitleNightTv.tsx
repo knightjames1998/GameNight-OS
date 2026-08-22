@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { SESSION_PACKS, type SessionPackKey } from "@gamenight/shared";
 import { api } from "../api";
 import BackButton from "../BackButton";
+import { titleNightTvBand } from "./titlenight-tv-band";
 import { usePackLive } from "../useLiveUpdates";
 import type { TitleNightCopy, TnSummaryView } from "./TitleNight";
 import "./titlenight.css";
@@ -70,18 +71,26 @@ export function TitleNightTv({
       <div className={`tn-tv ${className}`}>
         <div className="tn-tv__brand">{brand}</div>
         <p className="tn-tv__muted" style={{ fontSize: "3vmin", marginTop: "2vmin" }}>{waitingHint}</p>
-        <div style={{ marginTop: "3vmin" }}><BackButton className="tn-textbtn" /></div>
+        <div className="tn-tv__back"><BackButton className="tn-textbtn" /></div>
       </div>
     );
   }
 
   const { last } = session.summary;
+  // THE DENSITY LADDER, shared by Board Game and Card Table because they share
+  // this component (see titlenight-tv-band.ts and the [data-tnband] blocks in
+  // titlenight.css). Neither pack fitted a 1080p television at twelve players.
+  // The two panels sit side by side, so the band takes the LARGER of them.
+  const band = titleNightTvBand({
+    players: session.summary.players.length,
+    lastLines: last?.lines.length ?? 0,
+  });
 
   return (
-    <div className={`tn-tv ${className}`}>
+    <div className={`tn-tv ${className}`} data-tnband={band}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div className="tn-tv__brand">{brand}</div>
-        <div className="tn-tv__muted" style={{ fontSize: "2.4vmin" }}>
+        <div className="tn-tv__muted tn-tv__meta">
           {session.games.length} game{session.games.length === 1 ? "" : "s"} &middot; {session.summary.titles.length} title{session.summary.titles.length === 1 ? "" : "s"}
         </div>
       </div>

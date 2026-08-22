@@ -662,6 +662,7 @@ const CASES = [
   ["board game   4 players", "/boardgame/tv/x", titlenight(4), ".tn-tv__panel"],
   ["board game   8 players", "/boardgame/tv/x", titlenight(8), ".tn-tv__panel"],
   ["board game  12 players", "/boardgame/tv/x", titlenight(12), ".tn-tv__panel"],
+  ["board game  16 players", "/boardgame/tv/x", titlenight(16), ".tn-tv__panel"],
   // Card Table draws the SAME TV component, so the interesting case is not
   // whether the layout fits (it is the same layout) but whether the pack's own
   // theme changed the density. Twelve is the one that matters and it is the one
@@ -676,6 +677,10 @@ const CASES = [
   // packs set different tokens on the same sheet, so "same layout" is an
   // assumption until the second one prints a number.
   ["card table  12 players", "/cardtable/tv/x", titlenight(12), ".tn-tv__panel"],
+  // SIXTEEN on both, added with the ladder. Both packs seat twelve, so this is
+  // past the cap on purpose: it does not have to be reachable, it has to
+  // degrade at the tightest band rather than paint off the bottom.
+  ["card table  16 players", "/cardtable/tv/x", titlenight(16), ".tn-tv__panel"],
   // The column count steps with the roster (2 / 3 / 4 / 5), so the interesting
   // cases are the step boundaries and the cap. TWENTY IS THE ONE THAT MATTERS
   // and it is the reason this pack was designed against a 1080p screen rather
@@ -818,32 +823,18 @@ const CASES = [
 // THREE SCREENS JOINED ON 2026-08-22, the day each was first measured, and all
 // three for the same reason every entry above joined: nothing had ever asked.
 //
-// CARD TABLE AT TWELVE. 1256px in BOTH themes, over by 176, back button 144px
-// into the rail in Arcade and 158px in Tabletop. BUGS has said since 08-09 that
-// this is Board Game's bug on a second pack, and MEASURING IT FOUND THAT IS NOT
-// QUITE TRUE: Board Game is 1256 Arcade / 1236 Tabletop, Card Table is 1256 in
-// both, so under Tabletop the two packs differ by 20px. They draw the same
-// component and set DIFFERENT TOKENS on it, so "same layout" was an assumption
-// and the 20px is what the assumption was hiding. The shared ladder has to land
-// the TALLER of the two, which is Card Table's, not Board Game's.
-//
-// THE EVENT TV'S BETWEEN-GAMES SCREEN WAS HERE AND IS FIXED (2026-08-22, in the
-// commit after the one that measured it). It was 1232px in both themes at
-// EIGHT, TWELVE AND SIXTEEN players IDENTICALLY, over by 152, and that constant
-// was the whole finding: the screen did not grow with the roster because
-// recap.players.slice(0, 8) and recap.games.slice(-6) capped it, so a twelve
-// person night dropped four people off a television silently AND the screen was
-// still 152px over with them hidden. Now on its own ladder
-// (apps/web/src/pages/event-tv-band.ts, [data-eband] in index.css): every count
-// from 4 to 24 fits, twelve players are shown in full, and past that the list
-// prints how many it is holding back. Its name is out of KNOWN, which is what
-// that set shrinking means.
-//
-// BEERIO'S GRAND PRIX. 1148 / 1717 / 2286px at 4 / 8 / 12 racers, over by
-// 68 / 637 / 1206. BUGS recorded only the twelve, and measuring the other two
-// found IT DOES NOT FIT AT FOUR EITHER: this board has never fitted a
-// television at any count. It is the largest gap of the five and the only one
-// with no ladder at all to spend, because GpBoard hardcodes band="roomy".
+// BOARD GAME AND CARD TABLE AT TWELVE WERE BOTH HERE AND ARE FIXED (2026-08-22).
+// Board Game had been named since 08-09, Card Table only got measured on 08-22,
+// and MEASURING THE SECOND ONE BROKE THE ASSUMPTION BUGS WAS BUILT ON: the file
+// had said since 08-09 that this was one bug on two packs drawing one
+// component, and the two are not the same height. Board Game was 1256 Arcade /
+// 1236 Tabletop; Card Table was 1256 in BOTH. Same component, different tokens,
+// 20px apart under Tabletop. The shared ladder
+// (apps/web/src/titlenight/titlenight-tv-band.ts, [data-tnband]) is tuned
+// against the TALLER of the two, which is Card Table's: tuning against Board
+// Game would have landed one pack and left the other 20px over, which is
+// exactly the shape of miss this file's own history is full of. Both now fit at
+// 4, 8, 10, 12, 14 and 16 in both themes with the back button clear.
 //
 // AND ONE THAT IS A REGRESSION RATHER THAN AN ANCIENT OVERFLOW, which is why it
 // is called out separately: BRACKET TV AT FOUR ENTRANTS, FRESH. 1128px, over by
@@ -868,8 +859,6 @@ const CASES = [
 // measures.
 const KNOWN = new Set([
   "bracket tv  4 fresh",
-  "board game  12 players",
-  "card table  12 players",
   "mario kart  12 solo",
   "mario kart  16 solo",
   "mario kart  16 karts",
@@ -974,6 +963,13 @@ const NEUTRALISE = `
      1.4vmin chip gaps, the lot). Pinning every band back to it restores the
      screen as it shipped, which is the thing a control has to be able to see.
      Doubled selector for the same specificity reason as the two above. */
+  .tn-tv.tn-tv[data-tnband]{
+    --tn-tv-pad-y:3vmin;--tn-tv-pad-x:4vmin;--tn-tv-brand:5.4vmin;--tn-tv-meta:2.4vmin;
+    --tn-tv-label:2.6vmin;--tn-tv-title:9vmin;--tn-tv-title-idle:5.6vmin;
+    --tn-tv-grid-mt:2.6vmin;--tn-tv-grid-gap:2vmin;--tn-tv-panel-pad:2.2vmin;
+    --tn-tv-h3:2.4vmin;--tn-tv-h3-mb:1.2vmin;
+    --tn-tv-line-size:2.8vmin;--tn-tv-line-pad:.7vmin;--tn-tv-line-gap:2vmin;--tn-tv-back-mt:3vmin;
+  }
   .pp-tv.pp-tv[data-ppband]{
     --pp-tv-pad:4vmin;--pp-tv-brand:6vmin;--pp-tv-meta:2.4vmin;
     --pp-tv-now-mt:3vmin;--pp-tv-now-pad:3vmin;--pp-tv-now-lbl:2.4vmin;
@@ -1008,6 +1004,9 @@ console.log("\nnegative control: the ladder pinned back to its base metrics, whi
     // metrics to fit.
     ["event tv night 12 ", "/e/x/tv", eventTv(12, true), ".gn-tvs"],
     ["ping pong  16      ", "/pingpong/tv/x", pingpong(16), ".pp-tv__panel"],
+    // CARD TABLE, not Board Game: the ladder is tuned against the TALLER of the
+    // two packs and the control should bind on the same one.
+    ["card table 12      ", "/cardtable/tv/x", titlenight(12), ".tn-tv__panel"],
   ]) {
     const m = await measure("arcade", route, payload, proof);
     const over = m.lowest - 1080;

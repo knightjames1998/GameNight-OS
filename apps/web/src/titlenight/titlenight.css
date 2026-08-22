@@ -199,19 +199,79 @@
    its life between games. That is the primary state here, not the empty one:
    the standings and the last result carry it, and the title slot says what is
    on the table when there is one and says so plainly when there is not. */
+/* ---- THE LADDER'S BASE BLOCK (the roomy rung) ----
+   Every metric on this screen is a variable, spent by
+   apps/web/src/titlenight/titlenight-tv-band.ts through [data-tnband]. ONE
+   LADDER FOR TWO PACKS: Board Game and Card Table draw this same component
+   since the 2026-08-09 extraction, and it did not fit 1080p at twelve players
+   on either. The name floor is 2.2vmin (--tn-tv-line carries a player's name),
+   the same one the money board settled on and every other TV ladder uses. */
 .tn-tv {
+  --tn-tv-pad-y: 3vmin;
+  --tn-tv-pad-x: 4vmin;
+  --tn-tv-brand: 5.4vmin;
+  --tn-tv-meta: 2.4vmin;      /* the crew/date line under the brand */
+  --tn-tv-label: 2.6vmin;     /* "ON THE TABLE" / "BETWEEN GAMES" */
+  --tn-tv-title: 9vmin;       /* the game on the table */
+  --tn-tv-title-idle: 5.6vmin;
+  --tn-tv-grid-mt: 2.6vmin;
+  --tn-tv-grid-gap: 2vmin;
+  --tn-tv-panel-pad: 2.2vmin;
+  --tn-tv-h3: 2.4vmin;
+  --tn-tv-h3-mb: 1.2vmin;
+  --tn-tv-line-size: 2.8vmin; /* a player's NAME. FLOOR 2.2vmin. */
+  --tn-tv-line-pad: .7vmin;
+  --tn-tv-line-gap: 2vmin;
+  --tn-tv-back-mt: 3vmin;
   min-height: 100dvh;
   color: var(--tn-tv-ink);
-  padding: calc(3vmin + env(safe-area-inset-top, 0px)) calc(4vmin + env(safe-area-inset-right, 0px)) calc(3vmin + env(safe-area-inset-bottom, 0px)) calc(4vmin + env(safe-area-inset-left, 0px));
+  padding: calc(var(--tn-tv-pad-y) + env(safe-area-inset-top, 0px)) calc(var(--tn-tv-pad-x) + env(safe-area-inset-right, 0px)) calc(var(--tn-tv-pad-y) + env(safe-area-inset-bottom, 0px)) calc(var(--tn-tv-pad-x) + env(safe-area-inset-left, 0px));
 }
-.tn-tv__brand { font-family: var(--gn-font-display); font-size: 5.4vmin; text-transform: uppercase; text-shadow: 0 0 20px var(--tn-tv-glow); }
+.tn-tv__brand { font-family: var(--gn-font-display); font-size: var(--tn-tv-brand); text-transform: uppercase; text-shadow: 0 0 20px var(--tn-tv-glow); }
 .tn-tv__muted { color: var(--tn-tv-muted); }
-.tn-tv__label { font-size: 2.6vmin; letter-spacing: 0.6px; text-transform: uppercase; color: var(--tn-tv-muted); }
-.tn-tv__title { font-family: Fredoka, sans-serif; font-weight: 700; font-size: 9vmin; line-height: 1.05; color: var(--tn-accent); }
-.tn-tv__title--idle { font-size: 5.6vmin; color: var(--tn-tv-muted); }
-.tn-tv__grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 2vmin; margin-top: 2.6vmin; }
-.tn-tv__panel { background: var(--tn-tv-panel); border: 1px solid var(--tn-tv-line); border-radius: 8px; padding: 2.2vmin; }
-.tn-tv__panel h3 { font-size: 2.4vmin; color: var(--tn-accent); margin: 0 0 1.2vmin; text-transform: uppercase; letter-spacing: 0.5px; }
-.tn-tv__line { display: flex; justify-content: space-between; gap: 2vmin; font-size: 2.8vmin; padding: 0.7vmin 0; border-top: 1px solid var(--tn-tv-rule); }
+.tn-tv__meta { font-size: var(--tn-tv-meta); }
+.tn-tv__label { font-size: var(--tn-tv-label); letter-spacing: 0.6px; text-transform: uppercase; color: var(--tn-tv-muted); }
+.tn-tv__title { font-family: Fredoka, sans-serif; font-weight: 700; font-size: var(--tn-tv-title); line-height: 1.05; color: var(--tn-accent); }
+.tn-tv__title--idle { font-size: var(--tn-tv-title-idle); color: var(--tn-tv-muted); }
+.tn-tv__grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: var(--tn-tv-grid-gap); margin-top: var(--tn-tv-grid-mt); }
+.tn-tv__panel { background: var(--tn-tv-panel); border: 1px solid var(--tn-tv-line); border-radius: 8px; padding: var(--tn-tv-panel-pad); }
+.tn-tv__panel h3 { font-size: var(--tn-tv-h3); color: var(--tn-accent); margin: 0 0 var(--tn-tv-h3-mb); text-transform: uppercase; letter-spacing: 0.5px; }
+.tn-tv__line { display: flex; justify-content: space-between; gap: var(--tn-tv-line-gap); font-size: var(--tn-tv-line-size); padding: var(--tn-tv-line-pad) 0; border-top: 1px solid var(--tn-tv-rule); }
 .tn-tv__line:first-of-type { border-top: none; }
 .tn-tv__rank { color: var(--tn-mark); font-weight: 700; }
+.tn-tv__back { margin-top: var(--tn-tv-back-mt); }
+/* ---- The ladder ----
+   Three diffs off the base block, each MEASURED to land its own line count
+   inside 1080px against the lowest painted pixel, on the TALLER of the two
+   packs (Card Table, 1256 in both themes, against Board Game's 1236 under
+   Tabletop). The title slot is the biggest single lever on this screen: 9vmin
+   of a 1080px page is 97px for one line of text. */
+.tn-tv[data-tnband="close"] {
+  --tn-tv-pad-y: 2.4vmin; --tn-tv-pad-x: 3.2vmin;
+  --tn-tv-brand: 4.6vmin; --tn-tv-meta: 2.1vmin; --tn-tv-label: 2.2vmin;
+  --tn-tv-title: 7vmin; --tn-tv-title-idle: 4.6vmin;
+  --tn-tv-grid-mt: 2vmin; --tn-tv-grid-gap: 1.6vmin; --tn-tv-panel-pad: 1.7vmin;
+  --tn-tv-h3: 2.1vmin; --tn-tv-h3-mb: .9vmin;
+  --tn-tv-line-size: 2.5vmin; --tn-tv-line-pad: .5vmin; --tn-tv-line-gap: 1.6vmin;
+  --tn-tv-back-mt: 2vmin;
+}
+.tn-tv[data-tnband="tight"] {
+  --tn-tv-pad-y: 1.9vmin; --tn-tv-pad-x: 2.6vmin;
+  --tn-tv-brand: 3.9vmin; --tn-tv-meta: 1.9vmin; --tn-tv-label: 1.9vmin;
+  --tn-tv-title: 5.4vmin; --tn-tv-title-idle: 3.8vmin;
+  --tn-tv-grid-mt: 1.5vmin; --tn-tv-grid-gap: 1.3vmin; --tn-tv-panel-pad: 1.3vmin;
+  --tn-tv-h3: 1.9vmin; --tn-tv-h3-mb: .6vmin;
+  --tn-tv-line-size: 2.3vmin; --tn-tv-line-pad: .32vmin; --tn-tv-line-gap: 1.3vmin;
+  --tn-tv-back-mt: 1.5vmin;
+}
+/* The floor. Both packs seat twelve, so past-the-end is not reachable through
+   the app; a payload is still a payload. */
+.tn-tv[data-tnband="packed"] {
+  --tn-tv-pad-y: 1.5vmin; --tn-tv-pad-x: 2.2vmin;
+  --tn-tv-brand: 3.3vmin; --tn-tv-meta: 1.8vmin; --tn-tv-label: 1.8vmin;
+  --tn-tv-title: 4.4vmin; --tn-tv-title-idle: 3.2vmin;
+  --tn-tv-grid-mt: 1.1vmin; --tn-tv-grid-gap: 1.1vmin; --tn-tv-panel-pad: 1vmin;
+  --tn-tv-h3: 1.8vmin; --tn-tv-h3-mb: .5vmin;
+  --tn-tv-line-size: 2.2vmin; --tn-tv-line-pad: .2vmin; --tn-tv-line-gap: 1.1vmin;
+  --tn-tv-back-mt: 1.1vmin;
+}
