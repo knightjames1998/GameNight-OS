@@ -151,6 +151,15 @@ const RULE_ROUTES = [
   // nothing. It is in ROUTES, which is the pass that walks screens.
   "/beerio",
   "/beerio/tv/ABCD",
+  // /e/x/tv joined on 2026-08-22, with the event TV's own band ladder. It is
+  // listed for a DIFFERENT reason than the pack routes above: it paints out of
+  // index.css, which "/" already loads, so on the argument that keeps /tv/x out
+  // of this list it would prove nothing. What it does have is its own
+  // [data-eband] override blocks, and a rule pass that never visits a screen
+  // carrying a ladder cannot notice the day one of those blocks stops
+  // resolving. The blocks are in index.css and "/" would see them, but "/"
+  // cannot tell whether the SCREEN spends them.
+  "/e/x/tv",
 ];
 
 /**

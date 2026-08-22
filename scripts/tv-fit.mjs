@@ -243,6 +243,72 @@ const deduction = (n) => {
   } };
 };
 
+// THE EVENT TV, /e/:id/tv, AND IT HAD NO CASE HERE AT ALL UNTIL 2026-08-22.
+//
+// THIS IS THE SIXTH INSTANCE OF ONE ROOT CAUSE, and it is worth naming as a
+// pattern rather than as a sixth accident: Board Game (2026-08-09), both
+// bracketed TVs (08-15), Mario Kart (08-16), Beerio's Grand Prix (08-19), and
+// now this. A SCREEN WITH NO HARNESS CASE HAS NO OWNER. The event TV is in
+// theme-sweep's ROUTES, so it has been colour-swept for weeks, and nothing had
+// ever asked whether it fits a television. It is also not a pack, so the
+// ADDING A PACK checklist could never have caught it.
+//
+// TWO STATES, because `now: null` is not one screen, it is two:
+//
+//   lobby   nothing played yet. The yes-RSVP list, which WRAPS rather than
+//           scrolls, so it grows with the roster and is the binding column.
+//   night   the between-games screen. Standings on the left, latest results on
+//           the right, both capped today by hardcoded slices rather than by a
+//           ladder, which is its own finding: recap.players.slice(0, 8) drops
+//           the ninth player off a television with nothing on screen saying so.
+//           That is an overflow arrived at from the other side.
+//
+// MEASURED AT 4, 8, 12 AND 16 in both themes. Sixteen is what the shell's
+// bracket can reach off an uncapped yes list, and twelve is where the player
+// slice starts silently discarding people.
+const eventTv = (n, withRecap) => {
+  const names = Array.from({ length: n }, (_, i) => "Player Nameiskindalong " + (i + 1));
+  const event = {
+    id: "e1",
+    title: "Thursday Night Games At Someone Elses House",
+    scheduledFor: "2026-08-27T19:30:00.000Z",
+    groupName: "The Thursday Crew",
+  };
+  // MORE GAMES THAN THE SLICE SHOWS, deliberately. The results column caps at
+  // six today with no ladder behind it, so a fixture of six would measure the
+  // cap rather than the screen.
+  const games = Array.from({ length: 14 }, (_, i) => ({
+    gameName: ["Mario Kart 8 Deluxe", "Super Smash Bros Ultimate", "Ping Pong", "Settlers of Catan"][i % 4],
+    label: i % 3 === 0 ? "Grand Prix" : null,
+    format: "ffa",
+    pack: "mariokart",
+    winnerName: names[i % n],
+  }));
+  return {
+    event,
+    now: null,
+    lobby: {
+      yes: names,
+      inviteCode: "ABCD",
+      recap: withRecap
+        ? {
+            eventId: event.id, title: event.title, scheduledFor: event.scheduledFor,
+            groupName: event.groupName, totalGames: games.length, games,
+            sessions: games.slice(0, 4).map((g) => ({
+              gameName: g.gameName, pack: g.pack, format: g.format, label: g.label,
+              matches: 4, winnerName: g.winnerName, winnerWins: 3,
+            })),
+            players: names.map((name, i) => ({
+              userId: "u" + i, name, games: 14 - i > 0 ? 14 - i : 1,
+              wins: 9 - i > 0 ? 9 - i : 0, avgPlacement: 1 + i * 0.3,
+            })),
+            mvp: { userId: "u0", name: names[0] },
+          }
+        : null,
+    },
+  };
+};
+
 // THE TWO OLDEST TV VIEWS IN THE APP, and until 2026-08-15 neither was in this
 // harness: /tv/:id shipped with the bracket engine and /beerio/tv/:code came in
 // with the vendored pack, both long before this file existed, so the gap was
@@ -360,6 +426,39 @@ const bracketTv = (n, state = "mid", format = "double_elim", teamSize = 1) => {
 // nights people are watching. A ladder tuned against a card with no votes would
 // be wrong when it matters most.
 const BEERIO_COLORS = ["#E5352B", "#3B7BE8", "#2FB969", "#FFC02E", "#9B59D0", "#FF7BAC", "#00B7C2", "#F2751A"];
+// BEERIO'S GRAND PRIX, WHICH SHARES /beerio/tv/:code WITH THE BRACKET BOARD AND
+// HAD NO CASE AT ALL. `beerioTv` below hardcodes format.mode "bracket", so half
+// of that one route was unmeasured, which is exactly how a 1206px overflow sat
+// there unnoticed until somebody looked at a real television on 2026-08-19.
+//
+// GP HAS NO LADDER TO TIGHTEN, which is what makes it the largest gap of the
+// five: `GpBoard` renders Shell and Header at band="roomy" HARDCODED, while the
+// bracket board in the same file computes a band per payload. So there is
+// nothing to spend even if there were a case.
+//
+// The prediction bar is up, because a race everybody voted on is the tallest
+// this board gets and those are up on exactly the nights people are watching.
+const beerioGp = (n, races = 3) => {
+  const seeds = Array.from({ length: n }, (_, i) => i);
+  // One finishing order per race. Rotated so the standings are not a straight
+  // line, which is what makes the rank column render at its real width.
+  const gpLog = Array.from({ length: races }, (_, r) => [...seeds.slice(r % n), ...seeds.slice(0, r % n)]);
+  return {
+    state: {
+      playerCount: n,
+      names: Array.from({ length: n }, (_, i) => "Player Nameiskindalong " + (i + 1)),
+      colors: Array.from({ length: n }, (_, i) => BEERIO_COLORS[i % BEERIO_COLORS.length]),
+      results: {}, series: {}, gpLog,
+      format: { series: 1, mode: "gp", gpRaces: 4 },
+      seeded: true,
+    },
+    // Keyed H:{racesSoFar}, which is what GpBoard tallies for the next race.
+    predictions: {
+      s1: { name: "Spectator One", picks: { [`H:${races}`]: "0" } },
+      s2: { name: "Spectator Two", picks: { [`H:${races}`]: "1" } },
+    },
+  };
+};
 const beerioTv = (n, state = "mid") => {
   const structure = buildStructure("double_elim", n);
   const results = resultsFor(n, structure, state);
@@ -543,6 +642,13 @@ const CASES = [
   // failing twelve would be the expected shape rather than a surprise.
   ["card table   4 players", "/cardtable/tv/x", titlenight(4), ".tn-tv__panel"],
   ["card table   8 players", "/cardtable/tv/x", titlenight(8), ".tn-tv__panel"],
+  // TWELVE, added 2026-08-22. BUGS has said since 08-09 that Card Table draws
+  // the same component and that this is one bug on two packs, and only ONE of
+  // the two was measured at the count it fails at. A shared component measured
+  // on one of its two consumers is a component measured on a coin flip: the
+  // packs set different tokens on the same sheet, so "same layout" is an
+  // assumption until the second one prints a number.
+  ["card table  12 players", "/cardtable/tv/x", titlenight(12), ".tn-tv__panel"],
   // The column count steps with the roster (2 / 3 / 4 / 5), so the interesting
   // cases are the step boundaries and the cap. TWENTY IS THE ONE THAT MATTERS
   // and it is the reason this pack was designed against a 1080p screen rather
@@ -599,6 +705,19 @@ const CASES = [
       ["arcade"],
     ]),
   ),
+  // THE EVENT TV, both states, four counts, both themes. See eventTv above for
+  // why this had no case for weeks despite being colour-swept the whole time.
+  ...[4, 8, 12, 16].flatMap((n) => [
+    [`event tv lobby ${String(n).padStart(2)}`, "/e/x/tv", eventTv(n, false), ".gn-tv-name"],
+    [`event tv night ${String(n).padStart(2)}`, "/e/x/tv", eventTv(n, true), ".gn-tvs"],
+  ]),
+  // BEERIO GRAND PRIX, the other half of a route that has been half-measured
+  // since it was added. Arcade only, for the same reason every other Beerio
+  // case is: the pack is permanently exempt from theming and paints identically
+  // in both, so a second pass costs navigations and proves nothing.
+  ...[4, 8, 12].flatMap((n) => [
+    [`beerio gp  ${String(n).padStart(2)} racers`, "/beerio/tv/ABCD", beerioGp(n), ".beerio-tv-gp", ["arcade"]],
+  ]),
 ];
 
 // A case that is ALREADY over before any rail exists cannot be made to pass by
@@ -659,9 +778,61 @@ const CASES = [
 // being the worked example, and the alive board's chip width is exactly the
 // kind of density decision that wants measuring rather than taste. Logged in
 // BACKLOG under BUGS beside the other three.
+//
+// THREE SCREENS JOINED ON 2026-08-22, the day each was first measured, and all
+// three for the same reason every entry above joined: nothing had ever asked.
+//
+// CARD TABLE AT TWELVE. 1256px in BOTH themes, over by 176, back button 144px
+// into the rail in Arcade and 158px in Tabletop. BUGS has said since 08-09 that
+// this is Board Game's bug on a second pack, and MEASURING IT FOUND THAT IS NOT
+// QUITE TRUE: Board Game is 1256 Arcade / 1236 Tabletop, Card Table is 1256 in
+// both, so under Tabletop the two packs differ by 20px. They draw the same
+// component and set DIFFERENT TOKENS on it, so "same layout" was an assumption
+// and the 20px is what the assumption was hiding. The shared ladder has to land
+// the TALLER of the two, which is Card Table's, not Board Game's.
+//
+// THE EVENT TV'S BETWEEN-GAMES SCREEN. 1232px, over by 152, in both themes, at
+// EIGHT, TWELVE AND SIXTEEN players IDENTICALLY, and that constant is the whole
+// finding. The screen does not grow with the roster because
+// recap.players.slice(0, 8) and recap.games.slice(-6) cap it, so a twelve
+// person night silently drops four people off the television AND the screen is
+// STILL 152px over at the capped size. Two bugs stacked: a cap that hides
+// people, over a layout that does not fit even with them hidden. Four players
+// fits at 1080 exactly. The LOBBY state fits at every count measured, so this is
+// the between-games face only.
+//
+// BEERIO'S GRAND PRIX. 1148 / 1717 / 2286px at 4 / 8 / 12 racers, over by
+// 68 / 637 / 1206. BUGS recorded only the twelve, and measuring the other two
+// found IT DOES NOT FIT AT FOUR EITHER: this board has never fitted a
+// television at any count. It is the largest gap of the five and the only one
+// with no ladder at all to spend, because GpBoard hardcodes band="roomy".
+//
+// AND ONE THAT IS A REGRESSION RATHER THAN AN ANCIENT OVERFLOW, which is why it
+// is called out separately: BRACKET TV AT FOUR ENTRANTS, FRESH. 1128px, over by
+// 48, both themes, and ONLY in the `fresh` state and ONLY at four. It is caused
+// by the 2026-08-21 on-deck placeholder work, and that session's closeout says
+// "tv-fit: PASS, every case fits", so this shipped believing it was measured.
+// VERIFIED AGAINST A CLEAN CHECKOUT of that commit rather than assumed.
+//
+// THE INPUT IS NOT STALE, WHICH IS THE INTERESTING PART. TvPage passes
+// `ready: deckAll.length` with a comment saying in as many words that a pending
+// card costs what a ready one does, so the band is being asked the right
+// question. What is wrong is the ANSWER: DECK_CEILINGS puts four cards at
+// "roomy", and four cards do not fit at roomy metrics. That ceiling was never
+// exercised before, because until 08-21 a four-entrant fresh bracket had only
+// TWO ready matches and the column never held four cards at that count. The
+// deck rule made a four-card deck reachable at the one entrant count whose
+// board ceiling is roomy, and the ladder had no measurement there.
+//
+// Eight, twelve and sixteen all still fit fresh, because their entrant count
+// pushes the board sub-ladder to close or tighter and drags the deck metrics
+// down with it. Fixed in the bracketed-TV ladder commit, not here: this file
+// measures.
 const KNOWN = new Set([
+  "bracket tv  4 fresh",
   "ping pong    7 players",
   "board game  12 players",
+  "card table  12 players",
   "mario kart  12 solo",
   "mario kart  16 solo",
   "mario kart  16 karts",
@@ -669,6 +840,12 @@ const KNOWN = new Set([
   "bracket tv 16 pairs fresh",
   "bracket tv 16 pairs mid  ",
   "bracket tv 16 pairs late ",
+  "event tv night  8",
+  "event tv night 12",
+  "event tv night 16",
+  "beerio gp   4 racers",
+  "beerio gp   8 racers",
+  "beerio gp  12 racers",
 ]);
 let newOverlaps = 0;
 let stale = 0;

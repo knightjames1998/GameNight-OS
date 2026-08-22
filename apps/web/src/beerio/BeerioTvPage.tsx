@@ -265,7 +265,12 @@ function GpBoard({ state, preds }: { state: SavedState; preds: PredMap }) {
   const voted = Object.values(counts).reduce((a, b) => a + b, 0) > 0;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    // beerio-tv-gp carries no styling: it is the stable hook scripts/tv-fit.mjs
+    // proves this board actually rendered with, the same way beerio-tv-alive
+    // serves the bracket board. Without one, a payload the page rejects draws
+    // the short "Connecting to the room..." state, which fits trivially and
+    // measures nothing.
+    <div className="beerio-tv-gp flex-1 flex flex-col min-h-0">
       {voted && (
         <div className="mb-[1vw] border-[3px] border-[var(--ink)] rounded-[14px] bg-[var(--foam)] pt-[0.8vw] shadow-[0_4px_0_rgba(22,35,59,.18)]">
           <p className="font-[Fredoka] font-bold text-[1.4vw] text-[var(--ink)] px-[1.2vw]">
