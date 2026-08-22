@@ -266,6 +266,11 @@ function Groups({
 
         <section className="space-y-3">
           <h2 className="gn-h2">Crews</h2>
+          {/* The counterpart to Quick play's hint below. Quick play runs through
+              a hidden personal crew, so its results are not attributed to the
+              people who actually played; a real crew is what gives each person
+              their own record. */}
+          <p className="gn-hint">Recommended for accurate tracking per person.</p>
           {groupsLoading && <GroupListSkeleton />}
           {groups?.length === 0 && (
             <p className="gn-hint">
