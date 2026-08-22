@@ -13,32 +13,50 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-08-15, because the counter read 3. THE MERGE CAME FIRST AND THE
-// REDRAW SECOND, deliberately: the alive-board branch was already written and
-// verified, so landing it was shipping finished work rather than feature work
-// jumping the rule, and reconciling AFTER it meant drawing the true state
-// instead of one about to change. This pass:
-//   - ZONE 1 TOOK ONE, (NEW): the bracketed TVs' still-alive board and round
-//     strip. It is zone 1 rather than zone 2 because the heading it lives under
-//     is SHIPPED — FOUNDATION: it changes the SHELL's /tv/:id as much as Beerio's
-//     TV, and the shared derivations sit in packages/shared.
-//   - ZONE 2 IS UNCHANGED AT 22 and Card Table and Social Deduction lost their
-//     (NEW), which is the whole job of a (NEW) marker: one redraw's worth.
-//   - ZONE 5 SWAPPED ONE FOR ONE, still 11. It gained the bracketed-TV fit bug,
-//     which the last pass could not have drawn because nothing had ever measured
-//     those two screens, and lost the rail safe-area FIXED item, which was drawn
-//     on the 08-09 and 08-10 passes and has now aged out on schedule.
-//   - NO ROW MOVED, and that is worth saying because the first draft of this pass
-//     raised row 1 to 1700 before measuring anything. MEASURED BY READING THE
-//     GENERATED FILE BACK, which is the 08-10 pass's lesson and which caught it:
-//     zone 1 ends at 1141 in a zone that ends at 1695, so 18 items leave it 554px,
-//     and zone 2 is untouched on 106px. Nothing is over and nothing is tight, so
-//     the height stays. "Raise a row when a zone is over; leave it when a zone is
-//     under" cuts both ways: a row that moves on a pass that did not need it drags
-//     every zone below it for no reader's benefit.
-//   - ZONES 3, 4 AND 6 ARE UNCHANGED. Nothing left NEXT UP: the numbered three
-//     are still Poker, Smash Tournament and Party games, and this session's work
-//     was never queued there, it came out of the previous one's closeout.
+// Redrawn 2026-08-22, because the counter read 3. THE REDRAW WENT FIRST, before
+// this session's own work, which is what the counter is for: the partner-stats
+// and Home-block work that follows it is NOT in this drawing, and increments the
+// counter to 1 in its own commit. Same arrangement as 2026-08-17 and both 08-19
+// passes. This pass:
+//   - THE RECONCILE FOUND NO DRIFT, and that is worth writing down because it is
+//     the first pass that can say it. Every item in SHIPPED, NEXT UP, FEATURES and
+//     BUGS was checked against the repo: the three sessions since the last redraw
+//     (the nickname session, the cascade integrity session, the on-deck session)
+//     were all already written up, no bug entry was stale, and nothing left NEXT
+//     UP. So this pass is purely additive.
+//   - ZONE 1 TOOK TWO, both (NEW), 21 to 23. Crew and event deletion no longer
+//     destroying the ledger (2026-08-20), and both bracketed TVs showing what is
+//     NEXT rather than only what is READY (2026-08-21). Both are zone 1 rather
+//     than zone 2 for the heading they live under: one is the delete path in the
+//     shell's routes, the other is `bracketboard.ts` in packages/shared driving
+//     two TVs. The second tournament lost its (NEW) on schedule.
+//   - ZONE 2 TOOK ONE, (NEW), 27 to 28: a voter can change their nickname all
+//     night. It is a PACK item because it is Beerio's own crowd screen. The crowd
+//     bar and the two-host room sync both lost their (NEW), which is the whole job
+//     of that marker: one redraw's worth.
+//   - ZONE 5 IS UNCHANGED AT 16, and that is a finding rather than an oversight.
+//     Neither the cascade session nor the on-deck session logged a new bug or
+//     closed an open one, and no FIXED item was due to age out because the last
+//     pass already dropped the last three. Six OPEN, ten Watch, still no FIXED.
+//   - NO ROW MOVED, and this is the first pass in three to leave row 1 alone.
+//     MEASURED BY READING THE GENERATED FILE BACK: zone 1 ends at 1671 in a zone
+//     ending 2495, so 824px; zone 2 ends at 2225, so 270px. The standing test is
+//     100px of slack after the pass's items land and both clear it comfortably.
+//     THE ARITHMETIC THE LAST TWO PASSES USED SAYS SOMETHING DIFFERENT AND IS
+//     RECORDED HERE RATHER THAN QUIETLY DROPPED: NEXT UP's numbered three are all
+//     zone 2 packs, and 270px fits TWO of them at ~106 each, not three. That was
+//     the trigger to raise on 08-19 and on its second pass, when the numbers were
+//     138 and 114 and fitted one. At 270 the zone is neither over nor tight, and
+//     "raise a row when a zone is over; leave it when a zone is under" is the
+//     rule the protocol actually states. The next pass is the one that will need
+//     to raise it; it is not this one.
+//   - ZONES 3, 4 AND 6 ARE UNCHANGED. Nothing left NEXT UP, so the numbered three
+//     are still Poker's tournament format, Smash Tournament and Party games.
+//     ZONE 4 STILL CARRIES PARTNER STATS AND THE HOME BLOCK, deliberately: this
+//     session ships both AFTER this drawing, so drawing them as shipped would be
+//     drawing a state that does not exist yet. They move to zone 1 next redraw,
+//     along with the eight backlog entries this session adds below them.
+//   - Canvas 1560x3720, read off the generated file. Panorama camera 1600x3770.
 //
 // The 2026-08-10 pass, kept short: zone 2 took Card Table and Social Deduction,
 // both (NEW); row 1 grew 1400 -> 1600; zone 3 shrank 7 items to 5; zone 5 took
@@ -75,7 +93,7 @@ const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
 // (row 1 860 -> 920).
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
-// each 480 wide, row 1 y=95 h=1950, row 2 y=2070 h=1020. Items 440x40, 46px
+// each 480 wide, row 1 y=95 h=2400, row 2 y=2520 h=1200. Items 440x40, 46px
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
@@ -102,7 +120,9 @@ const ZONES = [
       { t: "BRACKETED TVs: shared round order, a STILL-ALIVE board in place of latest results, and a round strip. Both TVs, one rule each", h: 88 },
       { t: "TOURNAMENT SETUP SCREEN: entrants off the CREW, not the yes list. Guests, a seeding shuffle, and a team entrant is ONE slot (doubles)", h: 88 },
       { t: "QUICK PLAY IS ONE ROUTE THAT MINTS CONTEXT AND STOPS: the second entrant screen deleted, /quick a redirect, a parity test pinning it", h: 88 },
-      { t: "A SECOND TOURNAMENT ON THE SAME NIGHT: allowed once every bracket is completed, never two at once. The guard, and the three limit-1 reads that agreed with it (NEW)", bg: "#c3fae8", h: 106 },
+      { t: "A SECOND TOURNAMENT ON THE SAME NIGHT: allowed once every bracket is completed, never two at once. The guard, and the three limit-1 reads that agreed with it", h: 106 },
+      { t: "CREW AND EVENT DELETION STOP DESTROYING THE LEDGER: one transaction each, and a hand-written cascade checked against the schema (NEW)", bg: "#c3fae8", h: 88 },
+      { t: "BOTH BRACKETED TVs SHOW WHAT IS NEXT, NOT ONLY WHAT IS READY: three deck classes, and an empty seat names its feeder (NEW)", bg: "#c3fae8", h: 88 },
     ],
   },
   {
@@ -134,8 +154,9 @@ const ZONES = [
       { t: "MARIO KART PAIRS: two players, one kart, across all four formats. Sides all the way through, sidelog.ts extracted at the second consumer, Double Dash opens in pairs at exactly four", h: 106 },
       { t: "BOARD GAME wears the cloth: the stage 4 worked example. Same tile at an olive tint, the pack composing its own layer list, and the identity question settled for the other eight", h: 106 },
       { t: "POKER CASH GAME: the fourth pack on the cash engine, a THIRD bank type (no banker, the seats settle each other), and a table that has to add up", h: 88 },
-      { t: "BEERIO CROWD BAR, READABLE FROM THE COUCH: the bar carries no text (17 of 32 palette colours clear 4.5:1), the split moves to the label row with swatches (NEW)", bg: "#c3fae8", h: 106 },
-      { t: "TWO HOST DEVICES ON ONE BEERIO ROOM: the host page reads the room back instead of only writing it. A once-on-mount adopt made to repeat (NEW)", bg: "#c3fae8", h: 106 },
+      { t: "BEERIO CROWD BAR, READABLE FROM THE COUCH: the bar carries no text (17 of 32 palette colours clear 4.5:1), the split moves to the label row with swatches", h: 106 },
+      { t: "TWO HOST DEVICES ON ONE BEERIO ROOM: the host page reads the room back instead of only writing it. A once-on-mount adopt made to repeat", h: 106 },
+      { t: "A VOTER CAN CHANGE THEIR NICKNAME, ALL NIGHT: the crowd name box stops being one-shot, and a rename cannot move a row (NEW)", bg: "#c3fae8", h: 88 },
     ],
   },
   {

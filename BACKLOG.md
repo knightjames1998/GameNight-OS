@@ -12,8 +12,8 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-19, second pass (the nickname session, before its own work)
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-08-22 (the stats surfaces session, before its own work)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -56,34 +56,51 @@ anyone's memory of how many sessions have happened.
       - 2026-08-19, the second-tournament pass. Zone 1 took two 08-18 items; zone 2 took
         Poker; zone 4 shrank 12 to 11; zone 5 went 15 to 17 and was the first zone measured
         genuinely OVER since 08-03, by 10px; row 1 grew 1950 -> 2150 and row 2 1020 -> 1200.
-      - 2026-08-19 second pass, this one. Below.
+      - 2026-08-19 second pass. Zone 1 took the second tournament; zone 2 went 25 to 27 with
+        the Beerio crowd bar and the two-host sync; zone 5 SHRANK 17 to 16 and became the
+        first zone ever drawn with no FIXED item in it; row 1 grew 2150 -> 2400 and row 2
+        moved to y=2520 without changing height.
+      - 2026-08-22, this one. Below.
 
     THE COUNTER READS 0 AND THIS PASS SHIPS NOTHING OF ITS OWN YET, which is the one
     arrangement the rule does not describe in a line. The redraw went first, as the counter
     demanded; the session's own feature work follows it and increments to 1 in its own commit,
-    exactly as 2026-08-17 and the first 08-19 pass both did.
+    exactly as 2026-08-17 and both 08-19 passes did.
 
     What this pass changed beyond the counter:
-      - TWO REDRAWS IN ONE DAY, and that is the rule working rather than thrashing. The first
-        08-19 pass reset the counter to 0 and its own session then shipped three separate
-        pieces of work (the second tournament, the Beerio crowd bar, the two-host sync), each
-        incrementing, so the counter was legitimately back at 3 the same evening. A busy day
-        earns a second redraw the same way a quiet week earns none.
-      - ZONE 1 TOOK ONE, (NEW): a second tournament on the same night. The two 08-18 items
-        lost their (NEW) on schedule.
-      - ZONE 2 TOOK TWO, both (NEW), 25 to 27: the Beerio crowd bar and the two-host room
-        sync. Both are PACK items rather than shell ones because both are Beerio's own
-        screens, even though the second reaches into the vendored file. Poker lost its (NEW).
-      - ZONE 5 SHRANK, 17 to 16, and its shape changed more than that number suggests. It
-        gained TWO new OPEN bugs, the TV flip-back and Beerio's Grand Prix TV at twelve
-        racers, and lost THREE FIXED items (the felt reaching the packs, the bracketed TVs,
-        Poker's TV) which aged out exactly on the schedule the last pass predicted for them.
-        Six OPEN, none FIXED, ten Watch. A zone with no FIXED items in it is a first.
-      - ROW 1 GREW 2150 -> 2400, pre-emptively, on the same test and the same arithmetic as
-        the last pass: zone 2 measured 114px of slack, NEXT UP's numbered three are all zone 2
-        packs, and 114 fits one of them. 2400 makes it 364, which fits all three. Row 2 kept
-        its height and moved to y=2520, because zone 5 SHRANK and a zone that shrinks does not
-        shrink its row.
+      - THE RECONCILE FOUND NO DRIFT, and this is the first pass that can say it. SHIPPED,
+        NEXT UP, FEATURES and BUGS were all walked against the repo rather than trusted: the
+        three sessions since the last redraw were already written up, no bug entry had gone
+        stale, no FIXED item was due to age out (the last pass dropped the last three), and
+        nothing had left NEXT UP. So the drawing is purely additive, and the reconcile step
+        earned its place by confirming that rather than by finding something.
+      - ZONE 1 TOOK TWO, both (NEW), 21 to 23: crew and event deletion no longer destroying
+        the ledger (08-20), and both bracketed TVs showing what is NEXT rather than only what
+        is READY (08-21). Both are FOUNDATION rather than PACK for the heading they live
+        under: one is the shell's delete path, the other is `bracketboard.ts` in
+        packages/shared driving two different TVs. The second tournament lost its (NEW).
+      - ZONE 2 TOOK ONE, (NEW), 27 to 28: a voter can change their nickname all night. A PACK
+        item because it is Beerio's own crowd screen. The crowd bar and the two-host room sync
+        both lost their (NEW) on schedule.
+      - ZONE 5 IS UNCHANGED AT 16, which is a finding rather than an oversight. Neither the
+        cascade session nor the on-deck session opened a bug or closed one, and neither logged
+        a new Watch trap. Six OPEN, ten Watch, still none FIXED.
+      - NO ROW MOVED, the first pass in three to leave row 1 alone. MEASURED BY READING THE
+        GENERATED FILE BACK: zone 1 ends at 1671 against a zone ending 2495, so 824px of
+        slack; zone 2 ends at 2225, so 270px. Both clear the 100px test comfortably.
+        THE ARITHMETIC THE LAST TWO PASSES USED SAYS SOMETHING DIFFERENT, and it is recorded
+        here rather than quietly dropped: NEXT UP's numbered three are all zone 2 packs, and
+        270px fits TWO of them at ~106 each, not three. That exact reasoning is what raised
+        the row on 08-19 (138px, fitting one) and again on its second pass (114px, fitting
+        one). At 270 the zone is neither over nor tight, and the protocol's stated rule is
+        "raise a row when a zone is over; leave it when a zone is under". THE NEXT PASS IS
+        THE ONE THAT WILL NEED TO RAISE IT, and it is written down here so that pass does not
+        have to re-derive it.
+      - ZONE 4 STILL CARRIES PARTNER STATS AND THE HOME BLOCK, deliberately, and a reader
+        comparing the map to the repo after this session will find both shipped. That is the
+        redraw-first rule working: this session's own work lands AFTER the drawing, so drawing
+        it as shipped would draw a state that did not exist when the map was made. Both move
+        to zone 1 next redraw, along with the eight backlog entries this session adds.
     Zone heights checked against their contents by reading the generated file back, not
     by hand. Canvas 1560x3720; panorama camera 1600x3770.
 
