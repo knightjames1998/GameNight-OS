@@ -8,6 +8,7 @@ import FormStatsCard, { type FormStats } from "../FormStats";
 import Disclosure from "../Disclosure";
 import DeepStats, { type PlacementStats, type HistoryStats, type GameExtreme } from "../DeepStats";
 import ShowUpRecord, { Stat } from "../ShowUpRecord";
+import PartnerStatsCard, { type PartnerStats } from "../PartnerStats";
 import { ensureRecapFonts } from "../recap";
 
 // One page, two faces. Tapping yourself shows your profile; tapping anyone
@@ -36,6 +37,8 @@ interface SideStats {
   minGamesForExtremes?: number;
   lastPlaceCount?: number;
   attendance?: AttendanceStats;
+  /** Who this person has been on a side with. Absent on an older payload. */
+  partners?: PartnerStats;
   /** Friend route only: the crews this view spans. */
   crews?: string[];
 }
@@ -256,6 +259,10 @@ function Profile({ stats, title, subtitle }: { stats: SideStats; title: string; 
           ))}
         </div>
       )}
+      {/* AFTER "By game" and BEFORE the disclosure, deliberately. This is the
+          one screen that makes the team primitive visible to a crew, so it is
+          a top-level section rather than something to expand. */}
+      {stats.played > 0 && <PartnerStatsCard partners={stats.partners} />}
       {stats.played > 0 && (
         <Disclosure label="More stats">
           <DeepStats

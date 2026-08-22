@@ -9,6 +9,7 @@ import FormStatsCard, { type FormStats } from "../FormStats";
 import Disclosure from "../Disclosure";
 import DeepStats, { type PlacementStats, type HistoryStats, type GameExtreme } from "../DeepStats";
 import ShowUpRecord from "../ShowUpRecord";
+import PartnerStatsCard, { type PartnerStats } from "../PartnerStats";
 
 // The full personal-stats page, opened from the "Your stats" button on Home.
 // Lifetime totals across every crew (quick play included), broken down by
@@ -34,6 +35,7 @@ interface MyStats {
   worstGame?: GameExtreme | null;
   minGamesForExtremes?: number;
   lastPlaceCount?: number;
+  partners?: PartnerStats;
 }
 
 
@@ -137,6 +139,11 @@ export default function MyStatsPage() {
                 </ul>
               </section>
             )}
+
+            {/* Same component the crew profile uses, and the same reason:
+                one implementation, so the two pages cannot describe the same
+                partnership differently. Costs this page an import and a line. */}
+            <PartnerStatsCard partners={stats.partners} />
 
             <Disclosure label="More stats">
               <DeepStats
