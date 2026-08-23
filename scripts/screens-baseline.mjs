@@ -31,12 +31,22 @@ const player = (i) => ({ id: `p${i}`, kind: "member", userId: `u${i}`, name: NAM
 const roster = (n) => Array.from({ length: n }, (_, i) => player(i));
 const singleton = (ids) => ids.map((id, i) => ({ id: String.fromCharCode(97 + i), name: `Side ${String.fromCharCode(65 + i)}`, memberIds: [id] }));
 
-const ctx = (n, recents = ["Settlers of Catan", "Wingspan"]) => ({
+// THE PREFILL CHAIN'S FOUR FIELDS ARE PART OF THIS ENVELOPE since 2026-08-23:
+// every *-context endpoint returns them, so a stub without them is a stub of a
+// payload the server no longer sends. `source: "rsvp"` is the quiet case on
+// purpose, so the recorded screens keep showing what a plain yes-list night
+// looks like; the carry-over line has its own case below.
+const ctx = (n, recents = ["Settlers of Catan", "Wingspan"], over = {}) => ({
   groupId: "g1", canHost: true, viewerId: "u0",
   prefill: roster(n).map((p) => ({ userId: p.userId, name: p.name })),
   members: roster(n).map((p) => ({ userId: p.userId, name: p.name })),
   live: false,
   recentTitles: recents,
+  prefillSource: "rsvp",
+  prefillLabel: "",
+  rsvpPrefill: roster(n).map((p) => ({ userId: p.userId, name: p.name })),
+  recentGuests: [],
+  ...over,
 });
 
 /** A live Board Game night with two games played. */
@@ -319,6 +329,7 @@ async function main() {
   let sdPayload = null;
   let sdTvPayload = null;
   let rosterN = 4;
+  let bgCtxOver = {};
   let trPayload = trEvent;
   ws.addEventListener("message", async (ev) => {
     const m = JSON.parse(ev.data);
@@ -331,7 +342,7 @@ async function main() {
     else if (u.includes("/api/deduction/") && u.includes("/deal")) body = { dealNo: null, title: null, lines: [] };
     else if (u.includes("/api/deduction/") && u.includes("/my-role")) body = { dealNo: null, title: null, playerId: null, role: null };
     else if (u.includes("/api/deduction/")) body = { session: sdPayload };
-    else if (u.includes("/api/boardgame-context/")) body = ctx(rosterN);
+    else if (u.includes("/api/boardgame-context/")) body = ctx(rosterN, undefined, bgCtxOver);
     else if (u.includes("/api/cardtable-context/")) body = ctx(4, ["Euchre"]);
     else if (u.includes("/api/pingpong-context/")) body = ctx(5);
     else if (u.includes("/api/auth/me")) body = { user: { id: "u0", displayName: "Ann" } };
@@ -361,6 +372,36 @@ async function main() {
   bgPayload = null;
   await goto(`${ORIGIN}/boardgame?event=e1`);
   snap.bgSetup = await text();
+
+  // THE SAME SCREEN WITH THE PREFILL CHAIN LOUD, which is the case the quiet
+  // one above cannot show: a roster carried off the last session, the line
+  // saying which pack it came from, the way back to the yes list, and the guest
+  // chips. Both components render NOTHING in the quiet case, which is exactly
+  // why bgSetup above is byte-identical to its pre-2026-08-23 recording and why
+  // this second screen has to exist to cover them at all.
+  bgCtxOver = {
+    prefill: [
+      { userId: "u0", name: "Ann" },
+      { userId: "u1", name: "Ben" },
+      { userId: null, name: "Mike D" },
+    ],
+    prefillSource: "session",
+    prefillLabel: "Ping Pong",
+    rsvpPrefill: [
+      { userId: "u0", name: "Ann" },
+      { userId: "u2", name: "Cal" },
+    ],
+    recentGuests: ["Mike D", "Sam", "Jo"],
+  };
+  await goto(`${ORIGIN}/boardgame?event=e1`);
+  snap.bgSetupCarry = await text();
+  // And the same screen after the way back is tapped: the line and the button
+  // both go, because the roster IS the yes list again and there is nothing left
+  // to say. The chips stay, minus anybody now sitting down.
+  await evalJs(`(() => { const b=[...document.querySelectorAll('button')].find(x=>/yes list/i.test(x.textContent)); if(b) b.click(); return !!b; })()`);
+  await sleep(400);
+  snap.bgSetupBackToRsvp = await text();
+  bgCtxOver = {};
 
   for (const n of [4, 8, 12]) {
     rosterN = n;

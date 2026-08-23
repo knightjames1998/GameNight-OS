@@ -6,6 +6,8 @@ import {
   type CashSummary,
 } from "@gamenight/shared";
 import type { PackCtx } from "../usePackSession";
+import RosterCarryOver from "../RosterCarryOver";
+import GuestChips from "../GuestChips";
 import { MoneyInput, NetToken } from "./money";
 import { ModifierPicker } from "./modifiers";
 import "./casino.css";
@@ -116,9 +118,12 @@ export default function CasinoSetup({
       setSeats([...seats, { userId: m.userId, name: m.name, buyIn: null }]);
     }
   };
-  const addGuest = () => {
-    const n = guest.trim().slice(0, 24);
+  const addGuestNamed = (raw: string) => {
+    const n = raw.trim().slice(0, 24);
     if (n) setSeats([...seats, { userId: null, name: n, buyIn: null }]);
+  };
+  const addGuest = () => {
+    addGuestNamed(guest);
     setGuest("");
   };
   const removeAt = (i: number) => {
@@ -208,6 +213,21 @@ export default function CasinoSetup({
             <div className="cg-lab" style={{ marginTop: 14 }}>
               Sitting down ({seats.length})
             </div>
+            {/* SWAPPING THE ROSTER RESETS THE BANKER, and it has to:
+                `bankerIndex` points INTO the seat list, so a new list of
+                different people would leave the bank on whoever now sits in
+                that slot. Same class of bug as dropRosterIndex on the three
+                side-carrying packs. */}
+            <RosterCarryOver
+              source={ctx.prefillSource}
+              label={ctx.prefillLabel}
+              rsvpSlots={ctx.rsvpPrefill}
+              current={seats}
+              onUseRsvp={(slots) => {
+                setSeats(slots.map((p) => ({ userId: p.userId, name: p.name, buyIn: null })));
+                setBankerIndex(0);
+              }}
+            />
             {seats.map((s, i) => (
               <div className="cg-seat" key={`${s.userId ?? "g"}-${i}`}>
                 <span className="cg-seat__who">
@@ -293,6 +313,7 @@ export default function CasinoSetup({
             Add
           </button>
         </div>
+        <GuestChips names={ctx.recentGuests} current={seats} onAdd={addGuestNamed} />
         <p className="cg-hint" style={{ marginTop: 8 }}>
           Guests play, but lifetime stats only count crew members. Anyone can sit down later.
         </p>

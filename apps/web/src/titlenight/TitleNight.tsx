@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { tnTitleSuggestions, type Side, type TitleNightConfig } from "@gamenight/shared";
 import type { PackCtx } from "../usePackSession";
 import { TeamPicker, teamPickerStatus } from "../teams/TeamPicker";
+import RosterCarryOver from "../RosterCarryOver";
+import GuestChips from "../GuestChips";
 import "./titlenight.css";
 
 // The TITLE-NIGHT group's screens: everything Board Game and Card Table do
@@ -135,9 +137,12 @@ export function TitleNightSetup({
     if (!full && !roster.some((r) => r.userId === m.userId)) setRoster([...roster, { userId: m.userId, name: m.name }]);
   };
   const addGuest = () => {
-    const n = guest.trim().slice(0, 24);
-    if (n && !full) setRoster([...roster, { userId: null, name: n }]);
+    addGuestNamed(guest);
     setGuest("");
+  };
+  const addGuestNamed = (raw: string) => {
+    const n = raw.trim().slice(0, 24);
+    if (n && !full) setRoster([...roster, { userId: null, name: n }]);
   };
   const removeAt = (i: number) => setRoster(roster.filter((_, j) => j !== i));
   const notAdded = ctx.members.filter((m) => !roster.some((r) => r.userId === m.userId));
@@ -151,6 +156,17 @@ export function TitleNightSetup({
       )}
       <div className="tn-card" style={{ marginTop: 16 }}>
         <div className="tn-h">Who is playing ({roster.length}/{cap})</div>
+        {/* THE CAP STAYS THIS PAGE'S BUSINESS. The component hands over slots
+            and this slices them, exactly as the prefill effect above does. */}
+        <RosterCarryOver
+          source={ctx.prefillSource}
+          label={ctx.prefillLabel}
+          rsvpSlots={ctx.rsvpPrefill.slice(0, cap)}
+          current={roster}
+          onUseRsvp={(slots) =>
+            setRoster(slots.slice(0, cap).map((p) => ({ userId: p.userId, name: p.name })))
+          }
+        />
         {roster.map((r, i) => (
           <div className="tn-row" key={`${r.userId ?? "g"}-${i}`}>
             <span className="tn-name" style={{ flex: 1 }}>{r.name}</span>
@@ -181,6 +197,7 @@ export function TitleNightSetup({
             </div>
           </>
         )}
+        {!full && <GuestChips names={ctx.recentGuests} current={roster} onAdd={addGuestNamed} />}
         <p className="tn-hint" style={{ marginTop: 8 }}>Guests play, but lifetime stats only count crew members.</p>
       </div>
 

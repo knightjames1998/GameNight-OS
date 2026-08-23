@@ -35,15 +35,30 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
 import { usePackLive } from "./useLiveUpdates";
+import type { PrefillSource } from "./RosterCarryOver";
 
 /** The launch context every pack's *-context endpoint returns. */
 export interface PackCtx {
   groupId: string;
   canHost: boolean;
   viewerId: string;
-  prefill: { userId: string; name: string }[];
+  /**
+   * What the roster opens with. NOT THE YES LIST ANY MORE: it is whichever rung
+   * of the prefill chain answered (the last session's roster on this night, then
+   * who showed, then who said yes), which is why a slot can now be a GUEST
+   * carried over from the last game and `userId` is nullable.
+   */
+  prefill: { userId: string | null; name: string }[];
   members: { userId: string; name: string }[];
   live: boolean;
+  /** Which rung answered. The screen says so; a silent change would not do. */
+  prefillSource: PrefillSource;
+  /** The pack's display name when the source is a session, else "". */
+  prefillLabel: string;
+  /** The yes list, always, so a screen can offer it back in one tap. */
+  rsvpPrefill: { userId: string | null; name: string }[];
+  /** Guest names typed on this crew before, newest first. */
+  recentGuests: string[];
 }
 
 /**
