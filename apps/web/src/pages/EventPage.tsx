@@ -140,16 +140,37 @@ export default function EventPage({ me }: { me: Me | null }) {
     }
   }
 
-  // Optimistic check-in: the prompt disappears the moment it's tapped.
+  // Optimistic check-in: the prompt disappears the moment it's tapped. The body
+  // carries no userId, which is the shape this route has always taken for
+  // somebody marking themselves, and the only one open to a plain member.
   async function markAttendance(showed: boolean) {
+    if (!event) return;
+    await postAttendance({ showed }, { ...withAttendance(event, me?.id, showed), myAttendance: showed });
+  }
+
+  /**
+   * A host recording somebody else: `true` checks them in, `null` clears the row
+   * back to unanswered. There is deliberately no false here, and the server
+   * refuses one anyway: silence already counts as a flake, so a host never needs
+   * to mark a no-show, and being able to would mean putting one on somebody
+   * else's profile.
+   */
+  async function checkInOther(userId: string, showed: true | null) {
+    if (!event) return;
+    const next = withAttendance(event, userId, showed);
+    if (userId === me?.id) next.myAttendance = showed;
+    await postAttendance({ userId, showed }, next);
+  }
+
+  async function postAttendance(body: Record<string, unknown>, optimistic: EventDetail) {
     if (!event) return;
     const prev = event;
     const seq = ++reqSeq.current;
-    setEvent({ ...event, myAttendance: showed });
+    setEvent(optimistic);
     try {
       const fresh = await api<EventDetail>(`/api/events/${id}/attendance`, {
         method: "POST",
-        body: JSON.stringify({ showed }),
+        body: JSON.stringify(body),
       });
       if (seq === reqSeq.current) setEvent(fresh);
     } catch (e) {
@@ -201,6 +222,23 @@ export default function EventPage({ me }: { me: Me | null }) {
   const started =
     !!event.scheduledFor && new Date(event.scheduledFor).getTime() <= Date.now();
   const myButton = buttons.find((b) => b.status === event.myStatus);
+
+  // WHO A HOST CAN CHECK IN: everybody who said yes, in the order they
+  // answered, then anybody already recorded who is not on that list. Names come
+  // from the RSVPs and the no-answer list, which between them cover every
+  // current member; an attendance row whose name is missing belongs to somebody
+  // who has since left the crew, and is dropped rather than drawn as a stranger.
+  const isHost = event.myRole === "owner" || event.myRole === "admin";
+  const nameOf = new Map<string, string>();
+  for (const r of event.rsvps) nameOf.set(r.userId, r.displayName);
+  for (const m of event.noResponse) nameOf.set(m.userId, m.displayName);
+  const showedBy = new Map(event.attendance.map((a) => [a.userId, a.showed] as const));
+  const checkInIds: string[] = [];
+  for (const r of event.rsvps) if (r.status === "yes") checkInIds.push(r.userId);
+  for (const a of event.attendance) if (!checkInIds.includes(a.userId)) checkInIds.push(a.userId);
+  const checkInList = checkInIds
+    .filter((u) => nameOf.has(u))
+    .map((userId) => ({ userId, name: nameOf.get(userId)!, showed: showedBy.get(userId) }));
 
   return (
     <Shell>
@@ -338,6 +376,77 @@ export default function EventPage({ me }: { me: Me | null }) {
         </section>
       )}
 
+      {/* HOST CHECK-IN. Everything here is the one direction it can go: check
+          somebody in, or clear the row back to unanswered. There is no way to
+          mark anybody absent, because silence after a yes already counts as a
+          flake, so the only thing this control can do is give somebody their
+          night back. Members who are not hosts never see it. */}
+      {started && isHost && checkInList.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="gn-h2">Check people in</h2>
+          <p className="gn-hint">
+            For anyone who turned up and never opened the app. This only ever helps
+            somebody's record: you can't mark anyone absent from here.
+          </p>
+          <ul className="space-y-2">
+            {checkInList.map((p) => (
+              <li
+                key={p.userId}
+                className="flex items-center justify-between gap-3"
+                style={{
+                  background: "var(--gn-surf)",
+                  border: "2px solid var(--gn-line)",
+                  borderRadius: "12px",
+                  padding: "8px 12px",
+                }}
+              >
+                <span className="min-w-0">
+                  <span style={{ fontWeight: 700, display: "block" }}>{p.name}</span>
+                  <span
+                    className="gn-hint"
+                    style={{
+                      display: "block",
+                      color: p.showed === true ? "var(--gn-yes)" : "var(--gn-dim)",
+                    }}
+                  >
+                    {p.showed === true
+                      ? "Checked in"
+                      : p.showed === false
+                        ? "Said they missed it"
+                        : "Not checked in"}
+                  </span>
+                </span>
+                <span className="flex items-center gap-2">
+                  {p.showed !== true && (
+                    <button
+                      className="gn-actionbtn"
+                      disabled={busy}
+                      onClick={() => checkInOther(p.userId, true)}
+                    >
+                      Check in
+                    </button>
+                  )}
+                  {p.showed !== undefined && (
+                    <button
+                      className="gn-chipbtn"
+                      style={{
+                        background: "color-mix(in srgb, var(--gn-dim) 18%, transparent)",
+                        color: "var(--gn-dim)",
+                      }}
+                      disabled={busy}
+                      title="Back to unanswered"
+                      onClick={() => checkInOther(p.userId, null)}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="space-y-2">
         <h2 className="gn-h2">Games</h2>
         <GamePicker games={eventGames(event, id!, (to) => navigate(to), startBracket)} />
@@ -351,6 +460,21 @@ export default function EventPage({ me }: { me: Me | null }) {
       </section>
     </Shell>
   );
+}
+
+/**
+ * One attendance row written into a cached event, so the optimistic update and
+ * the server's answer describe the same thing. `null` removes the row, which is
+ * what unanswered IS: there is no third state on either side of the wire.
+ */
+function withAttendance(
+  e: EventDetail,
+  userId: string | undefined,
+  showed: boolean | null,
+): EventDetail {
+  if (!userId) return e;
+  const rest = e.attendance.filter((a) => a.userId !== userId);
+  return { ...e, attendance: showed === null ? rest : [...rest, { userId, showed }] };
 }
 
 /** ISO timestamp -> the local "YYYY-MM-DDTHH:mm" a datetime-local input wants. */

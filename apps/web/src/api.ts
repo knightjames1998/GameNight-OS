@@ -98,6 +98,12 @@ export interface EventDetail {
   myStatus: RsvpStatus | null;
   /** Did I actually show? null until answered; only asked once the event starts. */
   myAttendance: boolean | null;
+  /**
+   * Every check-in on the night, whoever recorded it. A host can now check
+   * somebody else in, so this is no longer derivable from `myAttendance`, and
+   * the prefill chain reads it as the rung above the yes list.
+   */
+  attendance: { userId: string; showed: boolean }[];
 }
 
 // Show-up record derived from RSVPs + event_attendance (flake tracking).

@@ -60,7 +60,29 @@ const INDEX_HTML = path.join(DIST, "index.html");
  * whole protocol.
  */
 const BUDGET = {
-  js: 75_000,
+  // RAISED 75_000 -> 78_000 on 2026-08-23 by the host check-in control, and the
+  // number that matters is not the one this session spent.
+  //
+  // MEASURED, both sides, on the real built bundle: 72_428 gzipped before the
+  // control and 73_013 after, so the check-in list costs 585 gzipped bytes.
+  // THE BUDGET WAS ALREADY ALMOST GONE BEFORE THIS SESSION TOUCHED IT: 72_428
+  // against 75_000 is 3.4% of headroom, and the floor below is 3%, so the next
+  // 175 bytes to reach an entry-path screen were going to fail this gate
+  // whatever they were for. That is the finding, rather than anything about
+  // this control.
+  //
+  // WHY 78_000: the entry chunk went 70_875 (2026-08-15, when these budgets
+  // were set) to 72_428 over the sessions since, about 1_550 bytes a week of
+  // ordinary work on the five entry-path screens (Home, GroupPage, EventPage,
+  // JoinPage, Login). 78_000 leaves 4_987 above today's measurement, which is
+  // roughly three more sessions at that rate, and 6.4% of headroom against a 3%
+  // floor. Sized against the observed growth rather than against the next byte,
+  // which is the whole point of the headroom test below.
+  //
+  // NOTHING ELSE IN THIS SESSION LANDS HERE, and that was checked rather than
+  // assumed: the two roster components go into nine LAZY pack screens, so they
+  // land in a shared chunk, not the entry.
+  js: 78_000,
   // RAISED 16_000 -> 18_000 on 2026-08-22, and the reason is written here
   // because the test below exists to make a raise argue for itself.
   //
