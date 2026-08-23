@@ -183,6 +183,23 @@ test("the MOST RECENT spelling is the one shown, not the first ever typed", () =
   assert.deepEqual(recentGuestNames([[guest("mike")], [guest("Mike")]], 12), ["mike"]);
 });
 
+test("A PERSONAL CREW GETS NO CHIPS, because quick play is a deferred question", () => {
+  // Quick play runs through a hidden personal crew where everybody except the
+  // host is a typed guest, so guest name memory THERE is not a small extra: it
+  // would be the main way a quick play roster gets built. Guest linking for
+  // personal crews is an open decision (DEFERRED), and shipping the chips into
+  // quick play would have answered it by accident.
+  assert.deepEqual(
+    recentGuestNames([[guest("Mike")], [guest("Sam")]], 12, { personalCrew: true }),
+    [],
+  );
+  // And a real crew is unaffected, which is the half that has to keep working.
+  assert.deepEqual(
+    recentGuestNames([[guest("Mike")], [guest("Sam")]], 12, { personalCrew: false }),
+    ["Mike", "Sam"],
+  );
+});
+
 test("the cap holds, and blank names never become a chip", () => {
   const many = Array.from({ length: 20 }, (_, i) => [guest(`G${i}`)]);
   assert.equal(recentGuestNames(many, 12).length, 12);

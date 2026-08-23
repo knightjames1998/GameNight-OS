@@ -34,6 +34,7 @@
 import {
   getDb,
   brackets,
+  groups,
   eventAttendance,
   gameSessions,
   memberships,
@@ -153,8 +154,23 @@ export function prefillChain(input: ChainInput): {
  * Pure, and separate from the reading, for the same reason the chain is: the
  * rule ("Mike" and "mike" are one person and the newer wins) is the part worth
  * pinning.
+ *
+ * A PERSONAL CREW GETS NOTHING, and that is a deferral being honoured rather
+ * than a limitation. Quick play runs through a hidden personal crew where
+ * everybody except the host is a typed guest, so guest name memory there is not
+ * a small extra: it would be the main way a quick play roster gets built, and
+ * "guest name memory for quick play personal crews" is deliberately unanswered
+ * while guest LINKING for personal crews is still an open decision (see
+ * DEFERRED). Shipping the chips there would have answered it by accident. The
+ * roster carry-over is untouched by this: carrying one night's players into the
+ * next game on the same night is not memory across a crew.
  */
-export function recentGuestNames(rosters: readonly RosterSlot[][], cap: number): string[] {
+export function recentGuestNames(
+  rosters: readonly RosterSlot[][],
+  cap: number,
+  opts: { personalCrew: boolean } = { personalCrew: false },
+): string[] {
+  if (opts.personalCrew) return [];
   const out: string[] = [];
   const seen = new Set<string>();
   for (const roster of rosters) {
@@ -194,7 +210,7 @@ export async function eventPrefill(
 ): Promise<EventPrefill> {
   const db = getDb();
 
-  const [crewRows, yesRows, showedRows, packRows, smashRows, bracketRows, guestRows] =
+  const [crewRows, yesRows, showedRows, packRows, smashRows, bracketRows, guestRows, groupRows] =
     await Promise.all([
       db
         .select({ userId: memberships.userId, displayName: users.displayName })
@@ -259,6 +275,13 @@ export async function eventPrefill(
         )
         .orderBy(desc(gameSessions.updatedAt))
         .limit(GUEST_SCAN_SESSIONS),
+      // Only to answer "is this quick play", which decides whether the guest
+      // chips are offered at all. See recentGuestNames.
+      db
+        .select({ isPersonal: groups.isPersonal })
+        .from(groups)
+        .where(eq(groups.id, event.groupId))
+        .limit(1),
     ]);
 
   const crew = new Map(crewRows.map((m) => [m.userId, m.displayName] as const));
@@ -307,6 +330,7 @@ export async function eventPrefill(
     recentGuests: recentGuestNames(
       guestRows.map((r) => ROSTER_ADAPTERS[r.pack]?.(r.state) ?? []),
       RECENT_GUEST_CAP,
+      { personalCrew: !!groupRows[0]?.isPersonal },
     ),
   };
 }
