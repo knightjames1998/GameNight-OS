@@ -12,8 +12,8 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-22 (the stats surfaces session, before its own work)
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-08-23 (the night flow session, before its own work)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -60,53 +60,65 @@ anyone's memory of how many sessions have happened.
         the Beerio crowd bar and the two-host sync; zone 5 SHRANK 17 to 16 and became the
         first zone ever drawn with no FIXED item in it; row 1 grew 2150 -> 2400 and row 2
         moved to y=2520 without changing height.
-      - 2026-08-22, this one. Below.
+      - 2026-08-22, the stats-surfaces pass. Zone 1 took two (NEW), 21 to 23; zone 2 took one,
+        27 to 28; zone 5 was unchanged at 16 and that was a finding rather than an oversight.
+        NO ROW MOVED, the first pass in three to leave row 1 alone, and it wrote down in as
+        many words that the NEXT pass would be the one that had to raise it.
+      - 2026-08-23, this one. Below.
 
-    THE REDRAW WENT FIRST AND THE SESSION THEN SHIPPED, which is the one arrangement the
-    rule does not describe in a line. The counter read 3 when this session started, so the
-    reconcile and the drawing came before any feature work; the drawing therefore does NOT
-    contain this session's own work. That work landed after it and counted itself, which is
-    why the number above reads 1 rather than 0. Exactly as 2026-08-17 and both 08-19 passes
-    did. (Deliberately phrased as what HAPPENED rather than as what the counter currently
-    reads: a sentence that restates the number goes stale the moment the number moves, which
-    is the trap this block's own rule was rewritten to close.)
+    THE REDRAW WENT FIRST, before this session's own work, which is the arrangement every
+    pass since 2026-08-17 has used and the one the rule does not describe in a line. The
+    counter read 3 when this session started, so the reconcile and the drawing came before
+    any feature work; the drawing therefore does NOT contain this session's own work, and
+    the night-flow work that follows it counts itself.
 
     What this pass changed beyond the counter:
-      - THE RECONCILE FOUND NO DRIFT, and this is the first pass that can say it. SHIPPED,
-        NEXT UP, FEATURES and BUGS were all walked against the repo rather than trusted: the
-        three sessions since the last redraw were already written up, no bug entry had gone
-        stale, no FIXED item was due to age out (the last pass dropped the last three), and
-        nothing had left NEXT UP. So the drawing is purely additive, and the reconcile step
-        earned its place by confirming that rather than by finding something.
-      - ZONE 1 TOOK TWO, both (NEW), 21 to 23: crew and event deletion no longer destroying
-        the ledger (08-20), and both bracketed TVs showing what is NEXT rather than only what
-        is READY (08-21). Both are FOUNDATION rather than PACK for the heading they live
-        under: one is the shell's delete path, the other is `bracketboard.ts` in
-        packages/shared driving two different TVs. The second tournament lost its (NEW).
-      - ZONE 2 TOOK ONE, (NEW), 27 to 28: a voter can change their nickname all night. A PACK
-        item because it is Beerio's own crowd screen. The crowd bar and the two-host room sync
-        both lost their (NEW) on schedule.
-      - ZONE 5 IS UNCHANGED AT 16, which is a finding rather than an oversight. Neither the
-        cascade session nor the on-deck session opened a bug or closed one, and neither logged
-        a new Watch trap. Six OPEN, ten Watch, still none FIXED.
-      - NO ROW MOVED, the first pass in three to leave row 1 alone. MEASURED BY READING THE
-        GENERATED FILE BACK: zone 1 ends at 1671 against a zone ending 2495, so 824px of
-        slack; zone 2 ends at 2225, so 270px. Both clear the 100px test comfortably.
-        THE ARITHMETIC THE LAST TWO PASSES USED SAYS SOMETHING DIFFERENT, and it is recorded
-        here rather than quietly dropped: NEXT UP's numbered three are all zone 2 packs, and
-        270px fits TWO of them at ~106 each, not three. That exact reasoning is what raised
-        the row on 08-19 (138px, fitting one) and again on its second pass (114px, fitting
-        one). At 270 the zone is neither over nor tight, and the protocol's stated rule is
-        "raise a row when a zone is over; leave it when a zone is under". THE NEXT PASS IS
-        THE ONE THAT WILL NEED TO RAISE IT, and it is written down here so that pass does not
-        have to re-derive it.
-      - ZONE 4 STILL CARRIES PARTNER STATS AND THE HOME BLOCK, deliberately, and a reader
-        comparing the map to the repo after this session will find both shipped. That is the
-        redraw-first rule working: this session's own work lands AFTER the drawing, so drawing
-        it as shipped would draw a state that did not exist when the map was made. Both move
-        to zone 1 next redraw, along with the eight backlog entries this session adds.
+      - THE RECONCILE FOUND DRIFT, AND IT IS THE FIRST PASS THAT CAN SAY SO. The 08-22 pass
+        recorded "THE RECONCILE FOUND NO DRIFT" and was right on the day it was written. TWO
+        SHIPPED COMMITS LANDED AFTER IT: a Crews hint line on Home (34d1486) and a casino
+        becoming the default bank on every cash pack (a591dbd), both on 08-22, both AFTER
+        that session's own counter-to-3 BACKLOG commit, and NEITHER wrote itself up. Both
+        are now in SHIPPED with what actually landed. The lesson is about WHERE THE BACKLOG
+        COMMIT SITS IN A SESSION rather than about either change, and it is written into the
+        first entry: walk `git log` against this file at a redraw, do not only walk the
+        headings against the repo. Reading the file alone would have missed both.
+      - ZONE 1 TOOK TWO, both (NEW), 23 to 25: partner stats plus the real Home stats block
+        (with that Crews hint line drawn on the same item, since both are Home), and the
+        event TV's stats board plus the five TV density ladders. Crew/event deletion and the
+        two on-deck TVs both lost their (NEW) on schedule.
+      - ZONE 2 TOOK ONE, (NEW), 28 to 29: a casino is the default bank on every cash pack.
+        A PACK item because it moves the shared casino setup screen and `casino-runtime.ts`,
+        and it takes poker's dead banking control off the screen with it. The nickname item
+        lost its (NEW).
+      - ZONE 4 GREW BY SIX, 11 to 17, AND THAT IS THE BIGGEST SINGLE MOVE THIS PASS. Partner
+        stats and the Home block LEFT by shipping, and the EIGHT entries the 08-22 pass said
+        it was adding "below them" are drawn for the first time: Lovers/Cupid, same players
+        as the last game, guest name memory, the connection pill, repeat-or-duplicate an
+        event, location and notes, the RSVP nudge, and fix-or-delete a completed result. The
+        smack-talk item also dropped "TV stats", which shipped on 08-22.
+      - ZONE 5 IS UNCHANGED AT 16 IN COUNT AND COMPLETELY DIFFERENT IN COLOUR. FIVE OPEN TV
+        overflows went FIXED in one session on 08-22 (Ping Pong, the title-night pair, Mario
+        Kart, the bracket at sixteen pairs with the four-fresh regression folded in, and
+        Beerio's Grand Prix), which is the largest number of bugs this file has ever closed
+        in a pass. TWO OPEN remain: the late write stealing the TV, and Casino Run's back
+        button. Nine Watch traps, unchanged, and no new one was logged by any of the three
+        sessions.
+      - ROW 1 GREW, 2400 -> 2650, AND THE LAST PASS CALLED IT. Zone 2 would have landed on
+        158px of slack at the old height once its one new item was in, MEASURED BY READING
+        THE GENERATED FILE BACK, and the 08-22 narrative had already done the arithmetic:
+        NEXT UP's numbered three are all zone 2 packs at roughly 106px each, so 158 fits one
+        of them and not three. That is the same reasoning that raised the row at 138px on
+        08-19 and at 114px on its second pass, and the previous pass wrote down that this one
+        would owe it so it would not have to be re-derived. Raised pre-emptively, as every
+        raise here has been; at 2650 zone 2 has 408px and zone 1 has 850. Row 2 moved
+        2520 -> 2770 by the same amount so the columns stay aligned, and its HEIGHT stayed at
+        1200 because neither zone in it is over: zone 4 needs 1018 of it at 17 items (182
+        spare) and zone 5 needs 990 at 16 (210 spare). A row is raised when a zone is OVER,
+        and neither is.
+      - ZONES 3 AND 6 ARE UNCHANGED. Nothing left NEXT UP, so the numbered three are still
+        Poker's tournament format, Smash Tournament and Party games.
     Zone heights checked against their contents by reading the generated file back, not
-    by hand. Canvas 1560x3720; panorama camera 1600x3770.
+    by hand. Canvas 1560x3970; panorama camera 1600x4020.
 
 ## MAP PROTOCOL
 How and when the Excalidraw project map gets redrawn. Written so any session reproduces
@@ -139,7 +151,7 @@ another reference section does not change the map; adding or renaming one of the
 above does, and must update this table in the same commit.
 
 **Layout (fixed, so redraws are stable):** 3 columns x 2 rows. Columns at x=40, 560, 1080,
-each 480 wide. Row 1 at y=95 (height 2400), row 2 at y=2520 (height 1200). Zone header text
+each 480 wide. Row 1 at y=95 (height 2650), row 2 at y=2770 (height 1200). Zone header text
 15px below zone top, fontSize 22. Items 440 wide, 40 tall, 46px step, first item 50px below
 zone top; give a taller box (52-70) to any item whose label wraps past one line. Row 1 grew
 from 540 to 730 on 2026-07-27 (SHIPPED FOUNDATION reached 14 items and overflowed its
@@ -157,7 +169,9 @@ that left only 82px, which does not fit the Poker item the SAME session was abou
 so it went to 1950, from 1950 to 2150 on 2026-08-19, when zone 2 measured 138px of slack
 against a NEXT UP whose top three are all packs: 138 fits one of those three and not three,
 and from 2150 to 2400 on the SECOND 2026-08-19 pass, when zone 2 landed on 114px against the
-same unchanged queue and the same arithmetic gave the same answer.
+same unchanged queue and the same arithmetic gave the same answer, and from 2400 to 2650 on
+2026-08-23, when zone 2 landed on 158px against that same unchanged queue — the raise the
+08-22 pass declined at 270px and wrote down as owed by the next one.
 Each time it was raised pre-emptively rather than
 waiting for the next entry to overflow it, since the fix is mechanical and the trap would
 have landed on whoever added the next line.
@@ -192,8 +206,8 @@ they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb).
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x3770 at the current zone heights; the canvas
-itself measures 1560x3720, read off the generated file rather than assumed. This line read
+on a panorama covering the full canvas (1600x4020 at the current zone heights; the canvas
+itself measures 1560x3970, read off the generated file rather than assumed. This line read
 2410 for four passes after the heights it describes had moved, which is why a redraw checks
 it against the file). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 
@@ -212,6 +226,8 @@ regenerated file in the same commit as the reconcile. If the MCP canvas is unava
 session, regenerating the committed file alone still counts as the redraw.
 
 ## SHIPPED — FOUNDATION
+- [x] HOME SAYS WHY A CREW IS WORTH HAVING (2026-08-22; WRITTEN UP 2026-08-23 BY THE RECONCILE THAT FOUND IT MISSING). "Recommended for accurate tracking per person.", five lines in `apps/web/src/pages/Home.tsx`. Crews was the one heading on Home with no hint line under it while Quick play directly below has had exactly that pattern since it shipped, so this is the counterpart to that line rather than a new kind of thing: quick play runs through a hidden personal crew, which is why its results are not attributed to the people who actually played, and a real crew is what gives each person their own record.
+  **IT IS HERE BECAUSE THE RECONCILE FOUND IT, AND THAT IS THE FIRST DRIFT ANY PASS HAS FOUND.** The 2026-08-22 pass recorded "THE RECONCILE FOUND NO DRIFT" and was right on the day it was written. This commit and the casino default-bank one in SHIPPED — GAME PACKS both landed AFTER that session's own counter-to-3 BACKLOG commit, and neither wrote itself up, so two shipped changes existed in the repo and nowhere in this file. **THE LESSON IS ABOUT WHERE THE BACKLOG COMMIT SITS IN A SESSION**, not about either change: a session that keeps shipping after its BACKLOG commit still owes an entry, and the only thing that catches it is the next reconcile walking the log rather than trusting the file. Walk `git log` against this file at every redraw, not just the headings against the repo.
 - [x] PARTNER STATS, AND A REAL STATS BLOCK ON HOME (2026-08-22). Two read-only surfaces over data the ledger already held, and the session that shipped them ALSO SHIPPED TWO THINGS WRONG AND CORRECTED BOTH THE SAME DAY, which is most of what is worth reading here.
   **WHO YOU WIN WITH.** `side` has been in the ledger since 2026-08-02 and `meetingOutcome` has classified a shared side as `together` for just as long, but nothing anywhere said who you win most WITH: the team primitive changed what was RECORDED without changing anything anyone SAW. `partnersFor` is ONE SQL self-join (`match_participants` to itself on `(match_id, side)` with `user_id <> user_id`), beside `finishAggDeep` and never inside `finishAgg`, wired into the three profile-side endpoints and deliberately not into the crew leaderboard. It does NOT repeat `countLastPlace`'s unbounded IN list, which is a Watch trap in BUGS; Postgres receives five bound parameters. `feedAgg`, `finishAgg`, `ResultRow` and `resultCols` are byte-identical, and a characterization test written BEFORE the change pins `finishAgg` byte-for-byte, which is what makes "the leaderboard did not move" evidence rather than a claim.
   **THE BUG: IT COUNTED CO-OP RUNS AND DEALT FACTIONS AS PARTNERSHIPS.** `side` means three different things (see DECISION LOG) and only one of them is this feature. One eight-person Casino Run yields 28 pairings with identical outcomes; one twelve-player Werewolf yields 36 villager pairings per game, dealt rather than chosen. "Who you win with" was silently becoming "who else turns up to Werewolf and Casino Run", with doubles ping pong lost in the noise and nothing erroring. Now excluded: co-op BY SHAPE (a match where nobody was on a different side), factions BY PACK off the registry. The block says TEAM GAMES on screen, and the empty state is correctly the common one.
@@ -309,6 +325,10 @@ session, regenerating the committed file alone still counts as the redraw.
 - [x] One implementation per idea on the client (2026-07-28, pre-pack cleanup phase 6, the LAST phase of the run). THREE live-sync implementations became one. BracketPage and TvPage each hand-rolled a connect/retry/visibility WebSocket instead of using the shared hook, and had already drifted: BracketPage skipped its own echo, TvPage did not. The same origin-skip filter was also written EIGHT times across the four pack pages and their four TV views, identical apart from one message-type string. useLiveUpdates.ts gained useLiveRefetch(types, field, id, refetch) plus two thin wrappers, usePackLive and useBracketLive, and eleven screens now share one implementation. The own-echo skip is now universal, which is a no-op on the read-only TV views rather than a behaviour change, because a screen that never writes never sees its own client id come back. useLiveUpdates itself stays for GroupPage and EventPage, which listen for several unrelated types and act differently on each (one navigates away when the event is deleted); Beerio's polling is correct for a vendored pack and was left alone. THE PACK-PAGE SHELL became one hook: new usePackSession<S> holds the ctx/session/loading/err/busy/reqSeq state, the refetch that Promise.alls context and session, call() with its optimistic update, snapshot rollback and newest-request-wins guard, and startSession() with the 409 confirm-and-replace dance. The four pages keep all of their own rendering, which is where packs must stay different. ONE MAP AND ONE CATALOGUE: FORMAT_LABEL existed three times (StatsPage, MyStatsPage, and recap.tsx as FORMAT_NAME) with the unit noun twice, now one src/formats.ts that all three read plus the three pack Start buttons; and the pack catalogue existed twice (quickGames in Home, eventGames() in EventPage), now one src/packs.ts with the destination, Beerio's live subline and the Tournament gating supplied by the caller. MEASURED: 599 lines deleted against 218 added across 18 files, with the four pack pages down 56-81 lines each. TWO REAL BUGS THE UNIFICATION EXPOSED, both in Mario Party, both fixed. (1) Mario Party was the only pack whose session start went through call() instead of a startSession(), so it never had the confirm-and-replace dance; and the SERVER matched, missing the `!req.body?.force` check the other three have. An in-progress Mario Party session could therefore never be replaced at all: the host got a raw 409 on the setup screen with no way forward, and the only escape was to finish or abandon the night. Both halves fixed, so standing rule 8 now behaves the same in all four packs. (2) One visible copy change, called out rather than slipped in: Smash's start button said "Start FFA" where every other surface, including the picker that launches it, says "Free-for-all". It now reads from the shared map like the rest. DECISION, contrary to this entry's own earlier note: usePackSession does NOT use the 8a cache. Phase 8a's rule that a pack's live session must never be served from cache wins, because a live pack screen is not just showing state, it is offering buttons that WRITE, and a cached roster means someone can tap a player who is no longer in the session. The pack pages are now the one place that still shows a loading state on a return visit, which is the correct trade. VERIFIED IN A BROWSER: the picker catalogue was read back out of the rendered DOM on both Home and the event page and compared tile by tile and format by format (identical, with Tournament correctly still gated on the event page), all 23 routes still mount, and the phase 8a cache checks still pass. Deploy: none, no schema change.
 
 ## SHIPPED — GAME PACKS
+- [x] A CASINO IS THE DEFAULT BANK, ON EVERY CASH PACK (2026-08-22, James's call; written up 2026-08-23 by the reconcile that found it missing). **TWO PLACES DECIDED THIS AND BOTH HAD TO MOVE**, which is the part that was not obvious from the request. `CasinoSetup`'s `useState<CashBank>("player")` is the one a host sees, and `casino-runtime.ts` separately defaulted `req.body?.bank === "casino" ? "casino" : "player"`, so ANY body that did not say "casino" opened a player-banked table. The client sends `bank` on every start, so in practice the server's fallback only decided for an older installed PWA on a cached bundle — invisible until somebody opens a table from a stale app and finds a banker they did not pick. Both now default to a casino and the server's test is inverted: only the literal "player" opts in.
+  **THE DIRECTION IS THE SAFER ONE, which is the argument even before anybody's preference comes into it.** A PLAYER-banked table DERIVES the banker's net as the exact inverse of everyone else's, so a host who never touched the control would have had one person's money worked out for them rather than counted. A casino-banked table derives nobody: every net stands on its own. Same argument `stakes` already makes for defaulting to real money.
+  **ONE THING THE FLIP WOULD HAVE BROKEN, caught before shipping it.** `minPlayers` was `bank === "player" ? 2 : 1`, correct for the two banks that existed when it was written and WRONG for poker's `table`: nobody banks there and two people are still needed to have a game, so with the default flipped a poker table would have been openable with a SINGLE SEAT on the default path. It is now `effBank === "casino" ? 1 : 2`, which states the real rule: only a table against a real house can legitimately have one player.
+  **AND POKER STOPS SHOWING A CONTROL THAT DOES NOTHING.** `poker.ts` pins `fixedBank: "table"` and ignores `bank` on the request entirely, but the shared setup screen rendered "Who is banking? / One of us / A casino" anyway and threw the answer away. `CasinoSetup` now takes an optional `fixedBank` and PokerPage passes `"table"`. Verified on the real built bundle over CDP: picker present and reading "A casino" on blackjack, roulette and craps; no banking card at all on poker. Five new tests, because this path had none.
 - [x] A VOTER CAN CHANGE THEIR NICKNAME, ALL NIGHT (2026-08-19). The crowd's name box rendered only while a voter had NO name, so the first thing anybody typed was permanent for the night: a typo, a phone handed to someone else, or a name picked before the joke landed were all stuck. **THE IDENTITY WAS NEVER THE PROBLEM AND THAT IS THE FINDING.** Predictions are keyed by `sid`, a per-device id in localStorage, and the nickname is one field on the entry beside the picks. Nothing anywhere keys on the name: the leaderboard rows key on `id`, the "(you)" marker compares `r.id===sid`, and the server merges under `:sid` with its lock enforcement intact. So renaming has never been able to move a row, split a score or orphan a pick. What was missing was the affordance, not the safety.
   **WHAT LANDED:** "Predicting as <name>" with an Edit name button once you have joined, opening the same input pre-filled, with Save, Cancel, Enter to save and Escape to abandon. The two rules that keep an editable label from becoming an identity live in `specname.ts` with twelve tests: `cleanSpecName` refuses a blank or whitespace-only name (a voter holding backspace would show as "Mystery fan" and, worse, look to THEMSELVES like somebody else, which is the confusion the sid exists to prevent) and the Save button is DISABLED rather than silently ignoring the tap; `renameInPreds` changes the name and carries the picks across by reference, so the optimistic local echo cannot drop a vote while appearing to touch only a string.
   **TWO SMALLER THINGS FIXED ON THE WAY.** The name draft was `useState(myName)`, an initial value only, so a voter whose name arrived later (the predictions poll adopts the name this device already had on the room, which is what makes a returning voter keep their identity) would open the editor on an empty box and their edit would look like a fresh join. And the rename now echoes onto the local board immediately instead of waiting up to 4s for the next poll.

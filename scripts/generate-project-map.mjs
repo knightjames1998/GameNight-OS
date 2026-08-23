@@ -13,50 +13,52 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-08-22, because the counter read 3. THE REDRAW WENT FIRST, before
-// this session's own work, which is what the counter is for: the partner-stats
-// and Home-block work that follows it is NOT in this drawing, and increments the
-// counter to 1 in its own commit. Same arrangement as 2026-08-17 and both 08-19
-// passes. This pass:
-//   - THE RECONCILE FOUND NO DRIFT, and that is worth writing down because it is
-//     the first pass that can say it. Every item in SHIPPED, NEXT UP, FEATURES and
-//     BUGS was checked against the repo: the three sessions since the last redraw
-//     (the nickname session, the cascade integrity session, the on-deck session)
-//     were all already written up, no bug entry was stale, and nothing left NEXT
-//     UP. So this pass is purely additive.
-//   - ZONE 1 TOOK TWO, both (NEW), 21 to 23. Crew and event deletion no longer
-//     destroying the ledger (2026-08-20), and both bracketed TVs showing what is
-//     NEXT rather than only what is READY (2026-08-21). Both are zone 1 rather
-//     than zone 2 for the heading they live under: one is the delete path in the
-//     shell's routes, the other is `bracketboard.ts` in packages/shared driving
-//     two TVs. The second tournament lost its (NEW) on schedule.
-//   - ZONE 2 TOOK ONE, (NEW), 27 to 28: a voter can change their nickname all
-//     night. It is a PACK item because it is Beerio's own crowd screen. The crowd
-//     bar and the two-host room sync both lost their (NEW), which is the whole job
-//     of that marker: one redraw's worth.
-//   - ZONE 5 IS UNCHANGED AT 16, and that is a finding rather than an oversight.
-//     Neither the cascade session nor the on-deck session logged a new bug or
-//     closed an open one, and no FIXED item was due to age out because the last
-//     pass already dropped the last three. Six OPEN, ten Watch, still no FIXED.
-//   - NO ROW MOVED, and this is the first pass in three to leave row 1 alone.
-//     MEASURED BY READING THE GENERATED FILE BACK: zone 1 ends at 1671 in a zone
-//     ending 2495, so 824px; zone 2 ends at 2225, so 270px. The standing test is
-//     100px of slack after the pass's items land and both clear it comfortably.
-//     THE ARITHMETIC THE LAST TWO PASSES USED SAYS SOMETHING DIFFERENT AND IS
-//     RECORDED HERE RATHER THAN QUIETLY DROPPED: NEXT UP's numbered three are all
-//     zone 2 packs, and 270px fits TWO of them at ~106 each, not three. That was
-//     the trigger to raise on 08-19 and on its second pass, when the numbers were
-//     138 and 114 and fitted one. At 270 the zone is neither over nor tight, and
-//     "raise a row when a zone is over; leave it when a zone is under" is the
-//     rule the protocol actually states. The next pass is the one that will need
-//     to raise it; it is not this one.
-//   - ZONES 3, 4 AND 6 ARE UNCHANGED. Nothing left NEXT UP, so the numbered three
-//     are still Poker's tournament format, Smash Tournament and Party games.
-//     ZONE 4 STILL CARRIES PARTNER STATS AND THE HOME BLOCK, deliberately: this
-//     session ships both AFTER this drawing, so drawing them as shipped would be
-//     drawing a state that does not exist yet. They move to zone 1 next redraw,
-//     along with the eight backlog entries this session adds below them.
-//   - Canvas 1560x3720, read off the generated file. Panorama camera 1600x3770.
+// Redrawn 2026-08-23, because the counter read 3. THE REDRAW WENT FIRST, before
+// this session's own work, which is what the counter is for: the night-flow work
+// that follows it (host check-in, the prefill chain, roster carry-over, guest
+// chips) is NOT in this drawing and increments the counter in its own commit.
+// Same arrangement as 2026-08-17, both 08-19 passes and 08-22. This pass:
+//   - THE RECONCILE FOUND DRIFT, and it is the first pass that can say so. The
+//     08-22 pass recorded "no drift" and was right on the day. TWO SHIPPED COMMITS
+//     LANDED AFTER IT and neither wrote itself up: a Crews hint line on Home
+//     (34d1486) and a casino becoming the default bank on every cash pack
+//     (a591dbd), both AFTER that session's own counter-to-3 BACKLOG commit. Both
+//     are in SHIPPED now. The lesson is about where a BACKLOG commit sits in a
+//     session: walk `git log` against the file at a redraw, not only the headings
+//     against the repo, because reading the file alone would have missed both.
+//   - ZONE 1 TOOK TWO, both (NEW), 23 to 25: partner stats plus the real Home
+//     stats block (the Crews hint line rides that item, since both are Home), and
+//     the event TV's stats board plus the five TV density ladders. Crew/event
+//     deletion and the two on-deck TVs lost their (NEW) on schedule.
+//   - ZONE 2 TOOK ONE, (NEW), 28 to 29: a casino is the default bank on every cash
+//     pack. A PACK item because it moves the shared casino setup screen and
+//     `casino-runtime.ts`, and takes poker's dead banking control off the screen
+//     with it. The nickname item lost its (NEW).
+//   - ZONE 4 GREW BY SIX, 11 to 17, the biggest single move in this pass. Partner
+//     stats and the Home block LEFT by shipping, and the EIGHT entries the 08-22
+//     pass said it was adding "below them" are drawn for the first time. The
+//     smack-talk item also dropped "TV stats", which shipped on 08-22.
+//   - ZONE 5 IS UNCHANGED AT 16 AND COMPLETELY DIFFERENT IN COLOUR: five OPEN TV
+//     overflows went FIXED in one session on 08-22, the most this file has ever
+//     closed in a pass. Two OPEN remain (the late write stealing the TV, Casino
+//     Run's back button), nine Watch traps, no new one logged.
+//   - ROW 1 GREW, 2400 -> 2650, AND THE LAST PASS CALLED IT. Zone 2 would have
+//     landed on 158px of slack at the old height after its one new item, MEASURED
+//     BY READING THE GENERATED FILE BACK, and NEXT UP's numbered three are all
+//     zone 2 packs at ~106px each: 158 fits one, not three. Same arithmetic that
+//     raised the row at 138px on 08-19 and 114px on its second pass, and the 08-22
+//     narrative wrote down that this pass would owe it. At 2650 zone 2 has 408px
+//     and zone 1 has 850. Row 2 moved 2520 -> 2770 by the same amount so the
+//     columns stay aligned; row 2's HEIGHT stayed at 1200, because neither zone in
+//     it is over: zone 4 needs 1018 of it at 17 items (182 spare) and zone 5 needs
+//     990 at 16 (210 spare).
+//   - ZONES 3 AND 6 ARE UNCHANGED. Nothing left NEXT UP, so the numbered three are
+//     still Poker's tournament format, Smash Tournament and Party games.
+//   - Canvas 1560x3970, read off the generated file. Panorama camera 1600x4020.
+//
+// The 2026-08-22 pass, kept short: zone 1 took two (NEW), 21 to 23; zone 2 took
+// one, 27 to 28; zone 5 unchanged at 16; NO ROW MOVED, the first pass in three to
+// leave row 1 alone, and it recorded that the next pass would have to raise it.
 //
 // The 2026-08-10 pass, kept short: zone 2 took Card Table and Social Deduction,
 // both (NEW); row 1 grew 1400 -> 1600; zone 3 shrank 7 items to 5; zone 5 took
@@ -93,11 +95,11 @@ const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
 // (row 1 860 -> 920).
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
-// each 480 wide, row 1 y=95 h=2400, row 2 y=2520 h=1200. Items 440x40, 46px
+// each 480 wide, row 1 y=95 h=2650, row 2 y=2770 h=1200. Items 440x40, 46px
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
-    x: 40, y: 95, h: 2400,
+    x: 40, y: 95, h: 2650,
     title: "SHIPPED — FOUNDATION", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Auth: 6-digit codes + links + passwords" },
@@ -121,12 +123,14 @@ const ZONES = [
       { t: "TOURNAMENT SETUP SCREEN: entrants off the CREW, not the yes list. Guests, a seeding shuffle, and a team entrant is ONE slot (doubles)", h: 88 },
       { t: "QUICK PLAY IS ONE ROUTE THAT MINTS CONTEXT AND STOPS: the second entrant screen deleted, /quick a redirect, a parity test pinning it", h: 88 },
       { t: "A SECOND TOURNAMENT ON THE SAME NIGHT: allowed once every bracket is completed, never two at once. The guard, and the three limit-1 reads that agreed with it", h: 106 },
-      { t: "CREW AND EVENT DELETION STOP DESTROYING THE LEDGER: one transaction each, and a hand-written cascade checked against the schema (NEW)", bg: "#c3fae8", h: 88 },
-      { t: "BOTH BRACKETED TVs SHOW WHAT IS NEXT, NOT ONLY WHAT IS READY: three deck classes, and an empty seat names its feeder (NEW)", bg: "#c3fae8", h: 88 },
+      { t: "CREW AND EVENT DELETION STOP DESTROYING THE LEDGER: one transaction each, and a hand-written cascade checked against the schema", h: 88 },
+      { t: "BOTH BRACKETED TVs SHOW WHAT IS NEXT, NOT ONLY WHAT IS READY: three deck classes, and an empty seat names its feeder", h: 88 },
+      { t: "PARTNER STATS + A REAL STATS BLOCK ON HOME: one self-join beside finishAggDeep, Home renders the payload it was throwing away, and Crews gets its hint line (NEW)", bg: "#c3fae8", h: 106 },
+      { t: "THE EVENT TV GETS STATS, AND FIVE TVs GET DENSITY LADDERS: Ping Pong, the title-night pair, Mario Kart, the bracket and Beerio's GP. KNOWN is empty (NEW)", bg: "#c3fae8", h: 106 },
     ],
   },
   {
-    x: 560, y: 95, h: 2400,
+    x: 560, y: 95, h: 2650,
     title: "SHIPPED — GAME PACKS", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Beerio Kart: full replica, predictions, TV" },
@@ -156,11 +160,12 @@ const ZONES = [
       { t: "POKER CASH GAME: the fourth pack on the cash engine, a THIRD bank type (no banker, the seats settle each other), and a table that has to add up", h: 88 },
       { t: "BEERIO CROWD BAR, READABLE FROM THE COUCH: the bar carries no text (17 of 32 palette colours clear 4.5:1), the split moves to the label row with swatches", h: 106 },
       { t: "TWO HOST DEVICES ON ONE BEERIO ROOM: the host page reads the room back instead of only writing it. A once-on-mount adopt made to repeat", h: 106 },
-      { t: "A VOTER CAN CHANGE THEIR NICKNAME, ALL NIGHT: the crowd name box stops being one-shot, and a rename cannot move a row (NEW)", bg: "#c3fae8", h: 88 },
+      { t: "A VOTER CAN CHANGE THEIR NICKNAME, ALL NIGHT: the crowd name box stops being one-shot, and a rename cannot move a row", h: 88 },
+      { t: "A CASINO IS THE DEFAULT BANK on every cash pack: the setup screen and the runtime fallback both moved, minPlayers stops reading bank type, and poker's dead picker goes (NEW)", bg: "#c3fae8", h: 106 },
     ],
   },
   {
-    x: 1080, y: 95, h: 2400,
+    x: 1080, y: 95, h: 2650,
     title: "NEXT UP (queued)", zoneBg: "#fff3bf", header: "#b45309", itemBg: "#ffd8a8",
     items: [
       { t: "1. POKER, THE TOURNAMENT FORMAT: blind levels are a wall clock shared across devices, which is a live-sync problem rather than a money one", sw: 2, h: 70 },
@@ -171,33 +176,39 @@ const ZONES = [
     ],
   },
   {
-    x: 40, y: 2520, h: 1200,
+    x: 40, y: 2770, h: 1200,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
-      { t: "PARTNER STATS: who you win most with (the primitive's missing payoff)", h: 52 },
+      { t: "SAME PLAYERS AS THE LAST GAME: prefill off the event's last session, not the yes list", h: 52 },
+      { t: "GUEST NAME MEMORY PER CREW: previously typed guests as tappable chips", h: 52 },
+      { t: "RSVP NUDGE: \"4 haven't answered\" plus a button (the payload already carries it)", h: 52 },
+      { t: "REPEAT OR DUPLICATE AN EVENT (no recurrence column today)", h: 52 },
+      { t: "LOCATION AND NOTES ON AN EVENT (neither column exists)", h: 52 },
+      { t: "FIX OR DELETE A COMPLETED RESULT: a question to answer before a screen", h: 52 },
+      { t: "CONNECTION STATE PILL: \"reconnecting\" on the scoring screens", h: 52 },
+      { t: "LOVERS (CUPID): two roles at once and a second win condition", h: 52 },
       { t: "Smash 2v2 team battles (the bracket's half of this shipped 08-18)", h: 52 },
       { t: "Co-op titles (Pandemic): one side, everybody on it, win together", h: 52 },
       { t: "Revisit the modifier wall's cut at three (the room exists now)", h: 52 },
-      { t: "Unified event TV + single active pack" },
-      { t: "Detailed personal stats block on Home" },
+      { t: "Single active pack + bounce everyone to the hub (TV half shipped)", h: 52 },
       { t: "Per-route dynamic link previews" },
       { t: "Mario Kart crew-wide racer table; MP minigame H2H", h: 52 },
-      { t: "Smack talk feed; TV stats + predictions ticker", h: 52 },
+      { t: "Smack talk feed; predictions ticker on the generic TV", h: 52 },
       { t: "Cross-pack night net (blackjack + poker on one night)", h: 52 },
       { t: "Seasons; round robin; availability polling", h: 52 },
     ],
   },
   {
-    x: 560, y: 2520, h: 1200,
+    x: 560, y: 2770, h: 1200,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
       { t: "OPEN: a late write to an ABANDONED session steals the TV off the game being played (touch-recency's cost)", h: 52 },
-      { t: "OPEN: Beerio's GRAND PRIX TV is 1206px over 1080p at twelve racers, and was never in the fit harness", h: 52 },
-      { t: "OPEN: the bracketed TV does not fit 1080p at SIXTEEN PAIRS. Measured: it is the alive board, not the cards", h: 52 },
-      { t: "OPEN: Mario Kart's TV does not fit 1080p past EIGHT racers, and was never in the fit harness", h: 52 },
       { t: "OPEN: Casino Run's TV has the same back-button blind spot the money board had", h: 52 },
-      { t: "OPEN: Ping Pong's TV does not fit 1080p past SIX players (pre-existing)", h: 52 },
-      { t: "OPEN: Board Game / Card Table TV is 156px over 1080p at TWELVE players", h: 52 },
+      { t: "FIXED 08-22: Ping Pong's TV past SIX players, and the back button with it", bg: "#b2f2bb", h: 52 },
+      { t: "FIXED 08-22: Board Game / Card Table at TWELVE, one ladder tuned to the taller", bg: "#b2f2bb", h: 52 },
+      { t: "FIXED 08-22: Mario Kart past EIGHT racers (the roster, never the karts)", bg: "#b2f2bb", h: 52 },
+      { t: "FIXED 08-22: the bracketed TV at SIXTEEN PAIRS (chip WIDTH, not slot count), and the four-fresh regression with it", bg: "#b2f2bb", h: 70 },
+      { t: "FIXED 08-22: Beerio's GRAND PRIX TV, which had never fitted at any count", bg: "#b2f2bb", h: 52 },
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
       { t: "Watch: countLastPlace IN list grows without bound", bg: "#fff3bf", h: 52 },
       { t: "Watch: ws hub broadcasts everything to everyone (no rooms)", bg: "#fff3bf", h: 52 },
@@ -210,7 +221,7 @@ const ZONES = [
     ],
   },
   {
-    x: 1080, y: 2520, h: 1200,
+    x: 1080, y: 2770, h: 1200,
     title: "IDEAS — NOT SOLIDIFIED", zoneBg: "#e5dbff", header: "#6d28d9", itemBg: "#d0bfff",
     items: [
       { t: "Draft night mode (snake drafts, TV board)" },
