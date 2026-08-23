@@ -13,7 +13,7 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-08-23 (the night flow session, before its own work)
-    Shipped sessions since that redraw: 0
+    Shipped sessions since that redraw: 1
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -66,11 +66,20 @@ anyone's memory of how many sessions have happened.
         many words that the NEXT pass would be the one that had to raise it.
       - 2026-08-23, this one. Below.
 
-    THE REDRAW WENT FIRST, before this session's own work, which is the arrangement every
-    pass since 2026-08-17 has used and the one the rule does not describe in a line. The
-    counter read 3 when this session started, so the reconcile and the drawing came before
-    any feature work; the drawing therefore does NOT contain this session's own work, and
-    the night-flow work that follows it counts itself.
+    THE REDRAW WENT FIRST AND THE SESSION THEN SHIPPED, which is the arrangement every pass
+    since 2026-08-17 has used and the one the rule does not describe in a line. The counter
+    read 3 when this session started, so the reconcile and the drawing came before any
+    feature work; the drawing therefore does NOT contain the night-flow work that landed
+    after it, and that work counted itself in its own final commit. (Phrased as what
+    HAPPENED rather than as what the counter currently reads: a sentence restating the
+    number goes stale the moment the number moves, which is the trap this block's own rule
+    was rewritten to close.)
+
+    WHAT THIS SESSION SHIPPED AFTER THE DRAWING, so the next redraw does not have to go
+    looking: host check-in (a correctness fix for flake stats, not only a convenience), the
+    prefill chain across all three launchers, and the two shared setup components on all
+    nine screens. Zone 4 loses "same players as the last game" and "guest name memory"; zone
+    1 gains one item. No schema change.
 
     What this pass changed beyond the counter:
       - THE RECONCILE FOUND DRIFT, AND IT IS THE FIRST PASS THAT CAN SAY SO. The 08-22 pass
@@ -226,6 +235,15 @@ regenerated file in the same commit as the reconcile. If the MCP canvas is unava
 session, regenerating the committed file alone still counts as the redraw.
 
 ## SHIPPED — FOUNDATION
+- [x] THE NIGHT FLOW PASS: HOST CHECK-IN, THE PREFILL CHAIN, ROSTER CARRY-OVER AND GUEST CHIPS (2026-08-23). Four items that share one moment, the host standing in the room about to start a game. No new pack, no new engine, no schema change.
+  **HOST CHECK-IN IS A CORRECTNESS FIX FOR FLAKE STATS, and that is a better reason for it than the prefill chain it also feeds.** `attendanceFor` in stats.ts counts a flake TWO ways: an answered check-in with `showed: false`, AND SILENCE after a yes on a past dated event once `FLAKE_GRACE_MS` has passed. `POST /events/:id/attendance` hardcoded `userId: req.user!.id`, so there was no way for anybody to record anybody else. Somebody who said yes, drove over, played all night and never opened the app has therefore been recorded as a flake, silently, and it has been accumulating on their profile. The route now takes an optional `userId`; with none it is byte-for-byte the route it always was.
+  **A HOST CAN CHECK SOMEBODY IN AND CAN CLEAR THEM BACK TO UNANSWERED. A HOST CANNOT MARK A NO-SHOW**, and that falls out of the same fact as the feature: silence ALREADY produces the flake, so `showed: false` from a host buys nothing that not checking somebody in does not already do, and it costs one person the ability to put a flake on another person's profile. Clearing DELETES the row, because unanswered is the absence of a row everywhere else in this app. The rule is a pure function in `attendance-rule.ts` with fifteen tests, because the authorization IS the feature here rather than plumbing, and the order inside it is asserted: a member aiming at somebody else is refused for WHO THEY ARE before anything looks at the target, so the endpoint cannot be used to ask whether an id belongs to a crew you are only a member of.
+  **THE CHAIN: LAST SESSION'S ROSTER ON THIS EVENT, THEN WHO SHOWED, THEN WHO SAID YES.** One helper called by all three launchers (`launchContext`, Beerio's context route, and the tournament, which gets `GET /events/:id/prefill` of its own rather than riding the event payload EventPage refetches on every RSVP). It is AUTOMATIC AND IT ALWAYS SAYS SO: `source`, `sourceLabel` and `rsvpSlots` ride with every context, so `RosterCarryOver` can print "Same players as Ping Pong" and offer the yes list back in one tap. Nine screens changing what they open with silently was never an acceptable shape.
+  **ONE RESOLVER, NOT TWO.** Which session ran last is the same question the event TV answers, so the chain calls `resolveNow` rather than ranking sessions itself. It calls it REPEATEDLY, dropping the winner each time, which turns the TV's one answer into the TV's ordering, so a session with no readable roster steps aside rather than ending the rung; and because `resolveNow` filters completed sessions by design, finished ones get a SECOND pass of the same rule, which is what makes "the pack you just finished" a source at all. The late-write-steals-the-TV limitation is inherited on purpose and stays OPEN in BUGS.
+  **FOURTEEN `rosterOf*` ADAPTERS, and a test that derives the requirement from the registry.** A duck-typed `state.roster` reader would have looked like it worked and returned empty for Smash (own table), brackets (entrants, and a team entrant is one slot holding two people) and Beerio, with nothing erroring. They live in ONE file rather than beside their `guestNames*` siblings because the chain is read inside `launchContext`, so a table importing the pack modules closes a cycle that every pack's top-level `const rt` would throw on rather than degrade.
+  **THE SECRECY HARNESS CAUGHT A REAL RISK AND THE FIX IS BETTER THAN THE FIRST DRAFT.** Social Deduction keeps dealt roles in a `game_sessions` row under a pack value no registry entry claims, and its safety rests on no generic reader selecting `state`. The prefill has to read across packs, so both of its reads restrict `pack` to a registry-DERIVED allowlist the secret store can never be in, and `deduction-secrecy.test.ts` gained a test that the allowlist is actually on both reads and actually derived. The exemption is a checked property rather than a hole.
+  **THE SIDES RESET WITH THE ROSTER on the three packs that carry them.** `assign` holds ROSTER INDICES, so a carry-over that replaced the roster while keeping an arrangement would leave every side pointing at whoever now sits at those indices; on the tournament the first side is the number 1 seed, so it would seed a draw out of people who were never arranged, look completely correct and have nothing to error about. Pinned by two new harness snapshots: three people placed onto two sides, the way back tapped, both sides read "nobody yet" afterwards.
+  **THE QUIET CASE IS BYTE-IDENTICAL, MEASURED RATHER THAN ASSERTED.** All 29 existing screen snapshots come back unchanged, including all eight tournament screens whose prefill moved from the client to the server between recordings: with a yes-list chain both components return null. Files: `apps/server/src/attendance-rule.ts`, `event-prefill.ts` and `roster-adapters.ts` (new), `events.ts`, `pack-runtime.ts`, `beerio-gn.ts`; `apps/web/src/RosterCarryOver.tsx` and `GuestChips.tsx` (new), `EventPage.tsx`, `api.ts`, `usePackSession.ts` and the nine setup screens. **The nine existing roster states were NOT refactored**, deliberately: that is SHOULD FIX 6 in DEFERRED and is not smuggled into a QOL session.
 - [x] HOME SAYS WHY A CREW IS WORTH HAVING (2026-08-22; WRITTEN UP 2026-08-23 BY THE RECONCILE THAT FOUND IT MISSING). "Recommended for accurate tracking per person.", five lines in `apps/web/src/pages/Home.tsx`. Crews was the one heading on Home with no hint line under it while Quick play directly below has had exactly that pattern since it shipped, so this is the counterpart to that line rather than a new kind of thing: quick play runs through a hidden personal crew, which is why its results are not attributed to the people who actually played, and a real crew is what gives each person their own record.
   **IT IS HERE BECAUSE THE RECONCILE FOUND IT, AND THAT IS THE FIRST DRIFT ANY PASS HAS FOUND.** The 2026-08-22 pass recorded "THE RECONCILE FOUND NO DRIFT" and was right on the day it was written. This commit and the casino default-bank one in SHIPPED — GAME PACKS both landed AFTER that session's own counter-to-3 BACKLOG commit, and neither wrote itself up, so two shipped changes existed in the repo and nowhere in this file. **THE LESSON IS ABOUT WHERE THE BACKLOG COMMIT SITS IN A SESSION**, not about either change: a session that keeps shipping after its BACKLOG commit still owes an entry, and the only thing that catches it is the next reconcile walking the log rather than trusting the file. Walk `git log` against this file at every redraw, not just the headings against the repo.
 - [x] PARTNER STATS, AND A REAL STATS BLOCK ON HOME (2026-08-22). Two read-only surfaces over data the ledger already held, and the session that shipped them ALSO SHIPPED TWO THINGS WRONG AND CORRECTED BOTH THE SAME DAY, which is most of what is worth reading here.
@@ -436,8 +454,11 @@ Wanted, not yet scheduled into a session.
 - [x] CLOSED AS A FINDING, NOT A GAP: **CARD TABLE AND BOARD GAME NEED NOTHING FROM THE ROLE-CATALOGUE PASS** (checked 2026-08-10 rather than assumed). The asymmetry that pass existed to fix (an OPEN title space against a CLOSED per-title list that reaches the ledger) does not exist in the title-night packs. Their only per-title data is Card Table's PARTNERSHIP DEFAULTS, which are Euchre and Spades opening at 2 sides, and that is a DEFAULT the host overrides in one tap, with a free-typed title simply getting none. Board Game has no per-title data at all, closed as its own finding on 2026-08-09. Neither has a closed list that reaches `matches.label` or `meta`, so neither can write a false record the way a missing role could. **PER-TITLE EXTRAS STAY OUT** (Hearts' moon shot, Euchre loners, a cribbage skunk). If they are ever wanted, the pattern is the partnership default: a hint, never required, and never a closed list that reaches the record.
 - [x] SHIPPED 2026-08-17: **TOURNAMENT ENTRANTS ARE NO LONGER LOCKED TO YES-RSVP.** The gap was never the engine: `BracketEntrant` already held members and guests and `guest-link.ts` already credited bracket guests. It was that the tournament had NO ROSTER SCREEN AT ALL, so `startBracket` POSTed `{ format }` and the server built the entrants out of the yes list. **WHAT LANDED:** a new route `/tournament?event=<id>&format=<f>`, matching every pack's address shape, holding the roster block Board Game and Card Table have had since they shipped: prefill from the yes RSVPs in answer order, add any crew member, a guest box, remove, and a shuffle on the seeding. The crew list is `rsvps` plus `noResponse` off the EXISTING event payload, whose union is the membership, so no tournament-context endpoint was needed and none was added. The picker tile navigates there and the screen creates the bracket, then REPLACES into `/b/:id`. **THE SILENT FAILURE THE ENTRY NAMED IS CLOSED AT THE SERVER, not just avoided in the UI:** `normalizeEntrants` verifies every member id against the crew and REJECTS an unknown one rather than downgrading it to a guest, because a downgrade means somebody plays a whole tournament, places, and their record never hears about it, with nothing to error about. It also rejects a duplicate member instead of deduping (the screen cannot produce one, so a repeat means the body did not come from the screen), trims guest names to 24, and caps a bracket at 2 to 32 entrants, which the endpoint had no cap for at all before. `GET /api/events/:id` now orders its rsvps by `respondedAt`, which "first in, top seed" had been quietly assuming and Postgres was under no obligation to provide. The `< 2 yes RSVPs` 400 is now `< 2 entrants`, and the format tiles no longer print a yes-count. A request with NO `entrants` key still falls back to the yes list: not a supported path, insurance for an installed PWA running a cached bundle on a game night.
 - [x] CLOSED AS A FINDING, NOT A GAP: **BOARD GAME GETS NO PARTNERSHIP DEFAULTS AT ALL** (James, 2026-08-09). This was open as "title-driven defaults on Board Game", with the work described as "the judgement about which of its thirteen curated titles have a partnership default, which may honestly be none of them". The judgement was made and the answer is NONE OF THEM: not one of Catan, Ticket to Ride, Wingspan, Carcassonne, Azul, Monopoly, Risk, Scrabble, Clue, Pandemic, 7 Wonders, Splendor or Dominion is a partnership game by default. **THAT IS A RESULT RATHER THAN AN OMISSION, and it is written here so nobody reopens it as unfinished work.** The capability is present and costs the pack nothing: `TitleNightConfig.partnerships` is optional, Board Game declares no table, every title resolves to free-for-all, and the auto-apply guard makes every call a no-op including the sideSets log. There is a test named for exactly this (`Board Game declares no partnerships, so nothing about it moves`), so the day somebody adds a partnership title to that list they will find out whether they meant to. The moment to revisit is a NEW title, not a rethink of the thirteen. (Pandemic is the one title in the list with a shape the app models wrongly, and that is the co-op item below, which is a different question: it is one side, not two.)
-- [ ] SAME PLAYERS AS THE LAST GAME. On a night that runs three packs the host builds the same roster three times, by hand, from the same list. The event already knows which sessions ran on it, so the setup screen can offer the PREVIOUS session's roster on this event, guests included, as one tap: "same players as Ping Pong" beside the prefill that is already there. Cheap, because every pack's roster block already takes a prefill and every session already carries its roster; what is new is reading the last one off the event rather than off the RSVPs. **AND ONE ADJACENT IDEA, FOUND WHILE SCOPING THIS AND WORTH MORE THAN THE FEATURE ITSELF:** rosters prefill from the yes-RSVP list, while `event_attendance` separately records who actually SHOWED. So once a night has started the app knows better than the RSVPs do, and the prefill could fall back down that chain instead: last session's roster, then who showed, then who said yes. The RSVP list is the weakest of the three and it is the only one used today.
-- [ ] GUEST NAME MEMORY PER CREW. Typed guests are per session and nothing remembers them, so "Mike" and "mike" and "Mike D" are three people to the app and one person to the crew, and the guest-link backfill becomes a hunt through spellings that should have been one chip. Suggest previously typed guest names ON THIS CREW as tappable chips beside the guest box, newest first. It needs no schema change (the names are already in the ledger on past matches) and no new concept: it is the recent-titles pattern Board Game and Card Table already use for game names, pointed at guests instead. **IT MAKES AN EXISTING FEATURE MATERIALLY BETTER RATHER THAN ADDING ONE**, which is the argument for it: guest linking already works, and this is what stops it having to.
+- [x] SHIPPED 2026-08-23: **SAME PLAYERS AS THE LAST GAME**, and the adjacent idea in the original entry turned out to be the better half of it, exactly as that entry guessed. The chain shipped as written: last session's roster on this event, then who showed, then who said yes.
+  **THIS ENTRY WAS WRONG IN ONE PLACE AND IT IS AMENDED HERE RATHER THAN LEFT TO READ AS WRITTEN**, which is the practice the 08-22 session established. It said "every pack's roster block already takes a prefill", which is TRUE and reads as if there were one block. THERE ARE NINE, in nine files covering fourteen packs, near-identical and NOT identical: Mario Party slices its prefill to 4, TitleNight to its `cap`, Deduction to `SD_MAX_PLAYERS`, and Ping Pong, Smash and Mario Kart do not slice at all. Those differences are the CAPS, and they stayed exactly where they were: the two new shared components hand slots over and each page applies its own cap. "Cheap" was right about the server and wrong about the client, where the work was nine wirings and the three side-carrying packs needed their arrangements reset with the roster.
+  **AND THE ATTENDANCE RUNG WAS NOT USABLE UNTIL A HOST COULD WRITE IT.** The entry noted that `event_attendance` "knows better than the RSVPs do" once a night has started. It only knew about people who opened the app: the route hardcoded the caller's own id, so the rung it proposed would have been thin on exactly the nights it was for. Host check-in shipped alongside it and is written up in SHIPPED - FOUNDATION as the larger of the two.
+- [x] SHIPPED 2026-08-23: **GUEST NAME MEMORY PER CREW.** `GuestChips` beside the guest box on all nine setup screens: previously typed guest names on this crew, newest first, capped at 12, de-duplicated case-insensitively with the MOST RECENT spelling shown because that is the one the host last chose. A name already on the roster is not offered, also case-insensitively, since offering "+ Mike" to a table that already has "mike" is how the feature built to stop duplicates would make one.
+  **ONE THING IN THIS ENTRY DID NOT SURVIVE CONTACT AND IS CORRECTED HERE:** it said the names "are already in the ledger on past matches". They are in the SESSION jsonb, not the ledger, because a guest is never written to `match_participants` (that is the whole reason guest linking exists). So the read goes through the new `rosterOf*` adapters over the crew's recent sessions rather than through anything in matches. It is read through those rather than through the existing `guestNames*` adapters for a second reason: `guestNames*` returns an unordered Set with no timestamps, so "newest first" could not have come out of it without widening a function that is load-bearing for the backfill.
 - [ ] CONNECTION STATE PILL: "reconnecting" on the scoring screens. **VERIFIED BY READING THE FILE RATHER THAN ASSUMED:** `apps/web/src/useLiveUpdates.ts` reconnects on close with `retry = setTimeout(connect, 3000)` and the hook RETURNS NOTHING. There is no status to render, so no screen in this app is able to say whether it is connected, which means a host on bad wifi taps confirm and has no way to tell whether it landed. The fix is small in the hook (return a status alongside what it already does) and shared in the UI (one pill, on the scoring screens). **SCOPED SMALL BUT NOT A RIDE-ALONG:** it touches every pack page's shell, which is the same shape as every other "one line in nine places" change in this file, so it wants its own session rather than being bolted onto a pack change.
 - [ ] REPEAT OR DUPLICATE AN EVENT. `events` has no recurrence column and there is no duplicate action, so a weekly game night is retyped every week. **THE CHEAPEST USEFUL VERSION IS NOT A RECURRENCE ENGINE**, and that is the whole point of writing it down this way: "duplicate this event, next week, same time" is one button, one POST and no schema change, and it covers the weekly-night case that motivated it. A real recurrence model (rules, exceptions, "every other Thursday", editing one instance of a series) is a much larger feature that should have to justify itself separately, against a crew that has actually outgrown the button.
 - [ ] LOCATION AND NOTES ON AN EVENT. **NEITHER COLUMN EXISTS TODAY, verified against `packages/db/src/schema.ts`:** `events` carries id, groupId, title, scheduledFor, status, createdBy and the two Beerio room fields, and nothing about where the night is or what to bring. Two nullable text columns plus two fields on the event form and two lines on the event page. **THIS IS A SCHEMA CHANGE, so it ships with explicit idempotent Neon SQL** (`ALTER TABLE events ADD COLUMN IF NOT EXISTS location text;` and the same for `notes`) called out in that session's closeout and run against the database, rather than left to `drizzle-kit push --force`, which silently no-ops in non-interactive CI and is already a Watch trap in BUGS. Gates the geotagged-arrival idea under IDEAS, which needs somewhere to put a venue.
@@ -544,7 +565,12 @@ Not committed, no design decided.
 - Completed sessions materialize into matches/match_participants. Guests are skipped until linked to a member.
 - Live sync on every write (WebSocket hub, or the mode's own polling). Nobody should ever need to refresh.
 - Standalone playable without a crew or event where it makes sense: typed names, no stats.
-- Prefill rosters from the event's yes-RSVP list, and never clobber a session already in progress.
+- Prefill rosters from the PREFILL CHAIN, and never clobber a session already in progress. The
+  chain is last session's roster on this event, then who showed, then who said yes (2026-08-23,
+  replacing "from the event's yes-RSVP list", which is now only its bottom rung). One helper,
+  `eventPrefill`, answers for every launcher; a screen must SAY which rung it opened on, and must
+  offer the yes list back. A new setup screen wires `RosterCarryOver` and `GuestChips` and keeps
+  applying its own cap.
 - SINGLE INSTANCE ONLY on any deployment (numInstances: 1 in render.yaml). The WebSocket hub lives in this process's memory, so a second instance would split the room: phones on instance A would never see updates from instance B, which breaks the live-sync rule above. Keep it at 1 until the hub moves to a shared backend (Redis pub/sub or similar). Rescued here 2026-07-27 when GAMEPLAN.md was deleted; it had been stated as a standing rule only there and in a render.yaml comment.
 - Any pack with character selection has a "Which game?" title selector on its front page. The chosen title scopes the character picker AND the random pool to that title's roster (never assign a character that isn't in the game being played). Titles are subsets/variants of the series; stats stay unified across titles by character name. New character packs follow this: define the series' titles as GameTitle[] in the pack's shared module, thread titleId through the session state, and scope the picker + random with rosterForTitle().
 
@@ -569,6 +595,16 @@ Most of what a pack needs is now derived from ONE registry entry. This lists wha
    to split the chunk, so this cannot be looped. Add the chunk to `prefetch.ts` too — that one IS
    type-checked, so forgetting it fails the build rather than silently slowing a tap.
 6. **Guest linking:** export `guestNames*` / `creditGuest*` and register them in `guest-link.ts`.
+   **AND A `rosterOf*` ADAPTER in `apps/server/src/roster-adapters.ts`, in the same commit.** It is
+   one line, `(s) => slots((s as YourState).roster)`, typed against the pack's own state so a
+   renamed field fails to compile. THIS IS A STEP BECAUSE A PACK THAT FORGETS IT FAILS SILENTLY:
+   the roster carry-over would skip that pack, the prefill chain would quietly fall to the rung
+   below, and nothing anywhere would error, which is the failure family this checklist exists for.
+   `event-prefill.test.ts` derives the requirement from `SESSION_PACK_KEYS`, so a missing adapter
+   is a red gate rather than a screen that just never offers "same players as" your pack.
+   The adapters are NOT beside their `guestNames*` siblings, deliberately: see DECISION LOG. They
+   are in one file because the table is read inside `launchContext`, and importing the pack modules
+   from there would close an import cycle that a top-level `const rt` throws on.
 7. **Safe area:** nothing to do for the pack PAGE (index.css insets every shell structurally), but
    a TV screen that sets its own `padding` must fold `env(safe-area-inset-*)` into its own
    `calc()`, because a class rule beats the zero-specificity shell inset. Casino packs get this
@@ -741,6 +777,67 @@ their own number. Only overridden seats are sent (`buyIns`, keyed by roster inde
 **Deferred, do not build:** cross-pack night net. See FEATURES TO ADD.
 
 ## DECISION LOG
+
+**THE PREFILL CHAIN IS AUTOMATIC, AND IT ALWAYS SAYS WHERE THE ROSTER CAME FROM** (2026-08-23,
+James: both, not either). The chain is last session's roster on this event, then who showed,
+then who said yes, and each rung is used only when the one above yields nobody.
+
+BOTH HALVES SHIPPED because either alone is the wrong feature. A button-only version means the
+host still builds the roster by hand on the common night and taps a second thing on the good
+one. An automatic-only version changes what NINE screens open with, silently, and hands a host
+a roster they did not build and cannot explain, which is a support question rather than a nice
+surprise. So the line of copy is part of the feature: "Same players as Ping Pong" or "Everyone
+who showed up", with the way back to the yes list beside it.
+
+IT STOPS TALKING WHEN IT WOULD BE LYING, which is one rule covering two cases: the source is
+already the yes list (what every screen did before this, needing no announcement), or the host
+has tapped the way back and the roster IS the yes list again. Both render nothing.
+
+**A HOST CAN CHECK SOMEBODY IN. A HOST CANNOT MARK A NO-SHOW** (2026-08-23). The asymmetry is
+not politeness, it is arithmetic. `attendanceFor` in stats.ts counts a flake TWO ways: an
+answered check-in with `showed: false`, and SILENCE after a yes on a past dated event once the
+grace window passes. So NOT checking somebody in already produces exactly the record a no-show
+button would write. `showed: false` from a host buys nothing and costs a social problem: one
+person able to put a flake on another person's profile, in an app whose whole point is that the
+crew reads each other's records.
+
+Both host powers are RECOVERABLE, which is the test the design was held to: check in, and clear
+back to unanswered. Clearing is a DELETE, not a third state, because unanswered is the absence
+of a row everywhere else in this app and stats.ts already reads it that way. Marking YOURSELF
+keeps both answers exactly as it has since `event_attendance` shipped, because a person saying
+they did not make it is not the same act as somebody else saying it about them.
+
+**`rosterOf*` IS A SIBLING OF `guestNames*`, NOT A WIDENING OF IT** (2026-08-23). The carry-over
+needs a pack's roster off one event; `guestNames*` returns distinct guest NAMES across a whole
+crew, as an unordered Set. Widening it would have moved the contract of the thing the guest-link
+backfill runs on, for a QOL feature, and would still not have answered "newest first" without a
+timestamp it does not carry. A sibling table costs one line per pack and leaves the backfill's
+contract alone.
+
+THEY LIVE IN ONE FILE RATHER THAN BESIDE EACH `guestNames*`, and that is the one place this
+session deviated from its own brief. The chain is read inside `launchContext` in pack-runtime.ts,
+so a table importing the pack modules closes a cycle: pack-runtime -> event-prefill ->
+pingpong.ts -> pack-runtime. Every pack module builds its runtime with a top-level `const`, which
+is exactly the shape that THROWS on a cycle rather than degrading, so this would have been a boot
+crash rather than a slow file. Every state type the adapters need is exported from
+@gamenight/shared, which is a leaf, so the table sits in `roster-adapters.ts` with no cycle and no
+runtime import of any pack. The obligation on a new pack is unchanged and is now step 6 of ADDING
+A PACK, with a test that derives it from `SESSION_PACK_KEYS`.
+
+**THE CARRY-OVER REUSES `resolveNow` RATHER THAN RANKING SESSIONS ITSELF** (2026-08-23). "What
+ran last on this night" is the question the event TV already answers, and TWO RULES THAT CAN
+DISAGREE ABOUT WHAT IS HAPPENING ON A NIGHT IS A WORSE BUG THAN EITHER RULE BEING WRONG: the
+screen would name one pack and the TV would show another, with both correct by their own lights.
+
+Two things had to be built around it rather than into it. `resolveNow` returns ONE answer, so the
+chain calls it repeatedly, dropping the winner each time, which turns the one answer into that
+same rule's ORDERING and lets a session with no readable roster step aside instead of ending the
+rung. And it filters completed sessions out by design, which is right for a TV and wrong for a
+carry-over, so finished sessions get a SECOND pass of the same function afterwards. That second
+pass is what makes the pack a crew just finished a source at all, which is the common case.
+
+The known limitation comes with it and is logged OPEN in BUGS: a late write to an abandoned
+session wins on touch recency. Acceptable here, and strictly better than the RSVP list.
 
 **`side` MEANS THREE DIFFERENT THINGS IN THE LEDGER, AND ONLY ONE OF THEM IS "WHO YOU WIN
 WITH"** (2026-08-22, correcting partner stats shipped the same day). This is the most
