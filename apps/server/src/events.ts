@@ -15,12 +15,14 @@ import {
   matchParticipants,
   and,
   eq,
+  inArray,
   desc,
 } from "@gamenight/db";
 import { PACK_BY_LEDGER, isSeriesSummary } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { deleteEventCascade } from "./cascade.js";
 import { broadcast } from "./ws.js";
+import { decideAttendance, isRefusal } from "./attendance-rule.js";
 
 // Schedule module. Events belong to a group; RSVPs belong to an event.
 // Every route verifies group membership before touching anything.
@@ -274,11 +276,13 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
       .where(and(eq(memberships.groupId, found.groupId), eq(memberships.userId, userId)))
       .limit(1),
 
+    // EVERY attendance row on the night, not only the caller's. The host
+    // check-in control needs to show who is already checked in, and `myStatus`
+    // is now derived from this list rather than costing a second read.
     db
-      .select({ showed: eventAttendance.showed })
+      .select({ userId: eventAttendance.userId, showed: eventAttendance.showed })
       .from(eventAttendance)
-      .where(and(eq(eventAttendance.eventId, found.id), eq(eventAttendance.userId, userId)))
-      .limit(1),
+      .where(eq(eventAttendance.eventId, found.id)),
 
     // groupName + inviteCode ride along so the event page can build a share
     // link (through the existing invite/join flow) without a second request.
@@ -327,7 +331,7 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
     if (running !== haveRunning ? running : newer(row, bracket)) bracket = row;
   }
   const myRole = myRoleRows[0]?.role;
-  const attendance = attendanceRows[0];
+  const attendance = attendanceRows.find((a) => a.userId === userId);
   const group = groupRows[0];
 
   // Only what is still going: a completed session is history, and the picker
@@ -359,6 +363,8 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
     noResponse: members.filter((m) => !answered.has(m.userId)),
     myStatus: responses.find((r) => r.userId === userId)?.status ?? null,
     myAttendance: attendance ? attendance.showed : null,
+    // Checked in by anybody, including by a host on somebody else's behalf.
+    attendance: attendanceRows,
   };
 }
 
@@ -634,9 +640,14 @@ eventsRouter.post("/events/:id/rsvp", async (req: AuthedRequest, res) => {
 });
 
 /**
- * Record whether I actually showed up. Separate from RSVP intent so flake
- * tracking can compare the two. Locked until the event's date arrives,
- * you can't confirm arrival at something that hasn't started.
+ * Record whether somebody actually showed up. Separate from RSVP intent so flake
+ * tracking can compare the two. Locked until the event's date arrives, you can't
+ * confirm arrival at something that hasn't started.
+ *
+ * WITH NO `userId` IN THE BODY THIS IS BYTE-FOR-BYTE THE ROUTE IT HAS ALWAYS
+ * BEEN: any member marking themselves, both answers, no role required. `userId`
+ * is the host check-in, and every rule about it lives in `decideAttendance` so
+ * it can be read and tested in one place. `showed: null` clears the row.
  */
 eventsRouter.post("/events/:id/attendance", async (req: AuthedRequest, res) => {
   const found = await loadEventForMember(String(req.params.id), req.user!.id);
@@ -645,34 +656,73 @@ eventsRouter.post("/events/:id/attendance", async (req: AuthedRequest, res) => {
     return;
   }
 
-  if (typeof req.body?.showed !== "boolean") {
-    res.status(400).json({ error: "showed must be true or false" });
+  const callerId = req.user!.id;
+  const rawTarget = req.body?.userId;
+  const targetId = rawTarget == null ? callerId : String(rawTarget);
+  // ONE ROUND TRIP FOR BOTH ROLES, and only one row's worth of work when the
+  // caller is marking themselves, which is the ordinary path.
+  const roleRows = await getDb()
+    .select({ userId: memberships.userId, role: memberships.role })
+    .from(memberships)
+    .where(
+      and(
+        eq(memberships.groupId, found.groupId),
+        inArray(memberships.userId, targetId === callerId ? [callerId] : [callerId, targetId]),
+      ),
+    );
+  const roleFor = (id: string) => roleRows.find((r) => r.userId === id)?.role;
+
+  const decision = decideAttendance({
+    callerId,
+    targetId: rawTarget == null ? null : targetId,
+    showed: req.body?.showed,
+    role: roleFor(callerId),
+    targetRole: roleFor(targetId),
+  });
+  if (isRefusal(decision)) {
+    res.status(decision.status).json({ error: decision.error });
     return;
   }
+
+  // The date gate is unchanged, and it applies to a host's tap exactly as it
+  // applies to your own: nobody checks anybody in to a night that has not begun.
   if (!found.scheduledFor || found.scheduledFor.getTime() > Date.now()) {
     res.status(400).json({ error: "Attendance opens once the event starts" });
     return;
   }
 
-  await getDb()
-    .insert(eventAttendance)
-    .values({
-      groupId: found.groupId,
-      eventId: found.id,
-      userId: req.user!.id,
-      showed: req.body.showed,
-      markedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: [eventAttendance.eventId, eventAttendance.userId],
-      set: { showed: req.body.showed, markedAt: new Date() },
-    });
+  if (decision.kind === "clear") {
+    // A DELETE rather than a third column value: unanswered is the absence of a
+    // row everywhere else in this app, and stats.ts already reads it that way.
+    await getDb()
+      .delete(eventAttendance)
+      .where(
+        and(
+          eq(eventAttendance.eventId, found.id),
+          eq(eventAttendance.userId, decision.userId),
+        ),
+      );
+  } else {
+    await getDb()
+      .insert(eventAttendance)
+      .values({
+        groupId: found.groupId,
+        eventId: found.id,
+        userId: decision.userId,
+        showed: decision.showed,
+        markedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [eventAttendance.eventId, eventAttendance.userId],
+        set: { showed: decision.showed, markedAt: new Date() },
+      });
+  }
 
   broadcast(
     { type: "event_updated", eventId: found.id, groupId: found.groupId },
     req.get("x-gn-client"),
   );
-  res.json(await eventDetail(found, req.user!.id));
+  res.json(await eventDetail(found, callerId));
 });
 
 // ---------- Helpers ----------
