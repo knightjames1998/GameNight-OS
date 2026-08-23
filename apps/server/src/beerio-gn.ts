@@ -11,7 +11,6 @@ import {
   matches,
   matchParticipants,
   memberships,
-  rsvps,
   users,
   and,
   eq,
@@ -20,6 +19,8 @@ import {
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { insertParticipants } from "./participants.js";
 import { broadcast } from "./ws.js";
+import { eventPrefill } from "./event-prefill.js";
+import { BEERIO_LEDGER } from "@gamenight/shared";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
 export const beerioGnRouter = Router();
@@ -99,17 +100,22 @@ beerioGnRouter.get("/beerio-context/:eventId", requireAuth, async (req: AuthedRe
     res.status(404).json({ error: "Event not found" });
     return;
   }
-  const yes = await db
-    .select({ displayName: users.displayName })
-    .from(rsvps)
-    .innerJoin(users, eq(rsvps.userId, users.id))
-    .where(and(eq(rsvps.eventId, event.id), eq(rsvps.status, "yes")))
-    .orderBy(rsvps.respondedAt);
-
-  const role = await roleOf(event.groupId, req.user!.id);
+  // THE SAME CHAIN AS EVERY OTHER LAUNCHER, taking NAMES ONLY. Beerio's roster
+  // is typed into the vendored app, which has no idea what a userId is, so this
+  // is the one launcher that gets less out of the chain than the others: the
+  // people are right, the crediting still happens later off the standings
+  // snapshot exactly as it did. Nothing here invents an id it cannot use.
+  const [prefill, role] = await Promise.all([
+    eventPrefill(event, { excludeLedger: BEERIO_LEDGER }),
+    roleOf(event.groupId, req.user!.id),
+  ]);
   res.json({
     groupId: event.groupId,
-    prefill: yes.map((r) => r.displayName),
+    prefill: prefill.slots.map((s) => s.name),
+    prefillSource: prefill.source,
+    prefillLabel: prefill.sourceLabel,
+    rsvpPrefill: prefill.rsvpSlots.map((s) => s.name),
+    recentGuests: prefill.recentGuests,
     sessionCode: event.beerioCode,
     canHost: role === "owner" || role === "admin",
   });

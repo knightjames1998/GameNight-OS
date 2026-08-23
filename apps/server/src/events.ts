@@ -18,11 +18,12 @@ import {
   inArray,
   desc,
 } from "@gamenight/db";
-import { PACK_BY_LEDGER, isSeriesSummary } from "@gamenight/shared";
+import { PACK_BY_LEDGER, GENERIC_LEDGER, isSeriesSummary } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { deleteEventCascade } from "./cascade.js";
 import { broadcast } from "./ws.js";
 import { decideAttendance, isRefusal } from "./attendance-rule.js";
+import { eventPrefill } from "./event-prefill.js";
 
 // Schedule module. Events belong to a group; RSVPs belong to an event.
 // Every route verifies group membership before touching anything.
@@ -723,6 +724,23 @@ eventsRouter.post("/events/:id/attendance", async (req: AuthedRequest, res) => {
     req.get("x-gn-client"),
   );
   res.json(await eventDetail(found, callerId));
+});
+
+/**
+ * THE TOURNAMENT'S LAUNCHER, and the third of the three that had its own prefill
+ * expression. The bracket setup screen took the yes list off the event payload
+ * on the client, which made it the one launcher whose prefill lived in a
+ * different language from the other two. It now asks the same helper the pack
+ * runtimes ask, on its own route rather than on the event payload, because
+ * EventPage fetches that payload on every RSVP and has no use for any of this.
+ */
+eventsRouter.get("/events/:id/prefill", async (req: AuthedRequest, res) => {
+  const found = await loadEventForMember(String(req.params.id), req.user!.id);
+  if (!found) {
+    res.status(404).json({ error: "Event not found" });
+    return;
+  }
+  res.json(await eventPrefill(found, { excludeLedger: GENERIC_LEDGER }));
 });
 
 // ---------- Helpers ----------

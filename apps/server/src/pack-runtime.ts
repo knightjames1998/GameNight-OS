@@ -46,7 +46,6 @@ import {
   matches,
   matchParticipants,
   memberships,
-  rsvps,
   smashSessions,
   users,
   and,
@@ -54,6 +53,7 @@ import {
 } from "@gamenight/db";
 import { SESSION_PACKS, type PackWsType, type SessionPackKey } from "@gamenight/shared";
 import { insertParticipants } from "./participants.js";
+import { eventPrefill, type PrefillSlot, type PrefillSource } from "./event-prefill.js";
 import { broadcast } from "./ws.js";
 
 type Db = ReturnType<typeof getDb>;
@@ -291,9 +291,23 @@ export interface LaunchContext {
   groupId: string;
   canHost: boolean;
   viewerId: string;
-  prefill: { userId: string; name: string }[];
+  /**
+   * What the roster opens with. NO LONGER ALWAYS THE YES LIST: it is the top
+   * rung of the prefill chain that yielded anybody (last session's roster, then
+   * who showed, then who said yes), so a slot can be a GUEST carried over from
+   * the last game, which is why userId is nullable now.
+   */
+  prefill: PrefillSlot[];
   members: { userId: string; name: string }[];
   live: boolean;
+  /** Which rung answered, so the screen can say so. Never silent. */
+  prefillSource: PrefillSource;
+  /** The pack's display name when the source is a session, else "". */
+  prefillLabel: string;
+  /** The yes list, always, so the screen can offer it back in one tap. */
+  rsvpPrefill: PrefillSlot[];
+  /** Guest names typed on this crew before, newest first. */
+  recentGuests: string[];
 }
 
 export interface MaterializeArgs {
@@ -549,14 +563,15 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
     const event = (await db.select().from(events).where(eq(events.id, eventId)).limit(1))[0];
     if (!event) return null;
 
-    const [role, yes, members, existing] = await Promise.all([
+    // The yes-RSVP read that used to be here moved INSIDE eventPrefill, which
+    // needs it for the bottom rung anyway and hands it back as `rsvpSlots`, so
+    // this is the same number of round trips with the chain added rather than
+    // one more.
+    const [role, prefill, members, existing] = await Promise.all([
       roleOf(event.groupId, userId),
-      db
-        .select({ userId: rsvps.userId, displayName: users.displayName })
-        .from(rsvps)
-        .innerJoin(users, eq(rsvps.userId, users.id))
-        .where(and(eq(rsvps.eventId, event.id), eq(rsvps.status, "yes")))
-        .orderBy(rsvps.respondedAt),
+      // EXCLUDING THIS PACK. A Ping Pong setup screen must not offer "same
+      // players as Ping Pong" off the session it is about to replace.
+      eventPrefill(event, { excludeLedger: pack }),
       db
         .select({ userId: memberships.userId, displayName: users.displayName })
         .from(memberships)
@@ -570,9 +585,13 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
       groupId: event.groupId,
       canHost: isHostRole(role),
       viewerId: userId,
-      prefill: yes.map((r) => ({ userId: r.userId, name: r.displayName })),
+      prefill: prefill.slots,
       members: members.map((m) => ({ userId: m.userId, name: m.displayName })),
       live: !!existing && existing.row.status !== "completed",
+      prefillSource: prefill.source,
+      prefillLabel: prefill.sourceLabel,
+      rsvpPrefill: prefill.rsvpSlots,
+      recentGuests: prefill.recentGuests,
     };
   }
 

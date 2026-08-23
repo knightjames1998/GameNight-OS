@@ -521,13 +521,23 @@ test("NO GENERIC READER OF game_sessions SELECTS THE state COLUMN", () => {
   const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), "../src");
 
   /**
-   * The two files allowed to read `state`, both of which key by PACK as well as
-   * by event, so neither can reach a row belonging to something else:
+   * The files allowed to read `state`, ALL OF WHICH KEY BY PACK as well as by
+   * event or group, so none can reach a row belonging to something else:
    *   - pack-runtime.ts, which is how every pack loads its own session,
-   *   - deduction-secret.ts, which is the secret store itself.
+   *   - deduction-secret.ts, which is the secret store itself,
+   *   - event-prefill.ts, which reads across packs to answer "which session ran
+   *     last on this night" and therefore CANNOT name one pack, so it restricts
+   *     to a registry-derived allowlist instead. The secret store's pack value
+   *     is claimed by no registry entry, so it can never be in that list. The
+   *     test below is what makes that a checked property rather than a promise:
+   *     an exemption on this list has to earn itself.
    * Any OTHER file reading game_sessions is reading across packs.
    */
-  const KEYED_BY_PACK = new Set(["pack-runtime.ts", "deduction-secret.ts"]);
+  const KEYED_BY_PACK = new Set([
+    "pack-runtime.ts",
+    "deduction-secret.ts",
+    "event-prefill.ts",
+  ]);
 
   const offenders: string[] = [];
   for (const name of readdirSync(SRC).filter((f) => f.endsWith(".ts"))) {
@@ -563,6 +573,45 @@ test("NO GENERIC READER OF game_sessions SELECTS THE state COLUMN", () => {
       "pack's. The secret row is keyed under a pack value no registry entry claims, which " +
       "keeps it out of every payload precisely because nothing selects its state.\n  " +
       offenders.join("\n  "),
+  );
+});
+
+test("THE PREFILL'S CROSS-PACK READS CARRY THE REGISTRY ALLOWLIST", () => {
+  // event-prefill.ts is on the exemption list above because it genuinely cannot
+  // name one pack: it is asking which session ran last, across all of them. What
+  // makes that safe is that both of its game_sessions reads restrict `pack` to a
+  // list DERIVED from the registry, so the secret store's `deduction_secret` row
+  // (a pack value no registry entry claims) can never come back.
+  //
+  // WITHOUT THIS TEST the exemption above would be a hole: the file could drop
+  // the filter tomorrow and the check would still pass, because the check only
+  // asks who is on the list.
+  const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), "../src");
+  const src = readFileSync(path.join(SRC, "event-prefill.ts"), "utf8");
+
+  const reads = [...src.matchAll(/\.from\(gameSessions\)([\s\S]{0,400})/g)];
+  assert.ok(reads.length >= 2, "event-prefill.ts should read game_sessions twice");
+  for (const [i, r] of reads.entries()) {
+    assert.match(
+      r[1]!,
+      /inArray\(gameSessions\.pack, READABLE_LEDGERS\)/,
+      `game_sessions read ${i + 1} in event-prefill.ts is not restricted by pack`,
+    );
+  }
+  // And the allowlist is derived, not typed out: a hand-written list is one
+  // paste away from including a pack value that should not be readable.
+  assert.match(
+    src,
+    /const READABLE_LEDGERS = SESSION_PACK_KEYS\.map\(\(k\) => SESSION_PACKS\[k\]\.ledger\)/,
+    "READABLE_LEDGERS must come from the registry",
+  );
+  // As a VALUE, not as a word: the file's own comment explains which row the
+  // allowlist keeps out, and explaining it is the point. A quoted spelling of it
+  // would mean the file had started naming the secret pack in a query.
+  assert.doesNotMatch(
+    src,
+    /["']deduction_secret["']/,
+    "the secret pack must never appear as a string literal here",
   );
 });
 
