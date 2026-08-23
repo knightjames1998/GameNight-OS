@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import BackButton from "../BackButton";
 import { api } from "../api";
 import { usePackSession, type PackCtx } from "../usePackSession";
+import RosterCarryOver from "../RosterCarryOver";
+import GuestChips from "../GuestChips";
 import { MoneyInput, StakesBadge } from "../casino/money";
 import { ModifierPicker, ModifierStrip } from "../casino/modifiers";
 import {
@@ -271,6 +273,13 @@ function RunSetup({
 
       <div className="cg-card">
         <div className="cg-h">Who is running it?</div>
+        <RosterCarryOver
+          source={ctx.prefillSource}
+          label={ctx.prefillLabel}
+          rsvpSlots={ctx.rsvpPrefill}
+          current={seats}
+          onUseRsvp={(slots) => setSeats(slots.map((p) => ({ userId: p.userId, name: p.name })))}
+        />
         {seats.length > 0 && (
           <div className="cg-seg">
             {seats.map((s, i) => (
@@ -316,6 +325,11 @@ function RunSetup({
             Add
           </button>
         </div>
+        <GuestChips
+          names={ctx.recentGuests}
+          current={seats}
+          onAdd={(name) => setSeats([...seats, { userId: null, name: name.trim().slice(0, 24) }])}
+        />
         <p className="cg-hint" style={{ marginTop: 8 }}>
           Everyone here shares the result: clear the run and it is a win for all of them, bust and
           it is a loss for all of them. Guests play but carry no lifetime stats.

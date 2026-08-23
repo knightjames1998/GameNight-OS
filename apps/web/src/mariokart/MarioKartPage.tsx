@@ -4,6 +4,8 @@ import BackButton from "../BackButton";
 import { formatLabel } from "../formats";
 import { usePackSession, type PackCtx as Ctx } from "../usePackSession";
 import { TeamPicker, dropRosterIndex, teamPickerStatus } from "../teams/TeamPicker";
+import RosterCarryOver from "../RosterCarryOver";
+import GuestChips from "../GuestChips";
 import {
   SESSION_PACKS,
   MARIO_KART_TITLES,
@@ -248,9 +250,12 @@ function SetupOrWaiting({
     if (roster.some((r) => r.userId === m.userId)) return;
     setRosterAnd([...roster, { userId: m.userId, name: m.name }], assign);
   };
-  const addGuest = () => {
-    const n = guest.trim().slice(0, 24);
+  const addGuestNamed = (raw: string) => {
+    const n = raw.trim().slice(0, 24);
     if (n) setRosterAnd([...roster, { userId: null, name: n }], assign);
+  };
+  const addGuest = () => {
+    addGuestNamed(guest);
     setGuest("");
   };
   const removeAt = (i: number) => {
@@ -352,6 +357,20 @@ function SetupOrWaiting({
 
       <div className="mk-card">
         <div className="mk-h">Players ({roster.length})</div>
+        {/* THE KARTS GO WITH THE ROSTER. `assign` holds ROSTER INDICES, so a
+            wholesale swap has to reset them rather than shift them: every
+            index means somebody else now. Through setRosterAnd, so Double
+            Dash's auto-pairing at four gets its say on the new roster exactly
+            as it would on a freshly built one. */}
+        <RosterCarryOver
+          source={ctx.prefillSource}
+          label={ctx.prefillLabel}
+          rsvpSlots={ctx.rsvpPrefill}
+          current={roster}
+          onUseRsvp={(slots) =>
+            setRosterAnd(slots.map((p) => ({ userId: p.userId, name: p.name })), [[], []])
+          }
+        />
         {roster.map((r, i) => (
           <div className="mk-row" key={`${r.userId ?? "g"}-${i}`}>
             <span className="mk-name" style={{ flex: 1 }}>{r.name}</span>
@@ -382,6 +401,7 @@ function SetupOrWaiting({
           />
           <button className="mk-btn mk-btn--ghost" style={{ width: "auto", padding: "0 16px" }} onClick={addGuest}>Add</button>
         </div>
+        <GuestChips names={ctx.recentGuests} current={roster} onAdd={addGuestNamed} />
         <p className="mk-hint" style={{ marginTop: 8 }}>Guests race, but lifetime stats only count crew members.</p>
       </div>
 

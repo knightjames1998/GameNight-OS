@@ -24,6 +24,8 @@ import {
 import { api } from "../api";
 import BackButton from "../BackButton";
 import { usePackSession, type PackCtx } from "../usePackSession";
+import RosterCarryOver from "../RosterCarryOver";
+import GuestChips from "../GuestChips";
 import "./deduction.css";
 
 // The Social Deduction page: set up the night, deal the roles, reveal, record.
@@ -205,9 +207,12 @@ function Setup({
   const addMember = (m: { userId: string; name: string }) => {
     if (!full && !roster.some((r) => r.userId === m.userId)) setRoster([...roster, { userId: m.userId, name: m.name }]);
   };
-  const addGuest = () => {
-    const n = guest.trim().slice(0, 24);
+  const addGuestNamed = (raw: string) => {
+    const n = raw.trim().slice(0, 24);
     if (n && !full) setRoster([...roster, { userId: null, name: n }]);
+  };
+  const addGuest = () => {
+    addGuestNamed(guest);
     setGuest("");
   };
   const notAdded = ctx.members.filter((m) => !roster.some((r) => r.userId === m.userId));
@@ -224,6 +229,18 @@ function Setup({
         <h2 className="gn-h2">
           Who is playing ({roster.length}/{SD_MAX_PLAYERS})
         </h2>
+        {/* SD_MAX_PLAYERS is this pack's cap and stays this page's business. */}
+        <RosterCarryOver
+          source={ctx.prefillSource}
+          label={ctx.prefillLabel}
+          rsvpSlots={ctx.rsvpPrefill.slice(0, SD_MAX_PLAYERS)}
+          current={roster}
+          onUseRsvp={(slots) =>
+            setRoster(
+              slots.slice(0, SD_MAX_PLAYERS).map((p) => ({ userId: p.userId, name: p.name })),
+            )
+          }
+        />
         {roster.map((r, i) => (
           <div key={`${r.userId ?? "g"}-${i}`} style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ flex: 1 }}>{r.name}</span>
@@ -264,6 +281,7 @@ function Setup({
                 Add
               </button>
             </div>
+            <GuestChips names={ctx.recentGuests} current={roster} onAdd={addGuestNamed} />
           </>
         )}
         <p className="gn-hint">

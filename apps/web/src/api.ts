@@ -106,6 +106,22 @@ export interface EventDetail {
   attendance: { userId: string; showed: boolean }[];
 }
 
+/**
+ * What a setup screen opens with, from `GET /events/:id/prefill` and, in the
+ * same shape, from every pack's own launch context. The chain is the last
+ * session's roster on this night, then who showed, then who said yes; `source`
+ * is which rung answered, because a screen that changes what it opens with has
+ * to say so.
+ */
+export interface EventPrefill {
+  slots: { userId: string | null; name: string }[];
+  source: "session" | "attendance" | "rsvp";
+  /** The pack's display name when the source is a session, else "". */
+  sourceLabel: string;
+  rsvpSlots: { userId: string | null; name: string }[];
+  recentGuests: string[];
+}
+
 // Show-up record derived from RSVPs + event_attendance (flake tracking).
 // tracked = answered check-ins + past yes-RSVPs gone silent (those silent
 // ones are flakes: nobody opens the app to confess a no-show).

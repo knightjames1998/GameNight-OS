@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, type EventDetail } from "../api";
+import { api, type EventDetail, type EventPrefill } from "../api";
 import BackButton from "../BackButton";
 import { MAX_ENTRANTS, MAX_TEAM_MEMBERS, type Entrant, type SoloEntrant } from "@gamenight/shared";
 import { TeamPicker, dropRosterIndex, teamPickerStatus } from "../teams/TeamPicker";
+import RosterCarryOver from "../RosterCarryOver";
+import GuestChips from "../GuestChips";
 import "./tournament.css";
 
 // THE TOURNAMENT SETUP SCREEN: who is actually in the bracket.
@@ -83,6 +85,9 @@ export default function TournamentSetupPage() {
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [roster, setRoster] = useState<Slot[]>([]);
+  // The prefill chain, on its own route rather than on the event payload: the
+  // event page refetches that on every RSVP and has no use for any of this.
+  const [prefill, setPrefill] = useState<EventPrefill | null>(null);
   const [guest, setGuest] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -120,15 +125,21 @@ export default function TournamentSetupPage() {
     return out;
   }, [event]);
 
-  // Prefill once, when the night lands: the yes RSVPs in answer order.
+  // PREFILL ONCE, off the shared chain: the last session's roster on this
+  // night, then who showed, then the yes RSVPs in answer order, which is where
+  // this screen used to start and is now the last resort rather than the only
+  // answer. A failure here is not fatal and deliberately not surfaced: the
+  // screen still works, it just opens empty, which is what a night with no
+  // RSVPs has always looked like.
   useEffect(() => {
-    if (!event) return;
-    setRoster(
-      event.rsvps
-        .filter((r) => r.status === "yes")
-        .map((r) => ({ userId: r.userId, name: r.displayName })),
-    );
-  }, [event]);
+    if (!eventId) return;
+    api<EventPrefill>(`/api/events/${eventId}/prefill`)
+      .then((p) => {
+        setPrefill(p);
+        setRoster(p.slots.slice(0, MAX_ENTRANTS));
+      })
+      .catch(() => setPrefill(null));
+  }, [eventId]);
 
   if (loadErr) {
     return (
@@ -196,9 +207,12 @@ export default function TournamentSetupPage() {
     if (full || roster.some((r) => r.userId === m.userId)) return;
     setRoster([...roster, { userId: m.userId, name: m.name }]);
   };
-  const addGuest = () => {
-    const name = guest.trim().slice(0, GUEST_NAME_MAX);
+  const addGuestNamed = (raw: string) => {
+    const name = raw.trim().slice(0, GUEST_NAME_MAX);
     if (name && !full) setRoster([...roster, { userId: null, name }]);
+  };
+  const addGuest = () => {
+    addGuestNamed(guest);
     setGuest("");
   };
   const removeAt = (i: number) => {
@@ -268,6 +282,24 @@ export default function TournamentSetupPage() {
               : "Top of the list is the number 1 seed. Anyone in the crew can play, RSVP or not."}
         </p>
 
+        {/* THE SIDES GO WITH THE ROSTER. `assign` holds ROSTER INDICES, and the
+            first side is the number 1 seed, so a swap that kept an arrangement
+            would seed a draw out of whoever now sits at those indices. Reset,
+            not shifted: after a wholesale replacement every index means
+            somebody else. The bracket's own ceiling still applies here, not
+            the team primitive's. */}
+        {prefill && (
+          <RosterCarryOver
+            source={prefill.source}
+            label={prefill.sourceLabel}
+            rsvpSlots={prefill.rsvpSlots.slice(0, MAX_ENTRANTS)}
+            current={roster}
+            onUseRsvp={(slots) => {
+              setRoster(slots.slice(0, MAX_ENTRANTS).map((p) => ({ userId: p.userId, name: p.name })));
+              setAssign([[], []]);
+            }}
+          />
+        )}
         {roster.map((r, i) => (
           <div className="tr-row" key={`${r.userId ?? "g"}-${i}`}>
             {/* In teams mode the DRAW is the sides, so a per-person seed number
@@ -320,6 +352,11 @@ export default function TournamentSetupPage() {
               />
               <button className="gn-btn gn-btn--ghost" onClick={addGuest}>Add</button>
             </div>
+            <GuestChips
+              names={prefill?.recentGuests ?? []}
+              current={roster}
+              onAdd={addGuestNamed}
+            />
           </>
         )}
         <p className="gn-hint" style={{ marginTop: 10 }}>

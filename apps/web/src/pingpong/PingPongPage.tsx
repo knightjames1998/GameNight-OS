@@ -14,6 +14,8 @@ import {
   type Side,
 } from "@gamenight/shared";
 import { TeamPicker, dropRosterIndex, teamPickerStatus } from "../teams/TeamPicker";
+import RosterCarryOver from "../RosterCarryOver";
+import GuestChips from "../GuestChips";
 import "./pingpong.css";
 
 type Mode = "koth" | "ffa";
@@ -154,9 +156,12 @@ function SetupOrWaiting({
   const addMember = (m: { userId: string; name: string }) => {
     if (!roster.some((r) => r.userId === m.userId)) setRoster([...roster, { userId: m.userId, name: m.name }]);
   };
-  const addGuest = () => {
-    const n = guest.trim().slice(0, 24);
+  const addGuestNamed = (raw: string) => {
+    const n = raw.trim().slice(0, 24);
     if (n) setRoster([...roster, { userId: null, name: n }]);
+  };
+  const addGuest = () => {
+    addGuestNamed(guest);
     setGuest("");
   };
   const removeAt = (i: number) => {
@@ -210,6 +215,22 @@ function SetupOrWaiting({
 
       <div className="pp-card">
         <div className="pp-h">Players ({roster.length})</div>
+        {/* A CARRY-OVER REPLACES THE ROSTER WHOLESALE, SO THE SIDES GO WITH
+            IT. `assign` holds ROSTER INDICES (see dropRosterIndex), so keeping
+            an arrangement across a swap would leave doubles pairs pointing at
+            whoever now sits at those indices: a screen that looks completely
+            correct and puts the wrong two people on a side. Reset, not
+            shifted, because every index is meaningless after a replacement. */}
+        <RosterCarryOver
+          source={ctx.prefillSource}
+          label={ctx.prefillLabel}
+          rsvpSlots={ctx.rsvpPrefill}
+          current={roster}
+          onUseRsvp={(slots) => {
+            setRoster(slots.map((p) => ({ userId: p.userId, name: p.name })));
+            setAssign([[], []]);
+          }}
+        />
         {roster.map((r, i) => (
           <div className="pp-row" key={`${r.userId ?? "g"}-${i}`}>
             <span className="pp-name" style={{ flex: 1 }}>{r.name}</span>
@@ -234,6 +255,7 @@ function SetupOrWaiting({
           <input className="pp-input" placeholder="Guest name" value={guest} onChange={(e) => setGuest(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addGuest()} />
           <button className="pp-btn pp-btn--ghost" style={{ width: "auto", padding: "0 16px" }} onClick={addGuest}>Add</button>
         </div>
+        <GuestChips names={ctx.recentGuests} current={roster} onAdd={addGuestNamed} />
         <p className="pp-hint" style={{ marginTop: 8 }}>Guests play, but lifetime stats only count crew members.</p>
       </div>
 

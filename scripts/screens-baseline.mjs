@@ -259,6 +259,27 @@ const trSoloEvent = () => ({
   noResponse: [],
 });
 
+/**
+ * THE TOURNAMENT'S PREFILL, quiet by default: the yes list, which is where this
+ * screen started before the chain existed, so the recorded screens keep showing
+ * an ordinary night. `trPrefillOver` makes it loud for the one case that has to
+ * cover the carry-over line and the chips.
+ */
+let trPrefillOver = {};
+const trPrefill = (event) => {
+  const yes = event
+    .rsvps.filter((r) => r.status === "yes")
+    .map((r) => ({ userId: r.userId, name: r.displayName }));
+  return {
+    slots: yes,
+    source: "rsvp",
+    sourceLabel: "",
+    rsvpSlots: yes,
+    recentGuests: [],
+    ...trPrefillOver,
+  };
+};
+
 const bgStats = {
   games: 7, titles: 3,
   byPlayer: [{ userId: "u0", name: "Ann", games: 7, wins: 3, winRate: 3 / 7, avgPlacement: 1.9, titles: 3 }],
@@ -346,6 +367,11 @@ async function main() {
     else if (u.includes("/api/cardtable-context/")) body = ctx(4, ["Euchre"]);
     else if (u.includes("/api/pingpong-context/")) body = ctx(5);
     else if (u.includes("/api/auth/me")) body = { user: { id: "u0", displayName: "Ann" } };
+    // BEFORE the event branch, because the prefill route is a suffix of it and
+    // this chain matches on substrings. The tournament setup screen reads its
+    // roster from here since 2026-08-23, so an event payload served to it would
+    // put `undefined.slice` on the screen.
+    else if (u.includes("/prefill")) body = trPrefill(trPayload());
     else if (u.includes("/api/events/")) body = trPayload();
     else if (u.includes("/boardgame-stats")) body = bgStats;
     else if (u.includes("/stats")) body = groupStats;
@@ -624,6 +650,46 @@ async function main() {
   }
   await sleep(250);
   snap.trTeamsPlaced = await trPicker();
+
+  // THE CARRY-OVER, WITH SIDES ALREADY ARRANGED, which is the most dangerous
+  // case in this whole feature and the reason dropRosterIndex's comment exists.
+  // `assign` holds ROSTER INDICES and the first side is the number 1 seed, so a
+  // swap that KEPT an arrangement would seed a draw out of whoever now sits at
+  // those indices: a screen that looks completely correct and enters the wrong
+  // people. Placed, then swapped, then read back: the sides must be EMPTY and
+  // everybody must be unplaced again.
+  trPrefillOver = {
+    slots: [
+      { userId: "u0", name: "Ann" },
+      { userId: "u1", name: "Ben" },
+      { userId: "u2", name: "Cal" },
+      { userId: null, name: "Mike D" },
+    ],
+    source: "session",
+    sourceLabel: "Ping Pong",
+    rsvpSlots: [
+      { userId: "u0", name: "Ann" },
+      { userId: "u3", name: "Dee" },
+    ],
+    recentGuests: ["Mike D", "Sam"],
+  };
+  await goto(`${ORIGIN}/tournament?event=e1&format=single_elim`);
+  snap.trCarry = await text();
+  await evalJs(`(() => { const b=[...document.querySelectorAll('button')].find(x=>x.getAttribute('aria-pressed')!==null&&/ON|OFF/.test(x.textContent)); if(b) b.click(); return !!b; })()`);
+  await sleep(400);
+  for (const letter of ["A", "A", "B"]) {
+    await evalJs(`(() => {
+      const row = [...document.querySelectorAll('.tr-row')].filter(r => r.querySelector('.tr-seg button'))[0];
+      const b = row && [...row.querySelectorAll('.tr-seg button')].find(x => x.textContent.trim() === ${JSON.stringify(letter)});
+      if (!b) return false; b.click(); return true;
+    })()`);
+    await sleep(250);
+  }
+  snap.trCarryTeamsPlaced = await trPicker();
+  await evalJs(`(() => { const b=[...document.querySelectorAll('button')].find(x=>/yes list/i.test(x.textContent)); if(b) b.click(); return !!b; })()`);
+  await sleep(400);
+  snap.trCarrySwappedTeams = await trPicker();
+  trPrefillOver = {};
 
   // QUICK PLAY: the same screen on a crew of one.
   trPayload = trSoloEvent;

@@ -243,5 +243,41 @@
   "startLabel": "Start the tournament (2)",
   "startEnabled": true
  },
+ "trCarry": "← Back\n🎪 Event\nTournament\nThursday night\nSingle elimination · one loss and you are out\nWho is playing (4/32)\nTop of the list is the number 1 seed. Anyone in the crew can play, RSVP or not.\nSame players as Ping Pong\nuse the yes list instead\n1\nAnn\nremove\n2\nBen\nremove\n3\nCal\nremove\n4\nMike D\nguest\nremove\n🎲 Shuffle the seeding\nAdd from crew\n+ Dee\n+ Eli\n+ Fay\nAdd a guest\nAdd\nGuests you have had before\n+ Sam\nGuests play, but lifetime stats only count crew members. Add someone from the crew list above and their record follows them.\nDoubles and teams\nOFF\nOff means everybody plays for themselves, exactly as a tournament always has.\nStart the tournament (4)",
+ "trCarryTeamsPlaced": {
+  "sides": [
+   {
+    "label": "Side A (2)",
+    "body": "Ann ×Ben ×"
+   },
+   {
+    "label": "Side B (1)",
+    "body": "Cal ×"
+   }
+  ],
+  "unplaced": [
+   "Mike D"
+  ],
+  "startLabel": "1 still to put on a side",
+  "startEnabled": false
+ },
+ "trCarrySwappedTeams": {
+  "sides": [
+   {
+    "label": "Side A (0)",
+    "body": "nobody yet"
+   },
+   {
+    "label": "Side B (0)",
+    "body": "nobody yet"
+   }
+  ],
+  "unplaced": [
+   "Ann",
+   "Dee"
+  ],
+  "startLabel": "2 still to put on a side",
+  "startEnabled": false
+ },
  "trQuickPlay": "← Back\n🎪 Event\nTournament\nSingle elimination · one loss and you are out\nWho is playing (1/32)\nTop of the list is the number 1 seed. Add whoever turned up as a guest below.\n1\nAnn\nremove\nAdd a guest\nAdd\nGuests play, but lifetime stats only count you. Your own results are recorded either way.\nDoubles and teams\nOFF\nOff means everybody plays for themselves, exactly as a tournament always has.\nAdd at least 2 players"
 }

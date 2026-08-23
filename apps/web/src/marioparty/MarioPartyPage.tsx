@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import BackButton from "../BackButton";
 import { usePackSession, type PackCtx as Ctx } from "../usePackSession";
+import RosterCarryOver from "../RosterCarryOver";
+import GuestChips from "../GuestChips";
 import {
   SESSION_PACKS,
   MARIO_PARTY_TITLES,
@@ -155,9 +157,12 @@ function SetupOrWaiting({
   const addMember = (m: { userId: string; name: string }) => {
     if (!full && !roster.some((r) => r.userId === m.userId)) setRoster([...roster, { userId: m.userId, name: m.name }]);
   };
-  const addGuest = () => {
-    const n = guest.trim().slice(0, 24);
+  const addGuestNamed = (raw: string) => {
+    const n = raw.trim().slice(0, 24);
     if (n && !full) setRoster([...roster, { userId: null, name: n }]);
+  };
+  const addGuest = () => {
+    addGuestNamed(guest);
     setGuest("");
   };
   const removeAt = (i: number) => setRoster(roster.filter((_, j) => j !== i));
@@ -193,6 +198,17 @@ function SetupOrWaiting({
 
       <div className="mp-card">
         <div className="mp-h">Players ({roster.length}/4)</div>
+        {/* SLICED TO FOUR, exactly as the prefill effect above slices: a
+            board holds four and the cap stays this page's business. */}
+        <RosterCarryOver
+          source={ctx.prefillSource}
+          label={ctx.prefillLabel}
+          rsvpSlots={ctx.rsvpPrefill.slice(0, 4)}
+          current={roster}
+          onUseRsvp={(slots) =>
+            setRoster(slots.slice(0, 4).map((p) => ({ userId: p.userId, name: p.name })))
+          }
+        />
         {roster.map((r, i) => (
           <div className="mp-row" key={`${r.userId ?? "g"}-${i}`}>
             <span className="mp-name" style={{ flex: 1 }}>{r.name}</span>
@@ -221,6 +237,7 @@ function SetupOrWaiting({
             </div>
           </>
         )}
+        {!full && <GuestChips names={ctx.recentGuests} current={roster} onAdd={addGuestNamed} />}
         <p className="mp-hint" style={{ marginTop: 8 }}>Guests play, but lifetime stats only count crew members.</p>
       </div>
 
