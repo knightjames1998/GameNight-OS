@@ -1,5 +1,18 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { CLIENT_ID } from "./api";
+import { liveStatus, STALE_AFTER_MS, STALE_CHECK_MS, type LiveState } from "./livestatus";
+
+/**
+ * How long after a drop before trying again.
+ *
+ * FIXED, AND NOT A CANDIDATE FOR BACKOFF, which is the obvious next thought and
+ * is wrong for this app. The real case is a host standing in one room with a
+ * brief wifi dropout, and a constant three seconds is exactly what that wants.
+ * Backoff would make somebody who steps back into range wait up to thirty
+ * seconds for a board that could have recovered in three, to save retries
+ * against a server that is one small instance. Left alone deliberately.
+ */
+const RETRY_MS = 3000;
 
 /**
  * Subscribe to the live hub. Every screen that shows shared state uses
@@ -22,11 +35,41 @@ export function useLiveUpdates(
     let socket: WebSocket | null = null;
     let retry: ReturnType<typeof setTimeout> | null = null;
     let closed = false;
+    // Counted into the store, so a cleanup and an onclose for the same socket
+    // cannot decrement twice.
+    let counted = false;
+    // A FIRST CONNECT MUST NOT COUNT AS A RECONNECT, or every screen in the app
+    // double-fetches on mount: once from its own load, once from the catch-up
+    // below. Scoped to this mount rather than to the module for the same reason.
+    let everConnected = false;
+    let lastMessageAt = 0;
 
     function connect() {
       const proto = window.location.protocol === "https:" ? "wss" : "ws";
       socket = new WebSocket(`${proto}://${window.location.host}/ws`);
+      socket.onopen = () => {
+        lastMessageAt = Date.now();
+        counted = true;
+        liveStatus.opened(lastMessageAt);
+        if (everConnected) {
+          // A RECONNECT REFETCHES, and this is a bug fix rather than part of the
+          // pill. `onVisible` already covers a phone that slept, but nothing
+          // covered a socket that dropped and came back while the page STAYED
+          // VISIBLE: the host watches the screen the whole time, the socket
+          // dies, it reconnects, and the board still shows what it showed before
+          // the drop because every message sent during the gap is gone. Without
+          // this the pill would just turn green over a stale board.
+          visRef.current?.();
+        }
+        everConnected = true;
+      };
       socket.onmessage = (e) => {
+        // EVERY message, PING INCLUDED, and the ping is the important one: it is
+        // the only traffic on a quiet night, so it is what proves the pipe is
+        // open. Callers have always received and ignored pings (the connect-time
+        // one has been sent since the hub shipped), so nothing downstream is new.
+        lastMessageAt = Date.now();
+        liveStatus.message(lastMessageAt);
         try {
           msgRef.current(JSON.parse(e.data));
         } catch {
@@ -34,10 +77,27 @@ export function useLiveUpdates(
         }
       };
       socket.onclose = () => {
-        if (!closed) retry = setTimeout(connect, 3000);
+        if (counted) {
+          counted = false;
+          liveStatus.closed();
+        }
+        if (!closed) retry = setTimeout(connect, RETRY_MS);
       };
     }
     connect();
+
+    // NOTICING IS ONLY HALF OF IT: a half-open socket will never close itself,
+    // so crossing the stale line has to CLOSE it, which drops into the onclose
+    // path above and reuses the retry that is already there. There is
+    // deliberately no second retry loop.
+    const check = setInterval(() => {
+      if (socket && socket.readyState === WebSocket.OPEN && Date.now() - lastMessageAt > STALE_AFTER_MS) {
+        socket.close();
+      }
+      // Staleness is a function of the clock, and nothing arriving is not an
+      // event, so the label needs re-asking even when nothing happened.
+      liveStatus.tick();
+    }, STALE_CHECK_MS);
 
     const onVis = () => {
       if (document.visibilityState === "visible") visRef.current?.();
@@ -47,10 +107,27 @@ export function useLiveUpdates(
     return () => {
       closed = true;
       if (retry) clearTimeout(retry);
+      clearInterval(check);
+      if (counted) {
+        counted = false;
+        liveStatus.closed();
+      }
       socket?.close();
       document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
+}
+
+/**
+ * Whether this app is currently hearing the hub, for the one pill in the shell.
+ *
+ * Reads the module-scope store every socket reports into, so it answers for the
+ * whole app rather than for one screen, and needs no page to pass anything down.
+ * `down` with no socket at all is the ordinary state of Home and Login, which is
+ * why the pill renders nothing for it.
+ */
+export function useLiveStatus(): LiveState {
+  return useSyncExternalStore(liveStatus.subscribe, liveStatus.get, () => "down" as const);
 }
 
 // ---------------------------------------------------------------------------
