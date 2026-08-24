@@ -32,6 +32,9 @@ export function useLiveUpdates(
   visRef.current = onVisible;
 
   useEffect(() => {
+    // Subscribed, which is a different fact from connected: a hook between
+    // retries has no socket and is still watching this screen.
+    liveStatus.mounted();
     let socket: WebSocket | null = null;
     let retry: ReturnType<typeof setTimeout> | null = null;
     let closed = false;
@@ -106,6 +109,7 @@ export function useLiveUpdates(
 
     return () => {
       closed = true;
+      liveStatus.unmounted();
       if (retry) clearTimeout(retry);
       clearInterval(check);
       if (counted) {
@@ -123,11 +127,12 @@ export function useLiveUpdates(
  *
  * Reads the module-scope store every socket reports into, so it answers for the
  * whole app rather than for one screen, and needs no page to pass anything down.
- * `down` with no socket at all is the ordinary state of Home and Login, which is
- * why the pill renders nothing for it.
+ * `idle` (nobody subscribed) is the ordinary state of Home and Login and renders
+ * nothing; `down` is a screen that IS subscribed and has no socket, which is the
+ * pill's main case rather than a quiet one.
  */
 export function useLiveStatus(): LiveState {
-  return useSyncExternalStore(liveStatus.subscribe, liveStatus.get, () => "down" as const);
+  return useSyncExternalStore(liveStatus.subscribe, liveStatus.get, () => "idle" as const);
 }
 
 // ---------------------------------------------------------------------------

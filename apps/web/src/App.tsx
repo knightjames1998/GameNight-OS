@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import ConnectionPill from "./ConnectionPill";
 import { api, ApiError, type Me } from "./api";
 import { readCache, writeCache, dropAll } from "./cache";
 import RouteBoundary, { RouteFallback } from "./RouteBoundary";
@@ -269,6 +270,14 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      {/* ONE MOUNT FOR NINETEEN SCREENS. It reads the module-scope live-status
+          store rather than anything on this tree, so it is fixed-position and
+          it does not matter which wrapper it sits in; it renders nothing at all
+          unless a live screen has stopped hearing the hub. Outside the boundary
+          and the Suspense fallback on purpose: a route that is still loading,
+          or one that threw, is exactly when somebody wants to know whether the
+          connection is the reason. */}
+      <ConnectionPill />
       {/* Boundary outside Suspense so it catches a chunk that fails to
           arrive, not just a component that throws while rendering. */}
       <RouteBoundary>
