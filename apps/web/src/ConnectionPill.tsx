@@ -16,6 +16,13 @@ import { useLiveStatus } from "./useLiveUpdates";
 // WHICH IS ALSO WHY IT MUST NOT SAY "OFFLINE". The app is not offline: the host
 // can still record a game, and telling them otherwise would be both wrong and
 // the kind of wrong that makes somebody stop and wait for nothing.
+//
+// EVERY STYLE LIVES IN index.css UNDER `.gn-connpill`, not inline here, and that
+// is not tidiness: the theme sweep's fixture pass builds one element per `.gn-*`
+// class it finds in the stylesheets and measures it under BOTH themes, so a
+// styled class is swept for free while a styled attribute is invisible to it.
+// The placement reasoning, which was measured rather than chosen, is written
+// down beside the rule.
 
 export default function ConnectionPill() {
   const state = useLiveStatus();
@@ -29,53 +36,8 @@ export default function ConnectionPill() {
   if (state === "idle" || state === "live") return null;
 
   return (
-    <div
-      className="gn-connpill"
-      role="status"
-      aria-live="polite"
-      // FIXED, AND FOLDING THE SAFE AREA INTO ITS OWN calc(). A class rule beats
-      // the zero-specificity shell inset, so an element that sets its own
-      // position has to add env() itself or it sits under the notch in landscape
-      // and under the home indicator in portrait. `--gn-shell-inset` carries the
-      // rail's width under Tabletop and 0px under Arcade, which is what keeps
-      // this off the timber in one expression instead of a theme branch.
-      style={{
-        position: "fixed",
-        right: "calc(env(safe-area-inset-right, 0px) + var(--gn-shell-inset) + 12px)",
-        bottom: "calc(env(safe-area-inset-bottom, 0px) + var(--gn-shell-inset) + 12px)",
-        // Above the rail, which sits at 3.
-        zIndex: 5,
-        // It is a label, not a control: nothing can be tapped and, more to the
-        // point, nothing UNDER it can be blocked from being tapped.
-        pointerEvents: "none",
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-        maxWidth: "min(92vw, 26rem)",
-        padding: "8px 14px",
-        borderRadius: "var(--gn-radius-pill)",
-        // An opaque surface, because this lands on top of a pack's own painted
-        // board and a translucent one would be unreadable over half of them.
-        background: "var(--gn-surf-solid)",
-        border: "2px solid color-mix(in srgb, var(--gn-gold) 55%, transparent)",
-        color: "var(--gn-ink)",
-        boxShadow: "0 6px 18px rgba(0,0,0,.35)",
-        // Legible across a room on a 1080p television and ordinary on a phone.
-        fontSize: "max(13px, 1.5vmin)",
-        fontWeight: 700,
-        lineHeight: 1.25,
-      }}
-    >
-      <span
-        aria-hidden="true"
-        style={{
-          width: "0.6em",
-          height: "0.6em",
-          borderRadius: "50%",
-          background: "var(--gn-gold)",
-          flexShrink: 0,
-        }}
-      />
+    <div className="gn-connpill" role="status" aria-live="polite">
+      <span className="gn-connpill__dot" aria-hidden="true" />
       <span>Live updates paused. Reconnecting...</span>
     </div>
   );

@@ -539,6 +539,12 @@ const MEASURE = (PROOF) => `(()=>{
   const railW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gn-rail-w')) || 0;
   const vh = window.innerHeight, vw = window.innerWidth;
   const covered = [];
+  // The connection pill, which is only ever on screen when a live screen has
+  // stopped hearing the hub. In the healthy state it renders NOTHING, so on
+  // every ordinary case below this is null and costs nothing.
+  const pillEl = document.querySelector('.gn-connpill');
+  const pillRect = pillEl ? pillEl.getBoundingClientRect() : null;
+  const pillCovers = [];
   let low = 0, lowWho = null;
   // THE LOWEST ELEMENT IS ALMOST ALWAYS #root, which names nothing: it is the
   // page, and its height is the number already in the first column. What a
@@ -573,7 +579,7 @@ const MEASURE = (PROOF) => `(()=>{
     const paints = (el.textContent || '').trim().length > 0 && el.children.length === 0
       || cs.backgroundColor !== 'rgba(0, 0, 0, 0)'
       || cs.borderTopWidth !== '0px' || cs.borderBottomWidth !== '0px';
-    if (!paints || !railW) continue;
+    if (!paints) continue;
     // Full-bleed roots are the page itself, not something sitting on it.
     //
     // MEASURED AGAINST THE LAYOUT VIEWPORT, NOT window.innerWidth, and the
@@ -591,13 +597,31 @@ const MEASURE = (PROOF) => `(()=>{
     // with the scrollbar already taken off.
     const lvw = document.documentElement.clientWidth, lvh = document.documentElement.clientHeight;
     if (r.width >= lvw - 1 && r.height >= lvh - 1) continue;
-    const into = Math.max(
-      railW - r.top,                 // under the top timber
-      r.bottom - (vh - railW),       // under the bottom timber
-      railW - r.left,
-      r.right - (vw - railW),
-    );
-    if (into > 0) covered.push((el.className || el.tagName).toString().slice(0, 34) + ' by ' + Math.round(into));
+    if (railW) {
+      const into = Math.max(
+        railW - r.top,                 // under the top timber
+        r.bottom - (vh - railW),       // under the bottom timber
+        railW - r.left,
+        r.right - (vw - railW),
+      );
+      if (into > 0) covered.push((el.className || el.tagName).toString().slice(0, 34) + ' by ' + Math.round(into));
+    }
+    // THE SECOND FIXED OVERLAY THIS SCREEN CAN HAVE. Until 2026-08-24 the rail
+    // was the only one, and IS SEEN was written against it by name. The
+    // connection pill is fixed too, and the loop above SKIPS fixed elements, so
+    // nothing here could have seen it sitting on a board: it would have shipped
+    // unmeasured and looked like a pass. Same question, asked of the pill.
+    if (pillRect && !pillEl.contains(el)) {
+      // ITS OWN CHILDREN ARE NOT SOMETHING IT COVERS. The dot and the label are
+      // static elements inside a fixed parent, so the loop sees them as ordinary
+      // ink sitting exactly where the pill is, and the first run reported the
+      // pill covering itself on every case.
+      const ox = Math.min(r.right, pillRect.right) - Math.max(r.left, pillRect.left);
+      const oy = Math.min(r.bottom, pillRect.bottom) - Math.max(r.top, pillRect.top);
+      if (ox > 1 && oy > 1) {
+        pillCovers.push((el.className || el.tagName).toString().slice(0, 34) + ' by ' + Math.round(Math.min(ox, oy)));
+      }
+    }
   }
   // EVERY BackButton emits .gn-textbtn as its base class, so this is the one
   // hook that cannot go stale. It used to be a hardcoded list of per-pack class
@@ -611,6 +635,7 @@ const MEASURE = (PROOF) => `(()=>{
   // reported "no button" the first time it was ever measured.
   const back = document.querySelector('.gn-textbtn, .cg-tv__back, .beerio-tv-back');
   const bb = back ? back.getBoundingClientRect() : null;
+  const lvw2 = document.documentElement.clientWidth, lvh2 = document.documentElement.clientHeight;
   return {
     railW,
     lowest: Math.round(low),
@@ -620,7 +645,27 @@ const MEASURE = (PROOF) => `(()=>{
     // How far the back button reaches into the bottom timber. Negative is
     // clearance, positive is a control with wood painted over it.
     backIntoRail: bb ? Math.round(bb.bottom - (vh - railW)) : null,
+    // Where the way back actually sits, so a fixed overlay's placement is
+    // decided against a number rather than against an assumption about it.
+    backBox: bb
+      ? { left: Math.round(bb.left), right: Math.round(lvw2 - bb.right), bottom: Math.round(lvh2 - bb.bottom) }
+      : null,
     covered: covered.slice(0, 6),
+    pill: pillRect
+      ? {
+          text: (pillEl.textContent || '').trim().slice(0, 40),
+          // Clearance from each edge of the LAYOUT viewport, so a negative
+          // number is a pill hanging off the screen.
+          right: Math.round(document.documentElement.clientWidth - pillRect.right),
+          bottom: Math.round(document.documentElement.clientHeight - pillRect.bottom),
+          // How far it reaches into the bottom or right timber. Negative is
+          // clearance, positive is a pill with wood painted over it.
+          intoRail: railW
+            ? Math.round(Math.max(pillRect.bottom - (vh - railW), pillRect.right - (vw - railW)))
+            : null,
+        }
+      : null,
+    pillCovers: pillCovers.slice(0, 6),
     rendered: !!document.querySelector(PROOF),
   };
 })()`;
@@ -638,6 +683,12 @@ async function measure(theme, route, payload, proof, waitMs) {
   await sleep(waitMs ?? 2300);
   return await ev(MEASURE(proof));
 }
+
+// Past DOWN_GRACE_MS (4000ms) plus one staleness tick (2000ms), so the pill has
+// definitely had its chance to appear. Every other case waits 2300ms and is
+// therefore measured with no pill at all, which is what keeps their numbers
+// comparable to the runs before this existed.
+const PILL_WAIT = 8000;
 
 const CASES = [
   ["money board  4 seats", "/blackjack/tv/x", money(4, []), ".cg-tv__line"],
@@ -748,6 +799,35 @@ const CASES = [
       ["arcade"],
     ]),
   ),
+  // ---- THE CONNECTION PILL, which is the only state it has ----------------
+  //
+  // WHY THESE CASES EXIST AT ALL: the pill renders NOTHING while a screen is
+  // hearing the hub, so its one visible state is invisible to every case above
+  // and would have shipped unmeasured on eleven TV routes. The checklist says
+  // the harness ships in the same commit as the screen, and a screen with one
+  // state nobody measured is exactly what that rule is for.
+  //
+  // HOW THEY ARE FORCED, with no flag and no stub: `vite preview` serves the
+  // built bundle and has no /ws endpoint, so every one of these pages genuinely
+  // cannot connect. The pill waits DOWN_GRACE_MS before saying so, which is
+  // longer than the 2300ms every other case waits, which is why those cases
+  // stay pill-free and comparable to their old numbers rather than all silently
+  // gaining an overlay.
+  //
+  // FIVE ROUTES, chosen for what is at the bottom of each: a money board's
+  // settlement lines, the bracket's alive board, a title-night panel, the
+  // densest deduction board, and Beerio.
+  ["pill money board 12", "/blackjack/tv/x", money(12, []), ".cg-tv__line", null, PILL_WAIT],
+  ["pill bracket 16 mid", "/tv/x", bracketTv(16, "mid"), ".gn-tvst", ["arcade"], PILL_WAIT],
+  ["pill board game 12", "/boardgame/tv/x", titlenight(12), ".tn-tv__panel", null, PILL_WAIT],
+  ["pill deduction 20", "/deduction/tv/x", deduction(20), ".sd-p", null, PILL_WAIT],
+  // BEERIO MUST SHOW NO PILL, and that is a property rather than an exemption:
+  // it polls on its own timer and never mounts the live hook, so the store sees
+  // nobody subscribed and reports `idle`. Nothing special-cases this pack; this
+  // case is here to prove that staying true, because the day it stops being
+  // true is the day a vendored 1:1 replica quietly grows an overlay.
+  ["pill beerio 16 mid", "/beerio/tv/ABCD", beerioTv(16, "mid"), ".beerio-tv-strip", ["arcade"], PILL_WAIT],
+
   // THE EVENT TV, both states, four counts, both themes. See eventTv above for
   // why this had no case for weeks despite being colour-swept the whole time.
   ...[4, 8, 12, 16].flatMap((n) => [
@@ -871,6 +951,7 @@ let stale = 0;
 // KNOWN, which is where the two pre-existing pack overflows already live.
 let overs = 0;
 console.log("case                      theme     rail  lowest  backBtm  vs 1080      back v rail   covered by the rail");
+const pillLines = [];
 for (const theme of ["arcade", "tabletop"]) {
   for (const [label, route, payload, proof, themes, waitMs] of CASES) {
     // A case may name the themes it is measured in. Only Beerio does, because
@@ -902,8 +983,35 @@ for (const theme of ["arcade", "tabletop"]) {
     }
     if ((m.covered.length || (m.backIntoRail ?? -1) > 0) && !KNOWN.has(label)) newOverlaps++;
     if (over > 0 && !KNOWN.has(label)) overs++;
+    // THE PILL'S OWN TWO QUESTIONS, reported in their own block because they
+    // are asked of five cases rather than of every one, and because a column
+    // that is empty eighty times is a column nobody reads.
+    if (label.startsWith("pill ")) {
+      const p = m.pill;
+      pillLines.push(
+        `  ${label.padEnd(24)}${theme.padEnd(10)}` +
+        (p
+          ? `up  right ${String(p.right).padStart(4)}  bottom ${String(p.bottom).padStart(4)}  ` +
+            `rail ${p.intoRail === null ? "n/a" : p.intoRail > 0 ? "UNDER by " + p.intoRail : "clear by " + -p.intoRail}  ` +
+            `covers ${m.pillCovers.join(" | ") || "nothing"}` +
+            (m.backBox ? `  [back: left ${m.backBox.left} right ${m.backBox.right} bottom ${m.backBox.bottom}]` : "")
+          : "no pill"),
+      );
+      // A pill that sits on a board's ink, or under the timber, is the same
+      // class of fault the rail check exists for. Beerio is the one case that
+      // is expected to have no pill, and it fails loudly if it grows one.
+      const wantsPill = !label.includes("beerio");
+      if (wantsPill && !p) { console.log(`      ^ NO PILL on ${label}: the degraded state did not render`); newOverlaps++; }
+      if (!wantsPill && p) { console.log(`      ^ BEERIO GREW A PILL: it polls and must never mount the live hook`); newOverlaps++; }
+      if (p && (m.pillCovers.length || (p.intoRail ?? -1) > 0 || p.right < 0 || p.bottom < 0)) newOverlaps++;
+    }
   }
 }
+if (pillLines.length) {
+  console.log("\nCONNECTION PILL (forced by a preview server with no /ws)");
+  for (const line of pillLines) console.log(line);
+}
+
 // ---- the negative control -------------------------------------------------
 //
 // EVERY FIT CLAIM IN THIS REPO THAT TURNED OUT TO BE FALSE PASSED A CHECK THAT

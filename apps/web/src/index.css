@@ -1278,6 +1278,54 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-chip--stats{background:color-mix(in srgb, var(--gn-p2) 16%, transparent);color:var(--gn-p2)}
 .gn-chip--vs{background:color-mix(in srgb, var(--gn-p1) 14%, transparent);color:var(--gn-p1-tint-ink)}
 
+/* THE CONNECTION PILL. One fixed label in the shell, up only while a live
+   screen has stopped hearing the hub, and rendering nothing at all otherwise.
+
+   BOTTOM CENTRE, MEASURED RATHER THAN CHOSEN. Two drafts were wrong before this
+   one: bottom RIGHT landed on Social Deduction's TV back button, which is the
+   only back button in the app in that corner while every other TV puts its way
+   back on the left; bottom LEFT cleared every back button and then clipped 15px
+   of Deduction's own board at twenty players. All six candidate positions were
+   probed against real 1920x1080 boards and this is the only one clear on every
+   case in both themes. Top left and top right are worse than either bottom
+   corner: every TV puts a brand or a phase label up there.
+
+   env(safe-area-inset-*) IS FOLDED INTO ITS OWN calc(), because a class rule
+   beats the zero-specificity shell inset and an element that positions itself
+   has to add the insets back or it sits under the notch. --gn-shell-inset is
+   0px under Arcade and the rail's width plus 10px under Tabletop, both on
+   :root, so one expression clears the timber in either theme. */
+.gn-connpill{
+  position:fixed;
+  left:50%;
+  transform:translateX(-50%);
+  bottom:calc(env(safe-area-inset-bottom, 0px) + var(--gn-shell-inset) + 12px);
+  /* Above the rail, which sits at 3. */
+  z-index:5;
+  /* A label, not a control. Nothing here can be tapped and, more to the point,
+     nothing UNDER it can be stopped from being tapped. */
+  pointer-events:none;
+  display:flex;align-items:center;gap:8px;
+  max-width:min(92vw, 26rem);
+  padding:8px 14px;
+  border-radius:var(--gn-radius-pill);
+  /* OPAQUE, because this lands on top of a pack's own painted board and a
+     translucent surface is unreadable over half of them. */
+  background:var(--gn-surf-solid);
+  border:2px solid color-mix(in srgb, var(--gn-gold) 55%, transparent);
+  color:var(--gn-ink);
+  box-shadow:0 6px 18px color-mix(in srgb, var(--gn-shadow-depth) 35%, transparent);
+  /* Legible across a room on a 1080p television and ordinary on a phone. */
+  font-size:max(13px, 1.5vmin);
+  font-weight:700;
+  line-height:1.25;
+}
+.gn-connpill__dot{
+  width:.6em;height:.6em;border-radius:50%;
+  background:var(--gn-gold);
+  flex-shrink:0;
+}
+
 /* Chip-shaped BUTTONS (delete, remove): same pill silhouette as the chips
    around them, but clearly pressable, so every tappable thing in a row
    reads the same way. */
