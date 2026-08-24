@@ -13,7 +13,7 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-08-23 (the night flow session, before its own work)
-    Shipped sessions since that redraw: 1
+    Shipped sessions since that redraw: 2
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -235,6 +235,14 @@ regenerated file in the same commit as the reconcile. If the MCP canvas is unava
 session, regenerating the committed file alone still counts as the redraw.
 
 ## SHIPPED — FOUNDATION
+- [x] THE CONNECTION STATE PILL, AND THE HEARTBEAT THAT MAKES IT HONEST (2026-08-24). One QOL item that turned out to have a server half, and the server half is the interesting one.
+  **THERE WAS NO HEARTBEAT, AND THE WHOLE SESSION TURNS ON THAT.** `setupWebSockets` sent ONE `{ type: "ping" }` on connect and never sent another; there was no `socket.on("message")` handler, no interval, no `isAlive` sweep, and the client never pinged either. A WEBSOCKET CAN DIE WITHOUT EITHER END BEING TOLD: a mobile NAT or a proxy drops the connection with no FIN, the browser's `onclose` never fires, the 3000ms retry never runs, and `readyState` reads OPEN forever while nothing arrives. A pill built on `readyState` would have printed "connected" during exactly the failure it exists to expose, which is worse than shipping no pill. The server now pings every 20s through `broadcast` (one place knows how to write to the room), and the client goes stale if it hears nothing for 45s.
+  **NINETEEN LIVE SCREENS, ZERO OF THEM EDITED.** Every subscriber ends up inside `useLiveUpdates`, so a module-scope store that each socket reports into plus one `<ConnectionPill />` in the App shell covers all of them. That is not the module-scope trap the standing warning names: that warning is about caching `location` at import, captured once against whatever URL loaded first; this is mutable state written at runtime by whoever is live now.
+  **STALE FORCES A RECONNECT RATHER THAN ONLY LABELLING ONE.** A half-open socket never closes itself, so crossing the line closes it, which drops into the `onclose` path and reuses the retry that was already there. There is deliberately no second retry loop and no backoff: the real case is a host in one room with a brief dropout, and backoff would make somebody who steps back into range wait up to thirty seconds for a board that could have recovered in three.
+  **A RECONNECT NOW REFETCHES, AND THAT IS A BUG FIX THE PILL WOULD OTHERWISE HAVE DECORATED.** `onVisible` covered a phone that slept. NOTHING covered a socket that dropped and came back while the page stayed VISIBLE, which is this exact case: the host watches the screen the whole time, the socket dies, it reconnects, and the board still shows what it showed before the drop because every message sent during the gap is gone. Without it the pill would have turned green over a stale board. A first connect deliberately does not fire it, or every screen double-fetches on mount.
+  **TWO THINGS BUILDING THE PILL FOUND, both of which would have shipped as silent misbehaviour.** FIRST, a three-state store could not tell Home (nobody subscribed) from a dropped connection (subscribed, no socket): both have zero open sockets, and counting sockets alone would have gone silent during the failure it was built for, so mounted hooks are counted separately and `idle` is its own state. SECOND, the pill would have FLASHED ON EVERY PAGE LOAD, because a hook mounts before its socket opens; a 4000ms grace, longer than one retry cycle, means a connection that fails once and recovers is silent too.
+  **THE POSITION WAS MEASURED, NOT CHOSEN, AND TWO DRAFTS WERE WRONG.** Bottom right landed on Social Deduction's TV back button (the only back button in the app in that corner); bottom left cleared every back button and clipped 15px of Deduction's own board at twenty players. All six candidates were probed against real 1920x1080 boards and bottom centre is the only one clear on every case in both themes. `tv-fit.mjs` gained five degraded cases and, more importantly, the ability to SEE a fixed overlay that is not the rail: its measure loop skips fixed elements and IS SEEN was written against the rail by name, so the pill would have shipped unmeasured and looked like a pass.
+  **BEERIO GETS NO PILL AS A PROPERTY RATHER THAN AN EXEMPTION**: it polls on its own timer, never mounts the live hook, so the store sees nobody subscribed. A harness case keeps that true. Files: `apps/server/src/ws.ts`, `apps/web/src/livestatus.ts` (new), `useLiveUpdates.ts`, `ConnectionPill.tsx` (new), `App.tsx`, `index.css`, `scripts/tv-fit.mjs`, `apps/server/tests/live-status.test.ts` (new, 14 tests). No schema change.
 - [x] THE NIGHT FLOW PASS: HOST CHECK-IN, THE PREFILL CHAIN, ROSTER CARRY-OVER AND GUEST CHIPS (2026-08-23). Four items that share one moment, the host standing in the room about to start a game. No new pack, no new engine, no schema change.
   **HOST CHECK-IN IS A CORRECTNESS FIX FOR FLAKE STATS, and that is a better reason for it than the prefill chain it also feeds.** `attendanceFor` in stats.ts counts a flake TWO ways: an answered check-in with `showed: false`, AND SILENCE after a yes on a past dated event once `FLAKE_GRACE_MS` has passed. `POST /events/:id/attendance` hardcoded `userId: req.user!.id`, so there was no way for anybody to record anybody else. Somebody who said yes, drove over, played all night and never opened the app has therefore been recorded as a flake, silently, and it has been accumulating on their profile. The route now takes an optional `userId`; with none it is byte-for-byte the route it always was.
   **A HOST CAN CHECK SOMEBODY IN AND CAN CLEAR THEM BACK TO UNANSWERED. A HOST CANNOT MARK A NO-SHOW**, and that falls out of the same fact as the feature: silence ALREADY produces the flake, so `showed: false` from a host buys nothing that not checking somebody in does not already do, and it costs one person the ability to put a flake on another person's profile. Clearing DELETES the row, because unanswered is the absence of a row everywhere else in this app. The rule is a pure function in `attendance-rule.ts` with fifteen tests, because the authorization IS the feature here rather than plumbing, and the order inside it is asserted: a member aiming at somebody else is refused for WHO THEY ARE before anything looks at the target, so the endpoint cannot be used to ask whether an id belongs to a crew you are only a member of.
@@ -460,7 +468,12 @@ Wanted, not yet scheduled into a session.
 - [x] SHIPPED 2026-08-23: **GUEST NAME MEMORY PER CREW.** `GuestChips` beside the guest box on all nine setup screens: previously typed guest names on this crew, newest first, capped at 12, de-duplicated case-insensitively with the MOST RECENT spelling shown because that is the one the host last chose. A name already on the roster is not offered, also case-insensitively, since offering "+ Mike" to a table that already has "mike" is how the feature built to stop duplicates would make one.
   **QUICK PLAY GETS NO CHIPS, and that is a deferral honoured rather than a limitation.** Quick play runs through a hidden personal crew where everybody except the host is a typed guest, so guest name memory THERE would be the main way a roster gets built rather than a small extra, and "guest name memory for quick play personal crews" is deliberately unanswered while guest LINKING for personal crews is still an open decision (see DEFERRED). The first version of this shipped the chips to every crew, personal ones included, which would have answered that question by accident. The roster CARRY-OVER is untouched by the suppression: carrying one night's players into the next game on the same night is not memory across a crew.
   **ONE THING IN THIS ENTRY DID NOT SURVIVE CONTACT AND IS CORRECTED HERE:** it said the names "are already in the ledger on past matches". They are in the SESSION jsonb, not the ledger, because a guest is never written to `match_participants` (that is the whole reason guest linking exists). So the read goes through the new `rosterOf*` adapters over the crew's recent sessions rather than through anything in matches. It is read through those rather than through the existing `guestNames*` adapters for a second reason: `guestNames*` returns an unordered Set with no timestamps, so "newest first" could not have come out of it without widening a function that is load-bearing for the backfill.
-- [ ] CONNECTION STATE PILL: "reconnecting" on the scoring screens. **VERIFIED BY READING THE FILE RATHER THAN ASSUMED:** `apps/web/src/useLiveUpdates.ts` reconnects on close with `retry = setTimeout(connect, 3000)` and the hook RETURNS NOTHING. There is no status to render, so no screen in this app is able to say whether it is connected, which means a host on bad wifi taps confirm and has no way to tell whether it landed. The fix is small in the hook (return a status alongside what it already does) and shared in the UI (one pill, on the scoring screens). **SCOPED SMALL BUT NOT A RIDE-ALONG:** it touches every pack page's shell, which is the same shape as every other "one line in nine places" change in this file, so it wants its own session rather than being bolted onto a pack change.
+- [x] SHIPPED 2026-08-24: **CONNECTION STATE PILL**, and the entry is amended here rather than left to read as written, because it was RIGHT ABOUT THE GAP AND WRONG ABOUT THE FIX.
+  **WHAT IT GOT RIGHT:** the hook returned nothing, no screen in this app could say whether it was connected, and a host on bad wifi had no way to tell. That is still the reason this shipped.
+  **WHAT IT GOT WRONG:** "the fix is small in the hook (return a status alongside what it already does)". THE STATUS THAT HOOK COULD HAVE RETURNED WOULD HAVE BEEN A LIE. There was no heartbeat anywhere in this app: one ping on connect and never another, no interval, no message handler on either side. So the only status available was `readyState`, and a WebSocket dropped by a mobile NAT or a proxy with no FIN leaves `readyState` reading OPEN forever while nothing arrives. The pill would have said "connected" during precisely the failure it exists to expose. The server half (a 20s ping) is not a ride-along to this entry; it is what makes the entry's own fix possible, and it is the larger half.
+  **AND THE SCOPING NOTE WAS WRONG IN THE HELPFUL DIRECTION:** "it touches every pack page's shell ... one line in nine places". It touches NONE of them. Nineteen files subscribe to the hub and every one goes through `useLiveUpdates`, so a module-scope store plus one mount in the App shell covered all nineteen screens with three edits and no page change at all.
+  **ONE THING NOBODY HAD WRITTEN DOWN, found while building it:** reconnecting did not refetch. `onVisible` covered a sleeping phone and nothing covered a socket that dropped and returned while the page stayed visible, so every message sent during the gap was simply lost off a screen somebody was looking at. Fixed in the same session, and it is a bug fix rather than part of the pill.
+
 - [ ] REPEAT OR DUPLICATE AN EVENT. `events` has no recurrence column and there is no duplicate action, so a weekly game night is retyped every week. **THE CHEAPEST USEFUL VERSION IS NOT A RECURRENCE ENGINE**, and that is the whole point of writing it down this way: "duplicate this event, next week, same time" is one button, one POST and no schema change, and it covers the weekly-night case that motivated it. A real recurrence model (rules, exceptions, "every other Thursday", editing one instance of a series) is a much larger feature that should have to justify itself separately, against a crew that has actually outgrown the button.
 - [ ] LOCATION AND NOTES ON AN EVENT. **NEITHER COLUMN EXISTS TODAY, verified against `packages/db/src/schema.ts`:** `events` carries id, groupId, title, scheduledFor, status, createdBy and the two Beerio room fields, and nothing about where the night is or what to bring. Two nullable text columns plus two fields on the event form and two lines on the event page. **THIS IS A SCHEMA CHANGE, so it ships with explicit idempotent Neon SQL** (`ALTER TABLE events ADD COLUMN IF NOT EXISTS location text;` and the same for `notes`) called out in that session's closeout and run against the database, rather than left to `drizzle-kit push --force`, which silently no-ops in non-interactive CI and is already a Watch trap in BUGS. Gates the geotagged-arrival idea under IDEAS, which needs somewhere to put a venue.
 - [ ] RSVP NUDGE: "4 haven't answered" plus a button. The event payload ALREADY carries `noResponse` (`apps/server/src/events.ts` builds it, and `EventPage` already renders it as a "No answer yet" list), and the event page ALREADY has a share control with the copy-link fallback. So this is a count, a sentence and a button wired to what is there: no new endpoint, no new query, no schema change. Written down as its own line because it is the smallest item in this section and keeps being mistaken for part of a bigger notifications feature, which it is not: it sends nothing, it just makes the host's nudge one tap instead of five.
@@ -572,6 +585,18 @@ Not committed, no design decided.
   `eventPrefill`, answers for every launcher; a screen must SAY which rung it opened on, and must
   offer the yes list back. A new setup screen wires `RosterCarryOver` and `GuestChips` and keeps
   applying its own cap.
+- CONFIRMING A DEPLOY IS JAMES'S STEP, NOT A SESSION'S (recorded 2026-08-24). A
+  Claude Code session cannot see Render's dashboard or its build log, so "confirm the
+  deploy went green" and "confirm the drizzle-kit success line in the build log" are
+  instructions to do something impossible, which trains a session to either hallucinate
+  a confirmation or nag for one. A session says the push landed and stops there; the
+  deploy log and the drizzle line are read by James. This is now the wording in
+  PROJECT-INSTRUCTIONS.md too: James committed the rewritten file on 2026-08-23
+  (24b03b2), replacing a copy that had been stale since the 08-17 rewrite and still
+  described zip delivery, an environment with no browser, and a Now/Next list whose
+  items had all shipped. It is recorded here as well because these two are a STANDING
+  practice rather than a fact about one document, and because BACKLOG.md is the file a
+  session is told to read first.
 - SINGLE INSTANCE ONLY on any deployment (numInstances: 1 in render.yaml). The WebSocket hub lives in this process's memory, so a second instance would split the room: phones on instance A would never see updates from instance B, which breaks the live-sync rule above. Keep it at 1 until the hub moves to a shared backend (Redis pub/sub or similar). Rescued here 2026-07-27 when GAMEPLAN.md was deleted; it had been stated as a standing rule only there and in a render.yaml comment.
 - Any pack with character selection has a "Which game?" title selector on its front page. The chosen title scopes the character picker AND the random pool to that title's roster (never assign a character that isn't in the game being played). Titles are subsets/variants of the series; stats stay unified across titles by character name. New character packs follow this: define the series' titles as GameTitle[] in the pack's shared module, thread titleId through the session state, and scope the picker + random with rosterForTitle().
 
@@ -778,6 +803,63 @@ their own number. Only overridden seats are sent (`buyIns`, keyed by roster inde
 **Deferred, do not build:** cross-pack night net. See FEATURES TO ADD.
 
 ## DECISION LOG
+
+**20 SECONDS AND 45 SECONDS ARE ONE DECISION, NOT TWO** (2026-08-24). The server
+pings every 20s and a client calls itself stale after 45s of silence, and the
+second number is chosen against the first: 45 is over TWO ping intervals, so a
+single dropped ping is never a false alarm, and under THREE, so two consecutive
+misses cannot go unnoticed. Both failure modes are silent. Too tight and every
+quiet minute flaps the pill and forces a pointless reconnect; too loose and a
+dead socket looks fine for a minute while a host waits for a score that is never
+arriving. `live-status.test.ts` asserts the relationship against the server's own
+constant rather than by eye, in both directions, so moving one number without the
+other fails a gate instead of degrading quietly.
+
+20s is also under the 30-to-60 second idle timeout proxies apply, so the
+heartbeat doubles as keep-alive. That is a bonus rather than the reason: the
+reason is that TRAFFIC FROM THE SERVER IS THE ONLY THING THAT MAKES A DEAD SOCKET
+OBSERVABLE, and a client that hears nothing has no other way to find out.
+
+**A HALF-OPEN SOCKET IS NOTICED AND THEN CLOSED, BECAUSE NOTICING ALONE ACHIEVES
+NOTHING** (2026-08-24). The socket that this whole mechanism exists for will never
+close itself: that is what makes it half-open. So crossing the stale line calls
+`socket.close()`, which drops into the `onclose` path that has always been there
+and retries on the existing timer. THE HEARTBEAT ONLY NOTICES; THE RETRY THAT WAS
+ALREADY IN THE FILE IS THE RECOVERY. A version that labels the state and waits is
+a label on a screen that will never come back on its own.
+
+**NO RECONNECT BACKOFF, AND THIS IS A DELIBERATE NON-CHANGE** (2026-08-24). The
+fixed 3000ms retry runs forever, which on a dead network looks exactly like
+something to fix, and every session that reads that line will think so. It is
+wrong for this app. The real case is a host standing in one room with a brief
+wifi dropout, and constant three-second recovery is what that wants. Backoff
+would make somebody who steps back into range wait up to thirty seconds for a
+board that could have recovered in three, to save retries against a single small
+instance. The constant is now named `RETRY_MS` and carries this reasoning, and a
+test counts the reconnect paths so a second one cannot appear beside it.
+
+**RECONNECTING REFETCHES, AND IT IS A BUG FIX RATHER THAN PART OF THE PILL**
+(2026-08-24). `useLiveRefetch` refetched on `visibilitychange`, which covers a
+phone that slept. NOTHING covered a socket that dropped and came back while the
+page stayed VISIBLE, which is the case a pill is for: the host watches the screen
+the whole time, the socket dies, it reconnects, and the board still shows what it
+showed before the drop because every message sent during the gap is gone. Shipped
+in the same session because without it the pill just turns green over a stale
+board, which is a worse outcome than no pill: it replaces "I am not sure this is
+current" with false confidence. A FIRST connect deliberately does not fire it, or
+every screen in the app double-fetches on mount.
+
+**A MODULE-SCOPE STORE IS NOT THE MODULE-SCOPE TRAP THE STANDING WARNING NAMES**
+(2026-08-24). That warning is about caching `location` or `location.search` at
+module scope: the value is captured ONCE at import against whatever URL loaded
+first and is silently wrong for every route after it. The live-status store is
+mutable state written at runtime by whoever is connected right now. Nothing is
+captured; everything is reported. The distinction is worth writing down because
+the warning nearly talked this session into a context provider, which would have
+meant threading a value through nineteen screens to avoid a hazard that does not
+apply. The store also counts MOUNTED HOOKS separately from OPEN SOCKETS, because
+"Home has no subscription" and "this screen's socket dropped" both have zero open
+sockets and only one of them is worth a word.
 
 **THE PREFILL CHAIN IS AUTOMATIC, AND IT ALWAYS SAYS WHERE THE ROSTER CAME FROM** (2026-08-23,
 James: both, not either). The chain is last session's roster on this event, then who showed,
