@@ -127,6 +127,20 @@ export const events = pgTable(
     // life on its own: the engine writes state, beerio_sessions.updatedAt
     // moves past this stamp, and the resolver counts it live again.
     beerioCompletedAt: timestamp("beerio_completed_at"),
+    // WHERE THE NIGHT IS, AS TWO COLUMNS RATHER THAN ONE, and the split is the
+    // whole decision: a pasted maps URL is unreadable as a label ("Dave's" is
+    // what a crew calls it, not `https://maps.app.goo.gl/xK9...`), and a typed
+    // address is not tappable. One column would have forced every crew to pick
+    // which of the two they wanted. Both are optional and either can stand
+    // alone. `location_url` is the only user-pasted string this app renders as
+    // a navigable link, so it is validated https-only on write AND guarded
+    // again at render.
+    location: text("location"),
+    locationUrl: text("location_url"),
+    // PLAIN TEXT. No markdown, no link detection, no rendering surface: this is
+    // "bring a chair" and "park on the street", and every one of those features
+    // would be a new attack surface on a field any member can write.
+    notes: text("notes"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("events_group_idx").on(t.groupId)],

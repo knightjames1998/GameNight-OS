@@ -24,6 +24,7 @@ import { deleteEventCascade } from "./cascade.js";
 import { broadcast } from "./ws.js";
 import { decideAttendance, isRefusal } from "./attendance-rule.js";
 import { eventPrefill } from "./event-prefill.js";
+import { parseEventDetails } from "./event-details.js";
 
 // Schedule module. Events belong to a group; RSVPs belong to an event.
 // Every route verifies group membership before touching anything.
@@ -54,6 +55,16 @@ eventsRouter.post("/groups/:groupId/events", async (req: AuthedRequest, res) => 
     }
   }
 
+  // The three detail fields are OPTIONAL on create and this is what makes
+  // DUPLICATE need no route of its own: it is a create carrying the same title
+  // and place with no date, and the status line below already turns a dateless
+  // create into a draft.
+  const details = parseEventDetails(req.body);
+  if (!details.ok) {
+    res.status(400).json({ error: details.error });
+    return;
+  }
+
   const event = (
     await getDb()
       .insert(events)
@@ -63,6 +74,7 @@ eventsRouter.post("/groups/:groupId/events", async (req: AuthedRequest, res) => 
         scheduledFor,
         status: scheduledFor ? "scheduled" : "draft",
         createdBy: req.user!.id,
+        ...details.fields,
       })
       .returning()
   )[0]!;
@@ -124,9 +136,14 @@ eventsRouter.delete("/events/:id", async (req: AuthedRequest, res) => {
 });
 
 /**
- * Change an event's date (or clear it). Same permission as delete: the
- * creator or a crew owner/admin. Status follows the date between draft and
- * scheduled; live/completed/cancelled are never touched from here.
+ * Change an event's date, where it is, or what to bring. Same permission as
+ * delete: the creator or a crew owner/admin. Status follows the DATE between
+ * draft and scheduled; live/completed/cancelled are never touched from here,
+ * and none of the detail fields moves the status at all.
+ *
+ * PARTIAL BY CONSTRUCTION: only the keys present in the body are written, so a
+ * body carrying one field cannot blank the other three. An empty string clears
+ * a detail field, which is how a host removes a location they no longer want.
  */
 eventsRouter.patch("/events/:id", async (req: AuthedRequest, res) => {
   const db = getDb();
@@ -152,35 +169,57 @@ eventsRouter.patch("/events/:id", async (req: AuthedRequest, res) => {
   const allowed =
     found.createdBy === req.user!.id || mine.role === "owner" || mine.role === "admin";
   if (!allowed) {
-    res.status(403).json({ error: "Only the event creator or a crew admin can change the date" });
+    // No longer "change the date": this route carries four fields now, and an
+    // error that names one of them is an error that describes the route it used
+    // to be.
+    res.status(403).json({ error: "Only the event creator or a crew admin can change this night" });
     return;
   }
 
-  if (!("scheduledFor" in (req.body ?? {}))) {
+  const details = parseEventDetails(req.body);
+  if (!details.ok) {
+    res.status(400).json({ error: details.error });
+    return;
+  }
+
+  // ONLY THE KEYS ACTUALLY SENT ARE WRITTEN, which is what makes a PATCH
+  // carrying just `notes` leave the location alone. The old guard tested for
+  // `scheduledFor` by name and the old update wrote it unconditionally, so any
+  // widening that missed this would have silently blanked the date on every
+  // notes edit.
+  const patch: Partial<typeof found> = { ...details.fields };
+  if ("scheduledFor" in (req.body ?? {})) {
+    let scheduledFor: Date | null = null;
+    if (req.body.scheduledFor) {
+      scheduledFor = new Date(String(req.body.scheduledFor));
+      if (isNaN(scheduledFor.getTime())) {
+        res.status(400).json({ error: "Invalid date" });
+        return;
+      }
+    }
+    patch.scheduledFor = scheduledFor;
+    // Status follows the date between draft and scheduled; live, completed and
+    // cancelled are never touched from here, and none of the three detail
+    // fields moves it at all.
+    patch.status =
+      found.status === "draft" || found.status === "scheduled"
+        ? scheduledFor
+          ? "scheduled"
+          : "draft"
+        : found.status;
+  }
+
+  if (Object.keys(patch).length === 0) {
     res.status(400).json({ error: "Nothing to update" });
     return;
   }
-  let scheduledFor: Date | null = null;
-  if (req.body.scheduledFor) {
-    scheduledFor = new Date(String(req.body.scheduledFor));
-    if (isNaN(scheduledFor.getTime())) {
-      res.status(400).json({ error: "Invalid date" });
-      return;
-    }
-  }
 
-  const status =
-    found.status === "draft" || found.status === "scheduled"
-      ? scheduledFor
-        ? "scheduled"
-        : "draft"
-      : found.status;
-  await db.update(events).set({ scheduledFor, status }).where(eq(events.id, found.id));
+  await db.update(events).set(patch).where(eq(events.id, found.id));
 
   const origin = req.get("x-gn-client");
   broadcast({ type: "event_updated", eventId: found.id, groupId: found.groupId }, origin);
   broadcast({ type: "group_events_changed", groupId: found.groupId }, origin);
-  res.json(await eventDetail({ ...found, scheduledFor, status }, req.user!.id));
+  res.json(await eventDetail({ ...found, ...patch }, req.user!.id));
 });
 
 /** List a group's events, newest first, with RSVP summary and my status. */

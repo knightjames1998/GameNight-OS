@@ -119,6 +119,9 @@ type WsEvent =
 // treats the message normally.
 export type WsMessage = WsEvent & { origin?: string };
 export * from "./packs.js";
+// The https-only rule for `events.location_url`, shared because it is applied
+// twice: refused on write by the server, refused again at render by the client.
+export * from "./safeurl.js";
 // The LEDGER FORMAT registry, beside the pack registry and for the same reason:
 // matches.format was read back by a label map on the client and a sort order on
 // the server, neither of which knew about the other, and both had drifted.
