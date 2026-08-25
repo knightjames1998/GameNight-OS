@@ -1140,6 +1140,31 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-input::placeholder{color:var(--gn-place)}
 .gn-input:focus{outline:none;border-color:var(--gn-input-focus-edge)}
 
+/* A MULTI-LINE .gn-input. Same surface, edge and focus ring; the differences
+   are the ones a textarea actually needs and that the single-line rule gets
+   wrong: vertical padding (the input rule is `0 14px`, which crushes the second
+   line against the border), a line height, and a resize handle that only goes
+   down so a drag cannot push the page sideways. Notes are the only multi-line
+   field in the app today. */
+.gn-textarea{
+  width:100%;border-radius:var(--gn-radius-tile);background:var(--gn-input-fill);
+  border:2px solid var(--gn-input-edge);color:var(--gn-ink);padding:10px 14px;
+  box-shadow:var(--gn-input-sunk);
+  /* 16px for the same iOS auto-zoom reason as .gn-input. */
+  font-size:16px;font-family:inherit;color-scheme:dark;
+  line-height:1.4;resize:vertical;min-height:84px;
+}
+.gn-textarea::placeholder{color:var(--gn-place)}
+.gn-textarea:focus{outline:none;border-color:var(--gn-input-focus-edge)}
+
+/* WHERE THE NIGHT IS AND WHAT TO BRING, under the date on the event page.
+   Notes are plain text and wrap rather than widening the page: `pre-wrap` keeps
+   the line breaks a host typed, and `anywhere` stops one long pasted string
+   (a URL somebody put in the notes) from pushing the layout sideways at 390px. */
+.gn-where{display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap}
+.gn-where__host{color:var(--gn-dim);font-size:11px}
+.gn-notes{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--gn-ink)}
+
 .gn-code{
   display:block;background:var(--gn-surf);border:2px solid var(--gn-line);
   border-radius:var(--gn-radius-tile);padding:10px 12px;color:var(--gn-ink);

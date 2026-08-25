@@ -9,6 +9,13 @@ import BackButton from "../BackButton";
 import { useLiveUpdates } from "../useLiveUpdates";
 import GamePicker, { type PickerGame, type PickerFormat } from "../GamePicker";
 import { SESSION_PACKS } from "@gamenight/shared/packs";
+// THE NARROW SUBPATH, NOT THE BARREL, and the bundle budget test is what
+// insists: EventPage is on the ENTRY path, so `from "@gamenight/shared"` pulls
+// the whole index into the entry chunk, which is the Social Deduction title
+// catalogue and the Smash fighter roster among other things. Measured when this
+// import was written the wrong way: entry JS 73557 -> 81758 gzipped, +8201 for
+// one predicate. See AUDIT-2026-08.md MUST FIX 1.
+import { isHttpsUrl } from "@gamenight/shared/safeurl";
 import { buildPickerGames, isSingleFormatPack, type PackKey, type SessionPackKey } from "../packs";
 
 export default function EventPage({ me }: { me: Me | null }) {
@@ -30,6 +37,13 @@ export default function EventPage({ me }: { me: Me | null }) {
   const [editRsvp, setEditRsvp] = useState(false);
   const [editDate, setEditDate] = useState(false);
   const [whenDraft, setWhenDraft] = useState("");
+  // Where the night is and what to bring. One editor for all three, because
+  // they are one thought ("about this night") and three separate pencils on one
+  // screen is three ways to be halfway through an edit.
+  const [editWhere, setEditWhere] = useState(false);
+  const [locDraft, setLocDraft] = useState("");
+  const [urlDraft, setUrlDraft] = useState("");
+  const [notesDraft, setNotesDraft] = useState("");
   const [shareToast, setShareToast] = useState("");
   // Guards out-of-order mutation responses: only the newest request may
   // write its result into state (rapid taps race otherwise).
@@ -109,6 +123,39 @@ export default function EventPage({ me }: { me: Me | null }) {
       setEditDate(false);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Couldn't change the date");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Save all three detail fields together.
+   *
+   * Sends all three even when only one changed, which is correct HERE and would
+   * be wrong from anywhere else: this form owns all three, so what it holds IS
+   * the intended state, and an emptied input has to reach the server as a clear.
+   * The route itself is partial (it writes only the keys it is sent), which is
+   * what lets any OTHER caller send one field without blanking the rest.
+   */
+  async function saveWhere() {
+    if (busy) return;
+    setBusy(true);
+    const seq = ++reqSeq.current;
+    try {
+      const fresh = await api<EventDetail>(`/api/events/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          location: locDraft.trim(),
+          locationUrl: urlDraft.trim(),
+          notes: notesDraft.trim(),
+        }),
+      });
+      if (seq === reqSeq.current) setEvent(fresh);
+      setEditWhere(false);
+    } catch (e) {
+      // Surfaces the server's own message, which is how a host learns that a
+      // map link has to be https rather than watching the field silently empty.
+      window.alert(e instanceof Error ? e.message : "Couldn't save that");
     } finally {
       setBusy(false);
     }
@@ -219,6 +266,14 @@ export default function EventPage({ me }: { me: Me | null }) {
 
   const canEditDate =
     event.myRole === "owner" || event.myRole === "admin" || me?.id === event.createdBy;
+  // THE RENDER-TIME GUARD, using the same shared predicate the server writes
+  // through. Belt and braces on purpose: the write rule can be relaxed later by
+  // somebody who does not know this side trusts it, and a row written before a
+  // rule existed keeps whatever it was given. The last line of defence belongs
+  // next to the thing that would do the damage.
+  const mapHref = isHttpsUrl(event.locationUrl) ? event.locationUrl : null;
+  const mapHost = mapHref ? hostOf(mapHref) : "";
+  const hasWhere = !!(event.location || mapHref || event.notes);
   const started =
     !!event.scheduledFor && new Date(event.scheduledFor).getTime() <= Date.now();
   const myButton = buttons.find((b) => b.status === event.myStatus);
@@ -296,6 +351,93 @@ export default function EventPage({ me }: { me: Me | null }) {
           </button>
         )}
       </div>
+
+      {/* WHERE THE NIGHT IS AND WHAT TO BRING. Every member sees it; only the
+          people who can change the date can change this, which is the same gate
+          rather than a second one. An absent field renders NOTHING, not an
+          empty row, so a night with no location looks exactly as it did before
+          this shipped. */}
+      {editWhere ? (
+        <section className="gn-card space-y-2">
+          <div className="gn-h2">About this night</div>
+          <input
+            className="gn-input"
+            placeholder="Where (Dave's place, The Anchor)"
+            value={locDraft}
+            maxLength={120}
+            onChange={(e) => setLocDraft(e.target.value)}
+          />
+          <input
+            className="gn-input"
+            type="url"
+            inputMode="url"
+            placeholder="Map link (https://...)"
+            value={urlDraft}
+            maxLength={500}
+            onChange={(e) => setUrlDraft(e.target.value)}
+          />
+          <textarea
+            className="gn-textarea"
+            placeholder="Notes: park on the street, bring a chair"
+            value={notesDraft}
+            maxLength={1000}
+            onChange={(e) => setNotesDraft(e.target.value)}
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <button className="gn-actionbtn" onClick={saveWhere} disabled={busy}>
+              Save
+            </button>
+            <button className="gn-textbtn" onClick={() => setEditWhere(false)}>
+              cancel
+            </button>
+            <span className="gn-hint">A map link has to start with https://</span>
+          </div>
+        </section>
+      ) : (
+        (hasWhere || canEditDate) && (
+          <section className="space-y-1">
+            {(event.location || mapHref) && (
+              <p className="gn-where">
+                <span aria-hidden="true">📍</span>
+                {mapHref ? (
+                  <>
+                    {/* THE ONE LEGITIMATE RAW ANCHOR IN THIS APP. Standing rule 4
+                        bans them for INTERNAL navigation, because a full page
+                        load in an installed PWA opens a new Safari tab and
+                        leaves the app. This link WANTS to leave: it is somebody
+                        else's map. `noopener noreferrer` because the
+                        destination is a string a crew member pasted. */}
+                    <a href={mapHref} target="_blank" rel="noopener noreferrer">
+                      {event.location || "Open map"}
+                    </a>
+                    {/* WHERE IT ACTUALLY GOES, beside the label, because the
+                        label is also user-typed: "Dave's" pointing at anywhere
+                        is a link nobody can check without tapping it. */}
+                    <span className="gn-where__host">{mapHost}</span>
+                  </>
+                ) : (
+                  <span>{event.location}</span>
+                )}
+              </p>
+            )}
+            {event.notes && <p className="gn-notes">{event.notes}</p>}
+            {canEditDate && (
+              <button
+                className="gn-actionbtn"
+                style={{ minHeight: 32, padding: "5px 10px" }}
+                onClick={() => {
+                  setLocDraft(event.location ?? "");
+                  setUrlDraft(event.locationUrl ?? "");
+                  setNotesDraft(event.notes ?? "");
+                  setEditWhere(true);
+                }}
+              >
+                {hasWhere ? "📍 Edit details" : "📍 Add location or notes"}
+              </button>
+            )}
+          </section>
+        )
+      )}
 
       {/* Low-key controls: share the event, put it on the TV, or open the
           night recap card. */}
@@ -475,6 +617,21 @@ function withAttendance(
   if (!userId) return e;
   const rest = e.attendance.filter((a) => a.userId !== userId);
   return { ...e, attendance: showed === null ? rest : [...rest, { userId, showed }] };
+}
+
+/**
+ * The host of a map link, for the dim line beside it.
+ *
+ * Never throws: this only ever runs on a string `isHttpsUrl` already parsed, but
+ * a helper that can take down the event page if that ever stops being true is
+ * not worth the two lines it saves.
+ */
+function hostOf(raw: string): string {
+  try {
+    return new URL(raw).host;
+  } catch {
+    return "";
+  }
 }
 
 /** ISO timestamp -> the local "YYYY-MM-DDTHH:mm" a datetime-local input wants. */

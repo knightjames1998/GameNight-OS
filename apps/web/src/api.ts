@@ -71,6 +71,14 @@ export interface EventSummary {
   title: string;
   scheduledFor: string | null;
   status: "draft" | "scheduled" | "live" | "completed" | "cancelled";
+  /**
+   * The three detail fields, carried on the SUMMARY as well as the detail
+   * payload because duplicating a past night copies them (see GroupPage). The
+   * crew page renders none of them; see EventDetail for what they are.
+   */
+  location: string | null;
+  locationUrl: string | null;
+  notes: string | null;
   counts: { yes: number; maybe: number; no: number };
   myStatus: RsvpStatus | null;
 }
@@ -93,6 +101,23 @@ export interface EventDetail {
   inviteCode: string;
   scheduledFor: string | null;
   status: "draft" | "scheduled" | "live" | "completed" | "cancelled";
+  /**
+   * Where the night is, as a label a crew would say out loud ("Dave's place").
+   * SEPARATE FROM THE LINK on purpose: a pasted maps URL is unreadable as a
+   * label and a typed address is not tappable, so one field would have forced
+   * every crew to pick which of the two they wanted.
+   */
+  location: string | null;
+  /**
+   * A map link, and THE ONLY USER-PASTED STRING THIS APP RENDERS AS A NAVIGABLE
+   * LINK. The server refuses anything that is not https on write, and the page
+   * checks again with the same shared predicate (`isHttpsUrl`) before it
+   * renders an anchor: the write rule can be relaxed later by somebody who does
+   * not know the render side trusts it.
+   */
+  locationUrl: string | null;
+  /** Plain text. No markdown, no link detection, no rendering surface. */
+  notes: string | null;
   rsvps: { userId: string; displayName: string; status: RsvpStatus }[];
   noResponse: { userId: string; displayName: string }[];
   myStatus: RsvpStatus | null;
