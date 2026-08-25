@@ -164,10 +164,21 @@ export default function EventPage({ me }: { me: Me | null }) {
   // Share the event through the existing invite/join flow: the link is a
   // crew invite carrying the event id, so a logged-out tap lands on the join
   // page and, after join/login, redirects to this event.
-  async function shareEvent() {
+  /**
+   * ONE SHARE PATH, TWO MESSAGES. The nudge is not a second feature: it is this
+   * function with a different opening line, so the invite-carrying URL, the
+   * share sheet, the clipboard fallback and the toast are all the ones that
+   * were already here and already work. A second share implementation would be
+   * a second place for the join link to go stale.
+   *
+   * THE NUDGE NAMES NOBODY. It gets pasted into a group chat, and a count does
+   * the job without the message being a callout with four people's names in it.
+   */
+  async function shareEvent(mode: "share" | "nudge" = "share") {
     if (!event) return;
+    const waiting = event.noResponse.length;
     const url = `${window.location.origin}/join/${event.inviteCode}?event=${event.id}`;
-    const bits = [event.title];
+    const bits = [mode === "nudge" ? `Who is in for ${event.title}?` : event.title];
     if (event.scheduledFor) {
       bits.push(
         new Date(event.scheduledFor).toLocaleString([], {
@@ -180,6 +191,7 @@ export default function EventPage({ me }: { me: Me | null }) {
       );
     }
     if (event.groupName) bits.push(event.groupName);
+    if (mode === "nudge" && waiting > 0) bits.push(`${waiting} still to answer`);
     const r = await shareLink({ title: `${event.title} · GameNight OS`, text: bits.join(" · "), url });
     if (r === "copied") {
       setShareToast("Link copied");
@@ -442,7 +454,9 @@ export default function EventPage({ me }: { me: Me | null }) {
       {/* Low-key controls: share the event, put it on the TV, or open the
           night recap card. */}
       <div className="flex items-center gap-2 flex-wrap">
-        <button className="gn-actionbtn" onClick={shareEvent}>
+        {/* Wrapped rather than passed by reference: `shareEvent` takes a mode
+            now, and a bare handler would hand it the click event. */}
+        <button className="gn-actionbtn" onClick={() => shareEvent()}>
           <span aria-hidden="true">📤</span> Share
         </button>
         {/* One TV button per night. Never disabled: the lobby (who's in, the
@@ -599,6 +613,20 @@ export default function EventPage({ me }: { me: Me | null }) {
         <RsvpList title="Maybe" people={groupBy("maybe")} tone="var(--gn-gold)" groupId={event.groupId} meId={me?.id} />
         <RsvpList title="Out" people={groupBy("no")} tone="var(--gn-p1)" groupId={event.groupId} meId={me?.id} />
         <RsvpList title="No answer yet" people={event.noResponse} tone="var(--gn-dim)" groupId={event.groupId} meId={me?.id} />
+        {/* THE NUDGE. Renders nothing once everybody has answered, which is the
+            state a crew that is on top of things spends most of its time in.
+            There is no push notification behind this and this session built
+            none: it is a share sheet, so the nudge lands wherever the crew
+            already talks. */}
+        {event.noResponse.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button className="gn-actionbtn" onClick={() => shareEvent("nudge")}>
+              <span aria-hidden="true">👋</span> Nudge the {event.noResponse.length} who
+              {event.noResponse.length === 1 ? " hasn't" : " haven't"} answered
+            </button>
+            {shareToast && <span className="gn-hint">{shareToast}</span>}
+          </div>
+        )}
       </section>
     </Shell>
   );
