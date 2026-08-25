@@ -96,6 +96,57 @@ export default function GroupPage({
     }
   }
 
+  /**
+   * Run this night again.
+   *
+   * A DUPLICATE IS A CREATE, not a new route: the create endpoint already takes
+   * the title and the three detail fields and already derives
+   * `status: scheduledFor ? "scheduled" : "draft"`, so a dateless duplicate
+   * lands as a draft with no server work at all.
+   *
+   * IT CARRIES NO DATE ON PURPOSE. "Next week, same time" is a guess, and a
+   * guessed date on a real event is worse than no date: it shows up in the
+   * upcoming list, it can be RSVP'd to, and nobody knows it was invented. The
+   * new night opens on its own page, where the date editor is.
+   *
+   * NOTHING ELSE COPIES. Not RSVPs, not attendance, not the Beerio room code,
+   * not a session or a bracket. A duplicate is a fresh night with the same name
+   * and the same place, and everything else about the old one is that night's
+   * history rather than this one's starting state.
+   *
+   * ANY MEMBER CAN, deliberately unlike delete. Delete is destructive and gated
+   * on `canManage`; duplicating is a create with prefilled text, and the create
+   * FORM further down this same page is open to every member. Gating the button
+   * tighter than the form it is a shortcut for would be inconsistent, and this
+   * cannot do anything that form cannot.
+   */
+  async function duplicateEvent(e: EventSummary) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const created = await api<EventSummary>(`/api/groups/${id}/events`, {
+        method: "POST",
+        body: JSON.stringify({
+          // Verbatim. Two nights called the same thing are told apart by their
+          // dates, and a recurring night keeping its name is the whole point.
+          title: e.title,
+          scheduledFor: null,
+          location: e.location,
+          locationUrl: e.locationUrl,
+          notes: e.notes,
+        }),
+      });
+      // Write it through the cache the same way the delete handler does, so the
+      // crew page is not showing a list that is missing the night it just made.
+      setEvents([created, ...(events ?? [])]);
+      navigate(`/e/${created.id}`);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Couldn't duplicate that night");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Order matters: cached content wins over an error. A revalidation that
   // fails (phone lost signal, Render still waking up) must not blank out a
   // crew page we can already draw perfectly well; it just means the copy on
@@ -122,6 +173,29 @@ export default function GroupPage({
       <Link to={`/e/${e.id}`} className="gn-cab" style={{ display: "block" }}>
         <div className="flex justify-between items-center gap-2">
           <span className="gn-cab__name" style={{ fontSize: "16px" }}>{e.title}</span>
+          {/* PAST NIGHTS ONLY. This is one tile function shared by the upcoming
+              list and the past cabinet, so an ungated button would offer to
+              duplicate a night that has not happened yet, which is a way to end
+              up with two of the same Friday. */}
+          {isPast(e) && (
+            <button
+              className="gn-chipbtn"
+              style={{
+                background: "color-mix(in srgb, var(--gn-p2) 16%, transparent)",
+                color: "var(--gn-p2)",
+              }}
+              disabled={busy}
+              onClick={(ev) => {
+                // Inside the card's Link, exactly like delete below: without
+                // both of these the tap navigates to the old night instead.
+                ev.preventDefault();
+                ev.stopPropagation();
+                void duplicateEvent(e);
+              }}
+            >
+              run it again
+            </button>
+          )}
           {canManage && (
             <button
               className="gn-chipbtn gn-chipbtn--danger"
