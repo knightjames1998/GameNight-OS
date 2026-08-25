@@ -13,7 +13,7 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-08-23 (the night flow session, before its own work)
-    Shipped sessions since that redraw: 2
+    Shipped sessions since that redraw: 3
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -235,6 +235,13 @@ regenerated file in the same commit as the reconcile. If the MCP canvas is unava
 session, regenerating the committed file alone still counts as the redraw.
 
 ## SHIPPED — FOUNDATION
+- [x] THE EVENT LAYER BUNDLE: WHERE THE NIGHT IS, THE NUDGE, AND RUN IT AGAIN (2026-08-25). Three QOL items that all live on the event layer, ONE schema change, TWO widened routes and ZERO new routes.
+  **LOCATION IS TWO COLUMNS, AND THAT IS THE DECISION RATHER THAN AN ACCIDENT OF MODELLING.** A pasted maps URL is unreadable as a label (a crew says "Dave's", not `https://maps.app.goo.gl/xK9...`) and a typed address is not tappable, so one column would have forced every crew to choose which of the two they wanted. `location`, `location_url` and `notes`, all nullable, all optional, either of the first two able to stand alone.
+  **`location_url` IS THE ONLY USER-PASTED STRING THIS APP HAS EVER RENDERED AS A NAVIGABLE LINK**, so its rule lives in `@gamenight/shared` and is applied TWICE: refused on write by the server, refused again at render by the page. HTTPS ONLY as an ALLOWLIST OF ONE PROTOCOL rather than a blocklist of the schemes somebody thought of, and parsed with the `URL` constructor rather than a regex, because a regex on URLs is how `java\nscript:` gets through. The render guard is not redundancy: the write rule can be relaxed later by somebody who does not know the render side trusts it, and rows written before a rule existed keep whatever they were given. The map link's HOST is shown dimmed beside the label, because the label is user-typed too and "Dave's" pointing at anywhere is a link nobody can check without tapping it.
+  **THE PARTIAL PATCH IS THE THING THAT WOULD HAVE BITTEN.** `PATCH /events/:id` took exactly one field, tested for it BY NAME and wrote `{ scheduledFor, status }` UNCONDITIONALLY. Widening a route shaped like that without separating ABSENT from SENT-AS-EMPTY gives you a notes edit that silently clears the date, which nobody notices until a game night loses its time the day before it happens. Only the keys present are written now, empty string and null both mean CLEAR (they are the same intent arriving from a JSON client and from an emptied input), and a test asserts the OLD unconditional write is gone rather than only that the new one is there.
+  **THE NUDGE IS THE SHARE SHEET WITH A DIFFERENT OPENING LINE.** `shareEvent` already built the invite-carrying URL, called `shareLink`, handled the clipboard fallback and showed the toast; the nudge is that function taking a mode. It names NOBODY, because it gets pasted into a group chat and a count does the job without four people's names in it. No push was built and none exists.
+  **RUN IT AGAIN IS A CREATE, NOT A ROUTE.** Create already took the title and now takes the three detail fields, and already derived `status: scheduledFor ? "scheduled" : "draft"`, so a dateless duplicate lands as a draft with no server work. It carries NO DATE on purpose (a guessed date on a real event is worse than none: it shows in the upcoming list and can be RSVP'd to) and copies NOTHING ELSE: no RSVPs, no attendance, no Beerio code, no session or bracket. Past nights only, gated on the `isPast` test that already existed, because `eventTile` is one function shared by both lists.
+  **THE BUNDLE BUDGET CAUGHT THE REGRESSION IT WAS WRITTEN FOR.** `import { isHttpsUrl } from "@gamenight/shared"` on the event page pulled the whole barrel into the ENTRY chunk: 73557 to 81758 gzipped, +8201 for one predicate, with the catalogue assertion naming exactly what arrived (the Social Deduction title catalogue, the Smash fighter roster). The narrow subpath put it back to 74181 and the measurement is written into the import. Files: `packages/db/src/schema.ts`, `packages/shared/src/safeurl.ts` (new), `apps/server/src/event-details.ts` (new), `events.ts`, `apps/web/src/api.ts`, `pages/EventPage.tsx`, `pages/GroupPage.tsx`, `index.css`, `apps/server/tests/event-details.test.ts` (new, 10 tests). **SCHEMA CHANGE: the three ALTER TABLE statements are in that session's closeout.**
 - [x] THE CONNECTION STATE PILL, AND THE HEARTBEAT THAT MAKES IT HONEST (2026-08-24). One QOL item that turned out to have a server half, and the server half is the interesting one.
   **THERE WAS NO HEARTBEAT, AND THE WHOLE SESSION TURNS ON THAT.** `setupWebSockets` sent ONE `{ type: "ping" }` on connect and never sent another; there was no `socket.on("message")` handler, no interval, no `isAlive` sweep, and the client never pinged either. A WEBSOCKET CAN DIE WITHOUT EITHER END BEING TOLD: a mobile NAT or a proxy drops the connection with no FIN, the browser's `onclose` never fires, the 3000ms retry never runs, and `readyState` reads OPEN forever while nothing arrives. A pill built on `readyState` would have printed "connected" during exactly the failure it exists to expose, which is worse than shipping no pill. The server now pings every 20s through `broadcast` (one place knows how to write to the room), and the client goes stale if it hears nothing for 45s.
   **NINETEEN LIVE SCREENS, ZERO OF THEM EDITED.** Every subscriber ends up inside `useLiveUpdates`, so a module-scope store that each socket reports into plus one `<ConnectionPill />` in the App shell covers all of them. That is not the module-scope trap the standing warning names: that warning is about caching `location` at import, captured once against whatever URL loaded first; this is mutable state written at runtime by whoever is live now.
@@ -474,9 +481,16 @@ Wanted, not yet scheduled into a session.
   **AND THE SCOPING NOTE WAS WRONG IN THE HELPFUL DIRECTION:** "it touches every pack page's shell ... one line in nine places". It touches NONE of them. Nineteen files subscribe to the hub and every one goes through `useLiveUpdates`, so a module-scope store plus one mount in the App shell covered all nineteen screens with three edits and no page change at all.
   **ONE THING NOBODY HAD WRITTEN DOWN, found while building it:** reconnecting did not refetch. `onVisible` covered a sleeping phone and nothing covered a socket that dropped and returned while the page stayed visible, so every message sent during the gap was simply lost off a screen somebody was looking at. Fixed in the same session, and it is a bug fix rather than part of the pill.
 
-- [ ] REPEAT OR DUPLICATE AN EVENT. `events` has no recurrence column and there is no duplicate action, so a weekly game night is retyped every week. **THE CHEAPEST USEFUL VERSION IS NOT A RECURRENCE ENGINE**, and that is the whole point of writing it down this way: "duplicate this event, next week, same time" is one button, one POST and no schema change, and it covers the weekly-night case that motivated it. A real recurrence model (rules, exceptions, "every other Thursday", editing one instance of a series) is a much larger feature that should have to justify itself separately, against a crew that has actually outgrown the button.
-- [ ] LOCATION AND NOTES ON AN EVENT. **NEITHER COLUMN EXISTS TODAY, verified against `packages/db/src/schema.ts`:** `events` carries id, groupId, title, scheduledFor, status, createdBy and the two Beerio room fields, and nothing about where the night is or what to bring. Two nullable text columns plus two fields on the event form and two lines on the event page. **THIS IS A SCHEMA CHANGE, so it ships with explicit idempotent Neon SQL** (`ALTER TABLE events ADD COLUMN IF NOT EXISTS location text;` and the same for `notes`) called out in that session's closeout and run against the database, rather than left to `drizzle-kit push --force`, which silently no-ops in non-interactive CI and is already a Watch trap in BUGS. Gates the geotagged-arrival idea under IDEAS, which needs somewhere to put a venue.
-- [ ] RSVP NUDGE: "4 haven't answered" plus a button. The event payload ALREADY carries `noResponse` (`apps/server/src/events.ts` builds it, and `EventPage` already renders it as a "No answer yet" list), and the event page ALREADY has a share control with the copy-link fallback. So this is a count, a sentence and a button wired to what is there: no new endpoint, no new query, no schema change. Written down as its own line because it is the smallest item in this section and keeps being mistaken for part of a bigger notifications feature, which it is not: it sends nothing, it just makes the host's nudge one tap instead of five.
+- [x] SHIPPED 2026-08-25: **REPEAT OR DUPLICATE AN EVENT**, as "run it again" on past night tiles. The entry's own framing was the right one and is why this cost a single handler: the cheapest useful version is not a recurrence engine, and it shipped as one POST to a route that already existed.
+  **ONE THING IT PREDICTED WRONGLY AND IT IS WORTH THE CORRECTION:** "one button, one POST and no schema change". No schema change was true OF THIS ITEM and false of the session, because duplicating a night that carries a location and notes has to copy them, so this rode the schema change the location item brought. The two were scheduled together for exactly that reason, and shipping duplicate FIRST would have shipped a button that quietly dropped half of what it claimed to copy.
+  **AND "NEXT WEEK, SAME TIME" WAS DROPPED DELIBERATELY:** a duplicate carries NO date. A guessed date on a real event is worse than no date, because it appears in the upcoming list and can be RSVP'd to with nobody able to tell it was invented. The new night lands as a draft and opens on its own page, where the date editor already is.
+- [x] SHIPPED 2026-08-25: **LOCATION AND NOTES ON AN EVENT.** The verification in this entry held up exactly: neither column existed, and the SQL it wrote out is the SQL that shipped.
+  **IT SHIPPED AS THREE COLUMNS, NOT TWO,** and the third is the one worth writing down: a pasted maps URL is unreadable as a label and a typed address is not tappable, so `location` and `location_url` are separate and either can stand alone. This entry's two-column plan would have made every crew choose between a name they recognise and a link they can tap.
+  **AND "TWO FIELDS ON THE EVENT FORM" DID NOT HAPPEN, ALSO DELIBERATELY.** The create form on the crew page is a title and a date and stays that way; the details are set on the event page after the night exists, which is where a host is standing when they know them. A create form that asks for a venue before the night has a date is a form people abandon.
+- [x] SHIPPED 2026-08-25: **RSVP NUDGE.** The entry priced it as a count, a sentence and a button with no new endpoint, no new query and no schema change, and every part of that was right.
+  **IT WAS SMALLER STILL THAN THE ENTRY KNEW.** The entry said the page "ALREADY has a share control with the copy-link fallback", which understates what that bought: `shareEvent` already built the INVITE-CARRYING url (`/join/:inviteCode?event=:id`, so a logged-out tap lands in the join flow), already called `shareLink`, already handled the clipboard fallback and already drove the toast. The nudge is that same function taking a mode, so it is a count, a button and one extra line of copy. A second share path would have been a second place for the join link to go stale.
+  **THE ONE DESIGN CALL THE ENTRY DID NOT CONTAIN:** the message names NOBODY. It gets pasted into a group chat, and a count does the job without the message being a callout with four people's names in it.
+
 - [ ] **FIX OR DELETE A COMPLETED RESULT. WRITTEN AS A QUESTION TO ANSWER FIRST, NOT AS A FEATURE TO BUILD**, and the session that picks it up answers it before designing a single screen. Undo works INSIDE a live session and retracts from the ledger correctly, which is established and tested. What is NOT established is whether a junk result that has already materialized can be removed at all without opening the Neon console: a host who records a game against the wrong player, or records the same game twice, and only notices the next morning. **WHAT SCOPING FOUND SO FAR, offered as a starting point rather than as the answer:** `deleteMaterialized` exists in `apps/server/src/pack-runtime.ts`, keyed by (eventId, sessionKey, idx), so the PRIMITIVE is there; what is unconfirmed is whether any ROUTE reaches it once a session is no longer live, and whether the pack-side session state a correction would also have to fix is still addressable at that point. **IF NOTHING CAN REACH A MATERIALIZED MATCH, THAT IS THE FINDING AND IT RAISES THE PRIORITY**, because it means the ledger this whole app is built on is append-only by accident rather than by decision, and every crew's lifetime stats carry their mistakes permanently.
 - [ ] CO-OPERATIVE TITLES. PANDEMIC IS ALREADY IN BOARD GAME'S CURATED LIST and it is fully co-op: one side, everybody on it, win or lose together. `validateSides` requires at least two sides, so the primitive as written does not model it, and the pack currently opens Pandemic free-for-all and records a tapped finish order for a game where everybody wins or loses together. Wrong, known, and deliberately not bodged. Casino Run already records this exact shape (one shared side for everyone, and `meetingOutcome` already classifies those players as having played `together` rather than tied), so the precedent exists and THE LEDGER NEEDS NOTHING NEW. What needs deciding is whether `teams.ts` relaxes the two-side minimum for a co-op result, or a co-op night models THE GAME as the opposing side. Found while scoping Card table on 2026-08-05; the recommendation then was log-do-not-build, because that session was already carrying an extraction and a conversion.
 - [ ] SMASH 2v2 TEAM BATTLES. A real Ultimate mode and the obvious first team retrofit: the pack already seats up to eight, already assigns characters, and `teams.ts` already owns the placement rule. Applies to the FFA format first. **SCOPE IT PROPERLY BEFORE STARTING**, because Smash carries four formats and they do not all take sides the same way: Best Of is already head-to-head, KOTH has Ping Pong's worked example to copy, and SMASHDOWN IS THE INTERESTING ONE, because its burn board strikes a fighter per player per battle and whether a PAIR burns two fighters or a shared one changes the cap arithmetic (`floor(rosterSize / playerCount)`) that the setup screen prints as a sentence. Do not assume; ask.
@@ -803,6 +817,63 @@ their own number. Only overridden seats are sent (`buyIns`, keyed by roster inde
 **Deferred, do not build:** cross-pack night net. See FEATURES TO ADD.
 
 ## DECISION LOG
+
+**WHERE THE NIGHT IS SPLITS INTO A LABEL AND A LINK** (2026-08-25). Two columns,
+`location` and `location_url`, either able to stand alone. ONE COLUMN WOULD HAVE
+FORCED EVERY CREW TO CHOOSE between a name they recognise and a link they can
+tap: a pasted maps URL is unreadable as a label (a crew says "Dave's", not
+`https://maps.app.goo.gl/xK9...`) and a typed address is not tappable. The page
+attaches the link to the label when both exist, shows the link on its own line
+when only it does, and renders nothing at all when neither is set.
+
+The map link's HOST is shown dimmed beside the label, and that is a safety line
+rather than decoration: the label is user-typed too, so "Dave's" pointing at
+anywhere is a link nobody can check without tapping it.
+
+**HTTPS ONLY, AS AN ALLOWLIST OF ONE, CHECKED AT BOTH ENDS** (2026-08-25).
+`location_url` is the first user-pasted string this app has ever rendered as a
+navigable link. The rule is not "reject javascript:", which is a blocklist and
+therefore a game of remembering every scheme (`data:`, `vbscript:`, `blob:`,
+whatever ships next); it is an allowlist of exactly one protocol, which cannot be
+out-thought. It parses with the `URL` constructor rather than a regex, because a
+regex on URLs is how `java\nscript:` gets through: the browser's own parser is
+what will eventually resolve the string, so it is what should decide what it is.
+
+IT LIVES IN `@gamenight/shared` AND IS CALLED FROM BOTH ENDS. The server refuses
+a bad one on write and the page refuses to render one it somehow holds. The
+render guard is not redundancy: the write rule can be relaxed later by somebody
+who does not know the render side trusts it, and rows written before a rule
+existed keep whatever they were given. Two copies of a security rule drift; one
+copy called twice cannot.
+
+**THE EXTERNAL MAP LINK IS A DELIBERATE EXCEPTION TO STANDING RULE 4, NOT A
+VIOLATION OF IT** (2026-08-25). That rule bans raw `<a href>` for INTERNAL
+navigation, and the reason is specific: a full page load inside an installed iOS
+PWA opens a new Safari tab and drops the user out of the app. An external map
+link WANTS to leave the app. So it is an anchor, with `target="_blank"` and
+`rel="noopener noreferrer"` because the destination is a string a crew member
+pasted. Written down because the next session to grep for raw anchors will find
+this one and needs to know it was decided rather than missed.
+
+**A DUPLICATED NIGHT CARRIES NO DATE** (2026-08-25). "Next week, same time" was
+the obvious version and is wrong: a GUESSED DATE ON A REAL EVENT IS WORSE THAN NO
+DATE, because it appears in the upcoming list, it can be RSVP'd to, and nobody
+looking at it can tell it was invented rather than chosen. A duplicate lands as a
+draft and opens on its own page, which is where the date editor already is, so
+setting it is one tap from where the host already ended up.
+
+Nothing but the title and the three detail fields copies. Not RSVPs, not
+attendance, not the Beerio room code, not a session or a bracket: a duplicate is
+a fresh night with the same name and the same place, and everything else about
+the old one is that night's history rather than this one's starting state.
+
+**ANY MEMBER CAN DUPLICATE, DELIBERATELY UNLIKE DELETE** (2026-08-25). The two
+buttons sit on the same tile, which is exactly why this needed deciding rather
+than copying. Delete is destructive and gated on `canManage`. Duplicating is a
+CREATE with prefilled text, and the create FORM further down the same page is
+open to every member (the create route checks `isMember` and nothing else), so
+gating the shortcut tighter than the thing it is a shortcut for would be
+inconsistent. The button cannot do anything that form cannot.
 
 **20 SECONDS AND 45 SECONDS ARE ONE DECISION, NOT TWO** (2026-08-24). The server
 pings every 20s and a client calls itself stale after 45s of silence, and the
