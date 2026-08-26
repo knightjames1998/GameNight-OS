@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, CLIENT_ID, type EventSummary, type GroupDetail, type Me } from "../api";
+// The narrow subpath, not the barrel: GroupPage is on the entry path and
+// `@gamenight/shared` drags every pack catalogue into the entry chunk.
+import { isPastEvent } from "@gamenight/shared/recurrence";
 import { useCachedApi } from "../cache";
 import { useLiveUpdates } from "../useLiveUpdates";
 import { EventListSkeleton, SkeletonBlock } from "../Skeleton";
@@ -238,9 +241,12 @@ export default function GroupPage({
   // A night is "past" once it is more than 24h beyond its scheduled time (the
   // same grace window flake tracking uses). Dateless (TBD) nights are never
   // past. Past nights collapse into one cabinet tile, like Friends on Home.
-  const pastCutoff = Date.now() - 24 * 60 * 60 * 1000;
-  const isPast = (e: EventSummary) =>
-    !!e.scheduledFor && new Date(e.scheduledFor).getTime() < pastCutoff;
+  // ONE DEFINITION OF PAST, SHARED WITH THE SERVER since recurrence shipped: the
+  // generator decides whether a series is owed a new occurrence with the same
+  // test this list sorts on, and two copies of the number drift into a game
+  // night appearing a week early or a week late with nothing erroring.
+  const now = Date.now();
+  const isPast = (e: EventSummary) => isPastEvent(e.scheduledFor, now);
   const upcomingEvents = (events ?? []).filter((e) => !isPast(e));
   const pastEvents = (events ?? []).filter(isPast);
 

@@ -99,6 +99,50 @@ export const memberships = pgTable(
 
 // ---------- Schedule ----------
 
+/**
+ * A REPEATING GAME NIGHT'S RULE, ON ITS OWN ROW.
+ *
+ * THE OBVIOUS VERSION PUTS THE RULE ON THE EVENT AND COPIES IT FORWARD, and it
+ * fails twice, both silently:
+ *   - DELETING A NIGHT KILLS THE SERIES, because the rule lived on the row that
+ *     was deleted. A host tidying up one cancelled Thursday ends their weekly
+ *     night and nothing errors.
+ *   - MOVING ONE NIGHT DRAGS THE WHOLE SERIES, because the next occurrence would
+ *     be computed from the previous event's actual `scheduled_for`. Shifting one
+ *     week's game from Thursday to Friday would make every future night a
+ *     Friday: a one-off edit rewriting the rule.
+ * So the rule lives here, and occurrences are computed from `anchor_at` plus an
+ * INDEX. Nothing reads an event's date to decide when the next one is.
+ */
+export const eventSeries = pgTable(
+  "event_series",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    groupId: uuid("group_id").notNull().references(() => groups.id),
+    createdBy: uuid("created_by").notNull().references(() => users.id),
+    title: text("title").notNull(),
+    kind: text("kind", { enum: ["weekly", "monthly", "custom_weeks"] }).notNull(),
+    /** custom_weeks only; null for the other two. */
+    intervalWeeks: integer("interval_weeks"),
+    /** The seed occurrence. NEVER edited: every other occurrence is derived. */
+    anchorAt: timestamp("anchor_at").notNull(),
+    /**
+     * THE IANA ZONE THE WALL CLOCK BELONGS TO, and it is not optional.
+     *
+     * The contract is SAME TIME OF DAY, not same elapsed hours: a 7pm Thursday
+     * night in March is still 7pm in April. That is unanswerable from an instant
+     * alone, because "add a week" means adding 167, 168 or 169 hours depending
+     * on whether the clocks changed in the crew's zone, and this server runs in
+     * UTC where they never do. Captured from the creating device.
+     */
+    timeZone: text("time_zone").notNull(),
+    /** A series runs until somebody turns it off. No end date, by decision. */
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("event_series_group_idx").on(t.groupId)],
+);
+
 export const events = pgTable(
   "events",
   {
@@ -141,9 +185,27 @@ export const events = pgTable(
     // "bring a chair" and "park on the street", and every one of those features
     // would be a new attack surface on a field any member can write.
     notes: text("notes"),
+    /**
+     * The series this night is an occurrence of, and which occurrence it is.
+     *
+     * NULLABLE ON PURPOSE, and the SQL sets `ON DELETE SET NULL`: deleting a
+     * series must NOT delete the nights that already happened, because they
+     * carry recorded stats. A night whose series is gone is just a night.
+     */
+    seriesId: uuid("series_id").references(() => eventSeries.id),
+    seriesIndex: integer("series_index"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [index("events_group_idx").on(t.groupId)],
+  (t) => [
+    index("events_group_idx").on(t.groupId),
+    /**
+     * THE RACE GUARD. Generation happens lazily on a read of the crew page, so
+     * two phones loading it at the same moment both try to create the next
+     * occurrence. This index plus `onConflictDoNothing` makes the loser a no-op
+     * instead of a duplicate night.
+     */
+    uniqueIndex("event_series_occurrence_uq").on(t.seriesId, t.seriesIndex),
+  ],
 );
 
 export const rsvps = pgTable(

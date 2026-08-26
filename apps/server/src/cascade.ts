@@ -54,6 +54,7 @@ import {
   brackets,
   eventAttendance,
   events,
+  eventSeries,
   gameSessions,
   games,
   groups,
@@ -89,6 +90,11 @@ export async function deleteGroupCascade(tx: CascadeTx, groupId: string): Promis
   await tx.delete(gameSessions).where(eq(gameSessions.groupId, groupId));
   await tx.delete(smashSessions).where(eq(smashSessions.groupId, groupId));
   await tx.delete(events).where(eq(events.groupId, groupId));
+  // AFTER the events, because an event points AT a series rather than the other
+  // way round. Reversing these two is a foreign key violation halfway through a
+  // destructive sequence, which is the exact failure the 2026-08-20 session
+  // exists because of.
+  await tx.delete(eventSeries).where(eq(eventSeries.groupId, groupId));
   await tx.delete(games).where(eq(games.groupId, groupId));
   await tx.delete(memberships).where(eq(memberships.groupId, groupId));
   await tx.delete(groups).where(eq(groups.id, groupId));
