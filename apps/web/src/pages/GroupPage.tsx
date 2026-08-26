@@ -208,116 +208,129 @@ export default function GroupPage({
   }
 
   // One game-night tile, shared by the upcoming list and the collapsed past list.
-  const eventTile = (e: EventSummary) => (
-    <li key={e.id}>
-      <Link to={`/e/${e.id}`} className="gn-cab" style={{ display: "block" }}>
-        <div className="flex justify-between items-center gap-2">
-          <span className="gn-cab__name" style={{ fontSize: "16px" }}>{e.title}</span>
-          {/* PAST NIGHTS ONLY. This is one tile function shared by the upcoming
-              list and the past cabinet, so an ungated button would offer to
-              duplicate a night that has not happened yet, which is a way to end
-              up with two of the same Friday. */}
-          {isPast(e) && (
-            <button
-              className="gn-chipbtn"
-              style={{
-                background: "color-mix(in srgb, var(--gn-p2) 16%, transparent)",
-                color: "var(--gn-p2)",
-              }}
-              disabled={busy}
-              onClick={(ev) => {
-                // Inside the card's Link, exactly like delete below: without
-                // both of these the tap navigates to the old night instead.
-                ev.preventDefault();
-                ev.stopPropagation();
-                void duplicateEvent(e);
-              }}
-            >
-              run it again
-            </button>
-          )}
-          {canManage && (
-            <button
-              className="gn-chipbtn gn-chipbtn--danger"
-              onClick={(ev) => {
-                // Inside the card's Link: don't navigate, just act.
-                ev.preventDefault();
-                ev.stopPropagation();
-                // A NIGHT IN A RUNNING SERIES ASKS; EVERY OTHER NIGHT KEEPS THE
-                // CONFIRM IT ALWAYS HAD, word for word. The question is not
-                // "is this upcoming": deleting a PAST night of a series that is
-                // still running is a coherent moment to stop it.
-                if (e.seriesId && e.seriesActive) {
-                  setDeleting(e.id);
-                  return;
-                }
-                if (!window.confirm(`Delete "${e.title}"? Its RSVPs, brackets and recorded stats go with it. This can't be undone.`)) return;
-                void removeEvent(e, "this");
-              }}
-            >
-              delete
-            </button>
-          )}
-        </div>
-        {/* THE THREE-OUTCOME DELETE, which is the one thing in this feature that
-            could not be done with what was already here. `window.confirm` is
-            OK/Cancel; this needs cancel, delete this night, and delete this
-            night AND stop repeating.
-
-            "ALL FUTURE" IS A PHRASE THIS DELIBERATELY AVOIDS, because it would
-            be a lie: only one un-passed occurrence ever exists, so there are no
-            future rows to delete. The second button deletes exactly one night
-            and stops the rule. */}
-        {deleting === e.id && (
-          <div
-            className="space-y-2"
-            style={{
-              marginTop: 10,
-              padding: "10px 12px",
-              borderRadius: "var(--gn-radius-tile)",
-              background: "var(--gn-surf)",
-              border: "2px solid var(--gn-line)",
-            }}
-            onClick={(ev) => {
-              ev.preventDefault();
-              ev.stopPropagation();
-            }}
-          >
-            <p className="gn-hint" style={{ margin: 0 }}>
-              This night repeats. Its RSVPs, brackets and recorded stats go with it either
-              way, and that can't be undone.
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              <button className="gn-chipbtn gn-chipbtn--danger" onClick={() => void removeEvent(e, "this")}>
-                delete this night
+  const eventTile = (e: EventSummary) => {
+    // A ROW MISSING ITS COUNTS MUST NOT TAKE THE PAGE DOWN, and that is not
+    // belt and braces: this list is painted from localStorage BEFORE anything
+    // is fetched, so a malformed row reaches this line before any revalidation
+    // could replace it, and `e.counts.yes` on an absent object throws during
+    // the FIRST render. An error boundary raised from cached data is the one
+    // kind a reload cannot clear, because the reload re-reads the same entry.
+    // Zero for a moment and the real numbers a fetch later is the honest
+    // failure; a dead crew page is not. The shape that made this necessary is
+    // fixed at its source (see eventSummary in events.ts), which is where a
+    // shape belongs. This is what stops the next one being fatal.
+    const counts = e.counts ?? { yes: 0, maybe: 0, no: 0 };
+    return (
+      <li key={e.id}>
+        <Link to={`/e/${e.id}`} className="gn-cab" style={{ display: "block" }}>
+          <div className="flex justify-between items-center gap-2">
+            <span className="gn-cab__name" style={{ fontSize: "16px" }}>{e.title}</span>
+            {/* PAST NIGHTS ONLY. This is one tile function shared by the upcoming
+                list and the past cabinet, so an ungated button would offer to
+                duplicate a night that has not happened yet, which is a way to end
+                up with two of the same Friday. */}
+            {isPast(e) && (
+              <button
+                className="gn-chipbtn"
+                style={{
+                  background: "color-mix(in srgb, var(--gn-p2) 16%, transparent)",
+                  color: "var(--gn-p2)",
+                }}
+                disabled={busy}
+                onClick={(ev) => {
+                  // Inside the card's Link, exactly like delete below: without
+                  // both of these the tap navigates to the old night instead.
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  void duplicateEvent(e);
+                }}
+              >
+                run it again
               </button>
-              <button className="gn-chipbtn gn-chipbtn--danger" onClick={() => void removeEvent(e, "series")}>
-                delete and stop repeating
+            )}
+            {canManage && (
+              <button
+                className="gn-chipbtn gn-chipbtn--danger"
+                onClick={(ev) => {
+                  // Inside the card's Link: don't navigate, just act.
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  // A NIGHT IN A RUNNING SERIES ASKS; EVERY OTHER NIGHT KEEPS THE
+                  // CONFIRM IT ALWAYS HAD, word for word. The question is not
+                  // "is this upcoming": deleting a PAST night of a series that is
+                  // still running is a coherent moment to stop it.
+                  if (e.seriesId && e.seriesActive) {
+                    setDeleting(e.id);
+                    return;
+                  }
+                  if (!window.confirm(`Delete "${e.title}"? Its RSVPs, brackets and recorded stats go with it. This can't be undone.`)) return;
+                  void removeEvent(e, "this");
+                }}
+              >
+                delete
               </button>
-              <button className="gn-textbtn" onClick={() => setDeleting(null)}>
-                cancel
-              </button>
-            </div>
+            )}
           </div>
-        )}
-        {/* Your own RSVP rides the same info line as everyone else's. */}
-        <div className="gn-cab__sub">
-          {e.scheduledFor
-            ? new Date(e.scheduledFor).toLocaleString([], {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })
-            : "Date TBD"}
-          {" · "}
-          {e.counts.yes} in / {e.counts.maybe} maybe / {e.counts.no} out
-          {e.myStatus && ` · you: ${e.myStatus}`}
-        </div>
-      </Link>
-    </li>
-  );
+          {/* THE THREE-OUTCOME DELETE, which is the one thing in this feature that
+              could not be done with what was already here. `window.confirm` is
+              OK/Cancel; this needs cancel, delete this night, and delete this
+              night AND stop repeating.
+
+              "ALL FUTURE" IS A PHRASE THIS DELIBERATELY AVOIDS, because it would
+              be a lie: only one un-passed occurrence ever exists, so there are no
+              future rows to delete. The second button deletes exactly one night
+              and stops the rule. */}
+          {deleting === e.id && (
+            <div
+              className="space-y-2"
+              style={{
+                marginTop: 10,
+                padding: "10px 12px",
+                borderRadius: "var(--gn-radius-tile)",
+                background: "var(--gn-surf)",
+                border: "2px solid var(--gn-line)",
+              }}
+              onClick={(ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+              }}
+            >
+              <p className="gn-hint" style={{ margin: 0 }}>
+                This night repeats. Its RSVPs, brackets and recorded stats go with it either
+                way, and that can't be undone.
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                <button className="gn-chipbtn gn-chipbtn--danger" onClick={() => void removeEvent(e, "this")}>
+                  delete this night
+                </button>
+                <button className="gn-chipbtn gn-chipbtn--danger" onClick={() => void removeEvent(e, "series")}>
+                  delete and stop repeating
+                </button>
+                <button className="gn-textbtn" onClick={() => setDeleting(null)}>
+                  cancel
+                </button>
+              </div>
+            </div>
+          )}
+          {/* Your own RSVP rides the same info line as everyone else's. */}
+          <div className="gn-cab__sub">
+            {e.scheduledFor
+              ? new Date(e.scheduledFor).toLocaleString([], {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })
+              : "Date TBD"}
+            {" · "}
+            {counts.yes} in / {counts.maybe} maybe / {counts.no} out
+            {e.myStatus && ` · you: ${e.myStatus}`}
+          </div>
+        </Link>
+      </li>
+    );
+  };
 
   // A night is "past" once it is more than 24h beyond its scheduled time (the
   // same grace window flake tracking uses). Dateless (TBD) nights are never

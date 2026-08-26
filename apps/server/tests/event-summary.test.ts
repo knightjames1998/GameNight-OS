@@ -145,6 +145,20 @@ test("THE CLIENT REALLY DOES CACHE THE CREATE RESPONSE, which is why all of this
   assert.match(group, /const created = await api<EventSummary>/);
 });
 
+test("THE TILE SURVIVES A ROW WITH NO COUNTS, because a cache can still hold one", () => {
+  // The second line of defence, and the one that decides whether the NEXT
+  // shape bug is a wrong number for a second or a dead crew page. The tile is
+  // painted from localStorage before anything is fetched, so it is the one
+  // place in this app where bad data arrives ahead of the correction.
+  const group = read("../../web/src/pages/GroupPage.tsx");
+  assert.match(group, /const counts = e\.counts \?\? \{ yes: 0, maybe: 0, no: 0 \};/);
+  assert.doesNotMatch(
+    group,
+    /\{e\.counts\.yes\} in/,
+    "the tile is dereferencing a cached row's counts directly again",
+  );
+});
+
 function read(rel: string): string {
   return readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), rel), "utf8");
 }
