@@ -124,6 +124,7 @@ export * from "./packs.js";
 export * from "./safeurl.js";
 // Recurrence: the series rule, and the one definition of "this night is past".
 export * from "./recurrence.js";
+export * from "./places.js";
 // The LEDGER FORMAT registry, beside the pack registry and for the same reason:
 // matches.format was read back by a label map on the client and a sort order on
 // the server, neither of which knew about the other, and both had drifted.
