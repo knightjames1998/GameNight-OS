@@ -63,6 +63,8 @@ export interface GroupDetail extends Omit<GroupSummary, "role"> {
   }[];
 }
 
+import type { SeriesKind } from "@gamenight/shared/recurrence";
+
 export type RsvpStatus = "yes" | "no" | "maybe";
 
 export interface EventSummary {
@@ -79,6 +81,14 @@ export interface EventSummary {
   location: string | null;
   locationUrl: string | null;
   notes: string | null;
+  /**
+   * The series this night is an occurrence of, and whether that series is still
+   * running. BOTH are needed by the tile: a stopped series has nothing left to
+   * stop, so those nights fall back to the plain delete they always had.
+   */
+  seriesId: string | null;
+  seriesIndex: number | null;
+  seriesActive: boolean;
   counts: { yes: number; maybe: number; no: number };
   myStatus: RsvpStatus | null;
 }
@@ -118,6 +128,8 @@ export interface EventDetail {
   locationUrl: string | null;
   /** Plain text. No markdown, no link detection, no rendering surface. */
   notes: string | null;
+  /** The repeat rule this night belongs to, or null. */
+  series: { id: string; kind: SeriesKind; intervalWeeks: number | null; active: boolean } | null;
   rsvps: { userId: string; displayName: string; status: RsvpStatus }[];
   noResponse: { userId: string; displayName: string }[];
   myStatus: RsvpStatus | null;

@@ -1397,6 +1397,15 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   font-weight:800;font-size:11px;letter-spacing:.5px;text-transform:uppercase;
   padding:5px 10px;border-radius:var(--gn-radius-pill);
 }
+/* A chip button's SELECTED and unselected states, for the small either/or rows
+   (the repeat picker is the first). Both are MODIFIERS rather than a restyled
+   base: `.gn-chipbtn` is already worn by the duplicate and clear buttons, which
+   bring their own colours, and giving the base a background would repaint them
+   from underneath. Selected is the teal this app already uses for a confirmed
+   choice; --off is the same silhouette turned down, so a row of them reads as
+   one control with one answer rather than four separate buttons. */
+.gn-chipbtn--on{background:color-mix(in srgb, var(--gn-p2) 18%, transparent);color:var(--gn-p2)}
+.gn-chipbtn--off{background:color-mix(in srgb, var(--gn-dim) 14%, transparent);color:var(--gn-dim)}
 .gn-chipbtn--danger{background:color-mix(in srgb, var(--gn-p1) 14%, transparent);color:var(--gn-danger)}
 .gn-chipbtn--danger:active{background:color-mix(in srgb, var(--gn-p1) 30%, transparent)}
 

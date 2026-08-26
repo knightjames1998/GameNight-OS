@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, CLIENT_ID, type EventSummary, type GroupDetail, type Me } from "../api";
 // The narrow subpath, not the barrel: GroupPage is on the entry path and
 // `@gamenight/shared` drags every pack catalogue into the entry chunk.
-import { isPastEvent } from "@gamenight/shared/recurrence";
+import { isPastEvent, MAX_INTERVAL_WEEKS, type SeriesKind } from "@gamenight/shared/recurrence";
 import { useCachedApi } from "../cache";
 import { useLiveUpdates } from "../useLiveUpdates";
 import { EventListSkeleton, SkeletonBlock } from "../Skeleton";
@@ -40,6 +40,15 @@ export default function GroupPage({
   const [copied, setCopied] = useState(false);
   const [showInviteUrl, setShowInviteUrl] = useState(false);
   const [title, setTitle] = useState("");
+  // The repeat rule for the night being created. "none" is the default and the
+  // control only appears once there is a date, because the date IS the anchor.
+  const [repeat, setRepeat] = useState<"none" | SeriesKind>("none");
+  const [everyWeeks, setEveryWeeks] = useState(2);
+  // Which tile is asking the three-way delete question. `window.confirm` is
+  // OK/Cancel and cannot express three outcomes, and chaining two confirms
+  // reads on a phone as the app asking twice, which trains a host to dismiss
+  // the second one.
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(me?.displayName ?? "");
   const [editingCrew, setEditingCrew] = useState(false);
@@ -91,11 +100,39 @@ export default function GroupPage({
         body: JSON.stringify({
           title,
           scheduledFor: when ? new Date(when).toISOString() : null,
+          // THE ZONE TRAVELS WITH THE SERIES, captured here because this is the
+          // only place that knows it: the server runs in UTC, where the clocks
+          // never change, so it cannot work out that "7pm every Thursday" has
+          // to survive a daylight-saving boundary in somebody else's city.
+          repeat:
+            when && repeat !== "none"
+              ? {
+                  kind: repeat,
+                  intervalWeeks: repeat === "custom_weeks" ? everyWeeks : null,
+                  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                }
+              : null,
         }),
       });
       navigate(`/e/${e.id}`);
     } finally {
       setBusy(false);
+    }
+  }
+
+  /**
+   * Delete one night, and optionally stop the series it belongs to.
+   *
+   * THE SCOPE IS EXPLICIT AND DEFAULTS TO THIS NIGHT. The server defaults the
+   * same way, so neither end can stop a series by omission.
+   */
+  async function removeEvent(e: EventSummary, scope: "this" | "series") {
+    try {
+      await api(`/api/events/${e.id}`, { method: "DELETE", body: JSON.stringify({ scope }) });
+      setEvents((events ?? []).filter((x) => x.id !== e.id));
+      setDeleting(null);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Couldn't delete");
     }
   }
 
@@ -202,23 +239,67 @@ export default function GroupPage({
           {canManage && (
             <button
               className="gn-chipbtn gn-chipbtn--danger"
-              onClick={async (ev) => {
-                // Inside the card's Link: don't navigate, just delete.
+              onClick={(ev) => {
+                // Inside the card's Link: don't navigate, just act.
                 ev.preventDefault();
                 ev.stopPropagation();
-                if (!window.confirm(`Delete "${e.title}"? Its RSVPs, brackets and recorded stats go with it. This can't be undone.`)) return;
-                try {
-                  await api(`/api/events/${e.id}`, { method: "DELETE" });
-                  setEvents((events ?? []).filter((x) => x.id !== e.id));
-                } catch (err) {
-                  window.alert(err instanceof Error ? err.message : "Couldn't delete");
+                // A NIGHT IN A RUNNING SERIES ASKS; EVERY OTHER NIGHT KEEPS THE
+                // CONFIRM IT ALWAYS HAD, word for word. The question is not
+                // "is this upcoming": deleting a PAST night of a series that is
+                // still running is a coherent moment to stop it.
+                if (e.seriesId && e.seriesActive) {
+                  setDeleting(e.id);
+                  return;
                 }
+                if (!window.confirm(`Delete "${e.title}"? Its RSVPs, brackets and recorded stats go with it. This can't be undone.`)) return;
+                void removeEvent(e, "this");
               }}
             >
               delete
             </button>
           )}
         </div>
+        {/* THE THREE-OUTCOME DELETE, which is the one thing in this feature that
+            could not be done with what was already here. `window.confirm` is
+            OK/Cancel; this needs cancel, delete this night, and delete this
+            night AND stop repeating.
+
+            "ALL FUTURE" IS A PHRASE THIS DELIBERATELY AVOIDS, because it would
+            be a lie: only one un-passed occurrence ever exists, so there are no
+            future rows to delete. The second button deletes exactly one night
+            and stops the rule. */}
+        {deleting === e.id && (
+          <div
+            className="space-y-2"
+            style={{
+              marginTop: 10,
+              padding: "10px 12px",
+              borderRadius: "var(--gn-radius-tile)",
+              background: "var(--gn-surf)",
+              border: "2px solid var(--gn-line)",
+            }}
+            onClick={(ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
+            }}
+          >
+            <p className="gn-hint" style={{ margin: 0 }}>
+              This night repeats. Its RSVPs, brackets and recorded stats go with it either
+              way, and that can't be undone.
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              <button className="gn-chipbtn gn-chipbtn--danger" onClick={() => void removeEvent(e, "this")}>
+                delete this night
+              </button>
+              <button className="gn-chipbtn gn-chipbtn--danger" onClick={() => void removeEvent(e, "series")}>
+                delete and stop repeating
+              </button>
+              <button className="gn-textbtn" onClick={() => setDeleting(null)}>
+                cancel
+              </button>
+            </div>
+          </div>
+        )}
         {/* Your own RSVP rides the same info line as everyone else's. */}
         <div className="gn-cab__sub">
           {e.scheduledFor
@@ -428,6 +509,58 @@ export default function GroupPage({
               Create
             </button>
           </div>
+            {/* ONLY ONCE THERE IS A DATE, because the date is the anchor: "every
+                week" with no week to start from cannot be computed, and the
+                server refuses it rather than dropping it silently. */}
+            {when && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="gn-lab">Repeat</span>
+                {(
+                  [
+                    ["none", "Never"],
+                    ["weekly", "Weekly"],
+                    ["monthly", "Monthly"],
+                    ["custom_weeks", "Every N weeks"],
+                  ] as const
+                ).map(([kind, label]) => (
+                  <button
+                    key={kind}
+                    className={`gn-chipbtn gn-chipbtn--${repeat === kind ? "on" : "off"}`}
+                    aria-pressed={repeat === kind}
+                    onClick={() => setRepeat(kind)}
+                  >
+                    {label}
+                  </button>
+                ))}
+                {repeat === "custom_weeks" && (
+                  <label className="flex items-center gap-2">
+                    <span className="gn-hint">every</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={MAX_INTERVAL_WEEKS}
+                      value={everyWeeks}
+                      onChange={(ev) =>
+                        setEveryWeeks(Math.min(MAX_INTERVAL_WEEKS, Math.max(1, Number(ev.target.value) || 1)))
+                      }
+                      className="gn-input"
+                      style={{ width: "4.5rem", minHeight: 40 }}
+                    />
+                    <span className="gn-hint">weeks</span>
+                  </label>
+                )}
+              </div>
+            )}
+            {/* MONTHLY IS THE ORDINAL WEEKDAY, and the host is told so rather
+                than finding out four weeks later. Both the weekday and its
+                position come from the date above, so there is nothing to pick. */}
+            {when && repeat === "monthly" && (
+              <p className="gn-hint">
+                Monthly keeps the weekday, not the date: the same position in the month as
+                the date above.
+              </p>
+            )}
+
         </div>
       </section>
 

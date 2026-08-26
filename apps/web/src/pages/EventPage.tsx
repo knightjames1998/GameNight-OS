@@ -16,6 +16,7 @@ import { SESSION_PACKS } from "@gamenight/shared/packs";
 // import was written the wrong way: entry JS 73557 -> 81758 gzipped, +8201 for
 // one predicate. See AUDIT-2026-08.md MUST FIX 1.
 import { isHttpsUrl } from "@gamenight/shared/safeurl";
+import { describeSeries } from "@gamenight/shared/recurrence";
 import { buildPickerGames, isSingleFormatPack, type PackKey, type SessionPackKey } from "../packs";
 
 export default function EventPage({ me }: { me: Me | null }) {
@@ -156,6 +157,30 @@ export default function EventPage({ me }: { me: Me | null }) {
       // Surfaces the server's own message, which is how a host learns that a
       // map link has to be https rather than watching the field silently empty.
       window.alert(e instanceof Error ? e.message : "Couldn't save that");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Stop the series, and leave THIS night exactly where it is.
+   *
+   * The copy on the button has to carry that, because "stop repeating" next to
+   * a night could easily read as "cancel this one too". Nothing about this
+   * touches the event row.
+   */
+  async function stopRepeating() {
+    if (busy || !event?.series) return;
+    setBusy(true);
+    const seq = ++reqSeq.current;
+    try {
+      const fresh = await api<EventDetail>(`/api/events/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ stopRepeating: true }),
+      });
+      if (seq === reqSeq.current) setEvent(fresh);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Couldn't stop the repeat");
     } finally {
       setBusy(false);
     }
@@ -362,6 +387,36 @@ export default function EventPage({ me }: { me: Me | null }) {
           </button>
         )}
       </div>
+
+      {/* WHAT THIS NIGHT REPEATS AS. Shown to everybody, because "this is the
+          weekly one" is worth knowing whether or not you can change it. The
+          control to stop is host-only and says what it does NOT do: the night
+          in front of you stays. */}
+      {event.series?.active && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="gn-chip gn-chip--member">
+            🔁 {describeSeries(event.series.kind, event.series.intervalWeeks)}
+          </span>
+          {canEditDate && (
+            <button
+              className="gn-textbtn"
+              disabled={busy}
+              onClick={() => {
+                if (
+                  !window.confirm(
+                    "Stop repeating? This night stays exactly where it is; there just won't be another one after it.",
+                  )
+                ) {
+                  return;
+                }
+                void stopRepeating();
+              }}
+            >
+              stop repeating
+            </button>
+          )}
+        </div>
+      )}
 
       {/* WHERE THE NIGHT IS AND WHAT TO BRING. Every member sees it; only the
           people who can change the date can change this, which is the same gate

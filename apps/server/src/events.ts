@@ -24,6 +24,9 @@ import {
   GENERIC_LEDGER,
   isSeriesSummary,
   dueOccurrence,
+  isSeriesKind,
+  MAX_INTERVAL_WEEKS,
+  type SeriesKind,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { deleteEventCascade } from "./cascade.js";
@@ -71,8 +74,37 @@ eventsRouter.post("/groups/:groupId/events", async (req: AuthedRequest, res) => 
     return;
   }
 
-  const event = (
-    await getDb()
+  // A REPEAT NEEDS A DATE, because the date IS the anchor: "every week" with no
+  // week to start from has nothing to compute. A repeat sent without one is
+  // refused rather than quietly dropped, so a host cannot think they set one.
+  const repeat = parseRepeat(req.body?.repeat, scheduledFor);
+  if (!repeat.ok) {
+    res.status(400).json({ error: repeat.error });
+    return;
+  }
+
+  const db = getDb();
+  const event = await db.transaction(async (tx) => {
+    let seriesId: string | null = null;
+    if (repeat.rule) {
+      // The series first, so the occurrence can point at it. One transaction:
+      // a series with no occurrence is an invisible rule, and an occurrence
+      // pointing at a series that does not exist is a foreign key violation.
+      const [row] = await tx
+        .insert(eventSeries)
+        .values({
+          groupId,
+          createdBy: req.user!.id,
+          title,
+          kind: repeat.rule.kind,
+          intervalWeeks: repeat.rule.intervalWeeks,
+          anchorAt: scheduledFor!,
+          timeZone: repeat.rule.timeZone,
+        })
+        .returning();
+      seriesId = row!.id;
+    }
+    const [created] = await tx
       .insert(events)
       .values({
         groupId,
@@ -81,9 +113,14 @@ eventsRouter.post("/groups/:groupId/events", async (req: AuthedRequest, res) => 
         status: scheduledFor ? "scheduled" : "draft",
         createdBy: req.user!.id,
         ...details.fields,
+        seriesId,
+        // The seed IS index 0, which is what every later occurrence is measured
+        // from. See dueOccurrence.
+        seriesIndex: seriesId ? 0 : null,
       })
-      .returning()
-  )[0]!;
+      .returning();
+    return created!;
+  });
 
   broadcast({ type: "group_events_changed", groupId }, req.get("x-gn-client"));
   res.json(event);
@@ -131,7 +168,26 @@ eventsRouter.delete("/events/:id", async (req: AuthedRequest, res) => {
   // broadcasts below stay outside it, after it commits, because telling every
   // connected phone an event is gone while the delete can still roll back is
   // worse than telling them late.
+  // THE SCOPE DEFAULTS TO THIS NIGHT ONLY, so an old client (or a stray script)
+  // that knows nothing about series cannot stop one by accident. Stopping is
+  // opt-in and explicit.
+  const stopSeries = req.body?.scope === "series" && !!found.seriesId;
+
   await db.transaction(async (tx) => {
+    // ONE TRANSACTION, AND THIS IS THE HAZARD OF THE WHOLE FEATURE. Generation
+    // runs for every ACTIVE series with no un-passed occurrence. If the delete
+    // commits and the `active = false` does not, the very next load of the crew
+    // page regenerates the night the host just deleted, with the same title, in
+    // the same slot: to the host the delete silently failed, and to the code
+    // everything succeeded.
+    //
+    // THE SERIES IS STOPPED FIRST on purpose. The atomicity is what matters, but
+    // if something did tear here, a stopped series with its night intact is
+    // recoverable by hand; a live series with its night deleted regenerates on
+    // its own and nobody ever finds out.
+    if (stopSeries) {
+      await tx.update(eventSeries).set({ active: false }).where(eq(eventSeries.id, found.seriesId!));
+    }
     await deleteEventCascade(tx, found.id);
   });
 
@@ -188,6 +244,16 @@ eventsRouter.patch("/events/:id", async (req: AuthedRequest, res) => {
     return;
   }
 
+  // STOP REPEATING, WITHOUT TOUCHING THIS NIGHT. Same gate as the date and the
+  // details, which is the same gate as the delete: creator, owner or admin.
+  // It rides PATCH rather than taking a route of its own because it is an edit
+  // to the night's arrangements like any other, and because a separate route
+  // would need the same three permission reads to say the same thing.
+  const stopRepeating = req.body?.stopRepeating === true && !!found.seriesId;
+  if (stopRepeating) {
+    await db.update(eventSeries).set({ active: false }).where(eq(eventSeries.id, found.seriesId!));
+  }
+
   // ONLY THE KEYS ACTUALLY SENT ARE WRITTEN, which is what makes a PATCH
   // carrying just `notes` leave the location alone. The old guard tested for
   // `scheduledFor` by name and the old update wrote it unconditionally, so any
@@ -215,12 +281,14 @@ eventsRouter.patch("/events/:id", async (req: AuthedRequest, res) => {
         : found.status;
   }
 
-  if (Object.keys(patch).length === 0) {
+  if (Object.keys(patch).length === 0 && !stopRepeating) {
     res.status(400).json({ error: "Nothing to update" });
     return;
   }
 
-  await db.update(events).set(patch).where(eq(events.id, found.id));
+  if (Object.keys(patch).length > 0) {
+    await db.update(events).set(patch).where(eq(events.id, found.id));
+  }
 
   const origin = req.get("x-gn-client");
   broadcast({ type: "event_updated", eventId: found.id, groupId: found.groupId }, origin);
@@ -259,11 +327,17 @@ eventsRouter.get("/groups/:groupId/events", async (req: AuthedRequest, res) => {
   const born = await generateDueOccurrences(db, series, list, req.get("x-gn-client"));
   if (born.length) list.unshift(...born);
 
+  // Which series are still running, so a tile can tell "this night repeats and
+  // the series is live" from "this night was part of a series somebody already
+  // stopped". Only the first has anything left to stop.
+  const activeSeries = new Set(series.map((x) => x.id));
+
   res.json(
     list.map((e) => {
       const forEvent = allRsvps.filter((r) => r.eventId === e.id);
       return {
         ...e,
+        seriesActive: !!e.seriesId && activeSeries.has(e.seriesId),
         counts: {
           yes: forEvent.filter((r) => r.status === "yes").length,
           maybe: forEvent.filter((r) => r.status === "maybe").length,
@@ -293,6 +367,7 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
     myRoleRows,
     attendanceRows,
     groupRows,
+    seriesRows,
     sharedSessions,
     smashRows,
   ] = await Promise.all([
@@ -351,6 +426,22 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
       .from(groups)
       .where(eq(groups.id, found.groupId))
       .limit(1),
+
+    // The series this night belongs to, if any. The page needs `active` as much
+    // as the rule itself: a stopped series has nothing left to stop, so the
+    // screen falls back to what it showed before recurrence existed.
+    found.seriesId
+      ? db
+          .select({
+            id: eventSeries.id,
+            kind: eventSeries.kind,
+            intervalWeeks: eventSeries.intervalWeeks,
+            active: eventSeries.active,
+          })
+          .from(eventSeries)
+          .where(eq(eventSeries.id, found.seriesId))
+          .limit(1)
+      : Promise.resolve([]),
 
     // The four session packs. The payload carried `bracket` and `beerioCode`
     // and nothing else, so those were the only two tiles in the game picker
@@ -425,6 +516,7 @@ async function eventDetail(found: NonNullable<Awaited<ReturnType<typeof loadEven
     myAttendance: attendance ? attendance.showed : null,
     // Checked in by anybody, including by a host on somebody else's behalf.
     attendance: attendanceRows,
+    series: seriesRows[0] ?? null,
   };
 }
 
@@ -801,6 +893,51 @@ eventsRouter.get("/events/:id/prefill", async (req: AuthedRequest, res) => {
   }
   res.json(await eventPrefill(found, { excludeLedger: GENERIC_LEDGER }));
 });
+
+/**
+ * Read an optional repeat rule off a create body.
+ *
+ * A REPEAT NEEDS A DATE, because the date IS the anchor. "Every week" with no
+ * week to start from cannot be computed, and silently dropping the repeat would
+ * leave a host believing they had set one.
+ *
+ * THE TIME ZONE COMES FROM THE DEVICE THAT CREATED IT and is required, because
+ * the contract is same time of day rather than same elapsed hours. See the
+ * column's comment in the schema: this server runs in UTC, where the clocks
+ * never change, so it cannot work the crew's zone out for itself.
+ */
+export function parseRepeat(
+  raw: unknown,
+  scheduledFor: Date | null,
+):
+  | { ok: true; rule: { kind: SeriesKind; intervalWeeks: number | null; timeZone: string } | null }
+  | { ok: false; error: string } {
+  if (raw === undefined || raw === null) return { ok: true, rule: null };
+  const r = raw as Record<string, unknown>;
+  if (r.kind === undefined || r.kind === null || r.kind === "none") return { ok: true, rule: null };
+  if (!isSeriesKind(r.kind)) return { ok: false, error: "Unknown repeat" };
+  if (!scheduledFor) return { ok: false, error: "A repeating night needs a date to repeat from" };
+
+  const timeZone = typeof r.timeZone === "string" ? r.timeZone.trim() : "";
+  if (!timeZone) return { ok: false, error: "A repeating night needs a time zone" };
+  try {
+    // The zone has to be one Intl knows, or every occurrence after the first
+    // throws inside a request that is only trying to render a crew page.
+    new Intl.DateTimeFormat("en-US", { timeZone });
+  } catch {
+    return { ok: false, error: "Unknown time zone" };
+  }
+
+  let intervalWeeks: number | null = null;
+  if (r.kind === "custom_weeks") {
+    const n = Math.trunc(Number(r.intervalWeeks));
+    if (!Number.isFinite(n) || n < 1 || n > MAX_INTERVAL_WEEKS) {
+      return { ok: false, error: `Repeat every 1 to ${MAX_INTERVAL_WEEKS} weeks` };
+    }
+    intervalWeeks = n;
+  }
+  return { ok: true, rule: { kind: r.kind, intervalWeeks, timeZone } };
+}
 
 /**
  * Materialise the next night for every active series that is owed one.
