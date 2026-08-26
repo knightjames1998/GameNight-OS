@@ -406,36 +406,6 @@ export default function EventPage({ me }: { me: Me | null }) {
         )}
       </div>
 
-      {/* WHAT THIS NIGHT REPEATS AS. Shown to everybody, because "this is the
-          weekly one" is worth knowing whether or not you can change it. The
-          control to stop is host-only and says what it does NOT do: the night
-          in front of you stays. */}
-      {event.series?.active && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="gn-chip gn-chip--member">
-            🔁 {describeSeries(event.series.kind, event.series.intervalWeeks)}
-          </span>
-          {canEditDate && (
-            <button
-              className="gn-textbtn"
-              disabled={busy}
-              onClick={() => {
-                if (
-                  !window.confirm(
-                    "Stop repeating? This night stays exactly where it is; there just won't be another one after it.",
-                  )
-                ) {
-                  return;
-                }
-                void stopRepeating();
-              }}
-            >
-              stop repeating
-            </button>
-          )}
-        </div>
-      )}
-
       {/* WHERE THE NIGHT IS AND WHAT TO BRING. Every member sees it; only the
           people who can change the date can change this, which is the same gate
           rather than a second one. An absent field renders NOTHING, not an
@@ -518,6 +488,41 @@ export default function EventPage({ me }: { me: Me | null }) {
            is already false for them, so this whole branch renders an empty
            section rather than a stray heading. */
         canEditDate && <section className="space-y-1">{editDetailsButton}</section>
+      )}
+
+      {/* WHAT THIS NIGHT REPEATS AS. BELOW THE CARD SINCE 2026-08-26: the
+          details block is the pinned one and sits directly under the date and
+          RSVP, so this chip and its control moved down together as one unit
+          rather than being split around it.
+
+          Shown to everybody, because "this is the
+          weekly one" is worth knowing whether or not you can change it. The
+          control to stop is host-only and says what it does NOT do: the night
+          in front of you stays. */}
+      {event.series?.active && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="gn-chip gn-chip--member">
+            🔁 {describeSeries(event.series.kind, event.series.intervalWeeks)}
+          </span>
+          {canEditDate && (
+            <button
+              className="gn-textbtn"
+              disabled={busy}
+              onClick={() => {
+                if (
+                  !window.confirm(
+                    "Stop repeating? This night stays exactly where it is; there just won't be another one after it.",
+                  )
+                ) {
+                  return;
+                }
+                void stopRepeating();
+              }}
+            >
+              stop repeating
+            </button>
+          )}
+        </div>
       )}
 
       {/* Low-key controls: share the event, put it on the TV, or open the
