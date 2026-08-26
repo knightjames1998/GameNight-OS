@@ -123,7 +123,22 @@ eventsRouter.post("/groups/:groupId/events", async (req: AuthedRequest, res) => 
   });
 
   broadcast({ type: "group_events_changed", groupId }, req.get("x-gn-client"));
-  res.json(event);
+  // A SUMMARY, NOT THE ROW, and this is a fix rather than tidiness: the crew
+  // page writes this response straight into its CACHED LIST (see
+  // duplicateEvent in GroupPage.tsx), so a response missing `counts` is a
+  // crash written to localStorage. See event-summary.test.ts.
+  //
+  // A night that was created a millisecond ago has no RSVPs, so the counts are
+  // zero and nobody has answered; and a series is created active, so a night
+  // that has one belongs to a running series by construction.
+  res.json(
+    eventSummary(
+      event,
+      [],
+      req.user!.id,
+      new Set(event.seriesId ? [event.seriesId] : []),
+    ),
+  );
 });
 
 /**
@@ -333,21 +348,48 @@ eventsRouter.get("/groups/:groupId/events", async (req: AuthedRequest, res) => {
   const activeSeries = new Set(series.map((x) => x.id));
 
   res.json(
-    list.map((e) => {
-      const forEvent = allRsvps.filter((r) => r.eventId === e.id);
-      return {
-        ...e,
-        seriesActive: !!e.seriesId && activeSeries.has(e.seriesId),
-        counts: {
-          yes: forEvent.filter((r) => r.status === "yes").length,
-          maybe: forEvent.filter((r) => r.status === "maybe").length,
-          no: forEvent.filter((r) => r.status === "no").length,
-        },
-        myStatus: forEvent.find((r) => r.userId === req.user!.id)?.status ?? null,
-      };
-    }),
+    list.map((e) =>
+      eventSummary(
+        e,
+        allRsvps.filter((r) => r.eventId === e.id),
+        req.user!.id,
+        activeSeries,
+      ),
+    ),
   );
 });
+
+/**
+ * ONE NIGHT AS THE CREW PAGE'S LIST SEES IT. One definition, because TWO
+ * ENDPOINTS RETURN THIS SHAPE and the client cannot tell them apart.
+ *
+ * WHAT WENT WRONG WITHOUT IT: the list built this inline and `POST
+ * /groups/:groupId/events` returned the bare `events` row. The two are the same
+ * thing to the client, which writes a create response straight into its cached
+ * list, so "run it again" cached a night with no `counts`, the tile rendered
+ * `e.counts.yes` on the next visit, and the crew page threw into its error
+ * boundary. The cached array is read back during the FIRST render, so the
+ * screen's own Reload button could not clear it: the page was dead until the
+ * next deploy changed the cache namespace. A summary the two routes share
+ * cannot drift like that again.
+ */
+export function eventSummary(
+  row: typeof events.$inferSelect,
+  forEvent: (typeof rsvps.$inferSelect)[],
+  userId: string,
+  activeSeries: ReadonlySet<string>,
+) {
+  return {
+    ...row,
+    seriesActive: !!row.seriesId && activeSeries.has(row.seriesId),
+    counts: {
+      yes: forEvent.filter((r) => r.status === "yes").length,
+      maybe: forEvent.filter((r) => r.status === "maybe").length,
+      no: forEvent.filter((r) => r.status === "no").length,
+    },
+    myStatus: forEvent.find((r) => r.userId === userId)?.status ?? null,
+  };
+}
 
 /**
  * The full event-detail payload the client renders. Shared by the GET and
