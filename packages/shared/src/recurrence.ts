@@ -199,3 +199,47 @@ export function describeSeries(kind: SeriesKind, intervalWeeks?: number | null):
   const n = Math.max(1, Math.trunc(intervalWeeks ?? 1));
   return n === 2 ? "Repeats every 2 weeks" : `Repeats every ${n} weeks`;
 }
+
+// ---------------------------------------------------------------------------
+
+/** The only two things the due-check needs off an occurrence row. */
+export interface OccurrenceRow {
+  scheduledFor: Date | string | null;
+  seriesIndex: number | null;
+}
+
+/**
+ * Is this series owed a night, and if so which index and when?
+ *
+ * OWED MEANS NO OCCURRENCE OF IT IS STILL UN-PASSED. Exactly one live night per
+ * series at a time, by requirement, so this answers at most one night per call
+ * and usually none.
+ *
+ * THE INDEX COMES OFF THE ROWS, THE DATE COMES OFF THE ANCHOR, and keeping those
+ * two apart is the whole point: `max(seriesIndex) + 1` survives a night being
+ * deleted (the remaining rows still know where the series is) and the date never
+ * consults any event's `scheduledFor`, so a night somebody MOVED cannot drag the
+ * ones after it.
+ *
+ * IT CATCHES UP RATHER THAN MATERIALISING THE PAST: a crew that stops opening
+ * the app for two months comes back to the NEXT night, not to eight dead ones.
+ * The walk is bounded, because an anchor far enough in the past would otherwise
+ * spin: at one step per week, 100 covers two years.
+ */
+export function dueOccurrence(
+  rule: OccurrenceRule,
+  rows: readonly OccurrenceRow[],
+  now: number,
+  maxCatchUp = 100,
+): { index: number; when: Date } | null {
+  if (rows.some((r) => !isPastEvent(r.scheduledFor, now))) return null;
+
+  const highest = rows.reduce((max, r) => Math.max(max, r.seriesIndex ?? 0), 0);
+  let index = highest + 1;
+  let when = nextOccurrence(rule, index);
+  for (let step = 0; step < maxCatchUp && isPastEvent(when, now); step++) {
+    index += 1;
+    when = nextOccurrence(rule, index);
+  }
+  return { index, when };
+}

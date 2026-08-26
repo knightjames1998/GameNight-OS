@@ -24,6 +24,7 @@ import {
   EVENT_PAST_MS,
   isSeriesKind,
   MAX_INTERVAL_WEEKS,
+  dueOccurrence,
 } from "../src/recurrence.js";
 
 const CHI = "America/Chicago";
@@ -227,4 +228,103 @@ test("a series says what it is in words a host would use", () => {
   assert.equal(describeSeries("monthly"), "Repeats monthly");
   assert.equal(describeSeries("custom_weeks", 2), "Repeats every 2 weeks");
   assert.equal(describeSeries("custom_weeks", 3), "Repeats every 3 weeks");
+});
+
+// ---------- who is owed a night ----------
+//
+// The generator's decision, pure. The database half (the insert, the conflict
+// guard, the broadcast) is verified on-device; this is the part that decides
+// WHETHER and WHICH, and it is the part that can be wrong quietly.
+
+test("a series with an un-passed night is owed NOTHING", () => {
+  // Exactly one live night per series at a time is the requirement, so a series
+  // that already has one is finished until that night passes.
+  const now = Date.UTC(2026, 5, 10, 12, 0);
+  const rule = { anchor: at(CHI, "2026-06-04 20:00"), kind: "weekly" as const, timeZone: CHI };
+  const upcoming = [{ scheduledFor: new Date(now + 86_400_000), seriesIndex: 3 }];
+  assert.equal(dueOccurrence(rule, upcoming, now), null);
+  // Including one that is past its time but inside the 24h grace: the night is
+  // still happening as far as this app is concerned.
+  const tonight = [{ scheduledFor: new Date(now - 3_600_000), seriesIndex: 3 }];
+  assert.equal(dueOccurrence(rule, tonight, now), null);
+});
+
+test("THE INDEX COMES OFF THE ROWS AND THE DATE OFF THE ANCHOR", () => {
+  // The two halves of the model, in one assertion. The rows say where the
+  // series has got to; the anchor says when that occurrence lands.
+  const anchor = at(CHI, "2026-06-04 20:00");
+  const rule = { anchor, kind: "weekly" as const, timeZone: CHI };
+  const now = at(CHI, "2026-06-20 12:00").getTime();
+  const rows = [
+    { scheduledFor: anchor, seriesIndex: 0 },
+    { scheduledFor: at(CHI, "2026-06-11 20:00"), seriesIndex: 1 },
+    { scheduledFor: at(CHI, "2026-06-18 20:00"), seriesIndex: 2 },
+  ];
+  const due = dueOccurrence(rule, rows, now)!;
+  assert.equal(due.index, 3);
+  assert.equal(wall(due.when, CHI), "2026-06-25 20:00 Thu");
+});
+
+test("A MOVED NIGHT CANNOT DRAG THE ONES AFTER IT", () => {
+  // The failure the whole model exists to prevent. Occurrence 2 was dragged from
+  // Thursday the 18th to Saturday the 20th; the next one is still a Thursday,
+  // because nothing here reads that row's date.
+  const anchor = at(CHI, "2026-06-04 20:00");
+  const rule = { anchor, kind: "weekly" as const, timeZone: CHI };
+  const now = at(CHI, "2026-06-22 12:00").getTime();
+  const moved = [
+    { scheduledFor: anchor, seriesIndex: 0 },
+    { scheduledFor: at(CHI, "2026-06-11 20:00"), seriesIndex: 1 },
+    { scheduledFor: at(CHI, "2026-06-20 15:00"), seriesIndex: 2 },
+  ];
+  const due = dueOccurrence(rule, moved, now)!;
+  assert.equal(wall(due.when, CHI), "2026-06-25 20:00 Thu", "still Thursday at 20:00");
+});
+
+test("A DELETED NIGHT DOES NOT RENUMBER THE SERIES", () => {
+  // Occurrence 2 was deleted with "just this night". The next one is 3, in its
+  // own slot, NOT a re-run of 2: the index lives on the rows that remain.
+  const anchor = at(CHI, "2026-06-04 20:00");
+  const rule = { anchor, kind: "weekly" as const, timeZone: CHI };
+  const now = at(CHI, "2026-06-22 12:00").getTime();
+  const gap = [
+    { scheduledFor: anchor, seriesIndex: 0 },
+    { scheduledFor: at(CHI, "2026-06-11 20:00"), seriesIndex: 1 },
+  ];
+  // With only 0 and 1 left, the next index is 2 and it lands on the 18th, which
+  // is already past, so the walk carries it to the 25th.
+  const due = dueOccurrence(rule, gap, now)!;
+  assert.equal(wall(due.when, CHI), "2026-06-25 20:00 Thu");
+});
+
+test("A CREW THAT STOPPED OPENING THE APP COMES BACK TO THE NEXT NIGHT", () => {
+  // Not to eight dead ones. Two months of silence, one night created, and it is
+  // the upcoming one.
+  const anchor = at(CHI, "2026-06-04 20:00");
+  const rule = { anchor, kind: "weekly" as const, timeZone: CHI };
+  const now = at(CHI, "2026-08-05 12:00").getTime();
+  const stale = [{ scheduledFor: anchor, seriesIndex: 0 }];
+  const due = dueOccurrence(rule, stale, now)!;
+  assert.equal(wall(due.when, CHI), "2026-08-06 20:00 Thu");
+  assert.ok(due.when.getTime() > now, "the night created is in the future");
+});
+
+test("the catch-up walk is bounded, so an ancient anchor cannot spin", () => {
+  // A series anchored years back with nothing since. The walk stops at the cap
+  // and returns wherever it got to rather than hanging the request that is
+  // trying to render a crew page.
+  const rule = { anchor: at(CHI, "2020-01-02 20:00"), kind: "weekly" as const, timeZone: CHI };
+  const now = at(CHI, "2026-06-22 12:00").getTime();
+  const due = dueOccurrence(rule, [{ scheduledFor: rule.anchor, seriesIndex: 0 }], now, 5)!;
+  assert.equal(due.index, 6, "five steps past the first candidate, then it stops");
+});
+
+test("a series with no rows at all still starts from index 1", () => {
+  // Every occurrence deleted, series still active: the anchor is index 0 and the
+  // next one is 1, walked forward to whatever is next.
+  const rule = { anchor: at(CHI, "2026-06-04 20:00"), kind: "weekly" as const, timeZone: CHI };
+  const now = at(CHI, "2026-06-09 12:00").getTime();
+  const due = dueOccurrence(rule, [], now)!;
+  assert.equal(due.index, 1);
+  assert.equal(wall(due.when, CHI), "2026-06-11 20:00 Thu");
 });

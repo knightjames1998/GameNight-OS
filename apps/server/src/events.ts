@@ -6,6 +6,7 @@ import {
   games,
   rsvps,
   eventAttendance,
+  eventSeries,
   gameSessions,
   memberships,
   smashSessions,
@@ -18,7 +19,12 @@ import {
   inArray,
   desc,
 } from "@gamenight/db";
-import { PACK_BY_LEDGER, GENERIC_LEDGER, isSeriesSummary } from "@gamenight/shared";
+import {
+  PACK_BY_LEDGER,
+  GENERIC_LEDGER,
+  isSeriesSummary,
+  dueOccurrence,
+} from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { deleteEventCascade } from "./cascade.js";
 import { broadcast } from "./ws.js";
@@ -231,13 +237,27 @@ eventsRouter.get("/groups/:groupId/events", async (req: AuthedRequest, res) => {
   }
 
   const db = getDb();
-  const list = await db
-    .select()
-    .from(events)
-    .where(eq(events.groupId, groupId))
-    .orderBy(desc(events.createdAt));
+  // The series read rides the existing pair rather than going first: a crew
+  // with no active series pays exactly one extra indexed query and no writes,
+  // which is the common case and has to stay cheap.
+  const [list, allRsvps, series] = await Promise.all([
+    db.select().from(events).where(eq(events.groupId, groupId)).orderBy(desc(events.createdAt)),
+    db.select().from(rsvps).where(eq(rsvps.groupId, groupId)),
+    db
+      .select()
+      .from(eventSeries)
+      .where(and(eq(eventSeries.groupId, groupId), eq(eventSeries.active, true))),
+  ]);
 
-  const allRsvps = await db.select().from(rsvps).where(eq(rsvps.groupId, groupId));
+  // LAZY GENERATION, ON A READ. There is no scheduler in this app: the only
+  // cron is the keep-warm Action pinging /api/health, whose whole job is
+  // preventing a cold start, and creating rows from an unauthenticated ping
+  // would be wrong. So a series materialises its next night the first time
+  // anybody opens the crew page after the last one has passed. That turns this
+  // GET into a write path, which is the architectural cost of the feature and
+  // is why it is written down here rather than discovered later.
+  const born = await generateDueOccurrences(db, series, list, req.get("x-gn-client"));
+  if (born.length) list.unshift(...born);
 
   res.json(
     list.map((e) => {
@@ -781,6 +801,77 @@ eventsRouter.get("/events/:id/prefill", async (req: AuthedRequest, res) => {
   }
   res.json(await eventPrefill(found, { excludeLedger: GENERIC_LEDGER }));
 });
+
+/**
+ * Materialise the next night for every active series that is owed one.
+ *
+ * OWED MEANS: no occurrence of that series is still un-passed. Exactly one live
+ * night per series at a time, by requirement, so this creates at most one row
+ * per series per call and usually none at all.
+ *
+ * THE INDEX COMES FROM THE SERIES, NEVER FROM COUNTING ROWS AND NEVER FROM THE
+ * PREVIOUS NIGHT'S DATE. `max(series_index) + 1` and then `nextOccurrence` off
+ * the anchor: a night somebody MOVED cannot drag the ones after it, and a night
+ * somebody DELETED cannot renumber them either.
+ */
+async function generateDueOccurrences(
+  db: ReturnType<typeof getDb>,
+  series: (typeof eventSeries.$inferSelect)[],
+  existing: (typeof events.$inferSelect)[],
+  origin: string | undefined,
+): Promise<(typeof events.$inferSelect)[]> {
+  if (series.length === 0) return [];
+  const now = Date.now();
+  const born: (typeof events.$inferSelect)[] = [];
+
+  for (const s of series) {
+    const mine = existing.filter((e) => e.seriesId === s.id);
+    const due = dueOccurrence(
+      { anchor: s.anchorAt, kind: s.kind, intervalWeeks: s.intervalWeeks, timeZone: s.timeZone },
+      mine,
+      now,
+    );
+    if (!due) continue;
+
+    // WHERE IT IS AND WHAT TO BRING COME FROM THE LAST OCCURRENCE, not from the
+    // series, which carries only the title: a crew that moved their night to a
+    // new house last month should not be sent back to the old one. Copies
+    // NOTHING else: no RSVPs, no attendance, no beerioCode, no sessions.
+    const latest = mine.reduce<(typeof mine)[number] | null>(
+      (best, e) => (!best || (e.seriesIndex ?? 0) > (best.seriesIndex ?? 0) ? e : best),
+      null,
+    );
+
+    const [row] = await db
+      .insert(events)
+      .values({
+        groupId: s.groupId,
+        title: s.title,
+        scheduledFor: due.when,
+        status: "scheduled",
+        createdBy: s.createdBy,
+        location: latest?.location ?? null,
+        locationUrl: latest?.locationUrl ?? null,
+        notes: latest?.notes ?? null,
+        seriesId: s.id,
+        seriesIndex: due.index,
+      })
+      // THE RACE GUARD. Two phones opening the crew page at the same moment both
+      // reach here; the unique index on (series_id, series_index) makes the
+      // loser a no-op instead of a duplicate night. Established pattern here,
+      // not a new one.
+      .onConflictDoNothing()
+      .returning();
+    if (row) born.push(row);
+  }
+
+  if (born.length) {
+    // So a second phone already sitting on the crew page sees the new night
+    // without a refresh. The generating tab skips its own echo as usual.
+    broadcast({ type: "group_events_changed", groupId: series[0]!.groupId }, origin);
+  }
+  return born;
+}
 
 // ---------- Helpers ----------
 
