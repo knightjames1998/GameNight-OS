@@ -183,6 +183,45 @@ const API_STUB = {
     { userId: "u3", displayName: "Bo", crews: ["Crew A", "Crew B"] },
   ],
   "/api/me/stats": { played: 12, wins: 5, winRate: 0.4166 },
+  /**
+   * THE EVENT PAGE HAD NO STUB AT ALL, so `/e/x` has been in ROUTES since that
+   * list was written and sweeping its ERROR STATE the whole time: a 404 payload
+   * renders "Event not found", which is about six elements out of a page with
+   * dozens. Every colour on the real event page has been unmeasured.
+   *
+   * IT CARRIES A LOCATION AND A MAP LINK deliberately: the anchor is the one
+   * link in this app and it only exists in the DOM when both a `locationUrl`
+   * that passes the https guard and something to hang it on are present. A stub
+   * without them sweeps a page with no anchor and reports that the link colour
+   * is fine because it never saw one.
+   */
+  "/api/events/x": {
+    id: "x",
+    groupId: "g1",
+    title: "Sweep Night",
+    bracket: null,
+    beerioCode: null,
+    sessions: [],
+    myRole: "owner",
+    createdBy: "u1",
+    groupName: "Crew A",
+    inviteCode: "AAAA",
+    // Past, so the attendance block and the host check-in list render too.
+    scheduledFor: "2026-08-20T18:00:00.000Z",
+    status: "scheduled",
+    location: "Dave's place",
+    locationUrl: "https://maps.example.com/dave",
+    notes: "Park on the street, not the driveway.",
+    rsvps: [
+      { userId: "u1", displayName: "Sweep", status: "yes" },
+      { userId: "u2", displayName: "Ana", status: "maybe" },
+      { userId: "u3", displayName: "Bo", status: "no" },
+    ],
+    noResponse: [{ userId: "u4", displayName: "Cass" }],
+    myStatus: "yes",
+    myAttendance: null,
+    attendance: [{ userId: "u2", showed: true }],
+  },
 };
 
 /**
