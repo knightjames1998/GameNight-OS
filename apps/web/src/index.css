@@ -1259,6 +1259,33 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   box-shadow:var(--gn-card-shadow);
 }
 
+/* One card on a page of plain sections, so the block reads as pinned rather
+   than as another paragraph. MUST STAY DIRECTLY AFTER .gn-card: both are single
+   class selectors, so it is source order and nothing else that lets these
+   longhands beat the `border:` shorthand above.
+
+   THE EXPLICIT WIDTH IS THE WHOLE POINT, and it is not defensive coding.
+   .gn-card's edge is `var(--gn-card-border) solid`, and that token is 2px in
+   Arcade and 0px in TABLETOP, where a card is made of --gn-surf and
+   --gn-card-shadow against the felt and has no outline at all. So the obvious
+   version of this modifier, a border-left-color override on its own, would
+   colour a zero-width edge and draw NOTHING on felt.
+
+   AND THE THEME SWEEP WOULD HAVE PASSED WHILE IT DID. TRACKED_PROPS carries
+   border-left-color and no border WIDTHS at all, so the sweep would faithfully
+   record this accent resolving correctly in both themes with one of them
+   painting nothing. Any future accent, divider or edge built as a colour
+   override on .gn-card has the same trap waiting for it.
+
+   THE COLOUR IS BORROWED. --gn-p1 is the "go" action colour, and an edge is not
+   interactive, so this is not the semantic clash that borrowing it for a link
+   would have been. See the decision log. */
+.gn-card--pinned{
+  border-left-width:3px;
+  border-left-style:solid;
+  border-left-color:var(--gn-p1);
+}
+
 /* ---- arcade "cabinet" nav button (modes, stats, crews, events) */
 .gn-cab{
   display:block;text-decoration:none;color:var(--gn-ink);border-radius:var(--gn-radius-card);

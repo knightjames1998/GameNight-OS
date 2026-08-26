@@ -310,6 +310,24 @@ export default function EventPage({ me }: { me: Me | null }) {
   // next to the thing that would do the damage.
   const mapHref = isHttpsUrl(event.locationUrl) ? event.locationUrl : null;
   const hasWhere = !!(event.location || mapHref || event.notes);
+  // ONE DEFINITION, because this button now renders in two places: inside the
+  // card when there is something to show, and bare when there is not. Its label
+  // is the only thing that differs between the two, and it already reads
+  // `hasWhere` for that.
+  const editDetailsButton = canEditDate && (
+    <button
+      className="gn-actionbtn"
+      style={{ minHeight: 32, padding: "5px 10px" }}
+      onClick={() => {
+        setLocDraft(event.location ?? "");
+        setUrlDraft(event.locationUrl ?? "");
+        setNotesDraft(event.notes ?? "");
+        setEditWhere(true);
+      }}
+    >
+      {hasWhere ? "📍 Edit details" : "📍 Add location or notes"}
+    </button>
+  );
   const started =
     !!event.scheduledFor && new Date(event.scheduledFor).getTime() <= Date.now();
   const myButton = buttons.find((b) => b.status === event.myStatus);
@@ -424,7 +442,7 @@ export default function EventPage({ me }: { me: Me | null }) {
           empty row, so a night with no location looks exactly as it did before
           this shipped. */}
       {editWhere ? (
-        <section className="gn-card space-y-2">
+        <section className="gn-card gn-card--pinned space-y-2">
           <div className="gn-h2">About this night</div>
           <input
             className="gn-input"
@@ -459,46 +477,47 @@ export default function EventPage({ me }: { me: Me | null }) {
             <span className="gn-hint">A map link has to start with https://</span>
           </div>
         </section>
+      ) : hasWhere ? (
+        /* THE SAME CONTAINER IT HAD WHILE IT WAS BEING EDITED. The edit view has
+           been a titled card since it shipped and the read view was two bare
+           paragraphs, so the block was a container only while somebody was
+           typing in it and dissolved into the page the moment they saved. That
+           asymmetry is the whole bug; this is mostly the read view agreeing with
+           the edit view that already existed. */
+        <section className="gn-card gn-card--pinned space-y-2">
+          <div className="gn-h2">About this night</div>
+          {(event.location || mapHref) && (
+            <p className="gn-where">
+              <span aria-hidden="true">📍</span>
+              {mapHref ? (
+                <>
+                  {/* THE ONE LEGITIMATE RAW ANCHOR IN THIS APP. Standing rule 4
+                      bans them for INTERNAL navigation, because a full page
+                      load in an installed PWA opens a new Safari tab and
+                      leaves the app. This link WANTS to leave: it is somebody
+                      else's map. `noopener noreferrer` because the
+                      destination is a string a crew member pasted. */}
+                  <a href={mapHref} target="_blank" rel="noopener noreferrer">
+                    {event.location || "Open map"}
+                  </a>
+                </>
+              ) : (
+                <span>{event.location}</span>
+              )}
+            </p>
+          )}
+          {event.notes && <p className="gn-notes">{event.notes}</p>}
+          {editDetailsButton}
+        </section>
       ) : (
-        (hasWhere || canEditDate) && (
-          <section className="space-y-1">
-            {(event.location || mapHref) && (
-              <p className="gn-where">
-                <span aria-hidden="true">📍</span>
-                {mapHref ? (
-                  <>
-                    {/* THE ONE LEGITIMATE RAW ANCHOR IN THIS APP. Standing rule 4
-                        bans them for INTERNAL navigation, because a full page
-                        load in an installed PWA opens a new Safari tab and
-                        leaves the app. This link WANTS to leave: it is somebody
-                        else's map. `noopener noreferrer` because the
-                        destination is a string a crew member pasted. */}
-                    <a href={mapHref} target="_blank" rel="noopener noreferrer">
-                      {event.location || "Open map"}
-                    </a>
-                  </>
-                ) : (
-                  <span>{event.location}</span>
-                )}
-              </p>
-            )}
-            {event.notes && <p className="gn-notes">{event.notes}</p>}
-            {canEditDate && (
-              <button
-                className="gn-actionbtn"
-                style={{ minHeight: 32, padding: "5px 10px" }}
-                onClick={() => {
-                  setLocDraft(event.location ?? "");
-                  setUrlDraft(event.locationUrl ?? "");
-                  setNotesDraft(event.notes ?? "");
-                  setEditWhere(true);
-                }}
-              >
-                {hasWhere ? "📍 Edit details" : "📍 Add location or notes"}
-              </button>
-            )}
-          </section>
-        )
+        /* NOTHING TO SHOW MEANS NO CONTAINER, deliberately. A titled empty card
+           announces a feature nobody asked about and takes a block of a phone
+           screen to say the night has no address yet. The host sees the add
+           button on its own, exactly as it looked before this session, and a
+           member with nothing to read sees nothing at all: `editDetailsButton`
+           is already false for them, so this whole branch renders an empty
+           section rather than a stray heading. */
+        canEditDate && <section className="space-y-1">{editDetailsButton}</section>
       )}
 
       {/* Low-key controls: share the event, put it on the TV, or open the
