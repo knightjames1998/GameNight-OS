@@ -192,6 +192,10 @@ const PAIRS: [string, string, number?][] = [
   ["--gn-p1", "--gn-surf"],
   ["--gn-p2", "--gn-surf"],
   ["--gn-gold", "--gn-surf"],
+  // The map link on the event page, and the only link colour in the app. It is
+  // held to AA like any other text because it IS text: an underline says it is
+  // interactive, contrast is what makes it readable at all.
+  ["--gn-link", "--gn-surf"],
   ["--gn-danger", "--gn-surf"],
   ["--gn-danger-hover", "--gn-surf"],
   ["--gn-yes", "--gn-surf"],

@@ -163,6 +163,15 @@
   --gn-p2-ink:  #0d1a17;
   --gn-p2-sh:   #1aa88f;
   --gn-gold:    #ffcf3f;  /* Beerio accent */
+  /* THE ONLY LINK COLOUR IN THE APP, and it is its own token rather than a
+     borrowed --gn-p1 or --gn-p2 on purpose. Those two are the ACTION colours:
+     p2 is confirm/save and wears --gn-p2-ink on buttons all over the app, so a
+     link painted in it would read as a button that forgot its background. A
+     link is a fourth kind of thing (not text, not an action, somewhere to go)
+     and gets a fourth colour. Blue because that is what a link has looked like
+     for thirty years, and this is the one place in this app where the
+     convention is worth more than the palette's opinion. 8.91 on --gn-surf. */
+  --gn-link:    #8cc2ff;
   --gn-danger:  #ff9a9e;
   --gn-danger-hover:#ffb7ba;
   --gn-yes:     #3ad07a;  /* the on half of a toggle, and the live dot */
@@ -573,6 +582,12 @@
   --gn-p2-ink:  #07190e;
   --gn-p2-sh:   #3d8a5c;
   --gn-gold:    #eec262;  /* brass */
+  /* THE LINK, MUTED INTO A WARM ROOM. Arcade's #8cc2ff is a neon blue and would
+     be the only cold thing on a table lit by a pub lamp, so this is the same
+     idea desaturated toward slate: still unmistakably a link, no longer
+     shouting. 7.98 on this theme's --gn-surf against Arcade's 8.91, a 10% loss
+     that is well inside the parity tolerance. */
+  --gn-link:    #9cc4e0;
   --gn-danger:  #eaa79c;
   --gn-danger-hover:#e8c3b8;
   --gn-yes:     #5cbc7b;
@@ -1162,7 +1177,30 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
    the line breaks a host typed, and `anywhere` stops one long pasted string
    (a URL somebody put in the notes) from pushing the layout sideways at 390px. */
 .gn-where{display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap}
-.gn-where__host{color:var(--gn-dim);font-size:11px}
+/* THE MAP LINK, AND UNTIL 2026-08-26 IT HAD NO LINK STYLING AT ALL. index.css
+   opens with `@import "tailwindcss"`, so v4 preflight sets
+   `a { color: inherit; text-decoration: inherit }` on every anchor, and there
+   was no rule anywhere in this file to put it back: the anchor was pixel
+   identical to the text beside it. The affordance did not exist rather than
+   being too subtle.
+
+   THE UNDERLINE IS NOT DECORATION AND IS NOT OPTIONAL. Colour alone is not a
+   sufficient signal that something is interactive (it is invisible to anyone
+   who cannot separate these two hues, and ambiguous to everyone else), and a
+   colour-inheriting anchor being indistinguishable from its neighbours is the
+   exact bug being fixed. If a future pass wants this tidier, it moves the
+   underline, it does not delete it.
+
+   The vertical padding is a tap target: this sits on a phone, inside a flex
+   line, and a bare 13px anchor is a coin toss with a thumb. Negative margin
+   keeps the line height it would have had, so the row does not grow. */
+.gn-where a{
+  color:var(--gn-link);
+  text-decoration:underline;
+  text-underline-offset:3px;
+  text-decoration-thickness:1.5px;
+  padding:6px 2px;margin:-6px 0;
+}
 .gn-notes{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--gn-ink)}
 
 .gn-code{

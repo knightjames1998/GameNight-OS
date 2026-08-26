@@ -284,7 +284,6 @@ export default function EventPage({ me }: { me: Me | null }) {
   // rule existed keeps whatever it was given. The last line of defence belongs
   // next to the thing that would do the damage.
   const mapHref = isHttpsUrl(event.locationUrl) ? event.locationUrl : null;
-  const mapHost = mapHref ? hostOf(mapHref) : "";
   const hasWhere = !!(event.location || mapHref || event.notes);
   const started =
     !!event.scheduledFor && new Date(event.scheduledFor).getTime() <= Date.now();
@@ -422,10 +421,6 @@ export default function EventPage({ me }: { me: Me | null }) {
                     <a href={mapHref} target="_blank" rel="noopener noreferrer">
                       {event.location || "Open map"}
                     </a>
-                    {/* WHERE IT ACTUALLY GOES, beside the label, because the
-                        label is also user-typed: "Dave's" pointing at anywhere
-                        is a link nobody can check without tapping it. */}
-                    <span className="gn-where__host">{mapHost}</span>
                   </>
                 ) : (
                   <span>{event.location}</span>
@@ -645,21 +640,6 @@ function withAttendance(
   if (!userId) return e;
   const rest = e.attendance.filter((a) => a.userId !== userId);
   return { ...e, attendance: showed === null ? rest : [...rest, { userId, showed }] };
-}
-
-/**
- * The host of a map link, for the dim line beside it.
- *
- * Never throws: this only ever runs on a string `isHttpsUrl` already parsed, but
- * a helper that can take down the event page if that ever stops being true is
- * not worth the two lines it saves.
- */
-function hostOf(raw: string): string {
-  try {
-    return new URL(raw).host;
-  } catch {
-    return "";
-  }
 }
 
 /** ISO timestamp -> the local "YYYY-MM-DDTHH:mm" a datetime-local input wants. */
