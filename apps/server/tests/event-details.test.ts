@@ -166,3 +166,123 @@ test("an empty PATCH is still a 400, and the 403 no longer names the date", () =
   assert.match(events, /can change this night/);
   assert.doesNotMatch(events, /can change the date/);
 });
+
+// ---------------------------------------------------------------------------
+// THE PLACE, WHICH IS ONE VALUE IN THREE COLUMNS.
+//
+// A latitude with no longitude is not a partial location, it is a row that means
+// nothing, and a coordinate with no ref is a pin that can never be re-resolved.
+// The client sends them together; "the client sends them together" is a habit
+// rather than a constraint, and the write is where a habit becomes a rule.
+
+test("A PLACE IS SET AS A TRIO, and comes back as one", () => {
+  const f = ok({ locationLat: 41.9484, locationLng: -87.6553, locationRef: "W:3374814" });
+  assert.equal(f.locationLat, 41.9484);
+  assert.equal(f.locationLng, -87.6553);
+  assert.equal(f.locationRef, "W:3374814");
+});
+
+test("THE TRIO IS ABSENT-ABLE, which is what keeps PATCH partial", () => {
+  // The regression this whole file exists for, in its newest shape: a body
+  // carrying only notes must not blank the coordinates of a night that has them.
+  const f = ok({ notes: "Bring a chair" });
+  assert.ok(!("locationLat" in f), "an unmentioned coordinate must not be written");
+  assert.ok(!("locationLng" in f));
+  assert.ok(!("locationRef" in f));
+});
+
+test("clearing clears all three, from either spelling of empty", () => {
+  // null from a JSON client, "" from an emptied input: same intent.
+  for (const blank of [null, ""]) {
+    const f = ok({ locationLat: blank, locationLng: blank, locationRef: blank });
+    assert.equal(f.locationLat, null);
+    assert.equal(f.locationLng, null);
+    assert.equal(f.locationRef, null);
+  }
+  // Mentioning only one of them, empty, still clears the whole place: there is
+  // no coherent half of this value to keep.
+  const one = ok({ locationRef: null });
+  assert.equal(one.locationLat, null);
+  assert.equal(one.locationLng, null);
+  assert.equal(one.locationRef, null);
+});
+
+test("A LATITUDE WITH NO LONGITUDE IS REFUSED, not written half", () => {
+  assert.match(refused({ locationLat: 41.9484 }), /latitude and a longitude/);
+  assert.match(refused({ locationLng: -87.6553 }), /latitude and a longitude/);
+  assert.match(
+    refused({ locationLat: 41.9484, locationLng: -87.6553 }),
+    /reference/,
+    "a pin with no ref could never be re-resolved",
+  );
+});
+
+test("a coordinate off the Earth is REFUSED rather than clamped", () => {
+  // Clamping would write a plausible wrong answer into a column nothing else
+  // validates, which is the failure mode this app keeps finding.
+  const ref = { locationRef: "N:1" };
+  assert.match(refused({ ...ref, locationLat: 91, locationLng: 0 }), /-90 and 90/);
+  assert.match(refused({ ...ref, locationLat: -91, locationLng: 0 }), /-90 and 90/);
+  assert.match(refused({ ...ref, locationLat: 0, locationLng: 181 }), /-180 and 180/);
+  assert.match(refused({ ...ref, locationLat: 0, locationLng: -181 }), /-180 and 180/);
+  // The poles and the date line are real places.
+  assert.equal(ok({ ...ref, locationLat: 90, locationLng: 180 }).locationLat, 90);
+});
+
+test("a coordinate that is not a number is refused", () => {
+  const ref = { locationRef: "N:1" };
+  assert.match(refused({ ...ref, locationLat: "41.9", locationLng: -87.6 }), /latitude and a longitude/);
+  assert.match(refused({ ...ref, locationLat: NaN, locationLng: -87.6 }), /latitude and a longitude/);
+  assert.match(refused({ ...ref, locationLat: Infinity, locationLng: -87.6 }), /latitude and a longitude/);
+});
+
+test("zero is a real coordinate and must not read as absent", () => {
+  // Null Island is not a game night, but 0 is falsy and this is exactly the
+  // shape where a truthiness check silently drops a valid value.
+  const f = ok({ locationLat: 0, locationLng: 0, locationRef: "N:1" });
+  assert.equal(f.locationLat, 0);
+  assert.equal(f.locationLng, 0);
+});
+
+test("a blank or oversized ref is refused", () => {
+  const co = { locationLat: 41.9, locationLng: -87.6 };
+  assert.match(refused({ ...co, locationRef: "   " }), /reference/);
+  assert.match(refused({ ...co, locationRef: 12345 }), /reference/);
+  assert.match(refused({ ...co, locationRef: "N:" + "9".repeat(80) }), /64 characters/);
+});
+
+test("THE TWO COPY PATHS CARRY THE PIN, or a duplicate looks right and is useless", () => {
+  // Both paths already copied location and notes and would have silently
+  // dropped the coordinates, producing a night that is identical on screen and
+  // has no pin. Asserted at the source, since neither can run without a DB.
+  const generated = events.slice(events.indexOf("async function generateDueOccurrences"));
+  for (const field of ["locationLat", "locationLng", "locationRef"]) {
+    assert.match(
+      generated,
+      new RegExp(`${field}: latest\\?\\.${field} \\?\\? null`),
+      `the recurring generator drops ${field}`,
+    );
+  }
+  const group = readSrc("../../web/src/pages/GroupPage.tsx");
+  const dup = group.slice(group.indexOf("async function duplicateEvent"));
+  for (const field of ["locationLat", "locationLng", "locationRef"]) {
+    assert.match(dup, new RegExp(`${field}: e\\.${field}`), `run-it-again drops ${field}`);
+  }
+});
+
+test("the summary carries the place, because run-it-again reads it off a tile", () => {
+  // eventSummary spreads the row, so these ride along; what has to be true is
+  // that the CLIENT's EventSummary declares them, or duplicateEvent would be
+  // reading fields TypeScript does not know are there. This is the August crash
+  // in miniature: a shape the list did not expect.
+  const api = readSrc("../../web/src/api.ts");
+  const summary = api.slice(api.indexOf("export interface EventSummary"), api.indexOf("export interface EventDetail"));
+  for (const field of ["locationLat", "locationLng", "locationRef"]) {
+    assert.match(summary, new RegExp(`${field}:`), `EventSummary is missing ${field}`);
+  }
+});
+
+/** Read a source file relative to this test, for the wiring assertions above. */
+function readSrc(rel: string): string {
+  return readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), rel), "utf8");
+}

@@ -16,11 +16,22 @@ import { isHttpsUrl } from "@gamenight/shared";
 export const EVENT_LOCATION_MAX = 120;
 export const EVENT_LOCATION_URL_MAX = 500;
 export const EVENT_NOTES_MAX = 1000;
+/** "{osm_type}:{osm_id}". Short by construction; the cap is a sanity bound. */
+export const EVENT_LOCATION_REF_MAX = 64;
+
+/** Degrees north. Outside this is not a place on Earth, so it is refused. */
+const MAX_LAT = 90;
+/** Degrees east. */
+const MAX_LNG = 180;
 
 export interface EventDetailFields {
   location?: string | null;
   locationUrl?: string | null;
   notes?: string | null;
+  /** The three below are ONE unit. See parseCoordinates. */
+  locationLat?: number | null;
+  locationLng?: number | null;
+  locationRef?: string | null;
 }
 
 export type DetailParse =
@@ -87,5 +98,58 @@ export function parseEventDetails(body: unknown): DetailParse {
     }
   }
 
+  const coords = parseCoordinates(b);
+  if (!coords.ok) return coords;
+  Object.assign(fields, coords.fields);
+
   return { ok: true, fields };
+}
+
+/**
+ * The three place fields, which are ONE VALUE IN THREE COLUMNS.
+ *
+ * ALL THREE OR NONE, ENFORCED HERE RATHER THAN TRUSTED. A latitude with no
+ * longitude is not a partial location, it is a row that means nothing; and a
+ * coordinate with no ref is a pin that can never be re-resolved. The client
+ * sends them together, but "the client sends them together" is not a
+ * constraint, it is a habit, and the write is where a habit becomes a rule.
+ *
+ * THE TRIO IS STILL ABSENT-ABLE, which is what keeps PATCH partial: a body
+ * carrying only `notes` mentions none of these keys, so none of them is written
+ * and a night keeps the place it already had. Only a body that mentions at least
+ * one of them is making a statement about all three.
+ *
+ * REFUSED, NOT CLAMPED. A latitude of 91 is not a place slightly past the pole,
+ * it is a bug upstream of us, and clamping would write a plausible wrong answer
+ * to a column nothing else validates.
+ */
+function parseCoordinates(b: Record<string, unknown>): DetailParse {
+  const keys = ["locationLat", "locationLng", "locationRef"] as const;
+  if (!keys.some((k) => k in b)) return { ok: true, fields: {} };
+
+  const empty = (v: unknown) => v === null || v === undefined || v === "";
+  if (keys.every((k) => empty(b[k]))) {
+    // Clearing. All three go together for the same reason they arrive together.
+    return { ok: true, fields: { locationLat: null, locationLng: null, locationRef: null } };
+  }
+
+  const lat = b.locationLat;
+  const lng = b.locationLng;
+  const ref = b.locationRef;
+
+  if (typeof lat !== "number" || typeof lng !== "number" || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return { ok: false, error: "a place needs both a latitude and a longitude" };
+  }
+  if (Math.abs(lat) > MAX_LAT) return { ok: false, error: "latitude must be between -90 and 90" };
+  if (Math.abs(lng) > MAX_LNG) return { ok: false, error: "longitude must be between -180 and 180" };
+
+  if (typeof ref !== "string" || !ref.trim()) {
+    return { ok: false, error: "a place needs its reference" };
+  }
+  const trimmed = ref.trim();
+  if (trimmed.length > EVENT_LOCATION_REF_MAX) {
+    return { ok: false, error: `place reference must be ${EVENT_LOCATION_REF_MAX} characters or fewer` };
+  }
+
+  return { ok: true, fields: { locationLat: lat, locationLng: lng, locationRef: trimmed } };
 }

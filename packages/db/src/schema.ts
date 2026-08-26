@@ -7,6 +7,7 @@ import {
   text,
   timestamp,
   integer,
+  doublePrecision,
   boolean,
   jsonb,
   uniqueIndex,
@@ -185,6 +186,31 @@ export const events = pgTable(
     // "bring a chair" and "park on the street", and every one of those features
     // would be a new attack surface on a field any member can write.
     notes: text("notes"),
+    /**
+     * WHERE THE NIGHT ACTUALLY IS, when a host picked it out of place search
+     * rather than typing it. All three are null for free text, which is the
+     * COMMON case: most game nights are at somebody's house and a house is not
+     * in OpenStreetMap.
+     *
+     * SET TOGETHER OR NOT AT ALL, enforced at the write. A latitude with no
+     * longitude is not a partial location, it is a meaningless row, and a
+     * coordinate with no `location_ref` could never be re-resolved.
+     *
+     * `double precision` rather than numeric: this is a pin on a map, not money,
+     * and the float is what every geo consumer expects. Six decimal places is
+     * about 11cm, which is far beyond what "the pub on the corner" needs.
+     *
+     * `location_ref` is the geocoder's own identity for the place, stored as
+     * "{osm_type}:{osm_id}" (for example "N:1234567"), so a place can be
+     * re-resolved later without this app keeping a second lookup table.
+     *
+     * THESE UNBLOCK THE GEOFENCED ARRIVAL IDEA, which could not be built at all
+     * without a coordinate on the event. It stays blocked on the native wrapper;
+     * this is the half of it that lives in the database.
+     */
+    locationLat: doublePrecision("location_lat"),
+    locationLng: doublePrecision("location_lng"),
+    locationRef: text("location_ref"),
     /**
      * The series this night is an occurrence of, and which occurrence it is.
      *
