@@ -1101,3 +1101,58 @@ test("BOARD GAME COMPOSES THE CLOTH ITSELF, rather than reading the shell's", ()
     assert.equal(layers(block[`${list}-size`]!), n, `${name}: size list out of step with the layers`);
   }
 });
+
+// ---------------------------------------------------------------------------
+// THE ACCENT EDGE, AND THE TWO WAYS IT CAN VANISH WITHOUT ANYTHING FAILING.
+//
+// --gn-card-border is 2px in Arcade and 0px in TABLETOP, where a card is made of
+// --gn-surf and --gn-card-shadow against the felt and carries no outline at all.
+// .gn-card draws `border: var(--gn-card-border) solid`, so a modifier that only
+// overrode a border COLOUR would colour a zero-width edge and paint nothing on
+// felt.
+//
+// AND THE THEME SWEEP WOULD PASS WHILE IT DID. TRACKED_PROPS carries
+// border-left-color and no border WIDTHS at all, so the sweep records the accent
+// resolving correctly in both themes while one of them draws nothing. Confirmed
+// on 2026-08-26 by reading the sweep's own output for this rule: it is
+// {"border-left-color": ...} and nothing else. The width was verified over CDP
+// instead (Tabletop: border-top-width 0px, border-left-width 3px).
+//
+// So the width is asserted here, where the sweep cannot reach. The same trap is
+// waiting for any future accent, divider or edge built on .gn-card.
+
+test("THE PINNED CARD SETS ITS OWN EDGE WIDTH, or Tabletop draws nothing", () => {
+  const at = CSS_BARE.indexOf(".gn-card--pinned{");
+  assert.notEqual(at, -1, "no .gn-card--pinned rule in index.css");
+  const rule = CSS_BARE.slice(at, CSS_BARE.indexOf("}", at));
+  assert.match(
+    rule,
+    /border-left-width:\s*\d+px/,
+    "the accent edge inherits --gn-card-border, which is 0px in Tabletop: it will not paint",
+  );
+  assert.match(rule, /border-left-style:\s*solid/);
+  assert.match(rule, /border-left-color:\s*var\(--gn-p1\)/);
+});
+
+test("the modifier stays AFTER .gn-card, which is the only thing that makes it win", () => {
+  // Both are single class selectors, so specificity is equal and source order
+  // is the whole mechanism: moved above .gn-card, these longhands lose to the
+  // `border:` shorthand and the edge disappears in BOTH themes with no error.
+  const card = CSS_BARE.indexOf(".gn-card{");
+  const pinned = CSS_BARE.indexOf(".gn-card--pinned{");
+  assert.ok(card !== -1 && pinned > card, ".gn-card--pinned must come after .gn-card");
+});
+
+test("THE SWEEP PROBE IS READ AT REST, or one added rule moves an unrelated one", () => {
+  // The rules pass reuses ONE probe element and reads getComputedStyle straight
+  // after swapping the rule in, so a rule that transitions a tracked property is
+  // read mid-interpolation and records the value it is coming FROM. What it is
+  // coming from is whatever the PREVIOUS rule left, which made the whole pass
+  // rule-order dependent: adding .gn-card--pinned after .gn-card moved .gn-cab's
+  // box-shadow to a pair of transparent zero-length layers, a difference in a
+  // selector this session never touched. Suppressing both on the probe is what
+  // makes a capture depend on the stylesheet rather than on its ordering.
+  const sweep = readFileSync(path.join(ROOT, "scripts/theme-sweep.mjs"), "utf8");
+  assert.match(sweep, /probe\.style\.transition = 'none';/);
+  assert.match(sweep, /probe\.style\.animation = 'none';/);
+});

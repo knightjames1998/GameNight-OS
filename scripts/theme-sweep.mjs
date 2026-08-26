@@ -576,6 +576,26 @@ const COLLECT_RULES = (props) => `(async () => {
   }
   const probe = document.createElement('div');
   probe.id = 'gn-theme-probe';
+  // READ THE PROBE AT REST. One probe is reused for every rule in the file and
+  // the computed style is read IMMEDIATELY after the rule is swapped in, so a
+  // rule that declares a transition on a tracked property (.gn-cab carries
+  // a .12s box-shadow transition) is read mid-interpolation
+  // and records the value it is coming FROM rather than the one it paints.
+  //
+  // WHICH MADE THE WHOLE PASS RULE-ORDER DEPENDENT, and that is the actual bug
+  // rather than the wrong number: what a transitioned property starts from is
+  // whatever the PREVIOUS rule left on the probe, so inserting any rule
+  // anywhere in the file could change the recorded value of an unrelated
+  // selector further down. Caught on 2026-08-26 by adding one rule after
+  // .gn-card, which moved .gn-cab's box-shadow from its real two-layer bevel to
+  // a pair of transparent zero-length layers: a difference in a selector that
+  // session never touched, on a run that was otherwise clean.
+  //
+  // Inline, so it beats the #id rule the loop writes without needing
+  // !important, and neither property is tracked, so suppressing them costs the
+  // snapshot nothing.
+  probe.style.transition = 'none';
+  probe.style.animation = 'none';
   host.appendChild(probe);
   document.body.appendChild(host);
   const style = document.createElement('style');
