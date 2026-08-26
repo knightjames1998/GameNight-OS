@@ -12,8 +12,8 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-23 (the night flow session, before its own work)
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-08-26 (the recurring events session, before its own work)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -64,66 +64,48 @@ anyone's memory of how many sessions have happened.
         27 to 28; zone 5 was unchanged at 16 and that was a finding rather than an oversight.
         NO ROW MOVED, the first pass in three to leave row 1 alone, and it wrote down in as
         many words that the NEXT pass would be the one that had to raise it.
-      - 2026-08-23, this one. Below.
+      - 2026-08-23, the night flow pass. THE FIRST RECONCILE TO FIND DRIFT: two shipped
+        commits that never wrote themselves up, which is why the git-log rule below exists.
+        Zone 1 took two (NEW), 23 to 25; zone 4 grew by six; row 1 grew 2400 -> 2650.
+      - 2026-08-26, this one. Below.
 
-    THE REDRAW WENT FIRST AND THE SESSION THEN SHIPPED, which is the arrangement every pass
-    since 2026-08-17 has used and the one the rule does not describe in a line. The counter
-    read 3 when this session started, so the reconcile and the drawing came before any
-    feature work; the drawing therefore does NOT contain the night-flow work that landed
-    after it, and that work counted itself in its own final commit. (Phrased as what
-    HAPPENED rather than as what the counter currently reads: a sentence restating the
-    number goes stale the moment the number moves, which is the trap this block's own rule
-    was rewritten to close.)
-
-    WHAT THIS SESSION SHIPPED AFTER THE DRAWING, so the next redraw does not have to go
-    looking: host check-in (a correctness fix for flake stats, not only a convenience), the
-    prefill chain across all three launchers, and the two shared setup components on all
-    nine screens. Zone 4 loses "same players as the last game" and "guest name memory"; zone
-    1 gains one item. No schema change.
+    THE REDRAW WENT FIRST, before this session's own work, which is the arrangement every
+    pass since 2026-08-17 has used. The counter read 3 when this session started, so the
+    reconcile and the drawing came before any feature work; the drawing therefore does NOT
+    contain the two link fixes or recurring events, and that work counts itself.
 
     What this pass changed beyond the counter:
-      - THE RECONCILE FOUND DRIFT, AND IT IS THE FIRST PASS THAT CAN SAY SO. The 08-22 pass
-        recorded "THE RECONCILE FOUND NO DRIFT" and was right on the day it was written. TWO
-        SHIPPED COMMITS LANDED AFTER IT: a Crews hint line on Home (34d1486) and a casino
-        becoming the default bank on every cash pack (a591dbd), both on 08-22, both AFTER
-        that session's own counter-to-3 BACKLOG commit, and NEITHER wrote itself up. Both
-        are now in SHIPPED with what actually landed. The lesson is about WHERE THE BACKLOG
-        COMMIT SITS IN A SESSION rather than about either change, and it is written into the
-        first entry: walk `git log` against this file at a redraw, do not only walk the
-        headings against the repo. Reading the file alone would have missed both.
-      - ZONE 1 TOOK TWO, both (NEW), 23 to 25: partner stats plus the real Home stats block
-        (with that Crews hint line drawn on the same item, since both are Home), and the
-        event TV's stats board plus the five TV density ladders. Crew/event deletion and the
-        two on-deck TVs both lost their (NEW) on schedule.
-      - ZONE 2 TOOK ONE, (NEW), 28 to 29: a casino is the default bank on every cash pack.
-        A PACK item because it moves the shared casino setup screen and `casino-runtime.ts`,
-        and it takes poker's dead banking control off the screen with it. The nickname item
-        lost its (NEW).
-      - ZONE 4 GREW BY SIX, 11 to 17, AND THAT IS THE BIGGEST SINGLE MOVE THIS PASS. Partner
-        stats and the Home block LEFT by shipping, and the EIGHT entries the 08-22 pass said
-        it was adding "below them" are drawn for the first time: Lovers/Cupid, same players
-        as the last game, guest name memory, the connection pill, repeat-or-duplicate an
-        event, location and notes, the RSVP nudge, and fix-or-delete a completed result. The
-        smack-talk item also dropped "TV stats", which shipped on 08-22.
-      - ZONE 5 IS UNCHANGED AT 16 IN COUNT AND COMPLETELY DIFFERENT IN COLOUR. FIVE OPEN TV
-        overflows went FIXED in one session on 08-22 (Ping Pong, the title-night pair, Mario
-        Kart, the bracket at sixteen pairs with the four-fresh regression folded in, and
-        Beerio's Grand Prix), which is the largest number of bugs this file has ever closed
-        in a pass. TWO OPEN remain: the late write stealing the TV, and Casino Run's back
-        button. Nine Watch traps, unchanged, and no new one was logged by any of the three
-        sessions.
-      - ROW 1 GREW, 2400 -> 2650, AND THE LAST PASS CALLED IT. Zone 2 would have landed on
-        158px of slack at the old height once its one new item was in, MEASURED BY READING
-        THE GENERATED FILE BACK, and the 08-22 narrative had already done the arithmetic:
-        NEXT UP's numbered three are all zone 2 packs at roughly 106px each, so 158 fits one
-        of them and not three. That is the same reasoning that raised the row at 138px on
-        08-19 and at 114px on its second pass, and the previous pass wrote down that this one
-        would owe it so it would not have to be re-derived. Raised pre-emptively, as every
-        raise here has been; at 2650 zone 2 has 408px and zone 1 has 850. Row 2 moved
-        2520 -> 2770 by the same amount so the columns stay aligned, and its HEIGHT stayed at
-        1200 because neither zone in it is over: zone 4 needs 1018 of it at 17 items (182
-        spare) and zone 5 needs 990 at 16 (210 spare). A row is raised when a zone is OVER,
-        and neither is.
+      - THE RECONCILE FOUND NO DRIFT, and this time that is a checked fact rather than a
+        hope. The 08-23 pass added the rule "walk `git log` against this file, not only the
+        headings against the repo" after finding two shipped commits nobody had written up.
+        So this pass walked all EIGHTEEN commits since that redraw. Every one belongs to one
+        of three sessions (night flow 08-23, the connection pill 08-24, the event layer
+        bundle 08-25) plus James's PROJECT-INSTRUCTIONS upload, all three sessions wrote
+        themselves up, and THE ONE COMMIT THAT LANDED AFTER ITS SESSION'S BACKLOG COMMIT
+        (b310c16, quick play getting no guest chips) amended BACKLOG in that same commit.
+        The rule the last pass wrote is the reason there is nothing to report here.
+      - ZONE 1 TOOK THREE, all (NEW), 25 to 28: the night flow pass, the connection pill
+        with its heartbeat, and the event layer bundle. Partner stats and the five TV
+        ladders lost their (NEW) on schedule.
+      - ZONE 2 IS UNCHANGED AT 29, and that is a finding rather than an oversight: three
+        sessions in a row shipped event-layer and shell work and touched no pack at all.
+        The casino default bank lost its (NEW).
+      - ZONE 4 SHRANK BY SIX, 17 to 11, THE BIGGEST DROP THIS ZONE HAS EVER TAKEN. Same
+        players, guest name memory, the connection pill, the RSVP nudge, repeat-or-duplicate
+        and location-and-notes all shipped inside three days. Eleven remain, headed by
+        Lovers/Cupid and fix-or-delete-a-completed-result.
+      - ZONE 5 IS UNCHANGED AT 16, INCLUDING ITS FIVE FIXED, and that is the age-out rule
+        rather than laziness: a FIXED entry is drawn on TWO redraws and leaves on the third
+        (the 08-04 rail fix was drawn on 08-09 and 08-10 and aged out on 08-15). The five
+        08-22 TV fixes have been drawn once, so this is their second and last appearance.
+        Two OPEN, nine Watch, and no new bug was logged by any of the three sessions.
+      - NO ROW MOVED, AND THE NEXT PASS'S ROOM WAS CHECKED BEFORE DRAWING RATHER THAN AFTER,
+        which is what the brief for this session asked for. Measured by reading the
+        generated file back: zone 1 holds 2160px of content in 2650, so 490 of slack; zone 2
+        is unchanged at 408; zone 4 has 530 after losing six items and zone 5 has 210.
+        RECURRING EVENTS LANDS IN ZONE 1 NEXT PASS at roughly 106 to 130px, which 490 takes
+        comfortably. The row moves when zone 1 is next asked for two large items in one
+        pass, not before.
       - ZONES 3 AND 6 ARE UNCHANGED. Nothing left NEXT UP, so the numbered three are still
         Poker's tournament format, Smash Tournament and Party games.
     Zone heights checked against their contents by reading the generated file back, not

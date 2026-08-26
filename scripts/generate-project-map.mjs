@@ -13,48 +13,54 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-08-23, because the counter read 3. THE REDRAW WENT FIRST, before
-// this session's own work, which is what the counter is for: the night-flow work
-// that follows it (host check-in, the prefill chain, roster carry-over, guest
-// chips) is NOT in this drawing and increments the counter in its own commit.
-// Same arrangement as 2026-08-17, both 08-19 passes and 08-22. This pass:
-//   - THE RECONCILE FOUND DRIFT, and it is the first pass that can say so. The
-//     08-22 pass recorded "no drift" and was right on the day. TWO SHIPPED COMMITS
-//     LANDED AFTER IT and neither wrote itself up: a Crews hint line on Home
-//     (34d1486) and a casino becoming the default bank on every cash pack
-//     (a591dbd), both AFTER that session's own counter-to-3 BACKLOG commit. Both
-//     are in SHIPPED now. The lesson is about where a BACKLOG commit sits in a
-//     session: walk `git log` against the file at a redraw, not only the headings
-//     against the repo, because reading the file alone would have missed both.
-//   - ZONE 1 TOOK TWO, both (NEW), 23 to 25: partner stats plus the real Home
-//     stats block (the Crews hint line rides that item, since both are Home), and
-//     the event TV's stats board plus the five TV density ladders. Crew/event
-//     deletion and the two on-deck TVs lost their (NEW) on schedule.
-//   - ZONE 2 TOOK ONE, (NEW), 28 to 29: a casino is the default bank on every cash
-//     pack. A PACK item because it moves the shared casino setup screen and
-//     `casino-runtime.ts`, and takes poker's dead banking control off the screen
-//     with it. The nickname item lost its (NEW).
-//   - ZONE 4 GREW BY SIX, 11 to 17, the biggest single move in this pass. Partner
-//     stats and the Home block LEFT by shipping, and the EIGHT entries the 08-22
-//     pass said it was adding "below them" are drawn for the first time. The
-//     smack-talk item also dropped "TV stats", which shipped on 08-22.
-//   - ZONE 5 IS UNCHANGED AT 16 AND COMPLETELY DIFFERENT IN COLOUR: five OPEN TV
-//     overflows went FIXED in one session on 08-22, the most this file has ever
-//     closed in a pass. Two OPEN remain (the late write stealing the TV, Casino
-//     Run's back button), nine Watch traps, no new one logged.
-//   - ROW 1 GREW, 2400 -> 2650, AND THE LAST PASS CALLED IT. Zone 2 would have
-//     landed on 158px of slack at the old height after its one new item, MEASURED
-//     BY READING THE GENERATED FILE BACK, and NEXT UP's numbered three are all
-//     zone 2 packs at ~106px each: 158 fits one, not three. Same arithmetic that
-//     raised the row at 138px on 08-19 and 114px on its second pass, and the 08-22
-//     narrative wrote down that this pass would owe it. At 2650 zone 2 has 408px
-//     and zone 1 has 850. Row 2 moved 2520 -> 2770 by the same amount so the
-//     columns stay aligned; row 2's HEIGHT stayed at 1200, because neither zone in
-//     it is over: zone 4 needs 1018 of it at 17 items (182 spare) and zone 5 needs
-//     990 at 16 (210 spare).
-//   - ZONES 3 AND 6 ARE UNCHANGED. Nothing left NEXT UP, so the numbered three are
-//     still Poker's tournament format, Smash Tournament and Party games.
+// Redrawn 2026-08-26, because the counter read 3. THE REDRAW WENT FIRST, before
+// this session's own work, which is what the counter is for: the two link fixes
+// and RECURRING EVENTS that follow are NOT in this drawing and increment the
+// counter in their own commit. Same arrangement as every pass since 08-17.
+// This pass:
+//   - THE RECONCILE FOUND NO DRIFT, and this time that is a fact rather than a
+//     hope: the 08-23 pass added "walk `git log` against this file, not just the
+//     headings against the repo" after finding two unwritten commits, so this
+//     pass walked the eighteen commits since. All three sessions (night flow
+//     08-23, the connection pill 08-24, the event layer bundle 08-25) wrote
+//     themselves up, and the one commit that landed AFTER its session's BACKLOG
+//     commit (b310c16, quick play getting no guest chips) amended BACKLOG in
+//     the same commit. The rule worked.
+//   - ZONE 1 TOOK THREE, all (NEW), 25 to 28: the night flow pass, the
+//     connection pill with its heartbeat, and the event layer bundle. Partner
+//     stats and the five TV ladders lost their (NEW) on schedule.
+//   - ZONE 2 IS UNCHANGED AT 29, and that is a finding rather than an oversight:
+//     three sessions in a row shipped event-layer and shell work and touched no
+//     pack. The casino default bank lost its (NEW).
+//   - ZONE 4 SHRANK BY SIX, 17 to 11, WHICH IS THE BIGGEST DROP THIS ZONE HAS
+//     EVER TAKEN. Same players, guest name memory, the connection pill, the RSVP
+//     nudge, repeat-or-duplicate and location-and-notes all shipped inside three
+//     days. Eleven left, and the top of it is now Lovers/Cupid and fix-or-delete
+//     a completed result.
+//   - ZONE 5 IS UNCHANGED AT 16, INCLUDING ITS FIVE FIXED, and that is the
+//     age-out rule rather than laziness: a FIXED entry is drawn on TWO redraws
+//     and leaves on the third (the 08-04 rail fix was drawn on 08-09 and 08-10
+//     and aged out on 08-15). The five 08-22 TV fixes have been drawn once, so
+//     this is their second and last. Two OPEN, nine Watch, no new bug logged by
+//     any of the three sessions.
+//   - NO ROW MOVED, and the arithmetic is written down rather than eyeballed
+//     because the next pass will need it. MEASURED BY READING THE GENERATED FILE
+//     BACK: zone 1 holds 2160px of content in 2650, so 490px of slack; zone 2 is
+//     unchanged at 408; zone 4 has 530 after losing six items and zone 5 has 210.
+//     RECURRING EVENTS LANDS IN ZONE 1 NEXT PASS at roughly 106 to 130px, which
+//     490 takes comfortably, and that was checked BEFORE drawing rather than
+//     discovered after. The row moves when zone 1 is next asked for two large
+//     items in one pass, not before.
+//   - ZONES 3 AND 6 ARE UNCHANGED. Nothing left NEXT UP, so the numbered three
+//     are still Poker's tournament format, Smash Tournament and Party games.
 //   - Canvas 1560x3970, read off the generated file. Panorama camera 1600x4020.
+//
+// The 2026-08-23 pass, kept short: the FIRST reconcile to find drift (two
+// shipped commits that never wrote themselves up, which is why the git-log rule
+// above exists); zone 1 took two (NEW), 23 to 25; zone 2 took one; zone 4 grew
+// by six as the 08-22 entries were finally drawn; zone 5 unchanged at 16 with
+// five OPEN TV overflows turning FIXED in one session; row 1 grew 2400 -> 2650,
+// the raise the 08-22 pass measured and declined.
 //
 // The 2026-08-22 pass, kept short: zone 1 took two (NEW), 21 to 23; zone 2 took
 // one, 27 to 28; zone 5 unchanged at 16; NO ROW MOVED, the first pass in three to
@@ -125,8 +131,11 @@ const ZONES = [
       { t: "A SECOND TOURNAMENT ON THE SAME NIGHT: allowed once every bracket is completed, never two at once. The guard, and the three limit-1 reads that agreed with it", h: 106 },
       { t: "CREW AND EVENT DELETION STOP DESTROYING THE LEDGER: one transaction each, and a hand-written cascade checked against the schema", h: 88 },
       { t: "BOTH BRACKETED TVs SHOW WHAT IS NEXT, NOT ONLY WHAT IS READY: three deck classes, and an empty seat names its feeder", h: 88 },
-      { t: "PARTNER STATS + A REAL STATS BLOCK ON HOME: one self-join beside finishAggDeep, Home renders the payload it was throwing away, and Crews gets its hint line (NEW)", bg: "#c3fae8", h: 106 },
-      { t: "THE EVENT TV GETS STATS, AND FIVE TVs GET DENSITY LADDERS: Ping Pong, the title-night pair, Mario Kart, the bracket and Beerio's GP. KNOWN is empty (NEW)", bg: "#c3fae8", h: 106 },
+      { t: "PARTNER STATS + A REAL STATS BLOCK ON HOME: one self-join beside finishAggDeep, Home renders the payload it was throwing away, and Crews gets its hint line", h: 106 },
+      { t: "THE EVENT TV GETS STATS, AND FIVE TVs GET DENSITY LADDERS: Ping Pong, the title-night pair, Mario Kart, the bracket and Beerio's GP. KNOWN is empty", h: 106 },
+      { t: "THE NIGHT FLOW PASS: HOST CHECK-IN (a correctness fix, silence already flakes you), the prefill chain (last roster, then who showed, then who said yes), and two shared components on all nine setup screens (NEW)", bg: "#c3fae8", h: 130 },
+      { t: "THE CONNECTION PILL, AND THE HEARTBEAT THAT MAKES IT HONEST: the server pings every 20s, because a dead socket says nothing and readyState reads OPEN forever (NEW)", bg: "#c3fae8", h: 106 },
+      { t: "THE EVENT LAYER BUNDLE: where the night is (label + https-only link), the RSVP nudge on the share sheet already there, and run-it-again on past nights (NEW)", bg: "#c3fae8", h: 106 },
     ],
   },
   {
@@ -161,7 +170,7 @@ const ZONES = [
       { t: "BEERIO CROWD BAR, READABLE FROM THE COUCH: the bar carries no text (17 of 32 palette colours clear 4.5:1), the split moves to the label row with swatches", h: 106 },
       { t: "TWO HOST DEVICES ON ONE BEERIO ROOM: the host page reads the room back instead of only writing it. A once-on-mount adopt made to repeat", h: 106 },
       { t: "A VOTER CAN CHANGE THEIR NICKNAME, ALL NIGHT: the crowd name box stops being one-shot, and a rename cannot move a row", h: 88 },
-      { t: "A CASINO IS THE DEFAULT BANK on every cash pack: the setup screen and the runtime fallback both moved, minPlayers stops reading bank type, and poker's dead picker goes (NEW)", bg: "#c3fae8", h: 106 },
+      { t: "A CASINO IS THE DEFAULT BANK on every cash pack: the setup screen and the runtime fallback both moved, minPlayers stops reading bank type, and poker's dead picker goes", h: 106 },
     ],
   },
   {
@@ -179,13 +188,7 @@ const ZONES = [
     x: 40, y: 2770, h: 1200,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
-      { t: "SAME PLAYERS AS THE LAST GAME: prefill off the event's last session, not the yes list", h: 52 },
-      { t: "GUEST NAME MEMORY PER CREW: previously typed guests as tappable chips", h: 52 },
-      { t: "RSVP NUDGE: \"4 haven't answered\" plus a button (the payload already carries it)", h: 52 },
-      { t: "REPEAT OR DUPLICATE AN EVENT (no recurrence column today)", h: 52 },
-      { t: "LOCATION AND NOTES ON AN EVENT (neither column exists)", h: 52 },
       { t: "FIX OR DELETE A COMPLETED RESULT: a question to answer before a screen", h: 52 },
-      { t: "CONNECTION STATE PILL: \"reconnecting\" on the scoring screens", h: 52 },
       { t: "LOVERS (CUPID): two roles at once and a second win condition", h: 52 },
       { t: "Smash 2v2 team battles (the bracket's half of this shipped 08-18)", h: 52 },
       { t: "Co-op titles (Pandemic): one side, everybody on it, win together", h: 52 },
