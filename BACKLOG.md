@@ -13,7 +13,7 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-08-26 (the recurring events session, before its own work)
-    Shipped sessions since that redraw: 0
+    Shipped sessions since that redraw: 1
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -217,6 +217,14 @@ regenerated file in the same commit as the reconcile. If the MCP canvas is unava
 session, regenerating the committed file alone still counts as the redraw.
 
 ## SHIPPED — FOUNDATION
+- [x] RECURRING GAME NIGHTS, AND TWO LINK FIXES (2026-08-26). One schema change that turns a GET into a write path, plus two CSS-level fixes that shipped first because they were cheap and certain.
+  **THE OBVIOUS SERIES MODEL IS WRONG AND THE WHOLE DESIGN IS THE ANSWER TO IT.** Putting the repeat rule on the event row and copying it forward fails twice, both silently: DELETING A NIGHT KILLS THE SERIES (the rule lived on the deleted row, so a host tidying up one cancelled Thursday ends their weekly night), and MOVING ONE NIGHT DRAGS THE WHOLE SERIES (a next date computed from the previous event's `scheduled_for` turns one Thursday-to-Friday shift into every future night being a Friday). So the rule lives on `event_series` and occurrences are computed from ANCHOR PLUS INDEX. Nothing anywhere reads an event's date to decide when the next one is.
+  **THE TIME ZONE IS A COLUMN THE HANDED-DOWN SQL DID NOT HAVE, and it is forced by the contract rather than by taste.** "A 7pm Thursday in March is still 7pm in April" is unanswerable from an instant alone: adding a week is 167, 168 or 169 hours depending on whether the clocks changed in the CREW's zone, and this server runs in UTC where they never do. The zone is captured from the creating device. Without it the contract fails silently twice a year.
+  **THE DATE MATHS WENT FIRST AND CAUGHT ITS OWN BUG**, which is the argument for that ordering: `instantOf` compares what a zone SHOWS against the wall time being solved for, and the first draft compared it against the MOVING GUESS, which re-applies the offset every pass and walks six hours further away each time. The test helper had the identical bug. 21 tests in `packages/shared/tests/recurrence.test.ts`, DST first.
+  **MONTHLY IS THE ORDINAL WEEKDAY** (third Thursday, not the 17th), with a FIFTH treated as LAST so a series seeded on a fifth Friday runs every month instead of skipping most of the year. Both the weekday and the ordinal are derived from the seed date, so a host never picks them.
+  **GENERATION IS LAZY, ON A READ OF THE CREW PAGE, BECAUSE THERE IS NO SCHEDULER.** The only cron is the keep-warm Action pinging `/api/health`, unauthenticated, whose whole job is preventing a cold start; creating rows from it would be wrong. So a GET became a write path, which is the architectural cost of the feature. Two phones loading at once are handled by a unique index on `(series_id, series_index)` plus `onConflictDoNothing`, not a lock. A crew that stops opening the app for two months comes back to the NEXT night, not eight dead ones, and the catch-up walk is bounded so an ancient anchor cannot spin inside a request.
+  **THE DELETE ASKS INSTEAD OF GUESSING, AND ITS TWO WRITES ARE ONE TRANSACTION.** Generation runs for every ACTIVE series with no un-passed occurrence, so a delete that commits while the `active = false` does not means the next crew-page load REGENERATES the night the host just deleted, in the same slot, with the same title: a delete that silently failed while every line of code succeeded. The series stops FIRST inside the transaction, so a tear leaves a stopped series with its night intact rather than a live series that repairs itself into the bug. Three assertions pin it.
+  **THE MAP LINK HAD NO LINK STYLING AT ALL**, which is the other half of this session. `index.css` opens with `@import "tailwindcss"`, so v4 preflight sets `a { color: inherit; text-decoration: inherit }` on every anchor and there was no rule anywhere to put it back: the anchor was pixel-identical to the text beside it. `--gn-link` in both themes (Arcade 8.91 on `--gn-surf`, Tabletop 7.98), an underline that is an accessibility requirement rather than decoration, a 36px tap target, and the host chip dropped. **AND THE SWEEP HAD NEVER SEEN THE EVENT PAGE**: `/e/x` has been in `ROUTES` with no API stub at all, so it measured its 404 error state, six elements out of a page with dozens. It now sweeps 149. Files: `packages/db/src/schema.ts`, `packages/shared/src/recurrence.ts` (new), `apps/server/src/events.ts`, `cascade.ts`, `apps/web/src/pages/GroupPage.tsx`, `EventPage.tsx`, `api.ts`, `index.css`, `scripts/theme-sweep.mjs`, `generate-project-map.mjs`. **SCHEMA CHANGE: the SQL is in that session's closeout.**
 - [x] THE EVENT LAYER BUNDLE: WHERE THE NIGHT IS, THE NUDGE, AND RUN IT AGAIN (2026-08-25). Three QOL items that all live on the event layer, ONE schema change, TWO widened routes and ZERO new routes.
   **LOCATION IS TWO COLUMNS, AND THAT IS THE DECISION RATHER THAN AN ACCIDENT OF MODELLING.** A pasted maps URL is unreadable as a label (a crew says "Dave's", not `https://maps.app.goo.gl/xK9...`) and a typed address is not tappable, so one column would have forced every crew to choose which of the two they wanted. `location`, `location_url` and `notes`, all nullable, all optional, either of the first two able to stand alone.
   **`location_url` IS THE ONLY USER-PASTED STRING THIS APP HAS EVER RENDERED AS A NAVIGABLE LINK**, so its rule lives in `@gamenight/shared` and is applied TWICE: refused on write by the server, refused again at render by the page. HTTPS ONLY as an ALLOWLIST OF ONE PROTOCOL rather than a blocklist of the schemes somebody thought of, and parsed with the `URL` constructor rather than a regex, because a regex on URLs is how `java\nscript:` gets through. The render guard is not redundancy: the write rule can be relaxed later by somebody who does not know the render side trusts it, and rows written before a rule existed keep whatever they were given. The map link's HOST is shown dimmed beside the label, because the label is user-typed too and "Dave's" pointing at anywhere is a link nobody can check without tapping it.
@@ -515,6 +523,7 @@ Open first, then environment traps worth remembering, then fixed (fixed items ag
 - FIXED 2026-08-22 (the TV session): PING PONG'S TV DID NOT FIT A 1080p SCREEN PAST SIX PLAYERS. **BEFORE:** 1126px at seven (over by 46), back button 3px into the rail under Arcade and 17px under Tabletop. **AFTER:** 864px at seven, and 6 / 7 / 9 / 12 / 16 all fit with the button clear by at least 73px. `pingpong-tv-band.ts` and `[data-ppband]`, in the pack's own metrics rather than in `band.ts`. **THE BACK BUTTON WAS THE REAL MEASURE HERE**: the page ran 46px over and the control left the screen at the same seat count, so a fit that landed the content and lost the button would not have fixed anything. The original entry follows.
 - OPEN: CASINO RUN'S TV HAS THE SAME BACK-BUTTON BLIND SPOT the money board just had, found 2026-08-02 while confirming this session had not moved it. Measured on the real built bundle at 1920x1080, driving the shared engine's own summaries: mid-run it puts the back button at 1114px and with a full table and five cards up at 1093px, so the way back is 34px and 13px off the bottom of a television. The FOOTER fits in both (999px and 977px), which is exactly why nobody caught it: that pack's own fit note says "attempts and the ante share ONE line, they had a row each and that pushed the footer 23px off a 1080p screen", so it was measured against the footer, and the back button is another 116px below that. Standing rule 4 wants a way back on every screen and this one is off the screen in the two states a run spends most of its time in. NOT FIXED IN THE MONEY BOARD SESSION ON PURPOSE, twice over: that session's scope said explicitly not to touch this TV, and the fix is not the money board's ladder anyway. Casino Run draws its own board (`crun-tv__bank`, the stage ladder, the now-line) and would want its own, sized against the stage count rather than a roster. Cheap first move if it is wanted before a full pass: the bank number is 19vmin and the stage ladder is a row of boxes, so there is room to find without touching what it says. The measurement harness for it already exists in the money board session's notes: real `summarizeCrun` fixtures over five run states, driven over CDP.
 - FIXED 2026-08-17, the day the pack shipped: POKER'S TV WAS 73px OVER 1080p AT EIGHT SEATS, and the shape of the finding was more interesting than the number. Found by the harness on the day, which is the checklist working: the pack went into `scripts/tv-fit.mjs` in its own commit rather than five days later. Measured at 1920x1080 with a settled table: **four seats 1080 (fits), eight 1153 (over by 73), twelve 1080 (fits)**. Two rounds fixed it. First the settlement band was cut from six payment rows to four and the variants moved off it into the header, which took four seats from 35px over to fitting. **EIGHT WAS WORSE THAN TWELVE, AND THAT WAS THE ROOT CAUSE**: `moneyBoardBand` costs a hero a flat `HERO_LINES = 2`, which is exactly right for craps' shooter panel (a fixed two lines whatever the night is doing) and understated poker's by three, because poker's hero GROWS with the table. Twelve was landing on `full` and fitting by accident while eight sat on `tight`, which does not fit that board. So `BoardLoad` gained `heroLines`: a pack whose hero grows says how much it costs, and `HERO_LINES` stays the default for every pack that does not. Poker counts its payment rows at TWO TO A BOARD LINE, because they are 2.1vmin against a much taller board line, and that halving is measured rather than assumed: counting them one for one put a four-seat table on `tight` when it demonstrably fits on `close`, which would have shrunk a board that had room. **AFTER: four 1080 (clear by 134), eight 1080 (clear by 141), twelve 1080 (clear by 66), and the five blackjack money-board cases are byte-identical**, so the shared ladder moved for nobody else. Nothing was added to `KNOWN`.
+- Watch: THE COMPUTED-STYLE SWEEP DOES NOT TRACK `text-decoration`, so the one thing that makes a link a link is unmeasured, and so is every strike-through in the app. `TRACKED_PROPS` in `scripts/theme-sweep.mjs` covers `text-decoration-COLOR` and nothing else about it: not `-line`, not `-thickness`, not `-style`. So the underline added to `.gn-where a` on 2026-08-26 is invisible to the sweep (it can see the link went blue and not that it is underlined), and so is every `line-through` this app uses as a STATE SIGNAL rather than as decoration: `.gn-slot--lose`, `.gn-bkt-nm`, `.gn-tv-slot--lose`, `.gn-tva--out` and the rest of the eliminated-player family. A theme that dropped the strike from a losing bracket slot would pass the sweep and lose the only mark that says the player is out. **NOT FIXED IN THE SESSION THAT FOUND IT**, and for that file's own stated reason: adding a property invalidates every existing baseline (a captured tree without it reports an addition on every element), so the entries go in at the START of a session that expects to move one, never at the end of one that did not. Found 2026-08-26 while adding the first underline this app has ever had.
 - Watch: THE COMPUTED-STYLE SWEEP DOES NOT TRACK BOX-MODEL LENGTHS, so two of the card tokens added on 2026-08-17 are outside what it can see. `TRACKED_PROPS` in `scripts/theme-sweep.mjs` covers colour, the four radii, font-family, opacity and the background geometry; it does NOT cover padding or border-WIDTH (border-*-COLOR is there, which is why this looks covered and is not). `--gn-card-pad` and `--gn-card-border` therefore move without the sweep reporting anything, and the card's 14/16 to 16/18 padding change in that session is unmeasured by it. Found by trying to negative-control the new tokens and getting nothing back from two of the five. **DELIBERATELY NOT FIXED IN THE SESSION THAT FOUND IT**, and the reason is that file's own rule: the radius, font and opacity entries were added BEFORE the work they measured, because "a sweep extended afterwards can only tell you that the two trees you already changed agree with each other". Adding padding now would also invalidate every existing baseline, since a captured tree without it reports four additions on every element. The gap is covered in the meantime by `theme-contrast.test.ts`, which asserts Arcade's `--gn-card-border` is `2px` and its `--gn-card-pad` is `14px 16px` outright. Add the four padding longhands and the four border-width longhands at the START of the next session that expects to move one, not at the end.
 - Watch: A TILING TEXTURE HAS TO BE JUDGED AT THE SIZE THE STYLESHEET PAINTS IT, never at 1:1, and nothing in the harness set enforces that. Found 2026-08-17 by screenshotting the built bundle: the felt tile looked like felt when inspected on its own and drew a regular diagonal lattice every 75px once painted at 150px, because a 512px tile downscaled 3.4x averages the fine fibre away and leaves the coarse terms untouched. **THE THREE CHECKS ALL PASSED WHILE IT WAS WRONG.** `generate-felt-tile.mjs` measures the tile's own decoded pixels, `felt-variance.mjs` measures a standard deviation on screen (and a lattice is variance, so it scored 4.85, better than the fixed version's 4.48), and `theme-sweep.mjs` compares computed values. A number that goes UP when the surface gets worse is the shape to watch for here. No fix proposed: the honest check is a person looking at a screenshot at the painted size, and the cheap half of that is already possible since the environment has Chromium. Worth remembering when the casino group's four tints land, because every one of them repeats the same tile.
 - Watch: BEVAN OVERFLOWS THE STATS TILE ON `.gn-h2` AT 390px, so the shell's section headings stay on Fredoka under Tabletop. Tried and backed out on 2026-08-17. Bevan sets far wider than Fredoka at the same size, and `.gn-h2` shares a row with a value, so a display face there needs its own width budget: that is a layout change rather than a token, and it wants measuring the way the TV ladders were measured. Left as a finding rather than deleted because the move is right and only the sizing is missing. **IT DID LAND WHERE THERE WAS ROOM**: Board Game's `.tn-tv__title` takes `var(--gn-font-display)` at 7.4vmin, which is the single cheapest thing that stops that TV reading as a phone app across a room, and it costs nothing because Bevan is already loaded under this theme.
@@ -799,6 +808,104 @@ their own number. Only overridden seats are sent (`buyIns`, keyed by roster inde
 **Deferred, do not build:** cross-pack night net. See FEATURES TO ADD.
 
 ## DECISION LOG
+
+**A REPEAT RULE LIVES ON ITS OWN ROW, NOT ON THE EVENT** (2026-08-26). The
+obvious model puts the rule on the event and copies it forward when the night
+passes. It fails twice, and both failures are silent:
+
+  - DELETING A NIGHT KILLS THE SERIES, because the rule lived on the row that was
+    deleted. A host tidying up one cancelled Thursday ends their weekly game
+    night and nothing anywhere errors.
+  - MOVING ONE NIGHT DRAGS THE WHOLE SERIES, because the next occurrence would be
+    computed from the previous event's actual `scheduled_for`. Shifting this
+    week's game from Thursday to Friday would make every future night a Friday: a
+    one-off edit silently rewriting the rule.
+
+So `event_series` holds the rule and every occurrence is computed from
+`anchor_at` PLUS AN INDEX. The anchor is never edited and no event's date is ever
+read to decide when the next one is, which is what makes both failures
+impossible rather than merely unlikely. `events.series_id` is `ON DELETE SET
+NULL`: deleting a series must not delete the nights that already happened,
+because they carry recorded stats.
+
+**THE SERIES CARRIES AN IANA TIME ZONE, AND THAT IS NOT GOLD PLATING**
+(2026-08-26). The contract is SAME TIME OF DAY, NOT SAME ELAPSED HOURS: a 7pm
+Thursday game night in March is still a 7pm game night in April. Adding 7 * 24
+hours to an instant is the version everybody writes first and it moves the night
+by an hour the week the clocks change, which is exactly when somebody turns up an
+hour out. UTC arithmetic cannot express the contract at all, and this server runs
+in UTC, so it cannot work the crew's zone out for itself. The zone is captured
+from the creating device and travels with the series. This is one column more
+than the session was scoped for and it is the difference between the feature
+working and the feature failing twice a year.
+
+**MONTHLY IS THE ORDINAL WEEKDAY, AND A FIFTH MEANS LAST** (2026-08-26, a default
+chosen in James's absence). "Third Thursday", not "the 17th": a same-date monthly
+has no answer for the 29th through 31st in most months, and a monthly game night
+is culturally an ordinal weekday anyway. A seed landing on the fifth occurrence
+of a weekday is treated as LAST, because most months have no fifth and a series
+that insisted on one would skip most of the year. Both the weekday and the
+ordinal are derived from the seed date, so a host never picks either.
+
+**A SERIES RUNS UNTIL SOMEBODY TURNS IT OFF** (2026-08-26, a default chosen in
+James's absence). No end date and no occurrence count. With only one materialised
+occurrence alive at a time there is no runaway to guard against, and an end date
+is a nullable column that can be added later without touching any of this.
+CUSTOM MEANS "EVERY N WEEKS" (same call): it covers fortnightly, which is the
+real case custom exists for, and not arbitrary day intervals or multi-weekday
+rules.
+
+**GENERATION IS LAZY, ON A READ, BECAUSE THERE IS NO SCHEDULER IN THIS APP**
+(2026-08-26). The only cron is the keep-warm GitHub Action pinging `/api/health`
+every thirteen minutes, unauthenticated, whose entire job is preventing a cold
+start; creating database rows from it would be wrong. So the next occurrence is
+materialised when somebody opens the crew page, WHICH TURNS A GET INTO A WRITE
+PATH. That is the architectural cost of this feature and it is written into the
+route rather than left to be discovered.
+
+TWO PHONES LOADING AT THE SAME MOMENT BOTH TRY TO GENERATE, and the guard is a
+unique index on `(series_id, series_index)` plus `onConflictDoNothing` rather
+than a lock: the loser is a no-op. It also catches up rather than materialising
+the past, so a crew that stops opening the app for two months comes back to the
+NEXT night rather than eight dead ones, and the walk is bounded so an ancient
+anchor cannot spin inside a request that is only trying to render a page.
+
+**DELETING ONE OCCURRENCE ASKS, AND THE TWO WRITES ARE ONE TRANSACTION**
+(2026-08-26; the ASKING is James's own call, the rest follows from it). A delete
+that silently ends a series is the failure the series model exists to prevent, so
+a night in a running series offers three outcomes: cancel, delete this night,
+delete this night and stop repeating. `window.confirm` cannot express three, and
+CHAINING TWO CONFIRMS IS WORSE THAN ONE: on a phone it reads as the app asking
+twice and teaches a host to dismiss the second.
+
+THE COPY AVOIDS "ALL FUTURE", because it would be a lie: only one un-passed
+occurrence ever exists, so there are no future rows to delete. The button says
+what happens.
+
+AND THE TRANSACTION IS THE HAZARD OF THE WHOLE FEATURE. Generation runs for every
+ACTIVE series with no un-passed occurrence, so if the delete commits and the
+`active = false` does not, the very next crew-page load regenerates the night the
+host just deleted, in the same slot, with the same title. To the host the delete
+silently failed; to the code everything succeeded. The series is stopped FIRST
+inside the transaction: a tear there leaves a stopped series with its night
+intact, which a person can fix, rather than a live series with its night deleted,
+which repairs itself into the bug.
+
+**`--gn-link` IS ITS OWN TOKEN, AND ITS UNDERLINE IS NOT DECORATION**
+(2026-08-26). The map link is the only user-pasted string this app renders as a
+navigable link and, until this session, the only anchor in the app with no link
+styling at all: Tailwind v4 preflight sets `color: inherit; text-decoration:
+inherit` on every anchor, and no rule anywhere put it back.
+
+IT IS NOT `--gn-p1` OR `--gn-p2` because those are the ACTION colours: p2 is
+confirm/save and wears `--gn-p2-ink` on buttons across the app, so a link painted
+in it reads as a button that lost its background. A link is a fourth kind of
+thing (not text, not an action, somewhere to go) and gets a fourth colour.
+
+THE UNDERLINE IS AN ACCESSIBILITY REQUIREMENT AND IS WRITTEN DOWN SO NOBODY
+STRIPS IT LATER. Colour alone is not a sufficient signal that something is
+interactive: it is invisible to anyone who cannot separate those two hues and
+ambiguous to everyone else. A future pass may move it; it does not delete it.
 
 **WHERE THE NIGHT IS SPLITS INTO A LABEL AND A LINK** (2026-08-25). Two columns,
 `location` and `location_url`, either able to stand alone. ONE COLUMN WOULD HAVE
