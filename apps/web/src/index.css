@@ -1155,6 +1155,59 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-input::placeholder{color:var(--gn-place)}
 .gn-input:focus{outline:none;border-color:var(--gn-input-focus-edge)}
 
+/* ---- place search --------------------------------------------------------
+   THE LIST IS MADE OF THE SAME MATERIAL AS THE BOX ABOVE IT, and that is the
+   whole reason it uses --gn-input-fill / --gn-input-edge / --gn-input-sunk
+   rather than the card tokens a dropdown would normally reach for.
+
+   ARCADE HAS A VISIBLE INPUT EDGE AND TABLETOP DOES NOT: --gn-input-edge is
+   --gn-line in one theme and TRANSPARENT in the other, where the field is
+   defined by a sunk inset shadow against the felt instead. A bordered panel
+   would therefore read as attached to the input in Arcade and as a card
+   floating over the cloth in Tabletop. Borrowing the field's own three tokens
+   makes the list an extension of the field in both, whatever the theme has
+   decided a field looks like. */
+.gn-places-wrap{display:flex;flex-direction:column;gap:6px}
+.gn-places{
+  list-style:none;margin:0;padding:4px;
+  background:var(--gn-input-fill);
+  border:2px solid var(--gn-input-edge);
+  border-radius:var(--gn-radius-tile);
+  box-shadow:var(--gn-input-sunk);
+  max-height:280px;overflow-y:auto;
+}
+/* NOT position:absolute. An overlay on a phone covers the notes field under it
+   and has to be dismissed before the rest of the form can be reached; in flow,
+   the card simply grows while the host is choosing. */
+.gn-places__row{
+  display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;
+  /* 44px is the tap target this app uses everywhere; a list of places is the
+     worst possible place to miss. */
+  min-height:44px;padding:8px 10px;
+  border:0;border-radius:var(--gn-radius-tile);
+  background:transparent;color:var(--gn-ink);font-family:inherit;
+}
+/* ONE HIGHLIGHT FOR HOVER AND FOR THE KEYBOARD, because they mean the same
+   thing to the reader. The component sets --on from arrow keys and from
+   mouseenter, so the two can never disagree. */
+.gn-places__row--on{background:var(--gn-raise)}
+.gn-places__row:focus-visible{outline:2px solid var(--gn-input-focus-edge);outline-offset:-2px}
+.gn-places__name{font-size:15px;line-height:1.25}
+.gn-places__sub{font-size:13px;line-height:1.25;color:var(--gn-dim)}
+/* Required by ODbL, so it is a row of the list rather than a caption that a
+   future layout change could drop. */
+.gn-places__attr{padding:6px 10px 2px;font-size:12px;color:var(--gn-faint)}
+/* The confirmed place, in place of the search box. */
+.gn-place-picked{
+  display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;
+  min-height:48px;padding:8px 12px;
+  background:var(--gn-input-fill);
+  border:2px solid var(--gn-input-edge);
+  border-radius:var(--gn-radius-tile);
+  box-shadow:var(--gn-input-sunk);
+}
+.gn-place-picked__text{display:flex;flex-direction:column;gap:2px;flex:1 1 0;min-width:0}
+
 /* A MULTI-LINE .gn-input. Same surface, edge and focus ring; the differences
    are the ones a textarea actually needs and that the single-line rule gets
    wrong: vertical padding (the input rule is `0 14px`, which crushes the second

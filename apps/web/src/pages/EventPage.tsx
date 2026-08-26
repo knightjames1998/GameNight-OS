@@ -17,6 +17,8 @@ import { SESSION_PACKS } from "@gamenight/shared/packs";
 // one predicate. See AUDIT-2026-08.md MUST FIX 1.
 import { isHttpsUrl } from "@gamenight/shared/safeurl";
 import { describeSeries } from "@gamenight/shared/recurrence";
+import { mapUrlFor, type Place } from "@gamenight/shared/places";
+import PlaceSearch from "../PlaceSearch";
 import { buildPickerGames, isSingleFormatPack, type PackKey, type SessionPackKey } from "../packs";
 
 export default function EventPage({ me }: { me: Me | null }) {
@@ -42,6 +44,15 @@ export default function EventPage({ me }: { me: Me | null }) {
   // they are one thought ("about this night") and three separate pencils on one
   // screen is three ways to be halfway through an edit.
   const [editWhere, setEditWhere] = useState(false);
+  /**
+   * The place the host picked out of search, or null for free text.
+   *
+   * HELD HERE RATHER THAN IN PlaceSearch because it is part of what Save sends,
+   * and a component that owned it would have to hand it back on every keystroke
+   * anyway. Seeded from the event when the editor opens, so a night that already
+   * has a pin shows it as picked instead of offering to search for it again.
+   */
+  const [picked, setPicked] = useState<Place | null>(null);
   const [locDraft, setLocDraft] = useState("");
   const [urlDraft, setUrlDraft] = useState("");
   const [notesDraft, setNotesDraft] = useState("");
@@ -149,6 +160,14 @@ export default function EventPage({ me }: { me: Me | null }) {
           location: locDraft.trim(),
           locationUrl: urlDraft.trim(),
           notes: notesDraft.trim(),
+          // ALWAYS ALL THREE, even when they are null. The route is partial by
+          // design, so omitting them would leave yesterday's pin attached to
+          // today's label: a host who replaces "The Anchor" with "Dave's place"
+          // would keep the pub's coordinates and never see it. Sending the trio
+          // on every save is what keeps the label and the pin agreeing.
+          locationLat: picked?.lat ?? null,
+          locationLng: picked?.lng ?? null,
+          locationRef: picked?.ref ?? null,
         }),
       });
       if (seq === reqSeq.current) setEvent(fresh);
@@ -322,6 +341,20 @@ export default function EventPage({ me }: { me: Me | null }) {
         setLocDraft(event.location ?? "");
         setUrlDraft(event.locationUrl ?? "");
         setNotesDraft(event.notes ?? "");
+        // A night that already has a pin opens SHOWING it. The stored row keeps
+        // no address line (three columns, not four), so the confirmed row is
+        // the label the host chose, which is what they would recognise anyway.
+        setPicked(
+          event.locationLat !== null && event.locationLng !== null && event.locationRef
+            ? {
+                name: event.location ?? "",
+                address: "",
+                lat: event.locationLat,
+                lng: event.locationLng,
+                ref: event.locationRef,
+              }
+            : null,
+        );
         setEditWhere(true);
       }}
     >
@@ -414,12 +447,25 @@ export default function EventPage({ me }: { me: Me | null }) {
       {editWhere ? (
         <section className="gn-card gn-card--pinned space-y-2">
           <div className="gn-h2">About this night</div>
-          <input
-            className="gn-input"
-            placeholder="Where (Dave's place, The Anchor)"
+          <PlaceSearch
             value={locDraft}
-            maxLength={120}
-            onChange={(e) => setLocDraft(e.target.value)}
+            onChange={setLocDraft}
+            picked={picked}
+            onPick={(place) => {
+              setLocDraft(place.name);
+              setPicked(place);
+              // THE LINK COMES OFF THE PIN, so a host who picks a place never
+              // has to go and find a maps URL to paste. The manual field below
+              // stays, because free text is the common case and has no pin to
+              // derive one from.
+              setUrlDraft(mapUrlFor(place.lat, place.lng));
+            }}
+            onUnpick={() => {
+              // Only drop the link if WE put it there. A host who pasted their
+              // own before picking should not lose it by changing their mind.
+              if (picked && urlDraft === mapUrlFor(picked.lat, picked.lng)) setUrlDraft("");
+              setPicked(null);
+            }}
           />
           <input
             className="gn-input"
