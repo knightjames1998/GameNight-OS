@@ -82,7 +82,31 @@ const BUDGET = {
   // NOTHING ELSE IN THIS SESSION LANDS HERE, and that was checked rather than
   // assumed: the two roster components go into nine LAZY pack screens, so they
   // land in a shared chunk, not the entry.
-  js: 78_000,
+  //
+  // RAISED 78_000 -> 82_000 on 2026-08-27 by the place search field, and the
+  // headroom test below is what forced the conversation rather than the size
+  // test: 76_660 against 78_000 passes the ceiling and leaves 1.7%, under the
+  // 3% floor. That is the test working exactly as written.
+  //
+  // MEASURED, both sides, on the real built bundle at b4c1c48 and at the field:
+  // 75_557 gzipped before and 76_660 after, so PlaceSearch plus the two narrow
+  // shared imports cost 1_103 gzipped bytes. The component is on the entry path
+  // because EventPage is, and that was the correct place for it: a lazy chunk
+  // for a control inside an already-open editor would trade a round trip for
+  // 1KB, on the one screen a host is mid-task on.
+  //
+  // WHY 82_000, sized against observed growth rather than against the next
+  // byte, which is the whole point of the headroom test. The entry chunk has
+  // gone 70_875 (2026-08-15) -> 73_013 (08-23) -> 75_557 (08-27) -> 76_660,
+  // roughly 850 to 1_000 gzipped bytes per session of ordinary work on the five
+  // entry-path screens. 82_000 leaves 5_340 above today, about five sessions at
+  // that rate, and 6.5% of headroom against the 3% floor. That is deliberately
+  // the same shape as the 08-23 raise, which left 4_987 and 6.4%.
+  //
+  // THE CSS DID NOT NEED ONE, and it was checked rather than assumed: 15_980 ->
+  // 16_168, so the place styles cost 188 gzipped bytes and the 18_000 budget
+  // still has 10.2%.
+  js: 82_000,
   // RAISED 16_000 -> 18_000 on 2026-08-22, and the reason is written here
   // because the test below exists to make a raise argue for itself.
   //
