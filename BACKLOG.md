@@ -12,8 +12,8 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-26 (the recurring events session, before its own work)
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-08-27 (the place search session, before its own work)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -67,14 +67,43 @@ anyone's memory of how many sessions have happened.
       - 2026-08-23, the night flow pass. THE FIRST RECONCILE TO FIND DRIFT: two shipped
         commits that never wrote themselves up, which is why the git-log rule below exists.
         Zone 1 took two (NEW), 23 to 25; zone 4 grew by six; row 1 grew 2400 -> 2650.
-      - 2026-08-26, this one. Below.
+      - 2026-08-26.
+      - 2026-08-27, this one. Below.
 
     THE REDRAW WENT FIRST, before this session's own work, which is the arrangement every
     pass since 2026-08-17 has used. The counter read 3 when this session started, so the
     reconcile and the drawing came before any feature work; the drawing therefore does NOT
-    contain the two link fixes or recurring events, and that work counts itself.
+    contain the place search, and that work counts itself.
 
     What this pass changed beyond the counter:
+      - THE RECONCILE WALKED `git log` AND FOUND NO DRIFT. All fifteen commits since the
+        08-26 redraw belong to one of three sessions (recurring nights 08-26, the crew page
+        that kept crashing 08-26, the pinned details card 08-26), and every one of the three
+        wrote itself up. Two of them shipped commits AFTER their own BACKLOG commit and both
+        amended the file in that later commit, which is the exact failure the 08-23 pass
+        added this rule for.
+      - ZONE 1 TOOK THREE, all (NEW), 28 to 31: recurring nights, the crew page that kept
+        crashing, and the pinned details card. The night flow pass, the connection pill and
+        the event layer bundle lost their (NEW) on schedule.
+      - ZONE 5 SHRANK, 16 to 13, AND BOTH HALVES OF THAT ARE THE RULES WORKING. The five
+        08-22 TV fixes have now been drawn on two redraws and age out here, which is what
+        the last pass wrote down as owed to this one. And two Watch traps went in that no
+        earlier pass could have drawn, because both were logged AFTER the last redraw: the
+        sweep tracks no `text-decoration` LINE, and a border COLOUR on `.gn-card` paints
+        nothing in Tabletop while the sweep passes. Two OPEN, eleven Watch.
+      - ROW 1 GREW, 2650 -> 2850, AND IT IS THE FIRST RAISE DRIVEN BY ZONE 1 since
+        2026-07-29; every raise in between was zone 2 taking packs. Measured by reading the
+        generated file back: three sessions landing in one pass put zone 1 at 2568, which
+        leaves 82px of 2650, against 136px for one large item. Raised pre-emptively for the
+        same reason every raise in this file was, and with a known next tenant: THE PLACE
+        SEARCH THIS SESSION SHIPS LANDS IN ZONE 1 NEXT PASS at roughly 130px, which 282
+        takes comfortably. Row 2 moved 2770 -> 2970 so the columns stay aligned; its
+        heights did not change, because zone 5 SHRINKING does not shrink its row.
+      - ZONES 2, 3, 4 AND 6 ARE UNCHANGED, and NEXT UP still holds the same numbered three,
+        because none of the three sessions came out of the queue: all three were work James
+        brought to the session directly. Zone 2 has 608 of slack, zone 4 530, zone 5 402.
+
+    What the 2026-08-26 pass changed, kept for the arithmetic the next raise will need:
       - THE RECONCILE FOUND NO DRIFT, and this time that is a checked fact rather than a
         hope. The 08-23 pass added the rule "walk `git log` against this file, not only the
         headings against the repo" after finding two shipped commits nobody had written up.
@@ -109,7 +138,7 @@ anyone's memory of how many sessions have happened.
       - ZONES 3 AND 6 ARE UNCHANGED. Nothing left NEXT UP, so the numbered three are still
         Poker's tournament format, Smash Tournament and Party games.
     Zone heights checked against their contents by reading the generated file back, not
-    by hand. Canvas 1560x3970; panorama camera 1600x4020.
+    by hand. Canvas 1560x4170; panorama camera 1600x4220.
 
 ## MAP PROTOCOL
 How and when the Excalidraw project map gets redrawn. Written so any session reproduces
@@ -162,7 +191,11 @@ against a NEXT UP whose top three are all packs: 138 fits one of those three and
 and from 2150 to 2400 on the SECOND 2026-08-19 pass, when zone 2 landed on 114px against the
 same unchanged queue and the same arithmetic gave the same answer, and from 2400 to 2650 on
 2026-08-23, when zone 2 landed on 158px against that same unchanged queue — the raise the
-08-22 pass declined at 270px and wrote down as owed by the next one.
+08-22 pass declined at 270px and wrote down as owed by the next one. And from 2650 to 2850
+on 2026-08-27, THE FIRST RAISE DRIVEN BY ZONE 1 since 2026-07-29 rather than by zone 2
+taking packs: three shipped sessions landed in zone 1 in one pass and left 82px, against
+136px for one large item, with this session's own place search due in that same zone next
+time.
 Each time it was raised pre-emptively rather than
 waiting for the next entry to overflow it, since the fix is mechanical and the trap would
 have landed on whoever added the next line.
@@ -197,8 +230,8 @@ they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb).
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x4020 at the current zone heights; the canvas
-itself measures 1560x3970, read off the generated file rather than assumed. This line read
+on a panorama covering the full canvas (1600x4220 at the current zone heights; the canvas
+itself measures 1560x4170, read off the generated file rather than assumed. This line read
 2410 for four passes after the heights it describes had moved, which is why a redraw checks
 it against the file). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 
