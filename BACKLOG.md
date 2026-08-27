@@ -13,7 +13,7 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-08-27 (the place search session, before its own work)
-    Shipped sessions since that redraw: 0
+    Shipped sessions since that redraw: 1
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -250,6 +250,14 @@ regenerated file in the same commit as the reconcile. If the MCP canvas is unava
 session, regenerating the committed file alone still counts as the redraw.
 
 ## SHIPPED — FOUNDATION
+- [x] THE LOCATION FIELD LEARNS TO SEARCH (2026-08-27). Place search on the event page's location field, from OpenStreetMap through Photon, proxied and cached by our own server. One schema change, one new route, one new client component, no new npm dependency and no API key anywhere. The read view is byte-identical: this feature changes only how the two existing fields get FILLED.
+  **FREE TEXT IS THE COMMON PATH, NOT THE FALLBACK, and every UI decision follows from it.** Most game nights are at somebody's house and a house is not in OpenStreetMap, so "use what I typed" is what most hosts will pick most of the time. It is a NORMAL ROW IN THE LIST on every search, including the successful ones, in the same row component as the results. The way this ships wrong would look reasonable in review: gate it on `results.length === 0` and it becomes an error state that appears only when the app failed to help, which tells a host that typing "Dave's place" was a mistake. It is the answer. A test asserts the row is built unconditionally, because a conditional would pass every other assertion here.
+  **[LON, LAT], AND IT NEVER LEAVES THE PARSER.** Photon answers GeoJSON, which orders coordinates the opposite way to every human and every map URL. A swap is the worst bug available here because NOTHING FAILS: the value is still a number, the row still saves, the link still builds, and the night is in the Indian Ocean. Two fixtures pin it, and the second is the one that matters: Wrigley Field catches a swap by range since -87 is not a latitude, but PARIS DOES NOT, because 48.85N 2.35E swapped is a perfectly valid coordinate in the Somali Sea. Only an assertion by value catches that.
+  **THE PROXY IS ABOUT A SHARED IP, NOT A SECRET.** There is no key to hide. Render runs this app on ONE instance behind ONE IP, the same one every crew's live updates run through, so one client hammering the geocoder gets that IP throttled and breaks place search for every crew at once. Hence: authed at the router (an open geocoding proxy on the internet is a liability with our name on it), a token bucket that does not care what the client does, and a cache measured in days. Empty results are cached and failures are not, both asserted: the query that matches nothing is the one the next host retypes, and a five-second outage must not blank a query for a week.
+  **EVERY FAILURE IS AN EMPTY LIST WITH A FLAG, NEVER A 500.** Down, slow, throttling, a malformed body, or our own limit: the field degrades to the plain text box it has always been, with one quiet line and nothing to retry. A host mid-invite does not care why search is unavailable and must not be blocked from typing.
+  **THE PIN IS ONE VALUE IN THREE COLUMNS**, set together or not at all, enforced at the write rather than trusted to the client. Refused rather than clamped. The trio is still absent-able, which is what keeps PATCH partial. THE TWO COPY PATHS WERE THE THING TO CHECK and both would have dropped it silently: the recurring generator and run-it-again each copied location and notes and stopped, producing a night identical on screen with no coordinate.
+  **A LIST THAT ONLY EXISTS AFTER A TAP WAS NEVER GOING TO BE MEASURED.** `theme-sweep.mjs` navigates and measures what paints, so it now opens the editor and types before measuring `/e/x`, which went 152 to 167 elements. Both themes diff to exactly `/e/x` plus the seven new classes, with no other route moving. The list is built from the FIELD's tokens rather than the card's, because `--gn-input-edge` is `--gn-line` in Arcade and TRANSPARENT in Tabletop: card tokens would read as attached in one theme and as a panel floating over the cloth in the other.
+  **GATES:** typecheck 4/4, 1251 tests (1193 before), build clean, screens-baseline UNCHANGED across 32 snapshots. The entry JS budget was raised 78_000 to 82_000 with both measurements written down (75_557 to 76_660 gzipped, so the field costs 1_103), and it was the HEADROOM test rather than the ceiling that forced the conversation, which is that test working as written. **SCHEMA CHANGE: the SQL is in that session's closeout.**
 - [x] THE NIGHT'S DETAILS GET PINNED (2026-08-26). One visual change on the event page, and the cause was an asymmetry rather than a missing design: the EDIT view has been a `gn-card` with an "About this night" heading since the event layer shipped, and the READ view was a bare section with two paragraphs. So the block was a titled container only while somebody was typing in it and dissolved into the page the moment they saved. Mostly the read view agreeing with the edit view that already existed, plus a card, an accent edge and a move.
   **WHAT LANDED.** Both branches of the block are now `gn-card gn-card--pinned` with the same heading, so saving does not change the block's identity. It moved above the repeat chip, which dropped below it as one unit with its stop control. The empty case keeps NO container, by decision: a host with nothing recorded sees the add button bare exactly as before, and a member with nothing to read sees nothing at all. The button has one definition now, since it renders in both branches. It is the only card on a page of plain sections, which is what makes it read as pinned; the others were deliberately not carded to match.
   **THE ACCENT EDGE SETS ITS OWN WIDTH, AND THAT IS THE WHOLE FINDING.** See the decision log. `--gn-card-border` is 2px in Arcade and 0px in Tabletop, so the obvious modifier would have drawn nothing on felt while the theme sweep passed. Measured over CDP instead: Tabletop border-top-width 0px, border-left-width 3px; Arcade 2px and 3px. Both themes looked at by eye at 390px, and the card radius does not fight a 3px edge in either, so no corners were squared and the shared card was left alone. Edge contrast, against the 3.0 non-text bar: 5.44 Arcade, 6.70 to 7.51 Tabletop over lit and unlit felt.
@@ -519,7 +527,7 @@ Wanted, not yet scheduled into a session.
 - [x] SHIPPED 2026-08-25: **REPEAT OR DUPLICATE AN EVENT**, as "run it again" on past night tiles. The entry's own framing was the right one and is why this cost a single handler: the cheapest useful version is not a recurrence engine, and it shipped as one POST to a route that already existed.
   **ONE THING IT PREDICTED WRONGLY AND IT IS WORTH THE CORRECTION:** "one button, one POST and no schema change". No schema change was true OF THIS ITEM and false of the session, because duplicating a night that carries a location and notes has to copy them, so this rode the schema change the location item brought. The two were scheduled together for exactly that reason, and shipping duplicate FIRST would have shipped a button that quietly dropped half of what it claimed to copy.
   **AND "NEXT WEEK, SAME TIME" WAS DROPPED DELIBERATELY:** a duplicate carries NO date. A guessed date on a real event is worse than no date, because it appears in the upcoming list and can be RSVP'd to with nobody able to tell it was invented. The new night lands as a draft and opens on its own page, where the date editor already is.
-- [x] SHIPPED 2026-08-25: **LOCATION AND NOTES ON AN EVENT.** The verification in this entry held up exactly: neither column existed, and the SQL it wrote out is the SQL that shipped.
+- [x] SHIPPED 2026-08-25: **LOCATION AND NOTES ON AN EVENT.** The verification in this entry held up exactly: neither column existed, and the SQL it wrote out is the SQL that shipped. **AMENDED 2026-08-27:** this entry describes a hand-typed label and a hand-pasted link, and that is no longer the whole of it. The label is now backed by place search (see SHIPPED), the link is DERIVED from the picked coordinates so a host never has to go and find a maps URL, and the event carries `location_lat`, `location_lng` and `location_ref` beside the two text columns. The two text columns and their https-only validation are unchanged, and free text remains the common path rather than the fallback.
   **IT SHIPPED AS THREE COLUMNS, NOT TWO,** and the third is the one worth writing down: a pasted maps URL is unreadable as a label and a typed address is not tappable, so `location` and `location_url` are separate and either can stand alone. This entry's two-column plan would have made every crew choose between a name they recognise and a link they can tap.
   **AND "TWO FIELDS ON THE EVENT FORM" DID NOT HAPPEN, ALSO DELIBERATELY.** The create form on the crew page is a title and a date and stays that way; the details are set on the event page after the night exists, which is where a host is standing when they know them. A create form that asks for a venue before the night has a date is a form people abandon.
 - [x] SHIPPED 2026-08-25: **RSVP NUDGE.** The entry priced it as a count, a sentence and a button with no new endpoint, no new query and no schema change, and every part of that was right.
@@ -597,7 +605,7 @@ Not committed, no design decided.
 - [ ] Pool pack. Rides the same KOTH/singles match engine ping pong now uses.
 - [ ] Cornhole and darts. (Poker moved OUT of this line on 2026-07-29: it is committed at NEXT UP slot 3, and the "new session ledger engine (buy-ins, net results)" it was waiting on now exists and is tested — `packages/shared/src/cashgame.ts`, shipped with blackjack.)
 - [ ] Capacitor native wrapper: packages this web app as a real iOS/Android app (same code, native shell, push notifications). Not needed while the PWA works.
-  - GEOTAGGED ARRIVAL CONFIRMATION, and it hangs off THIS entry rather than standing on its own line, deliberately. With a location on the event (see FEATURES), a geofence could confirm attendance automatically when somebody actually reaches the venue, feeding `event_attendance` and therefore flake tracking and show streaks with nobody tapping anything. It is the most accurate version of a thing this app already models and currently learns only by asking. **IT IS NATIVE-ONLY, WHICH IS WHY IT IS INDENTED UNDER THE WRAPPER INSTEAD OF ABOVE IT:** geofenced background notifications are not reachable from a PWA on iOS, so this is not something to scope as buildable today and then discover halfway through. It is gated on the wrapper existing, and it is written down here so that when the wrapper is costed, this is on the list of what the wrapper would BUY rather than being remembered as a separate idea that was never possible.
+  - GEOTAGGED ARRIVAL CONFIRMATION, and it hangs off THIS entry rather than standing on its own line, deliberately. **UPDATED 2026-08-27: IT HAS COORDINATES NOW, AND IT IS STILL BLOCKED, ON A DIFFERENT THING.** This had two blockers and only one of them has moved. The data blocker is GONE: place search shipped `location_lat` and `location_lng` on the event, so there is a real point to fence against instead of a text label nothing could geocode, and that was the half this app could solve for itself. The remaining blocker is the NATIVE WRAPPER, which is not a data problem and cannot be worked around: geofenced background notifications are not reachable from a PWA on iOS at all. So this is no longer waiting on us; it is waiting on the wrapper below being costed. With a location on the event, a geofence could confirm attendance automatically when somebody actually reaches the venue, feeding `event_attendance` and therefore flake tracking and show streaks with nobody tapping anything. It is the most accurate version of a thing this app already models and currently learns only by asking. **IT IS NATIVE-ONLY, WHICH IS WHY IT IS INDENTED UNDER THE WRAPPER INSTEAD OF ABOVE IT:** geofenced background notifications are not reachable from a PWA on iOS, so this is not something to scope as buildable today and then discover halfway through. It is gated on the wrapper existing, and it is written down here so that when the wrapper is costed, this is on the list of what the wrapper would BUY rather than being remembered as a separate idea that was never possible.
 - [ ] Offline score entry sync (PWA background sync)
 - [ ] Event-aware warm ping: wake Render only in the hour before a scheduled event start, instead of on a fixed clock window. Updated 2026-07-28 now that phase 8b widened the fixed window to noon-2am Central (~487 instance-hours/month of the free 750): this idea no longer buys latency, it buys HOURS BACK, and it is the only option on the table that would let the window get wider still (or reach a 3am night) without approaching the cap. Needs an endpoint listing upcoming event start times for the workflow to read. Composes with the fixed window rather than replacing it: keep a modest always-on window for spontaneous use, and let the event-aware pings cover nights that fall outside it.
 ## DEFERRED
@@ -854,6 +862,101 @@ their own number. Only overridden seats are sent (`buyIns`, keyed by roster inde
 **Deferred, do not build:** cross-pack night net. See FEATURES TO ADD.
 
 ## DECISION LOG
+
+**PHOTON, AND WHY NOT THE TWO OBVIOUS ALTERNATIVES** (2026-08-27). Place search
+needs a geocoder, and the two everyone reaches for both cost something this
+project should not pay:
+
+  - GOOGLE PLACES needs a billing account with a real card on file, EVEN AT ZERO
+    SPEND. A friend-group side project should not have a card attached to it, and
+    "free tier" that requires payment details is a different thing from free.
+  - LOCATIONIQ needs an account and a key, and its terms require a visible
+    "Search by LocationIQ" backlink on the screen. That is a third party's brand
+    inside our UI, permanently, for a field a host uses twice a month.
+
+Photon needs neither: open, unauthenticated, no key, no account, no attribution
+to them (OpenStreetMap is credited, which we owe regardless). What it gives us in
+return is NOTHING WE CAN RELY ON, which is the next entry.
+
+**PHOTON GIVES US NO GUARANTEE, SO THE EXIT IS BUILT RATHER THAN PLANNED**
+(2026-08-27). Their own terms say extensive usage will be throttled or banned
+outright, that availability is not guaranteed, and that anyone with real volume
+should self-host. There is no paid tier to escalate to; when a company asked
+about business use, the maintainers said no commercial API exists. So the base
+URL is ONE CONSTANT in `apps/server/src/places.ts` with its two swaps named
+beside it, and a test asserts the host appears exactly once in the file:
+
+  - a SELF-HOSTED Photon, which is their own recommendation and is a docker
+    image plus an OSM extract. This is the exit, and it is written down rather
+    than built, because building it today would be paying for an outage that has
+    not happened.
+  - LOCATIONIQ, which is Photon-compatible on this endpoint, at the cost of the
+    account and the backlink above.
+
+Nothing else in the app knows the provider's name. The parser takes GeoJSON,
+which all three answer.
+
+**CACHING IS THE PRICE OF ADMISSION, NOT AN OPTIMISATION** (2026-08-27). The
+usual reason to cache is speed. Here it is the condition under which we are
+allowed to use the thing at all: we are a friend group setting a location a few
+times a month, which is squarely the case Photon welcomes, but only if we behave
+like it. A cache measured in DAYS (a bar does not move), a 300ms debounce in the
+client, and a token bucket on the server that does not care whether the client
+debounces at all.
+
+TWO CACHE DECISIONS THAT LOOK LIKE DETAILS AND ARE NOT. EMPTY RESULTS ARE
+CACHED, because the query that matches nothing is the one the next host is most
+likely to retype, and not caching it re-sends on every keystroke of every future
+attempt: the exact behaviour their terms ask us not to have. FAILURES ARE NOT,
+because a five-second outage must not blank a query for a week. Both directions
+are asserted, since caching the RESPONSE rather than the ANSWER would have
+silently done the wrong one.
+
+**THE PROXY IS ABOUT A SHARED IP, NOT ABOUT A SECRET** (2026-08-27). There is no
+key to hide, so the usual reason to proxy does not apply. The real one: RENDER
+RUNS THIS APP ON ONE INSTANCE BEHIND ONE IP, permanently, because the WebSocket
+hub lives in this process's memory (STANDING RULES). Every crew shares that IP
+with every other crew and with the live-update pipe. If one client hammers the
+geocoder, Photon throttles or blocks that IP and place search breaks for
+everybody at once. A client-side courtesy cannot protect a shared resource, so
+the limit is server-side and the proxy is AUTHED AT THE ROUTER: an open
+geocoding proxy on the public internet is a liability with our name on it.
+
+The same single-instance constraint that forces this is, for once, the thing
+that makes the in-process cache correct rather than a compromise: a module-scope
+Map cannot fragment across replicas that cannot exist.
+
+**GeoJSON IS [LONGITUDE, LATITUDE], AND THAT ORDER NEVER LEAVES THE PARSER**
+(2026-08-27). The opposite of how a person writes a coordinate and the opposite
+of how a maps URL orders them. A SWAP IS THE WORST BUG THIS FEATURE COULD SHIP
+BECAUSE NOTHING FAILS: the value is still a number, the row still saves, the map
+link still builds, and the game night is silently in the Indian Ocean.
+
+So `parsePhotonFeature` is the only thing in the app that touches the array, and
+what comes out is named `lat` and `lng` and stays that way through the schema,
+the payload and the UI. THE TEST THAT MATTERS IS THE PARIS ONE: Wrigley Field
+catches a swap by range, since -87 is not a latitude, but 48.85N 2.35E swapped is
+2.35N 48.85E, a perfectly valid coordinate in the Somali Sea that no range check
+can reject. Only an assertion by value catches it, so there is one.
+
+**FREE TEXT IS AN EQUAL OPTION, NOT AN ERROR STATE** (2026-08-27). The most
+important UI decision in the feature. Most game nights are at somebody's house,
+and a house is not in OpenStreetMap, so "use what I typed" is what most hosts
+will choose most of the time.
+
+It is therefore a NORMAL ROW IN THE LIST on every search, including the ones that
+found something, in the same row component as the results, with no warning
+colour and no "not found". THE WAY THIS SHIPS WRONG WOULD PASS REVIEW: gate the
+row on `results.length === 0` and it becomes a fallback that appears only when
+the app has failed to help, which tells a host that typing "Dave's place" was a
+mistake. It was not. It was the answer. A test asserts the row is built
+unconditionally, because a conditional version would satisfy every other
+assertion in that file.
+
+The corollary is that THE TYPED TEXT IS ALWAYS THE VALUE: this is the location
+field with suggestions under it, not a picker that owns the field, so a host who
+ignores the list entirely gets exactly the input they had before this shipped.
+
 
 **A BORDER COLOUR ON `.gn-card` IS INVISIBLE IN TABLETOP, AND THE SWEEP PASSES**
 (2026-08-26). Stated against the general case, because the card that found it is
