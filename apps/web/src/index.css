@@ -1416,6 +1416,68 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   flex-shrink:0;
 }
 
+/* ---- the help guide, as a modal over whatever you were looking at --------
+   ABOVE EVERYTHING, and the numbers are the app's own: the rail sits at 3 and
+   the connection pill at 5, so this takes 20 rather than 6, because the next
+   fixed thing to be added should not have to think about whether it beat the
+   modal.
+
+   env(safe-area-inset-*) IS FOLDED INTO ITS OWN calc(), for the same reason
+   .gn-connpill does it: a class rule beats the zero-specificity shell inset, so
+   an element that positions itself has to add the insets back or it sits under
+   the notch and behind Tabletop's timber rail. --gn-shell-inset is 0px under
+   Arcade and the rail width plus 10px under Tabletop, so one expression clears
+   both. This exact mistake has already been made on the TV screens here. */
+.gn-modal{
+  position:fixed;inset:0;z-index:20;
+  display:flex;align-items:center;justify-content:center;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + var(--gn-shell-inset) + 12px)
+    calc(env(safe-area-inset-right, 0px) + var(--gn-shell-inset) + 12px)
+    calc(env(safe-area-inset-bottom, 0px) + var(--gn-shell-inset) + 12px)
+    calc(env(safe-area-inset-left, 0px) + var(--gn-shell-inset) + 12px);
+  /* A scrim rather than a wash: the point is that the screen behind is still
+     THERE, since this is a modal over what you were doing rather than a page
+     you went to. Mixed from the theme's own background so it darkens plum and
+     felt alike. */
+  background:color-mix(in srgb, var(--gn-bg) 82%, transparent);
+}
+.gn-modal__panel{
+  /* SOLID, not --gn-surf. Tabletop's card surface is translucent by design, and
+     a translucent panel with a whole screen showing through it is the one place
+     that reads as a smear rather than as card stock. --gn-surf-solid is the
+     token that exists for exactly these exceptions. */
+  background:var(--gn-surf-solid);
+  border:var(--gn-card-border) solid var(--gn-line);
+  border-radius:var(--gn-radius-card);
+  box-shadow:var(--gn-card-shadow);
+  width:min(100%, 34rem);
+  /* The panel owns the height so the BODY can be the thing that scrolls. */
+  max-height:100%;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+/* FIXED WHILE THE BODY SCROLLS. A close control that scrolls away leaves the
+   back gesture as the only exit, on a screen somebody opened because they were
+   already lost. */
+.gn-modal__bar{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 16px;
+  border-bottom:2px solid var(--gn-line);
+  flex-shrink:0;
+}
+.gn-modal__body{
+  overflow-y:auto;
+  padding:14px 16px 18px;
+  /* Momentum scrolling inside the panel while the page behind is pinned. */
+  -webkit-overflow-scrolling:touch;
+}
+.gn-help{display:flex;flex-direction:column;gap:18px}
+.gn-help p{margin:0;color:var(--gn-dim);font-size:14px;line-height:1.5}
+.gn-help__h{
+  font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:15px;
+  color:var(--gn-ink);margin:0 0 4px;text-shadow:var(--gn-glow-h2);
+}
+
 /* Chip-shaped BUTTONS (delete, remove): same pill silhouette as the chips
    around them, but clearly pressable, so every tappable thing in a row
    reads the same way. */

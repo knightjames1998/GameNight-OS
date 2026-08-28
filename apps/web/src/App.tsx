@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import ConnectionPill from "./ConnectionPill";
+import HelpModal from "./HelpModal";
 import { api, ApiError, type Me } from "./api";
 import { readCache, writeCache, dropAll } from "./cache";
 import RouteBoundary, { RouteFallback } from "./RouteBoundary";
@@ -278,6 +279,12 @@ export default function App() {
           or one that threw, is exactly when somebody wants to know whether the
           connection is the reason. */}
       <ConnectionPill />
+      {/* ONE MOUNT, the same arrangement and for the same reason: it reads its
+          own state (a search param) rather than anything on the tree below, so
+          a trigger is just a button and a second trigger costs nothing. Outside
+          the boundary and the Suspense fallback because a guide explaining the
+          app is most wanted on a screen that did not load. */}
+      <HelpModal />
       {/* Boundary outside Suspense so it catches a chunk that fails to
           arrive, not just a component that throws while rendering. */}
       <RouteBoundary>

@@ -55,6 +55,8 @@ export function onIntent(importer: Importer) {
  * not create duplicates.
  */
 export const routes = {
+  /** Not a route: the help guide, which is lazy for the same reason. */
+  help: () => import("./HelpDialog"),
   stats: () => import("./pages/StatsPage"),
   myStats: () => import("./pages/MyStatsPage"),
   member: () => import("./pages/MemberPage"),

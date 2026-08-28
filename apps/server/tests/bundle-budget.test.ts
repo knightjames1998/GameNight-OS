@@ -83,27 +83,39 @@ const BUDGET = {
   // assumed: the two roster components go into nine LAZY pack screens, so they
   // land in a shared chunk, not the entry.
   //
-  // LOWERED 82_000 -> 78_000 on 2026-08-28, because the thing that raised it is
-  // gone. Place search came out the day after it shipped, and a budget left
-  // raised after its reason is deleted is EXACTLY the drift this file exists to
-  // catch: a number nothing asserts only ever moves one way, and it would have
-  // sat there unnoticed the way the last 10 kB did.
+  // LOWERED 82_000 -> 78_000 AND THEN RAISED 78_000 -> 80_000, both on
+  // 2026-08-28, in that order and for unrelated reasons. Written as two moves
+  // rather than one net change, because collapsing them would hide the half
+  // that matters.
   //
-  // MEASURED, not assumed: 75_574 gzipped on the build after the removal, back
-  // to the 75_557 this session started from. 78_000 is the number this budget
-  // held before place search, so this is a restoration rather than a new
-  // argument.
+  // THE LOWERING WAS A RESTORATION. 82_000 was raised for place search, place
+  // search came out the day after it shipped, and a budget left high after its
+  // reason is deleted is exactly the drift this file exists to catch: a number
+  // nothing asserts only ever moves one way. Measured on the build after the
+  // removal: 75_574 gzipped, back to the 75_557 that session started from.
   //
-  // IT IS TIGHT, AND THAT IS WORTH SAYING RATHER THAN QUIETLY FIXING BY BANKING
-  // A BIGGER NUMBER. 75_574 against 78_000 is 3.1% of headroom against a 3%
-  // floor, so roughly the next 330 gzipped bytes to reach an entry-path screen
-  // will fail the headroom test below. That is not place search's doing: the
-  // entry chunk went 73_013 -> 75_574 on recurring nights, the crash fix and the
-  // pinned card, all of which are still here. The help modal this session ships
-  // is deliberately LAZY so it should not spend this, and if its trigger does,
-  // the gate will say so and the raise gets argued then, with a measurement,
-  // which is the protocol working rather than failing.
-  js: 78_000,
+  // THE RAISE IS THE HELP MODAL, AND THE GATE IS WHAT FORCED THE DESIGN. The
+  // first draft mounted the whole dialog in the entry chunk: 76_410 gzipped,
+  // which the headroom test below refused at 2.0%. So the focus trap, the iOS
+  // scroll lock, the close-by-history rule and the copy all moved into a lazy
+  // chunk that cannot run before somebody taps anyway, and what is left on the
+  // entry path is a param read and an opener: 75_860, or 286 bytes. That is the
+  // test doing precisely what it was written to do, and the restoration above is
+  // what made it able to: at 82_000 this would have sailed through.
+  //
+  // 286 BYTES STILL DOES NOT FIT, WHICH IS NOT ABOUT THE MODAL. 75_860 against
+  // 78_000 is 2.7%, and the note this session wrote when lowering said the next
+  // ~330 bytes would fail. The entry chunk went 73_013 -> 75_574 on recurring
+  // nights, the crash fix and the pinned card, and all of that is still here;
+  // 78_000 was sized in August against 73_013.
+  //
+  // WHY 80_000, sized against observed growth rather than the next byte, which
+  // is the whole point of the headroom test. Roughly 850 to 1_000 gzipped bytes
+  // a session of ordinary work on the five entry-path screens, so 80_000 leaves
+  // about four sessions and 5.2% against a 3% floor. Deliberately SMALLER than
+  // the 82_000 place search asked for: that was 4_000 bytes for a feature now
+  // deleted, this is 2_000 for one that ships lazily.
+  js: 80_000,
   // RAISED 16_000 -> 18_000 on 2026-08-22, and the reason is written here
   // because the test below exists to make a raise argue for itself.
   //
