@@ -174,14 +174,6 @@ export default function GroupPage({
           location: e.location,
           locationUrl: e.locationUrl,
           notes: e.notes,
-          // ALL THREE OR NONE, which is what the write enforces. Carrying the
-          // label forward and dropping the pin would produce a duplicate that
-          // looks right on screen and is useless to anything reading a
-          // coordinate; the server refuses a lat with no lng for the same
-          // reason.
-          locationLat: e.locationLat,
-          locationLng: e.locationLng,
-          locationRef: e.locationRef,
         }),
       });
       // Write it through the cache the same way the delete handler does, so the

@@ -82,14 +82,6 @@ export interface EventSummary {
   locationUrl: string | null;
   notes: string | null;
   /**
-   * Where the night actually is, when a host picked it out of place search
-   * rather than typing it. All three are null for free text, which is the
-   * common case: a house is not in OpenStreetMap.
-   */
-  locationLat: number | null;
-  locationLng: number | null;
-  locationRef: string | null;
-  /**
    * The series this night is an occurrence of, and whether that series is still
    * running. BOTH are needed by the tile: a stopped series has nothing left to
    * stop, so those nights fall back to the plain delete they always had.
@@ -136,14 +128,6 @@ export interface EventDetail {
   locationUrl: string | null;
   /** Plain text. No markdown, no link detection, no rendering surface. */
   notes: string | null;
-  /**
-   * Where the night actually is, when a host picked it out of place search
-   * rather than typing it. All three are null for free text, which is the
-   * common case: a house is not in OpenStreetMap.
-   */
-  locationLat: number | null;
-  locationLng: number | null;
-  locationRef: string | null;
   /** The repeat rule this night belongs to, or null. */
   series: { id: string; kind: SeriesKind; intervalWeeks: number | null; active: boolean } | null;
   rsvps: { userId: string; displayName: string; status: RsvpStatus }[];

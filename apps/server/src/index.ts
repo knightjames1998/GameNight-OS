@@ -29,7 +29,6 @@ import { cardTableRouter, cardTableTvRouter } from "./cardtable.js";
 import { deductionRouter, deductionTvRouter } from "./deduction.js";
 import { statsRouter } from "./stats.js";
 import { guestLinkRouter } from "./guest-link.js";
-import { placesRouter } from "./places.js";
 import { setupWebSockets } from "./ws.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -69,12 +68,6 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRouter);
 app.use("/api/groups", groupsRouter);
 app.use("/api/join", joinRouter);
-// Its OWN prefix, and authed at the router. Checked against the ordering trap
-// below rather than assumed: nothing public shares /api/places, so there is no
-// router that has to come first, and mounting here means this router's own auth
-// answers for it instead of whichever bare-/api router it would otherwise fall
-// into. See the note at the top of places.ts for why the proxy exists at all.
-app.use("/api/places", placesRouter);
 // tv must mount BEFORE any router on the bare /api path: those routers
 // apply requireAuth at router level, which runs for every /api request
 // entering them and 401s before the request can fall through.

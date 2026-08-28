@@ -1032,13 +1032,6 @@ async function generateDueOccurrences(
         location: latest?.location ?? null,
         locationUrl: latest?.locationUrl ?? null,
         notes: latest?.notes ?? null,
-        // THE PIN TRAVELS WITH THE PLACE, all three together or none, the same
-        // rule the write enforces. A generated occurrence that carried the label
-        // and dropped the coordinates would look identical on screen and be
-        // useless to anything that reads a coordinate.
-        locationLat: latest?.locationLat ?? null,
-        locationLng: latest?.locationLng ?? null,
-        locationRef: latest?.locationRef ?? null,
         seriesId: s.id,
         seriesIndex: due.index,
       })
