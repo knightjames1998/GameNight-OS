@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, type Friend, type GroupSummary, type Me } from "../api";
 import { useCachedApi } from "../cache";
+import { HelpButton } from "../HelpModal";
 import Login from "./Login";
 import GamePicker from "../GamePicker";
 import { buildPickerGames, isSingleFormatPack, type SessionPackKey } from "../packs";
@@ -31,7 +32,15 @@ export default function Home({
     // of these collapses to exactly the value it had before.
     return (
       <main className="gn-app flex flex-col items-center justify-center gap-8" style={{ padding: "calc(1.5rem + env(safe-area-inset-top, 0px) + var(--gn-shell-inset)) calc(1.5rem + env(safe-area-inset-right, 0px) + var(--gn-shell-inset)) calc(1.5rem + env(safe-area-inset-bottom, 0px) + var(--gn-shell-inset)) calc(1.5rem + env(safe-area-inset-left, 0px) + var(--gn-shell-inset))" }}>
-        <h1 className="gn-brand text-4xl">GameNight OS</h1>
+        {/* SIGNED OUT THERE IS NO HEADER AND NO LOG OUT BUTTON, so this
+            placement is defined on its own terms rather than copied: beside the
+            brand, in the centred column. It is arguably the more important of
+            the two, since somebody looking at a login screen with no idea what
+            this is has nowhere else to find out. Room here, so it has words. */}
+        <div className="flex flex-col items-center gap-2">
+          <h1 className="gn-brand text-4xl">GameNight OS</h1>
+          <HelpButton />
+        </div>
         <div style={{ maxWidth: "24rem", width: "100%" }}>
           <AddToHomeHint />
         </div>
@@ -176,9 +185,19 @@ function Groups({
       <div className="gn-wrap gn-wrap--wide space-y-8">
         <header className="flex items-center justify-between">
           <h1 className="gn-brand text-3xl">GameNight OS</h1>
-          <button className="gn-actionbtn gn-actionbtn--danger" onClick={onLogout}>
-            Log out
-          </button>
+          {/* Between the brand and Log out, per the request. COMPACT AND TIGHTLY
+              GAPPED BECAUSE THE HEADER HAS NO ROOM, measured rather than
+              guessed: at 390px under TABLETOP, whose rail eats horizontal space
+              Arcade does not, the brand plus Log out plus an icon and an 8px gap
+              overflowed by 7px. Arcade was fine, which is exactly the kind of
+              difference a single-theme check would have shipped. The brand does
+              not shrink; the trigger and its gap do. */}
+          <div className="flex items-center gap-1">
+            <HelpButton compact />
+            <button className="gn-actionbtn gn-actionbtn--danger" onClick={onLogout}>
+              Log out
+            </button>
+          </div>
         </header>
 
         <AddToHomeHint />

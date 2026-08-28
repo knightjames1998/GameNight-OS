@@ -1428,6 +1428,20 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
    the notch and behind Tabletop's timber rail. --gn-shell-inset is 0px under
    Arcade and the rail width plus 10px under Tabletop, so one expression clears
    both. This exact mistake has already been made on the TV screens here. */
+/* The signed-in trigger. ICON ONLY BECAUSE THE HEADER HAS NO WORDS OF ROOM:
+   the brand at text-3xl plus a Log out button already fills 390px, and the
+   instruction was to shrink the trigger rather than the brand. 40px keeps it a
+   real tap target; the label it does not print is on aria-label. */
+.gn-helpbtn{
+  flex-shrink:0;
+  width:40px;height:40px;border-radius:50%;
+  border:2px solid var(--gn-line);
+  background:var(--gn-raise);
+  color:var(--gn-dim);
+  font-family:Fredoka, system-ui, sans-serif;font-weight:700;font-size:17px;
+  line-height:1;
+}
+
 .gn-modal{
   position:fixed;inset:0;z-index:20;
   display:flex;align-items:center;justify-content:center;

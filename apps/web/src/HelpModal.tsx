@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
+import { onIntent, routes } from "./prefetch";
 
 // WHAT IS THIS APP? One modal, over whatever screen you are on.
 //
@@ -58,6 +59,32 @@ export function useOpenHelp(): () => void {
     next.set(HELP_PARAM, "1");
     setParams(next, { state: { help: true } });
   }, [params, setParams]);
+}
+
+/**
+ * The trigger, so both placements share one wiring.
+ *
+ * TWO PLACEMENTS, TWO SHAPES, and the signed-out one is arguably the important
+ * one: somebody looking at a login screen with no idea what this is has nowhere
+ * else to find out. Signed in it sits between the brand and Log out, where the
+ * only spare width on a 390px header is an icon's worth, so `compact` is a
+ * measured decision rather than a preference (see the header at 390px).
+ *
+ * `onIntent` warms the chunk on pointerdown, which is the 80 to 150ms between a
+ * finger going down and the click firing.
+ */
+export function HelpButton({ compact }: { compact?: boolean }) {
+  const openHelp = useOpenHelp();
+  return (
+    <button
+      className={compact ? "gn-helpbtn" : "gn-textbtn"}
+      aria-label={compact ? "How GameNight works" : undefined}
+      onClick={openHelp}
+      {...onIntent(routes.help)}
+    >
+      {compact ? "?" : "How this works"}
+    </button>
+  );
 }
 
 export default function HelpModal() {
