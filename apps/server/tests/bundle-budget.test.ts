@@ -83,30 +83,27 @@ const BUDGET = {
   // assumed: the two roster components go into nine LAZY pack screens, so they
   // land in a shared chunk, not the entry.
   //
-  // RAISED 78_000 -> 82_000 on 2026-08-27 by the place search field, and the
-  // headroom test below is what forced the conversation rather than the size
-  // test: 76_660 against 78_000 passes the ceiling and leaves 1.7%, under the
-  // 3% floor. That is the test working exactly as written.
+  // LOWERED 82_000 -> 78_000 on 2026-08-28, because the thing that raised it is
+  // gone. Place search came out the day after it shipped, and a budget left
+  // raised after its reason is deleted is EXACTLY the drift this file exists to
+  // catch: a number nothing asserts only ever moves one way, and it would have
+  // sat there unnoticed the way the last 10 kB did.
   //
-  // MEASURED, both sides, on the real built bundle at b4c1c48 and at the field:
-  // 75_557 gzipped before and 76_660 after, so PlaceSearch plus the two narrow
-  // shared imports cost 1_103 gzipped bytes. The component is on the entry path
-  // because EventPage is, and that was the correct place for it: a lazy chunk
-  // for a control inside an already-open editor would trade a round trip for
-  // 1KB, on the one screen a host is mid-task on.
+  // MEASURED, not assumed: 75_574 gzipped on the build after the removal, back
+  // to the 75_557 this session started from. 78_000 is the number this budget
+  // held before place search, so this is a restoration rather than a new
+  // argument.
   //
-  // WHY 82_000, sized against observed growth rather than against the next
-  // byte, which is the whole point of the headroom test. The entry chunk has
-  // gone 70_875 (2026-08-15) -> 73_013 (08-23) -> 75_557 (08-27) -> 76_660,
-  // roughly 850 to 1_000 gzipped bytes per session of ordinary work on the five
-  // entry-path screens. 82_000 leaves 5_340 above today, about five sessions at
-  // that rate, and 6.5% of headroom against the 3% floor. That is deliberately
-  // the same shape as the 08-23 raise, which left 4_987 and 6.4%.
-  //
-  // THE CSS DID NOT NEED ONE, and it was checked rather than assumed: 15_980 ->
-  // 16_168, so the place styles cost 188 gzipped bytes and the 18_000 budget
-  // still has 10.2%.
-  js: 82_000,
+  // IT IS TIGHT, AND THAT IS WORTH SAYING RATHER THAN QUIETLY FIXING BY BANKING
+  // A BIGGER NUMBER. 75_574 against 78_000 is 3.1% of headroom against a 3%
+  // floor, so roughly the next 330 gzipped bytes to reach an entry-path screen
+  // will fail the headroom test below. That is not place search's doing: the
+  // entry chunk went 73_013 -> 75_574 on recurring nights, the crash fix and the
+  // pinned card, all of which are still here. The help modal this session ships
+  // is deliberately LAZY so it should not spend this, and if its trigger does,
+  // the gate will say so and the raise gets argued then, with a measurement,
+  // which is the protocol working rather than failing.
+  js: 78_000,
   // RAISED 16_000 -> 18_000 on 2026-08-22, and the reason is written here
   // because the test below exists to make a raise argue for itself.
   //

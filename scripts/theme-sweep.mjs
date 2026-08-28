@@ -195,29 +195,6 @@ const API_STUB = {
    * without them sweeps a page with no anchor and reports that the link colour
    * is fine because it never saw one.
    */
-  /**
-   * PLACE SEARCH, so the results list is swept at all. See AFTER_NAVIGATE
-   * below: this list only exists once somebody has opened the editor and typed,
-   * and a component that only exists in an interaction state is exactly the kind
-   * that ships unmeasured. Two results plus the always-present "use what I
-   * typed" row, which is the one that matters most: it is a NORMAL row on every
-   * search and has to be measured looking like one.
-   */
-  "/api/places/search": {
-    results: [
-      {
-        name: "Wrigley Field",
-        address: "1060 West Addison Street, Chicago, Illinois",
-        lat: 41.9484, lng: -87.6553, ref: "W:3374814",
-      },
-      {
-        name: "Wrigleyville Tap",
-        address: "3714 North Clark Street, Chicago, Illinois",
-        lat: 41.9497, lng: -87.6588, ref: "N:99887766",
-      },
-    ],
-    unavailable: false,
-  },
   "/api/events/x": {
     id: "x",
     groupId: "g1",
@@ -267,28 +244,19 @@ const API_STUB = {
  * The route pass navigates and measures what paints. That misses every control
  * that only exists once somebody has interacted, and this app has a history
  * there: five separate TV overflows shipped unmeasured because the harness never
- * reached the state that overflowed. The place search list is exactly that
- * shape, so the sweep opens the editor and types before it measures.
+ * reached the state that overflowed.
+ *
+ * EMPTY IS NOT THE SAME AS UNUSED. This was built for the place search list and
+ * outlived it: the list came out on 2026-08-28 and the mechanism stayed, because
+ * the next control that only exists behind a tap should not have to invent it
+ * again. Add a route here rather than accepting that its interactive state goes
+ * unmeasured.
  *
  * Each step runs in the page after the route has settled and returns nothing;
  * anything it cannot find is left alone rather than thrown, because a sweep that
  * dies on one route reports nothing about the other forty.
  */
-const AFTER_NAVIGATE = {
-  "/e/x": `(async () => {
-    const open = [...document.querySelectorAll('button')]
-      .find(b => /Add location or notes|Edit details/.test(b.textContent || ""));
-    if (!open) return;
-    open.click();
-    await new Promise(r => setTimeout(r, 200));
-    const box = document.querySelector('.gn-places-wrap .gn-input');
-    if (!box) return;
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    setter.call(box, 'Wrigley');
-    box.dispatchEvent(new Event('input', { bubbles: true }));
-    await new Promise(r => setTimeout(r, 800));
-  })()`,
-};
+const AFTER_NAVIGATE = {};
 
 const TRACKED_PROPS = [
   "color",
