@@ -71,7 +71,15 @@ const CHROME = "/opt/pw-browsers/chromium";
  * is the interesting one.
  */
 const ROUTES = [
-  "/", "/g/x", "/e/x", "/e/x/recap", "/e/x/tv", "/b/x", "/tv/x",
+  "/",
+  // THE HELP MODAL, OPEN. It is a fixed overlay that exists only while a search
+  // param is set, which is the exact shape that has shipped unmeasured here five
+  // times: a component the route pass never reaches because nothing on the page
+  // has been tapped. It needs no interaction step precisely BECAUSE the open
+  // state lives in the URL, so this is a plain route like any other, and it
+  // measures the deep-linked case (param present at load) into the bargain.
+  "/?help=1",
+  "/g/x", "/e/x", "/e/x/recap", "/e/x/tv", "/b/x", "/tv/x",
   // The tournament's setup step, added 2026-08-17 with the roster screen. It is
   // a shell screen rather than a pack one, so it paints out of index.css and the
   // interesting question here is the same as for /b/x: that it followed.
