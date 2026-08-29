@@ -314,6 +314,24 @@ async function crewLifetime(db: ReturnType<typeof getDb>, groupId: string) {
     );
 }
 
+/**
+ * Should this read compute the lobby block, or leave it empty?
+ *
+ * PULLED OUT AS A FUNCTION SO IT CAN BE TESTED, the same split resolveNow
+ * exists for: the query half is verified on-device, the RULE is verified here.
+ * Getting this wrong in either direction is silent. Too eager and every
+ * television pays two aggregate reads on every score of every game; too shy and
+ * the phone page behind every TV's QR is blank in the state it is most often
+ * scanned in.
+ *
+ * The parameter is whatever Express parsed out of the query string, which can
+ * be a string, an array of them, or undefined, so it is compared rather than
+ * coerced: `?standings=1&standings=2` arrives as an array and is not a yes.
+ */
+export function lobbyWanted(now: TvNow, standings: unknown): boolean {
+  return now === null || standings === "1";
+}
+
 eventTvRouter.get("/event/:eventId", async (req, res) => {
   const db = getDb();
   const eventId = String(req.params.eventId);
@@ -396,7 +414,20 @@ eventTvRouter.get("/event/:eventId", async (req, res) => {
   // anything has been played it shows the night so far rather than an empty
   // waiting screen. Both reads are skipped entirely while a game is live,
   // since nothing renders them then.
-  const [yesRows, recap, lifetime] = now
+  //
+  // ...UNLESS SOMEBODY ASKS FOR THEM, which the phone page behind every TV's QR
+  // does. That page shows the night so far to a guest standing in the room, and
+  // the moment it exists the sentence above stops being true: mid-game is
+  // exactly when it is scanned.
+  //
+  // A FLAG RATHER THAN SERVING THEM ALWAYS, and the reason is the hot path.
+  // EventTvPage re-resolves this endpoint on EVERY pack websocket event, which
+  // means every score in every game on every television, and two aggregate reads
+  // on that path would be paid a few hundred times an evening for data the big
+  // screen does not render while a game is up. The televisions send no flag and
+  // pay nothing; the phones send it and pay for what they show.
+  const wantsLobby = lobbyWanted(now, req.query.standings);
+  const [yesRows, recap, lifetime] = !wantsLobby
     ? [[], null, []]
     : await Promise.all([
         db
@@ -425,7 +456,13 @@ eventTvRouter.get("/event/:eventId", async (req, res) => {
     now,
     lobby: {
       yes: yesRows.map((r) => r.displayName),
-      inviteCode: now ? "" : row.inviteCode,
+      // Blank on the television's own read while a game is live, because the
+      // big screen renders no lobby then and an unread invite code is one more
+      // secret on the wire. The phone page asks for the lobby explicitly and
+      // gets it: a guest scanning mid-game is the person most likely to want
+      // the way in, and this code is already public to anyone holding this
+      // same link in the state the TV spends most of the evening in.
+      inviteCode: wantsLobby ? row.inviteCode : "",
       // Null until something has actually been played, so the client has one
       // obvious branch: nothing yet -> who's in; anything -> the night so far.
       recap: recap && recap.totalGames > 0 ? recap : null,

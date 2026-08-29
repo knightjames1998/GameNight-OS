@@ -64,6 +64,16 @@ export const routes = {
   bracket: () => import("./pages/BracketPage"),
   tv: () => import("./pages/TvPage"),
   eventTv: () => import("./pages/EventTvPage"),
+  /**
+   * The page behind every television's QR.
+   *
+   * NO onIntent SITE, AND THAT IS NOT AN OVERSIGHT. Nothing in this app links
+   * to it: it is reached by pointing a camera at a screen across the room, so
+   * there is no pointerdown to get a head start from. It is listed because this
+   * table is where a lazy route's specifier lives, and a second spelling of an
+   * import is how a route quietly ends up in its own duplicate chunk.
+   */
+  eventLive: () => import("./pages/EventLivePage"),
   beerio: () => import("./beerio/BeerioRoute"),
   smash: () => import("./smash/SmashPage"),
   marioKart: () => import("./mariokart/MarioKartPage"),

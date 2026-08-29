@@ -22,6 +22,7 @@ import EventPage from "./pages/EventPage";
 // loaded SmashPage moves that CSS into the pack's own chunk.
 const RecapPage = lazy(() => import("./pages/RecapPage"));
 const EventTvPage = lazy(() => import("./pages/EventTvPage"));
+const EventLivePage = lazy(() => import("./pages/EventLivePage"));
 const BracketPage = lazy(() => import("./pages/BracketPage"));
 const TvPage = lazy(() => import("./pages/TvPage"));
 // The tournament's setup step. A route rather than a panel on the event page,
@@ -310,6 +311,11 @@ export default function App() {
                 night. The five pack-specific TV routes below stay forever:
                 deep links, bookmarks and any QR already in the wild. */}
             <Route path="/e/:id/tv" element={<EventTvPage />} />
+            {/* The page behind every television's QR: public, read-only, and
+                takes no `me` on purpose. A guest scans a code across the room
+                and lands here without an account, which is the entire reason
+                it is not /e/:id. */}
+            <Route path="/e/:id/live" element={<EventLivePage />} />
             <Route path="/b/:id" element={<BracketPage />} />
             <Route path="/tv/:id" element={<TvPage />} />
             <Route path="/beerio" element={<BeerioRoute />} />
