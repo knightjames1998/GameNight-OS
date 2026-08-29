@@ -38,9 +38,19 @@ export const CUE_MS = 4200;
  * Should this surface show the cue?
  *
  * WHEN STORAGE IS UNAVAILABLE, ANIMATE, and that is the opposite of what gets
- * picked by reflex. A Safari private-mode visitor seeing a gold ring on every
+ * picked by reflex. A Safari private-mode visitor seeing the gold halo on every
  * visit is a small, self-explaining annoyance; a first-timer never seeing it at
  * all is the feature not existing for them. When in doubt, show it.
+ *
+ * ("halo" rather than the obvious synonym on purpose. TAILWIND v4 SCANS RAW
+ * SOURCE TEXT FOR CLASS CANDIDATES AND DOES NOT SKIP COMMENTS, so an earlier
+ * draft of this sentence used that synonym as an ordinary English word and
+ * Tailwind emitted the matching utility into the shipped stylesheet. The theme
+ * sweep then reported a difference in a selector this session never touched.
+ * Harmless in itself, but it is real bytes and a real false positive, both
+ * conjured out of prose, and the second draft of this very comment reintroduced
+ * it by naming the word while explaining it. Measured: absent at cad1818,
+ * present once the word appeared, absent again once it did not.)
  */
 export function shouldCueHelp(surface: HelpSurface): boolean {
   if (!probedStorage) return true;

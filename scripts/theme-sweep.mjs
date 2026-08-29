@@ -264,7 +264,24 @@ const API_STUB = {
  * anything it cannot find is left alone rather than thrown, because a sweep that
  * dies on one route reports nothing about the other forty.
  */
-const AFTER_NAVIGATE = {};
+const AFTER_NAVIGATE = {
+  // THE FIRST-VISIT CUE ON THE HELP TRIGGER, forced on rather than waited for.
+  //
+  // It would in fact appear here on its own, because a fresh Chromium profile
+  // has no seen-flag and the flag is not written until 4.2s in, well past this
+  // pass's 600ms settle. RELYING ON THAT WOULD BE THE BUG: the route order, the
+  // settle time and the cue duration are three numbers in three files, and the
+  // day any of them moves, the gold silently stops being measured and the sweep
+  // still passes. Forcing the class is idempotent and says what it wants.
+  //
+  // The rules and fixture passes reach .gn-cue on their own, but only as a bare
+  // probe element; this is the one that measures it ON the trigger, where the
+  // gold has to win against .gn-helpbtn's own colour and border by source order.
+  "/": `(() => {
+    const b = document.querySelector('.gn-helpbtn');
+    if (b) b.classList.add('gn-cue');
+  })()`,
+};
 
 const TRACKED_PROPS = [
   "color",

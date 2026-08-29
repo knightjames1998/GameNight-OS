@@ -13,7 +13,7 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-08-27 (the place search session, before its own work)
-    Shipped sessions since that redraw: 2
+    Shipped sessions since that redraw: 3
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -250,6 +250,14 @@ regenerated file in the same commit as the reconcile. If the MCP canvas is unava
 session, regenerating the committed file alone still counts as the redraw.
 
 ## SHIPPED — FOUNDATION
+- [x] THE HELP BUTTON ASKS TO BE NOTICED, ONCE (2026-08-28). Gold on a person's first visit, on the signed-out screen and on Home, then never again. No schema, no server change, no new dependency, no new token.
+  **THE REDUCED-MOTION BRANCH KEEPS THE COLOUR AND DROPS ONLY THE MOTION**, which is the opposite of the two nearest precedents and is the decision worth carrying (see DECISION LOG). `.gn-pulse` and `.gn-skel` kill their animation outright and are right to: they are loading indicators, the motion says "working", and the shape says the rest. Here the motion IS the message, so `animation: none` alone would leave somebody with a vestibular disorder no cue at all.
+  **AND THAT STATIC STATE IS THE ONLY ONE THE SWEEP CAN MEASURE**, because `theme-sweep.mjs` launches Chromium with `--force-prefers-reduced-motion`. Gold living only inside `@keyframes` would be unmeasured in BOTH themes, and a gold that resolved wrong on felt would ship unnoticed. Putting it in the resting rule makes the accessible fallback and the measurable state the same thing, which is the reason to build it in that order rather than a happy accident of having done so.
+  **TWO FLAGS, ONE PER SURFACE**, because they are two moments: somebody who saw the cue on the login screen has since typed a six-digit code and landed somewhere that looks nothing like it. One flag would let the first sighting silence the second, and the second matters more. Opening the guide settles both. The keys sit beside the theme preference rather than in `cache.ts`'s namespace, which is swept on every deploy and cleared on logout: either would replay the cue, and re-showing after an update was explicitly deferred. The storage PROBE is reused from `cache.ts` (Safari private mode has `localStorage` and throws on write) rather than written a second time.
+  **A TIMER RATHER THAN `animationend`**, because that event never fires under reduced motion, and a flag written only on it would leave the one group of people who cannot be shown movement looking at the marker for ever. `CUE_MS` and the CSS hold the same 4200ms and a test multiplies the CSS back out rather than trusting them to stay in step.
+  **VERIFIED OVER CDP IN BOTH THEMES**, not reasoned about: gold resolves to `#ffcf3f` in Arcade and brass `#eec262` in Tabletop, bounded at three cycles; the signed-out flag is written after the cue while Home still cues afterwards, proving the two are independent; opening early clears both keys and the class at once; a reload after either shows nothing; under forced reduced motion the button is `animation: none` AND still gold; and with `localStorage` throwing on write it cues on EVERY visit, which is the deliberate default.
+  **A COMMENT PUT A TAILWIND UTILITY IN THE STYLESHEET**, found by the sweep reporting a `.ring` rule this session never touched. Tailwind v4 scans raw source text for class candidates and does not skip comments, so an ordinary English word in a doc comment emitted the matching utility. Measured: absent at `cad1818`, present once the word appeared, absent again once it did not. Logged as a Watch, because it is bytes and false positives conjured out of prose and nothing warns you.
+  **GATES:** typecheck 4/4, 1209 tests (1197 before), build clean, `screens-baseline` UNCHANGED across 32 snapshots. Sweep: fixture 184 to 185 classes, rules 680 to 682, and the diff in BOTH themes is confined to `/`, `/?help=1`, the new class and its keyframes, with no other selector moving. Deploy: none.
 - [x] A HELP MODAL, OVER WHATEVER SCREEN YOU ARE ON (2026-08-28). Five sections (crews, nights, playing a game, the TV view, stats), reachable signed in and signed out. No schema, no server change, no new dependency.
   **THE OPEN STATE IS A SEARCH PARAM, NOT `useState`, AND THAT IS THE WHOLE DESIGN.** A modal in component state has no answer for the Android back gesture: back leaves the screen, or closes the app, while the modal sits open on top of it. The obvious fix is `pushState` plus a `popstate` listener, and hand-rolling that inside a react-router app is how this project got its ghost-history double-back bug. `?help=1` on the CURRENT route is a real history entry, so back closes it natively and nothing listens for anything, and because it rides the current route rather than being one, it is still a modal over what you were looking at. The push carries `state.help` so closing goes BACK and consumes the entry rather than pushing a second one that back would reopen; a pasted link with the param already on strips it in place instead.
   **THE BUNDLE BUDGET FORCED THE SHAPE, WHICH IS THE POINT OF HAVING ONE.** The first draft mounted the whole dialog in the entry chunk: 76_410 gzipped, refused at 2.0% headroom. A focus trap, an iOS scroll lock and a close rule cannot run before somebody taps, so all of it moved into a lazy chunk. What remains on the entry path is a param read and an opener, 286 bytes; the dialog and its copy are 1.25 kB, prefetched on pointerdown. **AND THE RESTORATION IN PART A IS WHAT MADE THAT POSSIBLE**: at the 82_000 place search had left behind, this would have sailed straight through.
@@ -576,6 +584,7 @@ Open first, then environment traps worth remembering, then fixed (fixed items ag
 - OPEN: CASINO RUN'S TV HAS THE SAME BACK-BUTTON BLIND SPOT the money board just had, found 2026-08-02 while confirming this session had not moved it. Measured on the real built bundle at 1920x1080, driving the shared engine's own summaries: mid-run it puts the back button at 1114px and with a full table and five cards up at 1093px, so the way back is 34px and 13px off the bottom of a television. The FOOTER fits in both (999px and 977px), which is exactly why nobody caught it: that pack's own fit note says "attempts and the ante share ONE line, they had a row each and that pushed the footer 23px off a 1080p screen", so it was measured against the footer, and the back button is another 116px below that. Standing rule 4 wants a way back on every screen and this one is off the screen in the two states a run spends most of its time in. NOT FIXED IN THE MONEY BOARD SESSION ON PURPOSE, twice over: that session's scope said explicitly not to touch this TV, and the fix is not the money board's ladder anyway. Casino Run draws its own board (`crun-tv__bank`, the stage ladder, the now-line) and would want its own, sized against the stage count rather than a roster. Cheap first move if it is wanted before a full pass: the bank number is 19vmin and the stage ladder is a row of boxes, so there is room to find without touching what it says. The measurement harness for it already exists in the money board session's notes: real `summarizeCrun` fixtures over five run states, driven over CDP.
 - FIXED 2026-08-17, the day the pack shipped: POKER'S TV WAS 73px OVER 1080p AT EIGHT SEATS, and the shape of the finding was more interesting than the number. Found by the harness on the day, which is the checklist working: the pack went into `scripts/tv-fit.mjs` in its own commit rather than five days later. Measured at 1920x1080 with a settled table: **four seats 1080 (fits), eight 1153 (over by 73), twelve 1080 (fits)**. Two rounds fixed it. First the settlement band was cut from six payment rows to four and the variants moved off it into the header, which took four seats from 35px over to fitting. **EIGHT WAS WORSE THAN TWELVE, AND THAT WAS THE ROOT CAUSE**: `moneyBoardBand` costs a hero a flat `HERO_LINES = 2`, which is exactly right for craps' shooter panel (a fixed two lines whatever the night is doing) and understated poker's by three, because poker's hero GROWS with the table. Twelve was landing on `full` and fitting by accident while eight sat on `tight`, which does not fit that board. So `BoardLoad` gained `heroLines`: a pack whose hero grows says how much it costs, and `HERO_LINES` stays the default for every pack that does not. Poker counts its payment rows at TWO TO A BOARD LINE, because they are 2.1vmin against a much taller board line, and that halving is measured rather than assumed: counting them one for one put a four-seat table on `tight` when it demonstrably fits on `close`, which would have shrunk a board that had room. **AFTER: four 1080 (clear by 134), eight 1080 (clear by 141), twelve 1080 (clear by 66), and the five blackjack money-board cases are byte-identical**, so the shared ladder moved for nobody else. Nothing was added to `KNOWN`.
 - Watch: THE COMPUTED-STYLE SWEEP DOES NOT TRACK `text-decoration`, so the one thing that makes a link a link is unmeasured, and so is every strike-through in the app. `TRACKED_PROPS` in `scripts/theme-sweep.mjs` covers `text-decoration-COLOR` and nothing else about it: not `-line`, not `-thickness`, not `-style`. So the underline added to `.gn-where a` on 2026-08-26 is invisible to the sweep (it can see the link went blue and not that it is underlined), and so is every `line-through` this app uses as a STATE SIGNAL rather than as decoration: `.gn-slot--lose`, `.gn-bkt-nm`, `.gn-tv-slot--lose`, `.gn-tva--out` and the rest of the eliminated-player family. A theme that dropped the strike from a losing bracket slot would pass the sweep and lose the only mark that says the player is out. **NOT FIXED IN THE SESSION THAT FOUND IT**, and for that file's own stated reason: adding a property invalidates every existing baseline (a captured tree without it reports an addition on every element), so the entries go in at the START of a session that expects to move one, never at the end of one that did not. Found 2026-08-26 while adding the first underline this app has ever had.
+- Watch: A WORD IN A COMMENT CAN ADD A UTILITY TO THE SHIPPED STYLESHEET. Tailwind v4 scans raw source text for class candidates and does NOT skip comments, so an ordinary English word that happens to be a utility name emits that utility into `index.css`. Found 2026-08-28 when the theme sweep reported a `.ring` rule in a session that never touched one: a doc comment in `helpseen.ts` used the word as English. Measured rather than guessed: absent at `cad1818`, present once the word appeared, absent again once it did not, and the SECOND draft of the comment explaining it reintroduced it by naming the word. **THE COST IS TWO THINGS AND NEITHER WARNS YOU:** real bytes in the entry CSS, and a false positive in the sweep that looks exactly like a real regression in an unrelated selector. The words most likely to do it are ordinary: ring, block, table, grid, fixed, static, container, hidden, visible, transform, filter. No fix beyond noticing; a lint rule for it would have to know which words Tailwind currently generates, which changes with the config.
 - Watch: THE SAME SWEEP DOES NOT TRACK BORDER WIDTHS EITHER, and this one has already bitten. `TRACKED_PROPS` carries all four border COLOURS and no widths, which matters more than it sounds because `--gn-card-border` is 2px in Arcade and **0px in Tabletop**: any accent, divider or edge added to a `.gn-card` modifier as a colour override paints nothing on felt AND the sweep records the colour resolving correctly in both themes. That is worse than an unmeasured property, because the property that IS measured reads green. The pinned card on the event page (2026-08-26) sets `border-left-width` explicitly for exactly this reason and asserts it in `theme-contrast.test.ts`, which is a fix for one card rather than for the class. **NOT FIXED IN THE SESSION THAT FOUND IT**, same reason as the `text-decoration` gap directly above: adding a property reports an addition on every element of every captured tree, so it goes in at the START of a session that expects to move a baseline. The two should go in together.
 - Watch: THE COMPUTED-STYLE SWEEP DOES NOT TRACK BOX-MODEL LENGTHS, so two of the card tokens added on 2026-08-17 are outside what it can see. `TRACKED_PROPS` in `scripts/theme-sweep.mjs` covers colour, the four radii, font-family, opacity and the background geometry; it does NOT cover padding or border-WIDTH (border-*-COLOR is there, which is why this looks covered and is not). `--gn-card-pad` and `--gn-card-border` therefore move without the sweep reporting anything, and the card's 14/16 to 16/18 padding change in that session is unmeasured by it. Found by trying to negative-control the new tokens and getting nothing back from two of the five. **DELIBERATELY NOT FIXED IN THE SESSION THAT FOUND IT**, and the reason is that file's own rule: the radius, font and opacity entries were added BEFORE the work they measured, because "a sweep extended afterwards can only tell you that the two trees you already changed agree with each other". Adding padding now would also invalidate every existing baseline, since a captured tree without it reports four additions on every element. The gap is covered in the meantime by `theme-contrast.test.ts`, which asserts Arcade's `--gn-card-border` is `2px` and its `--gn-card-pad` is `14px 16px` outright. Add the four padding longhands and the four border-width longhands at the START of the next session that expects to move one, not at the end.
 - Watch: A TILING TEXTURE HAS TO BE JUDGED AT THE SIZE THE STYLESHEET PAINTS IT, never at 1:1, and nothing in the harness set enforces that. Found 2026-08-17 by screenshotting the built bundle: the felt tile looked like felt when inspected on its own and drew a regular diagonal lattice every 75px once painted at 150px, because a 512px tile downscaled 3.4x averages the fine fibre away and leaves the coarse terms untouched. **THE THREE CHECKS ALL PASSED WHILE IT WAS WRONG.** `generate-felt-tile.mjs` measures the tile's own decoded pixels, `felt-variance.mjs` measures a standard deviation on screen (and a lattice is variance, so it scored 4.85, better than the fixed version's 4.48), and `theme-sweep.mjs` compares computed values. A number that goes UP when the surface gets worse is the shape to watch for here. No fix proposed: the honest check is a person looking at a screenshot at the painted size, and the cheap half of that is already possible since the environment has Chromium. Worth remembering when the casino group's four tints land, because every one of them repeats the same tile.
@@ -866,6 +875,64 @@ their own number. Only overridden seats are sent (`buyIns`, keyed by roster inde
 **Deferred, do not build:** cross-pack night net. See FEATURES TO ADD.
 
 ## DECISION LOG
+
+**A REDUCED-MOTION FALLBACK KEEPS THE COLOUR WHEN THE MOTION IS THE MESSAGE**
+(2026-08-28). Stated against the general case, because the button that found it
+is the least interesting part.
+
+`index.css` handles `prefers-reduced-motion` in several places and the two
+nearest precedents both kill the animation outright:
+
+    @media (prefers-reduced-motion:reduce){.gn-pulse{animation:none}}
+    @media (prefers-reduced-motion:reduce){.gn-skel{animation:none}}
+
+THAT IS CORRECT FOR BOTH, and the reason is what generalises: they are loading
+indicators. The motion says "working", the layout already says everything else,
+and standing still costs nothing. **WHERE THE MOTION IS THE ONLY CARRIER OF THE
+MESSAGE, THE SAME RULE IS NOT A GRACEFUL DEGRADATION, IT IS THE FEATURE NOT
+SHIPPING** for everybody who asked their OS to stop moving things. So the
+first-visit cue's reduced-motion branch drops the movement and keeps the gold,
+and `help-cue.test.ts` asserts that the branch contains `animation:none` AND
+NOTHING ELSE, because the failure mode is somebody tidying three inconsistent
+blocks into agreement.
+
+The test carries a control asserting the OTHER two still do use `animation:none`.
+A rule that is defined by differing from something has to check the something is
+still there.
+
+**THE SWEEP FORCES REDUCED MOTION, SO THE RESTING STATE IS THE ONLY MEASURABLE
+ONE** (2026-08-28). `scripts/theme-sweep.mjs` launches Chromium with
+`--force-prefers-reduced-motion`, which was chosen so an animated element cannot
+make a capture flake. The consequence nobody had needed until now: ANYTHING THAT
+EXISTS ONLY INSIDE `@keyframes` IS INVISIBLE TO ALL THREE PASSES, in both themes,
+for ever.
+
+So a themed colour belongs in the resting rule with the keyframes adding movement
+on top, never the other way round. Built in that order here, which is why the
+accessible fallback and the measurable state are the same object rather than two
+things that happened to agree. The flip side is a free win: because the harness
+already forces reduced motion, an animated element is deterministic in the sweep
+without anyone doing anything, so the usual reason to keep animation out of a
+snapshot does not apply.
+
+**AN UNWRITEABLE localStorage MEANS SHOW THE CUE, NOT HIDE IT** (2026-08-28).
+Safari private mode HAS `localStorage` and throws on write, which is why
+`cache.ts` probes it rather than testing for its existence; that probe is now
+exported so nothing writes a second one. The decision is what to do when the
+probe comes back null, and the reflex answer is the wrong one.
+
+A private-mode visitor seeing the cue on every visit is a small, self-explaining
+annoyance. A first-timer never seeing it is the feature not existing for them.
+When the flag cannot be read, ASSUME UNSEEN. The same reasoning applies to any
+once-only nicety keyed on client storage.
+
+Two corollaries logged with it: the keys live beside the theme preference rather
+than in the cache's namespace, because that namespace is swept on every deploy
+and cleared on logout and either would replay the cue; and the "seen" write is
+driven by a TIMER rather than by `animationend`, because that event never fires
+when the rule is `animation: none`, so the people who cannot be shown movement
+would have been the only ones shown the marker for ever.
+
 
 **THE SIX ENTRIES BELOW BELONG TO A FEATURE THAT IS NO LONGER IN THE APP**
 (place search, shipped 2026-08-27 and reverted 2026-08-28; see DEFERRED for why
