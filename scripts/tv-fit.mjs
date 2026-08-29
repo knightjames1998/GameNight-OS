@@ -550,6 +550,7 @@ const MEASURE = (PROOF) => `(()=>{
   const railW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gn-rail-w')) || 0;
   const vh = window.innerHeight, vw = window.innerWidth;
   const covered = [];
+  const clipped = [];
   // The connection pill, which is only ever on screen when a live screen has
   // stopped hearing the hub. In the healthy state it renders NOTHING, so on
   // every ordinary case below this is null and costs nothing.
@@ -603,6 +604,43 @@ const MEASURE = (PROOF) => `(()=>{
     if (!r.height && !r.width) continue;
     const cs = getComputedStyle(el);
     if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+    // NOTHING IS CUT OFF, which is the third question and the one that makes
+    // the other two honest. A TV has nobody to scroll it, so anything that
+    // overflows a container which hides or scrolls is content the room never
+    // sees, and the layout still ends inside the screen, so FITS says yes and
+    // IS SEEN says yes. That is exactly how a flex board absorbs a taller
+    // header row: it shrinks, swallows its last rows inside its own box, and
+    // reports a clean fit. Asked of every element rather than of a list of
+    // known containers, because the one that clips will be the one nobody
+    // thought to list.
+    //
+    // TRUNCATION IS NOT CLIPPING, and the first run of this check could not tell
+    // them apart: it reported 130 hits and every single one was a long name in a
+    // tile with text-overflow: ellipsis, doing exactly what it was built to do.
+    // A rule that flags the intended behaviour of half the app is a rule nobody
+    // will read twice, so a box that says it truncates is taken at its word and
+    // only the SILENT kind is reported.
+    const admits = cs.textOverflow === 'ellipsis' || cs.webkitLineClamp !== 'none';
+    const dy = el.scrollHeight - el.clientHeight, dx = el.scrollWidth - el.clientWidth;
+    const hidY = cs.overflowY !== 'visible' && dy > 1 && el.clientHeight > 0;
+    const hidX = cs.overflowX !== 'visible' && dx > 1 && el.clientWidth > 0 && !admits;
+    if (hidY || hidX) {
+      // WHICH CHILD IS DOING IT, for the same reason lowWho exists: a container
+      // reported as 317px too wide says nothing at all about what to change.
+      const cr = el.getBoundingClientRect();
+      const edgeR = cr.left + el.clientLeft + el.clientWidth;
+      const edgeB = cr.top + el.clientTop + el.clientHeight;
+      let farWho = null, far = 1;
+      for (const kid of el.querySelectorAll('*')) {
+        const kr = kid.getBoundingClientRect();
+        const out = Math.max(kr.right - edgeR, kr.bottom - edgeB);
+        if (out > far) { far = out; farWho = who(kid); }
+      }
+      clipped.push(
+        (hidY ? dy + 'px tall' : '') + (hidY && hidX ? ' + ' : '') + (hidX ? dx + 'px wide' : '') +
+        '  ' + who(el) + (farWho ? '   sticking out: ' + farWho : ''),
+      );
+    }
     if (cs.position === 'fixed') continue;
     const b = r.bottom + window.scrollY;
     if (b > low) { low = b; lowWho = who(el); }
@@ -684,8 +722,21 @@ const MEASURE = (PROOF) => `(()=>{
   const back = document.querySelector('.gn-textbtn, .cg-tv__back, .beerio-tv-back');
   const bb = back ? back.getBoundingClientRect() : null;
   const lvw2 = document.documentElement.clientWidth, lvh2 = document.documentElement.clientHeight;
+  // THE BRAND ROW'S HEIGHT, so what a slot in it COSTS is a recorded number
+  // rather than an estimate. Every pack names its brand the same way
+  // (X-tv__brand), which is the one hook that works across twelve screens
+  // without a hardcoded list going stale, the same reason the back button is
+  // found by .gn-textbtn rather than by pack.
+  const brandEl = document.querySelector('[class*="-tv__brand"]');
+  const rowEl = brandEl ? brandEl.parentElement : null;
+  const rowRect = rowEl ? rowEl.getBoundingClientRect() : null;
+  const qrEl = document.querySelector('[data-qr]');
+  const qrRect = qrEl ? qrEl.getBoundingClientRect() : null;
   return {
     railW,
+    clipped,
+    headRow: rowRect ? { h: Math.round(rowRect.height), bottom: Math.round(rowRect.bottom) } : null,
+    qr: qrRect ? { w: Math.round(qrRect.width), h: Math.round(qrRect.height) } : null,
     lowest: Math.round(low),
     lowWho: String(lowWho),
     lowInk: ink.sort((x, y) => y.b - x.b).slice(0, 3).map((i) => i.b + "px  " + i.who + "  " + JSON.stringify(i.text)),
@@ -1001,6 +1052,24 @@ let stale = 0;
 // nothing about it. Now a case that runs past 1080px fails unless it is named in
 // KNOWN, which is where the two pre-existing pack overflows already live.
 let overs = 0;
+// Cases hiding content inside a container that cannot be scrolled on a TV.
+let clips = 0;
+// ONE FINDING, RECORDED WITH ITS NUMBERS, from the first run of the cut-off
+// check on 2026-08-29. Bracket's TV root clips 317px horizontally on ARCADE
+// only, on 8 pairs MID only (not fresh, not late, not champ), and what sticks
+// out is .gn-tv-col > .flex flex-col min-h-0. Nothing on that screen is over
+// 1080 and nothing is covered, so both older questions call it clean and always
+// would have. It is not this session's screen and not this session's change, so
+// it is written down here with the number rather than chased: the QR lands on
+// the header line, and Bracket's TV has no QR in it yet. Its own entry is in
+// BACKLOG. Kept separate from KNOWN so that naming this label does not also
+// excuse the case from the overlap and 1080 checks, which it still passes.
+//
+// MATCHED ON THE TRIMMED LABEL. The bracket labels are built with padEnd, so
+// this one really is "bracket tv  8 pairs mid  " with two trailing spaces, and
+// an entry written the way a person reads it off the table silently matches
+// nothing. It did exactly that on the first attempt and the run still failed.
+const KNOWN_CLIPS = new Set(["bracket tv  8 pairs mid"]);
 // THE CORNER TABLE, and it is the reason this run exists on 2026-08-29 rather
 // than a by-product of it. "Never overlaps relevant information" is not a thing
 // a fixed overlay can promise; it is a thing a measurement can prove or refuse.
@@ -1010,7 +1079,7 @@ let overs = 0;
 const CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
 const cornerHits = Object.fromEntries(CORNERS.map((c) => [c, []]));
 
-console.log("case                      theme     rail  lowest  backBtm  vs 1080      back v rail   covered by the rail");
+console.log("case                      theme     rail  lowest  backBtm  vs 1080      back v rail   headRow  qr        covered by the rail");
 const pillLines = [];
 for (const theme of ["arcade", "tabletop"]) {
   for (const [label, route, payload, proof, themes, waitMs] of CASES) {
@@ -1023,7 +1092,8 @@ for (const theme of ["arcade", "tabletop"]) {
       : m.backIntoRail > 0 ? `UNDER by ${m.backIntoRail}` : `clear by ${-m.backIntoRail}`;
     console.log(
       `  ${label.padEnd(24)}${theme.padEnd(10)}${String(m.railW + "px").padEnd(6)}${String(m.lowest).padEnd(8)}` +
-      `${String(m.backBottom).padEnd(9)}${(over > 0 ? "OVER by " + over : "fits").padEnd(13)}${back.padEnd(14)}${m.covered.join(" | ") || "nothing"}`,
+      `${String(m.backBottom).padEnd(9)}${(over > 0 ? "OVER by " + over : "fits").padEnd(13)}${back.padEnd(14)}` +
+      `${String(m.headRow ? m.headRow.h + "px" : "-").padEnd(9)}${String(m.qr ? m.qr.w + "x" + m.qr.h : "-").padEnd(10)}${m.covered.join(" | ") || "nothing"}`,
     );
     // A PAYLOAD THE PAGE REJECTS RENDERS THE SHORT WAITING STATE, which fits
     // trivially and measures nothing. That was written down at the top of this
@@ -1041,6 +1111,12 @@ for (const theme of ["arcade", "tabletop"]) {
       console.log(`      ^ lowest box: ${m.lowWho}`);
       for (const line of m.lowInk) console.log(`        lowest ink: ${line}`);
     }
+    // A CONTAINER THAT SWALLOWED ITS OWN CONTENT, printed with how much and
+    // which one. On a TV nobody can scroll it back into view, so this is ink
+    // that simply does not exist for the room while every other column says the
+    // screen is fine.
+    for (const line of m.clipped) console.log(`      ^ CUT OFF: ${line}`);
+    if (m.clipped.length && !KNOWN_CLIPS.has(label.trim())) clips++;
     // Record what each candidate corner would have covered on this case.
     for (const corner of CORNERS) {
       const hits = m.probeCovers?.[corner] ?? [];
@@ -1207,7 +1283,7 @@ console.log("\nnegative control: the ladder pinned back to its base metrics, whi
   await send("Page.removeScriptToEvaluateOnNewDocument", { identifier: inject });
 }
 
-const ok = newOverlaps === 0 && stale === 0 && overs === 0 && control === 0;
+const ok = newOverlaps === 0 && stale === 0 && overs === 0 && control === 0 && clips === 0;
 console.log(
   ok
     ? "\nPASS  every case fits 1080p and nothing is covered by a fixed overlay (everything still named in KNOWN excepted, and logged in BUGS)"
@@ -1215,6 +1291,7 @@ console.log(
         overs ? `FAIL  ${overs} case(s) run past 1080px` : "",
         newOverlaps ? `FAIL  ${newOverlaps} case(s) have painted content under a fixed overlay` : "",
         stale ? `FAIL  ${stale} case(s) never rendered: the payload no longer matches the page` : "",
+        clips ? `FAIL  ${clips} case(s) hide content inside a container a TV cannot scroll` : "",
         control ? `FAIL  ${control} negative control(s) FIT without the ladder, so this check cannot see the fault it exists for` : "",
       ].filter(Boolean).join("\n"),
 );

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import TvQr, { TV_QR_MIN } from "../TvQr";
 import { SESSION_PACKS, type SdTvView } from "@gamenight/shared";
 import { api } from "../api";
 import BackButton from "../BackButton";
@@ -124,6 +125,13 @@ export default function DeductionTvPage({ eventId: fixed }: { eventId?: string }
             {tv.games} game{tv.games === 1 ? "" : "s"} tonight
           </div>
         )}
+        {/* THE SLOT. Last child of the row this screen already had; the brand
+            and the phase line keep their own markup, type and colours exactly.
+            Deduction is the TIGHTEST screen in the app (32px of back-button
+            clearance before this, against 57 for the money board and 63 for
+            ping pong) and it has no density ladder to compress, so it is the
+            worst case and therefore the one to prove the contract on. */}
+        <TvQr eventId={eventId} size={SD_TV_QR} />
       </div>
 
       <div>
@@ -178,6 +186,17 @@ export default function DeductionTvPage({ eventId: fixed }: { eventId?: string }
     </div>
   );
 }
+
+/**
+ * Deduction's QR size.
+ *
+ * A FLAT NUMBER BECAUSE THIS SCREEN HAS NO DENSITY LADDER: it lays out in
+ * columns rather than a vertical stack, so it does not scale type by roster the
+ * way the ladder packs do, and there is no band to read. TV_QR_MIN is the floor
+ * every pack shares; this screen sits on it, because it is the one with the
+ * least room to give.
+ */
+const SD_TV_QR = TV_QR_MIN;
 
 function Brand() {
   return (

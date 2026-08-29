@@ -144,7 +144,10 @@
     calc(3vmin + env(safe-area-inset-bottom, 0px))
     calc(3vmin + env(safe-area-inset-left, 0px));
 }
-.sd-tv__top { display: flex; justify-content: space-between; align-items: baseline; gap: 2vmin; }
+/* CENTRE, NOT BASELINE, since 2026-08-29: the row gained a QR block as its last
+   child and a block has no baseline to align a code to, so `baseline` left it
+   hanging below the type. The brand and the phase line are unchanged. */
+.sd-tv__top { display: flex; justify-content: space-between; align-items: center; gap: 2vmin; }
 .sd-tv__brand {
   font-family: var(--gn-font-display), Fredoka, system-ui, sans-serif;
   font-size: 4.4vmin;

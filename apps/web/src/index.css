@@ -163,6 +163,14 @@
   --gn-p2-ink:  #0d1a17;
   --gn-p2-sh:   #1aa88f;
   --gn-gold:    #ffcf3f;  /* Beerio accent */
+  /* THE QR PLATE, AND IT IS THE SAME VALUE IN BOTH THEMES ON PURPOSE. A camera
+     needs contrast and a quiet zone; that is a functional requirement of the
+     thing being scannable, not a decision a theme gets to make. It is a TOKEN
+     rather than a literal so the theme sweep measures it and can prove the two
+     themes agree, instead of the sweep having a blind spot exactly where a
+     deliberate exemption lives. */
+  --gn-qr-plate:    #ffffff;
+  --gn-qr-ink:      #17111f;
   /* THE ONLY LINK COLOUR IN THE APP, and it is its own token rather than a
      borrowed --gn-p1 or --gn-p2 on purpose. Those two are the ACTION colours:
      p2 is confirm/save and wears --gn-p2-ink on buttons all over the app, so a
@@ -582,6 +590,14 @@
   --gn-p2-ink:  #07190e;
   --gn-p2-sh:   #3d8a5c;
   --gn-gold:    #eec262;  /* brass */
+  /* THE QR PLATE, AND IT IS THE SAME VALUE IN BOTH THEMES ON PURPOSE. A camera
+     needs contrast and a quiet zone; that is a functional requirement of the
+     thing being scannable, not a decision a theme gets to make. It is a TOKEN
+     rather than a literal so the theme sweep measures it and can prove the two
+     themes agree, instead of the sweep having a blind spot exactly where a
+     deliberate exemption lives. */
+  --gn-qr-plate:    #ffffff;
+  --gn-qr-ink:      #17111f;
   /* THE LINK, MUTED INTO A WARM ROOM. Arcade's #8cc2ff is a neon blue and would
      be the only cold thing on a table lit by a pub lamp, so this is the same
      idea desaturated toward slate: still unmistakably a link, no longer
@@ -1450,6 +1466,53 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
    the brand at text-3xl plus a Log out button already fills 390px, and the
    instruction was to shrink the trigger rather than the brand. 40px keeps it a
    real tap target; the label it does not print is on aria-label. */
+/* ---- the QR slot in a pack TV's brand row ---------------------------------
+   LAID OUT, NOT OVERLAID. It is the last child of a row each pack already has,
+   so it MOVES content rather than covering it, which is the only way "never
+   overlaps relevant information" can be true. The corner overlay this replaces
+   was measured against every case in both themes and no corner was clear at any
+   size; see BACKLOG.
+
+   NOTHING HERE IS THEMED, and that is the point: the plate and the ink are
+   tokens with the same value in both blocks, because a code has to be scannable
+   on felt and on plum alike. Every other thing about the row belongs to the
+   pack. */
+.gn-tvqr{
+  /* THE CAPTION SITS BESIDE THE CODE, NOT UNDER IT, and that is a measurement
+     rather than a preference. Stacked, the block came to 152px tall for an 88px
+     code and pushed Social Deduction's header row from 71px to 152px. In a
+     header line height is the scarce dimension and width is the plentiful one:
+     every screen this lands on has a row with room to its right and none to
+     spare below it. Side by side the same block is 123px tall and 269px wide,
+     and its height is now the code plus its quiet zone and nothing else. The
+     152px was measured before the quiet zone below was corrected, so the
+     saving is larger than the two numbers suggest, not smaller. */
+  display:flex;flex-direction:row;align-items:center;gap:1.6vmin;
+  flex:none;
+  background:var(--gn-qr-plate);
+  color:var(--gn-qr-ink);
+  /* THE QUIET ZONE IS THE PADDING AND THE GAP, and both are set from a
+     measurement rather than from what looked right. The spec wants four clear
+     modules on every side of a code. At the 88px floor this renders 25 modules,
+     so a module is 3.52px and four of them are 14.1px; 1.6vmin is 17.3px at
+     1080, which is 4.9 modules on the outer edges and the same again between
+     the code and its caption. The first draft used 1vmin and .8vmin, which
+     measured 3.07 and 2.45 modules: short on both, on the one part of this
+     feature that either works or does not. A longer URL packs MORE modules into
+     the same 88px, making each one smaller, so the real one on gamenightos.app
+     clears this by more than the fixture does. */
+  padding:1.6vmin;
+  border-radius:1vmin;
+  /* A code is not a control and nothing under a row child needs to stay
+     tappable, but a television is not tapped either: let the camera work. */
+  pointer-events:none;
+}
+.gn-tvqr__cap{
+  font-family:Fredoka, system-ui, sans-serif;font-weight:700;
+  font-size:1.5vmin;line-height:1.1;letter-spacing:.02em;
+  text-align:left;max-width:12vmin;
+}
+
 .gn-helpbtn{
   flex-shrink:0;
   width:40px;height:40px;border-radius:50%;
