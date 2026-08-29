@@ -1442,6 +1442,70 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
   line-height:1;
 }
 
+/* ---- the first-visit cue on the help trigger ------------------------------
+   Gold, on a person's first visit only, then never again. It attaches to
+   EITHER form of the trigger (the icon in the signed-in header, the worded one
+   on the signed-out screen), which is why it is its own class rather than a
+   modifier of one of them. After .gn-helpbtn and .gn-textbtn on purpose: all
+   three are single class selectors, so source order is the only thing that
+   lets this win.
+
+   THE GOLD IS THE RESTING STATE AND THE MOVEMENT IS ADDED ON TOP, which is the
+   whole structure of this block and it is deliberate in two directions at once.
+
+   ONE: THE REDUCED-MOTION FALLBACK CANNOT BE `animation: none` AND NOTHING
+   ELSE, which is the OPPOSITE of what .gn-pulse and .gn-skel do below. Those two
+   are loading indicators: the motion says "working", and standing still costs
+   nothing a shape does not already say. HERE THE MOTION IS THE MESSAGE. Killing
+   it outright would leave somebody with a vestibular disorder no cue at all,
+   which is not a graceful degradation, it is the feature not shipping for them.
+   So reduced motion drops the movement and KEEPS the colour. If you are reading
+   three reduced-motion blocks and about to make them consistent: do not.
+
+   TWO: THAT STATIC STATE IS THE ONLY ONE THE THEME SWEEP CAN SEE, because
+   scripts/theme-sweep.mjs launches Chromium with --force-prefers-reduced-motion.
+   Gold that lived only inside @keyframes would be measured in neither theme, and
+   a gold that resolves wrong on felt would ship unnoticed. Putting it in the
+   resting rule makes the accessible fallback and the measurable state the same
+   thing, which is the reason to build it in this order rather than a happy
+   accident of having done so.
+
+   BOUNDED, NOT INFINITE. Three cycles, then it settles. An endless pulse on a
+   permanent header control is nagging, and the ask was attention rather than
+   insistence. `both` holds the last keyframe, and the last keyframe is the
+   resting state, so it settles rather than snapping back. The gold then stays
+   as an unread marker until the modal is opened.
+
+   THE KEYFRAMES MOVE `transform` AND `box-shadow` AND NOTHING ELSE. The
+   signed-in header is brand plus trigger plus Log out on one row and measured
+   at 390px with 0px to spare; anything animating width, margin or padding
+   would reflow that row three times a second. */
+.gn-cue{
+  color:var(--gn-gold);
+  border-color:color-mix(in srgb, var(--gn-gold) 70%, transparent);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--gn-gold) 26%, transparent);
+  /* 1.4s x 3 = 4200ms, and helpseen.ts holds the same number so the flag is
+     written when the cue is actually over. help-cue.test.ts multiplies these
+     back out rather than trusting the two to stay in step. */
+  animation:gnhelpcue 1.4s ease-in-out 3 both;
+}
+@keyframes gnhelpcue{
+  /* 0% and 100% ARE THE RESTING STATE, which is what makes `both` settle onto
+     the static gold instead of onto something the sweep never measured. */
+  0%,100%{
+    transform:scale(1);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--gn-gold) 26%, transparent);
+  }
+  50%{
+    transform:scale(1.08);
+    box-shadow:0 0 0 9px color-mix(in srgb, var(--gn-gold) 0%, transparent);
+  }
+}
+/* MOVEMENT ONLY. See the note above: this is deliberately not the same shape as
+   the two reduced-motion blocks further down, because there the animation IS the
+   whole indicator and here it is a layer over one that stands still. */
+@media (prefers-reduced-motion:reduce){.gn-cue{animation:none}}
+
 .gn-modal{
   position:fixed;inset:0;z-index:20;
   display:flex;align-items:center;justify-content:center;
