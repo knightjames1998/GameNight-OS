@@ -39,7 +39,7 @@ export default function Home({
             this is has nowhere else to find out. Room here, so it has words. */}
         <div className="flex flex-col items-center gap-2">
           <h1 className="gn-brand text-4xl">GameNight OS</h1>
-          <HelpButton />
+          <HelpButton surface="signedOut" />
         </div>
         <div style={{ maxWidth: "24rem", width: "100%" }}>
           <AddToHomeHint />
@@ -193,7 +193,7 @@ function Groups({
               difference a single-theme check would have shipped. The brand does
               not shrink; the trigger and its gap do. */}
           <div className="flex items-center gap-1">
-            <HelpButton compact />
+            <HelpButton compact surface="home" />
             <button className="gn-actionbtn gn-actionbtn--danger" onClick={onLogout}>
               Log out
             </button>

@@ -1,6 +1,7 @@
-import { lazy, Suspense, useCallback } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { onIntent, routes } from "./prefetch";
+import { CUE_MS, markAllHelpSeen, markHelpSeen, shouldCueHelp, type HelpSurface } from "./helpseen";
 
 // WHAT IS THIS APP? One modal, over whatever screen you are on.
 //
@@ -73,13 +74,43 @@ export function useOpenHelp(): () => void {
  * `onIntent` warms the chunk on pointerdown, which is the 80 to 150ms between a
  * finger going down and the click firing.
  */
-export function HelpButton({ compact }: { compact?: boolean }) {
+export function HelpButton({ compact, surface }: { compact?: boolean; surface: HelpSurface }) {
   const openHelp = useOpenHelp();
+
+  // DECIDED ONCE, ON MOUNT, and the lazy initializer is what makes that true:
+  // it runs on the first render and never again, so a re-render of Home cannot
+  // restart the animation. Reading the flag at module scope would be worse
+  // still, and for a reason this app has already been bitten by: a module is
+  // evaluated once at boot, and this value changes DURING the session.
+  //
+  // It is state rather than a ref because opening the guide has to clear it
+  // mid-mount: once read, the button is normal immediately, not on next load.
+  const [cue, setCue] = useState(() => shouldCueHelp(surface));
+
+  useEffect(() => {
+    if (!cue) return;
+    // A TIMER, NOT `animationend`. Under reduced motion the rule is
+    // `animation: none`, so that event never fires and the flag would never be
+    // written: the one group of people who cannot be shown movement would be
+    // the only ones shown the marker for ever. The duration is shared with the
+    // CSS through CUE_MS and pinned by a test.
+    const t = setTimeout(() => markHelpSeen(surface), CUE_MS);
+    return () => clearTimeout(t);
+  }, [cue, surface]);
+
   return (
     <button
-      className={compact ? "gn-helpbtn" : "gn-textbtn"}
+      // The cue is its own class rather than a modifier of either form, because
+      // the trigger has two and both can carry it.
+      className={`${compact ? "gn-helpbtn" : "gn-textbtn"}${cue ? " gn-cue" : ""}`}
       aria-label={compact ? "How GameNight works" : undefined}
-      onClick={openHelp}
+      onClick={() => {
+        // Opening counts as delivered, on BOTH surfaces and immediately: the cue
+        // is about the button being noticed, and a tap is proof that it was.
+        markAllHelpSeen();
+        setCue(false);
+        openHelp();
+      }}
       {...onIntent(routes.help)}
     >
       {compact ? "?" : "How this works"}

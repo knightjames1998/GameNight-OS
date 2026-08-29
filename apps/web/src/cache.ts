@@ -62,6 +62,23 @@ function storage(): Storage | null {
 const store = storage();
 
 /**
+ * The PROBED localStorage, or null when it cannot be written to.
+ *
+ * EXPORTED FOR THE PROBE, NOT FOR THE NAMESPACE, and the distinction matters.
+ * The probe is the non-obvious part: Safari private mode HAS `localStorage` and
+ * throws on write, so anything that stores a flag needs this rather than a bare
+ * `window.localStorage` and a hope. A second copy of that probe elsewhere in the
+ * app would be a second thing to get wrong.
+ *
+ * BUT A CALLER THAT IS NOT THE CACHE MUST USE ITS OWN KEYS. Everything under
+ * PREFIX is swept on a deploy (by design: a payload shape can change) and
+ * cleared on logout (by design: the next person must not see the last one's
+ * crews). Both are exactly wrong for a once-ever UI flag, which would then
+ * replay after every deploy and every logout.
+ */
+export const probedStorage: Storage | null = store;
+
+/**
  * Drop every namespace that is not this build's. Runs once at module load, so
  * a deploy reclaims the space its predecessor was using instead of stacking a
  * new copy beside it.
