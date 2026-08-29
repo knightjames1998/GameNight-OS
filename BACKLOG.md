@@ -12,8 +12,8 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-27 (the place search session, before its own work)
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-08-28 (the cue fix and sweep session, before its own work)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -68,14 +68,42 @@ anyone's memory of how many sessions have happened.
         commits that never wrote themselves up, which is why the git-log rule below exists.
         Zone 1 took two (NEW), 23 to 25; zone 4 grew by six; row 1 grew 2400 -> 2650.
       - 2026-08-26.
-      - 2026-08-27, this one. Below.
+      - 2026-08-27.
+      - 2026-08-28, this one. Below.
 
     THE REDRAW WENT FIRST, before this session's own work, which is the arrangement every
     pass since 2026-08-17 has used. The counter read 3 when this session started, so the
     reconcile and the drawing came before any feature work; the drawing therefore does NOT
-    contain the place search, and that work counts itself.
+    contain the signed-out cue fix or the TRACKED_PROPS rebaseline, and that work counts
+    itself.
 
     What this pass changed beyond the counter:
+      - ZONE 1 TOOK TWO, both (NEW), 31 to 33: the help modal and the first-visit cue on
+        its trigger. Recurring nights, the crew page crash and the pinned details card lost
+        their (NEW) on schedule.
+      - PLACE SEARCH LEAVES NO TRACE, WHICH IS THE POINT OF RECONCILING RATHER THAN
+        APPENDING. It shipped 2026-08-27 and was reverted 2026-08-28, entirely between two
+        redraws, so it was never drawn and is not drawn now. Its write-up is in DEFERRED,
+        which this protocol does not draw, and its six decision log entries stay as the
+        record of what was decided. A pass that only ever added would be showing a feature
+        the app does not have.
+      - ZONE 5 TOOK ONE, 13 to 14: a word in a COMMENT can add a Tailwind utility to the
+        shipped stylesheet, found by the sweep reporting a selector that session never
+        touched. Two OPEN, twelve Watch.
+      - ROW 1 GREW, 2850 -> 3150, the SECOND consecutive raise driven by zone 1 rather than
+        by zone 2 taking packs. Measured by reading the generated file back: two items put
+        zone 1 at 2840, which is 10px of 2850. Raised by 300 rather than the usual 200
+        because this zone has taken three then two items in consecutive passes and is
+        plainly the active one; 310 is about two more items. Row 2 moved 2970 -> 3270 to
+        stay aligned, and its heights did not change, because zone 5 has 344.
+      - ZONES 2, 3, 4 AND 6 ARE UNCHANGED, and NEXT UP still holds the same numbered three.
+        That is now five sessions running with nothing shipped out of the queue: every one
+        was work James brought to the session directly.
+      - THE RECONCILE WALKED `git log` AND FOUND NO DRIFT. All sixteen commits since
+        d9cb556 belong to three sessions and each wrote itself up, including the one whose
+        feature was deleted the following day.
+
+    What the 2026-08-27 pass changed, kept for the arithmetic the next raise will need:
       - THE RECONCILE WALKED `git log` AND FOUND NO DRIFT. All fifteen commits since the
         08-26 redraw belong to one of three sessions (recurring nights 08-26, the crew page
         that kept crashing 08-26, the pinned details card 08-26), and every one of the three
@@ -138,7 +166,7 @@ anyone's memory of how many sessions have happened.
       - ZONES 3 AND 6 ARE UNCHANGED. Nothing left NEXT UP, so the numbered three are still
         Poker's tournament format, Smash Tournament and Party games.
     Zone heights checked against their contents by reading the generated file back, not
-    by hand. Canvas 1560x4170; panorama camera 1600x4220.
+    by hand. Canvas 1560x4470; panorama camera 1600x4520.
 
 ## MAP PROTOCOL
 How and when the Excalidraw project map gets redrawn. Written so any session reproduces
@@ -195,7 +223,10 @@ same unchanged queue and the same arithmetic gave the same answer, and from 2400
 on 2026-08-27, THE FIRST RAISE DRIVEN BY ZONE 1 since 2026-07-29 rather than by zone 2
 taking packs: three shipped sessions landed in zone 1 in one pass and left 82px, against
 136px for one large item, with this session's own place search due in that same zone next
-time.
+time. And from 2850 to 3150 on 2026-08-28, the SECOND consecutive raise driven by
+zone 1: two items put it at 2840 against 2850, leaving 10px. Raised by 300 rather than 200
+because zone 1 has taken three then two items in consecutive passes and is now the active
+zone.
 Each time it was raised pre-emptively rather than
 waiting for the next entry to overflow it, since the fix is mechanical and the trap would
 have landed on whoever added the next line.
@@ -230,8 +261,8 @@ they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb).
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x4220 at the current zone heights; the canvas
-itself measures 1560x4170, read off the generated file rather than assumed. This line read
+on a panorama covering the full canvas (1600x4520 at the current zone heights; the canvas
+itself measures 1560x4470, read off the generated file rather than assumed. This line read
 2410 for four passes after the heights it describes had moved, which is why a redraw checks
 it against the file). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 
