@@ -534,6 +534,17 @@ await send("Fetch.enable", { patterns: [{ urlPattern: "*" }] });
 // The rail's own width is read off the live document rather than assumed, so a
 // theme that widens it, or a future overlay of any kind, is caught by the same
 // check.
+/**
+ * The candidate overlay's size, in CSS pixels at 1920x1080.
+ *
+ * DELIBERATELY GENEROUS. ETV_QR's largest band is a 130px code, and a corner
+ * overlay wants padding and a line of label beside it, so 170x200 is an upper
+ * bound on anything this session would ship. Measuring the biggest plausible
+ * rectangle means a corner that comes back clear is clear for every smaller one
+ * too, which is the only direction this measurement is safe to be wrong in.
+ */
+const PROBE_W = Number(process.env.PROBE_W || 170), PROBE_H = Number(process.env.PROBE_H || 200);
+
 const MEASURE = (PROOF) => `(()=>{
   const PROOF = ${JSON.stringify(PROOF)};
   const railW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gn-rail-w')) || 0;
@@ -545,6 +556,31 @@ const MEASURE = (PROOF) => `(()=>{
   const pillEl = document.querySelector('.gn-connpill');
   const pillRect = pillEl ? pillEl.getBoundingClientRect() : null;
   const pillCovers = [];
+  // A THIRD FIXED OVERLAY, ASKED ABOUT BEFORE IT EXISTS. The rail and the pill
+  // are measured above because they are already on screen; this one is a
+  // CANDIDATE, and the whole point is to find out where it could go before
+  // anything is built. "Never overlaps relevant information" cannot be
+  // guaranteed by a fixed overlay by construction; it can only be proven, and
+  // this is the instrument that proves it.
+  //
+  // ALL FOUR CORNERS IN ONE PASS, so the answer costs one page render rather
+  // than four. Bottom-centre is not a corner and is separately unavailable: the
+  // connection pill lives there, intermittently, which is the worst kind of
+  // collision because every screenshot looks clear.
+  //
+  // INSET BY THE RAIL, read off the document like everything else here, because
+  // a corner is inside the rail's band by definition and an overlay that
+  // ignores it is under the timber in Tabletop and fine in Arcade.
+  const PROBE_W = ${PROBE_W}, PROBE_H = ${PROBE_H}, PROBE_PAD = 12;
+  const lvwP = document.documentElement.clientWidth, lvhP = document.documentElement.clientHeight;
+  const inset = railW + PROBE_PAD;
+  const probeRects = {
+    'top-left':     { left: inset, top: inset, right: inset + PROBE_W, bottom: inset + PROBE_H },
+    'top-right':    { left: lvwP - inset - PROBE_W, top: inset, right: lvwP - inset, bottom: inset + PROBE_H },
+    'bottom-left':  { left: inset, top: lvhP - inset - PROBE_H, right: inset + PROBE_W, bottom: lvhP - inset },
+    'bottom-right': { left: lvwP - inset - PROBE_W, top: lvhP - inset - PROBE_H, right: lvwP - inset, bottom: lvhP - inset },
+  };
+  const probeCovers = { 'top-left': [], 'top-right': [], 'bottom-left': [], 'bottom-right': [] };
   let low = 0, lowWho = null;
   // THE LOWEST ELEMENT IS ALMOST ALWAYS #root, which names nothing: it is the
   // page, and its height is the number already in the first column. What a
@@ -622,6 +658,18 @@ const MEASURE = (PROOF) => `(()=>{
         pillCovers.push((el.className || el.tagName).toString().slice(0, 34) + ' by ' + Math.round(Math.min(ox, oy)));
       }
     }
+    // WHAT WOULD THE CANDIDATE COVER? Same overlap test the pill gets, asked of
+    // four rectangles that are not there yet. Only PAINTED elements count, by
+    // the same paints rule above: a container whose box merely reaches into
+    // the corner is not something a person can see being covered.
+    for (const corner of ['top-left', 'top-right', 'bottom-left', 'bottom-right']) {
+      const pr = probeRects[corner];
+      const ox = Math.min(r.right, pr.right) - Math.max(r.left, pr.left);
+      const oy = Math.min(r.bottom, pr.bottom) - Math.max(r.top, pr.top);
+      if (ox > 1 && oy > 1) {
+        probeCovers[corner].push((el.className || el.tagName).toString().slice(0, 30) + ' by ' + Math.round(Math.min(ox, oy)));
+      }
+    }
   }
   // EVERY BackButton emits .gn-textbtn as its base class, so this is the one
   // hook that cannot go stale. It used to be a hardcoded list of per-pack class
@@ -666,6 +714,9 @@ const MEASURE = (PROOF) => `(()=>{
         }
       : null,
     pillCovers: pillCovers.slice(0, 6),
+    probeCovers: Object.fromEntries(
+      Object.entries(probeCovers).map(([k, v]) => [k, v.slice(0, 6)]),
+    ),
     rendered: !!document.querySelector(PROOF),
   };
 })()`;
@@ -950,6 +1001,15 @@ let stale = 0;
 // nothing about it. Now a case that runs past 1080px fails unless it is named in
 // KNOWN, which is where the two pre-existing pack overflows already live.
 let overs = 0;
+// THE CORNER TABLE, and it is the reason this run exists on 2026-08-29 rather
+// than a by-product of it. "Never overlaps relevant information" is not a thing
+// a fixed overlay can promise; it is a thing a measurement can prove or refuse.
+// So every case is asked, in both themes, what a candidate overlay would cover
+// in each of the four corners, and the placement decision comes out of the
+// table rather than out of anybody's idea of where a QR goes.
+const CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
+const cornerHits = Object.fromEntries(CORNERS.map((c) => [c, []]));
+
 console.log("case                      theme     rail  lowest  backBtm  vs 1080      back v rail   covered by the rail");
 const pillLines = [];
 for (const theme of ["arcade", "tabletop"]) {
@@ -980,6 +1040,11 @@ for (const theme of ["arcade", "tabletop"]) {
     if (over > 0) {
       console.log(`      ^ lowest box: ${m.lowWho}`);
       for (const line of m.lowInk) console.log(`        lowest ink: ${line}`);
+    }
+    // Record what each candidate corner would have covered on this case.
+    for (const corner of CORNERS) {
+      const hits = m.probeCovers?.[corner] ?? [];
+      if (hits.length) cornerHits[corner].push(`${label.trim()}  ${theme}  ${hits.join(" | ")}`);
     }
     if ((m.covered.length || (m.backIntoRail ?? -1) > 0) && !KNOWN.has(label)) newOverlaps++;
     if (over > 0 && !KNOWN.has(label)) overs++;
@@ -1098,6 +1163,14 @@ const NEUTRALISE = `
     --gn-etv-foot:3vmin;--gn-etv-gap:3vmin;--gn-etv-more:1.8vmin;
     --gn-tv-stack-gap:1.3vmin;--gn-tv-cols-mt:2.6vmin;--gn-tv-h2:3vmin;--gn-tv-h2-mb:1.6vmin;
   }`;
+// ---- the corner table -----------------------------------------------------
+console.log(`\ncandidate overlay ${PROBE_W}x${PROBE_H} inset by the rail plus 12px, per corner:`);
+for (const corner of CORNERS) {
+  const hits = cornerHits[corner];
+  console.log(`\n  ${corner.toUpperCase()}  ${hits.length === 0 ? "CLEAR ON EVERY CASE IN BOTH THEMES" : hits.length + " case/theme collisions"}`);
+  for (const h of hits) console.log(`     ${h}`);
+}
+
 let control = 0;
 console.log("\nnegative control: the ladder pinned back to its base metrics, which must NOT fit");
 {
