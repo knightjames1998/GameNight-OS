@@ -65,8 +65,13 @@ export function useOpenHelp(): () => void {
 /**
  * The trigger, so both placements share one wiring.
  *
- * TWO PLACEMENTS, TWO SHAPES, and the signed-out one is arguably the important
- * one: somebody looking at a login screen with no idea what this is has nowhere
+ * TWO PLACEMENTS, TWO SHAPES. `icon` rather than `compact`, renamed 2026-08-28
+ * because the prop named the wrong axis and now names an even wronger one: the
+ * two forms differ in whether they carry a GLYPH or a LABEL, and since the
+ * worded one became a full-size `.gn-actionbtn--lg` the "compact" one is no
+ * longer the smaller of the two by any measure.
+ *
+ * The signed-out one is arguably the important one: somebody looking at a login screen with no idea what this is has nowhere
  * else to find out. Signed in it sits between the brand and Log out, where the
  * only spare width on a 390px header is an icon's worth, so `compact` is a
  * measured decision rather than a preference (see the header at 390px).
@@ -74,7 +79,7 @@ export function useOpenHelp(): () => void {
  * `onIntent` warms the chunk on pointerdown, which is the 80 to 150ms between a
  * finger going down and the click firing.
  */
-export function HelpButton({ compact, surface }: { compact?: boolean; surface: HelpSurface }) {
+export function HelpButton({ icon, surface }: { icon?: boolean; surface: HelpSurface }) {
   const openHelp = useOpenHelp();
 
   // DECIDED ONCE, ON MOUNT, and the lazy initializer is what makes that true:
@@ -102,8 +107,15 @@ export function HelpButton({ compact, surface }: { compact?: boolean; surface: H
     <button
       // The cue is its own class rather than a modifier of either form, because
       // the trigger has two and both can carry it.
-      className={`${compact ? "gn-helpbtn" : "gn-textbtn"}${cue ? " gn-cue" : ""}`}
-      aria-label={compact ? "How GameNight works" : undefined}
+      // BOTH FORMS ARE BORDERED BUTTONS NOW, which is what lets one cue work on
+      // both. The worded one used to be a `.gn-textbtn`: transparent, border: 0.
+      // `.gn-cue` sets a colour, a BORDER COLOUR and a box-shadow, and on a
+      // zero-width border the middle one paints nothing at all, so the cue was
+      // a glow around bare text with no surface under it. That was the whole of
+      // "too subtle", and it is why a private window showed nothing: a private
+      // window lands on the login screen, which was the broken surface.
+      className={`${icon ? "gn-helpbtn" : "gn-actionbtn gn-actionbtn--lg"}${cue ? " gn-cue" : ""}`}
+      aria-label={icon ? "How GameNight works" : undefined}
       onClick={() => {
         // Opening counts as delivered, on BOTH surfaces and immediately: the cue
         // is about the button being noticed, and a tap is proof that it was.
@@ -113,7 +125,7 @@ export function HelpButton({ compact, surface }: { compact?: boolean; surface: H
       }}
       {...onIntent(routes.help)}
     >
-      {compact ? "?" : "How this works"}
+      {icon ? "?" : "How this works"}
     </button>
   );
 }

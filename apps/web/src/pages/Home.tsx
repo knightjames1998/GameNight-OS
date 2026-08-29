@@ -193,7 +193,7 @@ function Groups({
               difference a single-theme check would have shipped. The brand does
               not shrink; the trigger and its gap do. */}
           <div className="flex items-center gap-1">
-            <HelpButton compact surface="home" />
+            <HelpButton icon surface="home" />
             <button className="gn-actionbtn gn-actionbtn--danger" onClick={onLogout}>
               Log out
             </button>

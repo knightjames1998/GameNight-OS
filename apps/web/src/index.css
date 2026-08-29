@@ -1246,6 +1246,24 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 .gn-actionbtn:disabled{opacity:.45;cursor:default}
 .gn-actionbtn--danger{color:var(--gn-p1-tint-ink);border-color:color-mix(in srgb, var(--gn-p1) 34%, transparent);background:color-mix(in srgb, var(--gn-p1) 8%, transparent)}
 .gn-actionbtn--danger:hover{border-color:var(--gn-danger);background:color-mix(in srgb, var(--gn-p1) 15%, transparent)}
+/* A FULL-SIZE .gn-actionbtn, for a button that has to be found rather than
+   merely available. Sits beside --danger as a modifier rather than editing the
+   base, which has other callers (Share, Night recap, Change password, change
+   date) that are correctly small and tidy.
+
+   IT EXISTS BECAUSE .gn-actionbtn IS SMALLER THAN THE .gn-textbtn IT REPLACES:
+   11.5px and 29px against 13px and 40px. Swapping straight across would have
+   made the signed-out help trigger SMALLER, which is the wrong direction for a
+   complaint that it was too subtle, and would have shrunk a tap target on the
+   one screen where a stranger has to find it. 44px is the tap target this app
+   uses elsewhere and 14px is larger than what it replaced, so this moves the
+   right way on both axes. */
+.gn-actionbtn--lg{
+  font-size:14px;
+  padding:9px 14px;
+  min-height:44px;
+  border-radius:10px;
+}
 
 /* ---- card / panel --------------------------------------------
    Edge, shadow and padding are tokens rather than literals so a theme can
@@ -1504,6 +1522,11 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
 /* MOVEMENT ONLY. See the note above: this is deliberately not the same shape as
    the two reduced-motion blocks further down, because there the animation IS the
    whole indicator and here it is a layer over one that stands still. */
+/* HOVER OUTRANKS THE CUE WITHOUT THIS. `.gn-actionbtn:hover` is a class plus a
+   pseudo-class and `.gn-cue` is one class, so the base button's hover border
+   wins and the gold vanishes under a cursor. Barely reachable on a phone, which
+   is where this button mostly lives, and one line to be right anywhere else. */
+.gn-cue:hover{border-color:color-mix(in srgb, var(--gn-gold) 70%, transparent)}
 @media (prefers-reduced-motion:reduce){.gn-cue{animation:none}}
 
 .gn-modal{
