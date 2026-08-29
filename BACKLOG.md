@@ -13,7 +13,7 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-08-28 (the cue fix and sweep session, before its own work)
-    Shipped sessions since that redraw: 1
+    Shipped sessions since that redraw: 2
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -281,6 +281,11 @@ regenerated file in the same commit as the reconcile. If the MCP canvas is unava
 session, regenerating the committed file alone still counts as the redraw.
 
 ## SHIPPED — FOUNDATION
+- [x] tv-fit CAN NOW ASK WHERE A FIXED OVERLAY COULD GO, AND THE ANSWER WAS NOWHERE (2026-08-29). The measuring half of a QR-on-every-TV session, which is where that session stopped. No product change; the harness capability and the finding are the delivery.
+  **THE REQUIREMENT WAS "NEVER OVERLAPS RELEVANT INFORMATION", AND THAT IS NOT A THING A FIXED OVERLAY CAN PROMISE.** It can only be proven, which is why the session was ordered to measure before designing. `tv-fit`'s IS SEEN already handled two fixed overlays (the rail, the connection pill); it now takes a THIRD as a CANDIDATE, four corner rectangles inset by the rail width read off the live document, evaluated in one pass per case so the answer costs one render rather than four. Size is env-overridable (`PROBE_W` / `PROBE_H`) so the question can be re-asked cheaply.
+  **THE TABLE, at 170x200** (a 130px roomy-band QR plus padding and a label, an upper bound on anything that session would have shipped): top-left 159 case/theme collisions, top-right 159, bottom-left 97, bottom-right 53. **At 104x104** (a bare 88px packed-band QR, 8px padding, no label, the smallest thing still scannable from a sofa): top-left 139, top-right 159, bottom-left 54, bottom-right 22.
+  **THE RESIDUAL IS STRUCTURAL, NOT INCIDENTAL, and that is the finding worth keeping.** Standing rule 4 puts a back button on every TV and THE PACKS DISAGREE ABOUT WHICH CORNER IT LIVES IN. Bottom-left is where most put theirs (`gn-textbtn` on the money board, ping pong, casino run); bottom-right is where Social Deduction puts `sd-tv__back`, on all four of its cases in both themes. The rest of the bottom-right residual is the event TV's own `gn-etv-foot` on all four of its cases, plus casino stat lines, Beerio's champion frame and a bracket eliminated-player chip. There is no spare corner because every screen already spends all four.
+  **SO THE FEATURE DID NOT SHIP**, per the session's own third branch: the requirement and a fixed corner overlay are incompatible, and that is a decision rather than something to compromise on quietly. See NEXT UP for what the options actually are. Gates: typecheck 4/4, 1209 tests, build clean, `tv-fit` PASS on both runs (the probe reports, it does not fail the run, because nothing is shipping into those corners). Deploy: none.
 - [x] THE SIGNED-OUT CUE GETS A SURFACE, AND THE SWEEP LEARNS TO SEE WHY IT DID NOT (2026-08-28). A three-line CSS fix and a rebaseline of ~4870 entries per theme. No schema, no server change, no new dependency.
   **THE ROOT CAUSE IN ONE LINE:** `.gn-cue` sets `color`, `border-color` and `box-shadow`, and `.gn-textbtn` is `background:transparent;border:0`. **A BORDER COLOUR ON A ZERO-WIDTH BORDER PAINTS NOTHING**, so on the signed-out screen the cue was a glow around bare text with no surface under it and only the colour survived. That is the whole of "too subtle", and it is why a Safari private window appeared to show nothing: a private window lands on the login screen, which was the broken surface. The storage path was never involved; `helpseen.ts` is untouched.
   **THE FIX REACHES FOR `.gn-actionbtn`** rather than inventing a class, but with a `--lg` modifier, because the base is 11.5px and 29px against the `.gn-textbtn` it replaces at 13px and 40px: swapping straight across would have made the trigger SMALLER, which is the wrong direction for a complaint about subtlety and a shrunk tap target on the one screen where a stranger has to find it. 14px and 44px now. Two interactions were measured rather than assumed: the transform smear does NOT happen (the animation genuinely scales, the transition list does include transform, and removing the class mid-scale still reads `none` at every frame), and hover DID outrank the cue by a pseudo-class, fixed in one line.
@@ -518,6 +523,32 @@ session, regenerating the committed file alone still counts as the redraw.
 - Shared primitives available to any new pack: FFA/placement roster, King of the Hill rotation (kothAdvance), best-of 1v1 series engine (series.ts: newSeries/recordSeriesGame/finalizeSeries/seriesGameTally/summarizeSeriesLog), single + double elim bracket engine.
 
 ## NEXT UP (queued)
+
+**OPEN AND WAITING ON JAMES (2026-08-29): ONE QR ON EVERY TV.** The phone page
+and the one-URL idea are untouched and still good; what failed measurement is
+the FIXED CORNER OVERLAY that was to point at it. Numbers in SHIPPED. The
+options, so the next session starts from choices rather than from scratch:
+
+  - **RESERVE THE CORNER IN EACH LADDER.** The honest version of the original
+    plan and the expensive one: twelve screens, each re-measured, and a fit
+    ladder has been its own session every time it has been done here. It is the
+    only option that keeps "never overlaps" true by construction.
+  - **PUT THE QR IN THE ONE PLACE EVERY TV ALREADY AGREES ON.** Every one of
+    these screens has a header or a brand line, and unlike the corners it is
+    laid out rather than overlaid, so it moves content instead of covering it.
+    Costs a header component the packs would have to adopt.
+  - **DROP "EVERY TV" AND KEEP THE PAGE.** The phone page and the master URL
+    ship on their own; the lobby's existing large QR points at it, and the
+    in-game screens carry nothing. Cheapest by a wide margin, and it loses the
+    thing the session was actually for: a QR visible once play has started.
+  - **ACCEPT A MEASURED COMPROMISE**, for instance bottom-right everywhere
+    except the four screens that collide there, with those four getting a
+    reservation. 22 collisions at the small size across Social Deduction (4
+    cases x 2 themes), the event TV (4 x 2), and five one-off casino, Beerio and
+    bracket cases.
+
+None of these is chosen. The measurement exists so the choice is informed.
+
 Priority order set by James, and the whole order was reset on 2026-08-04 (below). The top
 THREE are the committed next sessions, and the map draws exactly those three with a heavier
 stroke, so the numbering here and the emphasis there stay in step. Six are numbered because
@@ -912,6 +943,38 @@ their own number. Only overridden seats are sent (`buyIns`, keyed by roster inde
 **Deferred, do not build:** cross-pack night net. See FEATURES TO ADD.
 
 ## DECISION LOG
+
+**"NEVER OVERLAPS" IS PROVEN BY A HARNESS, NOT ASSURED BY A DESIGN** (2026-08-29).
+The general rule, written down because the QR is only the first thing that will
+want a corner.
+
+A FIXED OVERLAY CANNOT MOVE THE THING UNDER IT. That is its whole appeal (one
+mount, no ladder touched, twelve screens covered) and it is exactly why it cannot
+carry a non-overlap requirement: the guarantee would have to come from every
+layout it lands on, and those layouts are twelve files that change independently.
+So a requirement of the form "and it must never cover anything" is not a design
+constraint, it is a MEASUREMENT OBLIGATION, and the only honest way to accept one
+is to build the instrument first and let it answer.
+
+`tv-fit` was already the right instrument, because IS SEEN exists for precisely
+this: the rail taught that a fit check measuring only layout reports a pass while
+a fixed overlay eats the screen. It now takes a candidate rectangle as a third
+overlay, which turns "will this cover anything" from a judgement into a table.
+
+**AND THE ANSWER WAS NO.** Four corners, both themes, every case, at a generous
+size and again at the smallest scannable one: nothing is clear. The reason is
+worth more than the number. STANDING RULE 4 PUTS A BACK BUTTON ON EVERY TV AND
+THE PACKS DISAGREE ABOUT WHICH CORNER IT LIVES IN, so between the back buttons,
+the event TV's footer and the casino stat lines, every screen already spends all
+four corners. There is no spare real estate on a television in this app, and
+that is now a measured fact rather than an intuition.
+
+THE PROCESS POINT, which is the part to carry: the session was ordered to measure
+before designing, with an instruction to STOP and report if no corner was clear.
+That branch fired. A session that had picked a corner first would have shipped
+bottom-right, which collides on 53 case/themes at the intended size, and the
+requirement would have been quietly false on two thirds of the screens.
+
 
 **A BORDER COLOUR ON A ZERO-WIDTH BORDER PAINTS NOTHING, AND IT HAS NOW SHIPPED
 TWICE** (2026-08-28). Written as the general rule rather than as two anecdotes,
