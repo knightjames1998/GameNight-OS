@@ -317,6 +317,48 @@ const TRACKED_PROPS = [
   "background-position",
   "background-blend-mode",
   "mix-blend-mode",
+  // DOES THE BORDER EXIST, added 2026-08-28 after this gap shipped a bug TWICE.
+  //
+  // The four border COLOURS have been tracked since this file was written and
+  // the four widths were not, which sounds like an oversight and is worse than
+  // one: a colour on a zero-width border resolves PERFECTLY CORRECTLY and paints
+  // nothing at all. So the sweep did not merely fail to see the width, it
+  // actively reported the element as fine.
+  //
+  // Twice, on two unrelated elements, both shipped, both green here:
+  //   - `--gn-card-border` is 2px in Arcade and 0px in TABLETOP, so an accent
+  //     edge written as a border-colour override on `.gn-card` drew nothing on
+  //     felt (the pinned details card, 2026-08-26).
+  //   - `.gn-textbtn` is `border: 0`, so the first-visit cue's gold border
+  //     painted nothing on the signed-out screen (2026-08-28, this session).
+  //
+  // Adding these rebaselines every route, which is the entire cost of the
+  // change, and the diff it produced is the deliverable rather than these four
+  // lines. See the decision log.
+  "border-top-width",
+  "border-right-width",
+  "border-bottom-width",
+  "border-left-width",
+  // IS THE TEXT STRUCK THROUGH, added in the same commit and for the same money.
+  //
+  // `text-decoration-color` was tracked and the LINE was not, so the sweep could
+  // see that a link went blue and not that it was underlined. That half is
+  // cosmetic; this half is not. `line-through` is how a television board says
+  // somebody is OUT, on `.gn-slot--lose`, `.gn-bkt-nm`, `.gn-tv-slot--lose`,
+  // `.gn-tva--out` and the rest of the eliminated-player family. A theme that
+  // dropped the strike would have kept the colour, passed this sweep, and lost
+  // the only mark saying the player is gone.
+  //
+  // Both gaps were logged as separate Watch entries in BACKLOG. The whole cost
+  // of either is the rebaseline, so paying it twice would have been silly.
+  "text-decoration-line",
+  // NOT box-model lengths (padding, margin, width, gap), which is the third
+  // Watch entry and stays OPEN on purpose. THE LINE THIS FILE HOLDS IS MEANING,
+  // NOT LAYOUT: does the border exist, is the text struck through, what colour
+  // is it. How much padding something has is layout, layout moves on ordinary
+  // feature work, and a diff that moves every time teaches whoever reads it to
+  // rubber-stamp it. A sweep nobody reads is worse than no sweep, because it
+  // also costs a rebaseline argument every session.
 ];
 
 // ---------------------------------------------------------------- CDP client
@@ -668,7 +710,20 @@ const COLLECT_RULES = (props) => `(async () => {
       // Only rules that speak to paint at all. Without this the snapshot fills
       // up with thousands of identical inherited defaults from layout rules,
       // and a real difference has somewhere to hide.
-      if (!/(color|background|border|shadow|outline|fill|stroke|font|opacity|radius)/i.test(bodies.join(';'))) continue;
+      // DECORATION added 2026-08-28 with text-decoration-line, and finding out
+      // it was needed is the reason that property change was worth READING
+      // rather than accepting. Adding the property alone did NOT close the gap:
+      // this filter runs first, and a rule whose only declaration is
+      // text-decoration:line-through matches none of the other words, so the
+      // probe never saw it. .gn-tv-slot--lose came through because it also sets
+      // a colour; .gn-bkt-slot--lose .gn-bkt-nm sets nothing else and stayed
+      // invisible even after the property was tracked. A half-closed gap that
+      // reports itself as closed is worse than an open one.
+      //
+      // (No backticks in this comment on purpose: it lives inside a template
+      // literal, and the first draft of it closed that literal on its own first
+      // character. The sweep would not parse at all.)
+      if (!/(color|background|border|shadow|outline|fill|stroke|font|opacity|radius|decoration)/i.test(bodies.join(';'))) continue;
       // ONE RULE PER ORIGINAL RULE, not one merged block, and the difference is
       // not cosmetic. Lightning CSS emits a color-mix() twice, as an opaque
       // var() fallback and again inside @supports. Concatenated into a single
