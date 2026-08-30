@@ -691,7 +691,7 @@ Wanted, not yet scheduled into a session.
 
 ## BUGS
 Open first, then environment traps worth remembering, then fixed (fixed items age out after a couple of map redraws).
-- OPEN: SMASH AND MARIO PARTY DO NOT FIT A 1080p SCREEN, AND NOTHING HAS EVER ASKED. Found 2026-08-30 by the QR session, whose last step was adding their cases to `tv-fit` so it could claim they fit. They have no density ladder and had never been in that file at all, so these are the numbers as they have been shipping, measured with the QR suppressed so the figures are the pre-existing ones:
+- OPEN: SMASH AND MARIO PARTY DO NOT FIT A 1080p SCREEN, AND MARIO PARTY IS OVER AT ITS OWN CAP. Found 2026-08-30 by the QR session, whose last step was adding their cases to `tv-fit` so it could claim they fit. They have no density ladder and had never been in that file at all, so these are the numbers as they have been shipping, measured with the QR suppressed so the figures are the pre-existing ones:
 
       smash        8 ffa        fits, 201px to spare
       smash       16 ffa        OVER by 367
@@ -699,6 +699,40 @@ Open first, then environment traps worth remembering, then fixed (fixed items ag
       smash       16 smashdown  OVER by 787
       mario party  8 boards     OVER by  76
       mario party 16 boards     OVER by 738
+
+  **RE-MEASURED 2026-08-30 BY THE TAG BATTLE SESSION, WITH THE QR IN PLACE**, which is how
+  these screens now ship. The figures above were taken with the QR suppressed, so each is
+  about 26px light: the header row grew 97px to 123px when the QR went in, and 76 + 26
+  lands on the 101 below. Same screen reported two ways, not a regression. THESE ARE THE
+  CURRENT NUMBERS:
+
+      smash        8 ffa        fits, 175px to spare
+      smash       16 ffa        OVER by  392
+      smash       16 koth       OVER by  820
+      smash       16 smashdown  OVER by  812
+      mario party  4 boards     OVER by  101      <- the cap, never measured before
+      mario party  8 boards     OVER by  101
+      mario party 16 boards     OVER by  763
+      mario party  4 tag        OVER by  101      <- tag costs NOTHING here
+      mario party  8 tag        OVER by  584
+      mario party 16 tag        OVER by 1650
+
+  **TAG BATTLE COSTS THIS SCREEN NOTHING AT THE ONLY COUNT IT CAN REACH, which is the
+  opposite of what the session was scoped on.** The brief said a side line makes the
+  overflow worse. At FOUR, which is what this pack caps its roster at, `4 boards` and
+  `4 tag` are both 1181: byte for byte the same overflow. The pairing line lands beside a
+  boards panel that is already the taller of the two columns, so it costs nothing until
+  the players column overtakes it. The 483px at eight and the 887px at sixteen are real
+  and both unreachable, and what costs the height there is the SIDE LABEL WRAPPING rather
+  than the line itself: `sideLabel` joins every member's name, so a side of eight is one
+  very long string. Worth knowing when the ladder is built, and not a reason to shorten
+  the label for a shape the pack cannot produce.
+
+  **AND THE ENTRY ABOVE WAS WRONG ABOUT WHICH COUNT MATTERS.** It reads "Mario Party is
+  over at EIGHT, which is an ordinary night". Eight is not an ordinary night here, it is
+  not reachable at all: the setup screen caps the roster at four. FOUR is over by 101, and
+  it had no case in `tv-fit` until 2026-08-30, so the number that mattered most was the
+  one nobody had measured. The case exists now.
 
   **BOTH ARE REACHABLE FROM THE PACKS' OWN SETUP SCREENS**, and Mario Party is over at EIGHT, which is an ordinary night. The header row grew 97px to 123px with the QR, so 26px of each figure is that session and the rest was already there.
   **NOT FIXED THERE, ON PURPOSE.** Every other pack got its ladder in a session of its own, measured rung by rung; bolting two on at the end of a QR session would be guessing at rungs nobody has looked at. The five cases that are over are named in `tv-fit`'s `KNOWN`, the one that fits is deliberately not, so a session picking this up deletes an entry and watches the run go red. **THE LESSON IS THE SAME ONE THE BRACKET CEILING TAUGHT, one level up: a screen with no harness case is untested by construction, and it stays that way until somebody adds the case.**

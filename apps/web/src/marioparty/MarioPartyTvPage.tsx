@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { SESSION_PACKS } from "@gamenight/shared";
+import { SESSION_PACKS, currentSides, hasTeamStructure, sideLabel, type SideLog } from "@gamenight/shared";
 import { api } from "../api";
 import BackButton from "../BackButton";
 import { usePackLive } from "../useLiveUpdates";
@@ -10,10 +10,38 @@ import "./marioparty.css";
 interface TvSession {
   status: string;
   games: { idx: number; map: string }[];
+  roster?: { id: string; name: string }[];
+  /** Backfilled server-side by normalizeMpState, so it is always present. */
+  sideLog?: SideLog;
   summary: {
-    players: { playerId: string; name: string; games: number; wins: number; totalStars: number; mainCharacter: string | null }[];
+    players: {
+      playerId: string;
+      name: string;
+      games: number;
+      wins: number;
+      /** SOLO stars only. A tag board's total belongs to the SIDE. */
+      totalStars: number;
+      tagStars: number;
+      tagGames: number;
+      mainCharacter: string | null;
+    }[];
     boards: { map: string; games: number }[];
   };
+}
+
+/**
+ * A player's star figure for the big screen, solo and tag kept apart.
+ *
+ * ADDING THEM WOULD BE WRONG, not merely imprecise: a tag board's total is the
+ * SIDE's and is written to both members, so one number would show the pair
+ * having scored it twice. On a tag-only night the solo half is zero and would
+ * read as a crew who scored nothing, which is why the tag figure stands alone
+ * when there is no solo half rather than trailing a "0★".
+ */
+function starText(p: { totalStars: number; tagStars: number; tagGames: number; games: number }): string {
+  if (!p.tagGames) return `${p.totalStars}★`;
+  if (p.tagGames === p.games) return `${p.tagStars}★ tag`;
+  return `${p.totalStars}★ · ${p.tagStars}★ tag`;
 }
 
 // Route param on /marioparty/tv/:eventId, or a prop when the event TV route
@@ -55,6 +83,9 @@ export default function MarioPartyTvPage({ eventId: propEventId }: { eventId?: s
   }
 
   const leader = session.summary.players[0];
+  const log = session.sideLog ?? [];
+  const teamPlay = hasTeamStructure(log);
+  const nameOf = (id: string) => session.roster?.find((p) => p.id === id)?.name;
 
   return (
     <div className="mp-tv">
@@ -67,18 +98,29 @@ export default function MarioPartyTvPage({ eventId: propEventId }: { eventId?: s
       {leader && leader.games > 0 && (
         <div style={{ marginTop: "2vmin" }}>
           <div className="mp-tv__muted" style={{ fontSize: "2.6vmin" }}>★ In the lead</div>
-          <div className="mp-tv__lead">{leader.name} <span style={{ fontSize: "3.4vmin" }} className="mp-tv__muted">{leader.wins}W · {leader.totalStars}★</span></div>
+          <div className="mp-tv__lead">{leader.name} <span style={{ fontSize: "3.4vmin" }} className="mp-tv__muted">{leader.wins}W · {starText(leader)}</span></div>
         </div>
       )}
 
       <div className="mp-tv__grid">
         <div className="mp-tv__panel">
           <h3>Players</h3>
+          {/* THE PAIRING IS ONE LINE PER SIDE, not a row per player. A row per
+              player would say the same thing twice and cost this screen a line
+              it does not have: the panel is already over 1080p at eight boards
+              (BUGS). The players below still list individually, because that is
+              where the wins and the characters are. */}
+          {teamPlay && (
+            <div className="mp-tv__line" style={{ fontSize: "2.2vmin" }}>
+              <span className="mp-tv__muted">Tag Battle</span>
+              <span className="mp-tv__muted">{currentSides(log).map((sd) => sideLabel(sd, nameOf)).join("  v  ")}</span>
+            </div>
+          )}
           {session.summary.players.length === 0 && <div className="mp-tv__muted">No boards yet</div>}
           {session.summary.players.map((p) => (
             <div className="mp-tv__line" key={p.playerId}>
               <span>{p.name} {p.mainCharacter ? <span className="mp-tv__muted" style={{ fontSize: "2.2vmin" }}>({p.mainCharacter})</span> : null}</span>
-              <span>{p.wins}W · {p.totalStars}★</span>
+              <span>{p.wins}W · {starText(p)}</span>
             </div>
           ))}
         </div>

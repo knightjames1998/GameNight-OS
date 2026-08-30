@@ -738,6 +738,26 @@ const MEASURE = (PROOF) => `(()=>{
   // its own styled one in its header"), so the sentence above was true of every
   // BackButton and quietly false of the one screen that does not have one. It
   // reported "no button" the first time it was ever measured.
+  //
+  // CHECKED 2026-08-30 AND DELIBERATELY NOT EXTENDED. The Tag Battle session
+  // was scoped to add .mp-textbtn here, on the belief that Mario Party's TV had
+  // been reporting "no button" and having its rule-4 check skipped for as long
+  // as its cases have existed. IT HAD NOT. BackButton renders the shared class
+  // FOLLOWED BY whatever className it is given, so every pack using the shared
+  // component matches this selector whatever it passes: Mario Party renders
+  // .gn-textbtn.mp-textbtn, and the harness already names it by exactly that
+  // pair in its own lowest-ink output. Verified across the whole suite rather
+  // than on one screen: "no button" appears ZERO times in a full run.
+  //
+  // The survey that settled it, kept because the next person will wonder the
+  // same thing. Casino Run, Deduction, Mario Kart, Mario Party, Ping Pong,
+  // Smash and both shell TVs use the shared BackButton and are matched by
+  // .gn-textbtn. The money board wraps one in a .cg-tv__back DIV that carries
+  // the margin, which is why that class is here: it names the element the fit
+  // should be measured to, not a rescue for a missing match. Beerio's is the
+  // one genuinely separate button. ADDING A PER-PACK CLASS WOULD MAKE THIS LOOK
+  // LIKE A LIST THAT NEEDS MAINTAINING, which is the exact failure the first
+  // paragraph above describes and this selector was written to end.
   const back = document.querySelector('.gn-textbtn, .cg-tv__back, .beerio-tv-back');
   const bb = back ? back.getBoundingClientRect() : null;
   const lvw2 = document.documentElement.clientWidth, lvh2 = document.documentElement.clientHeight;
@@ -850,14 +870,34 @@ const smash = (n, format = "ffa") => {
   } };
 };
 
-const marioparty = (n) => {
-  const players = Array.from({ length: n }, (_, i) => ({
-    playerId: "p" + i, name: "Player Nameiskindalong " + (i + 1),
-    games: 9, wins: 6 - i > 0 ? 6 - i : 0, totalStars: 40 - i * 3,
+// `tag` puts the roster on two sides, which adds ONE line to the players panel
+// (the pairing, one line per side rather than a row per player) and swaps every
+// star figure for the solo/tag pair. Both cost height on a screen that is
+// already over, which is why the tag cases are measured rather than assumed to
+// land near the solo ones.
+const marioparty = (n, tag = false) => {
+  const roster = Array.from({ length: n }, (_, i) => ({ id: "p" + i, name: "Player Nameiskindalong " + (i + 1) }));
+  const players = roster.map((p, i) => ({
+    playerId: p.id, name: p.name,
+    games: 9, wins: 6 - i > 0 ? 6 - i : 0,
+    totalStars: tag ? 0 : 40 - i * 3,
+    tagStars: tag ? 40 - i * 3 : 0,
+    tagGames: tag ? 9 : 0,
     mainCharacter: "Character Name " + (i + 1),
   }));
+  // TWO SIDES, the whole roster split down the middle, because maxSides is 2.
+  // The label is every member's name joined, so a wide pairing is the honest
+  // worst case for the line this adds rather than a two-name best case.
+  const half = Math.ceil(n / 2);
   return { session: {
     status: "live",
+    roster,
+    sideLog: tag
+      ? [{ fromIdx: 0, sides: [
+          { id: "a", name: "Side A", memberIds: roster.slice(0, half).map((p) => p.id) },
+          { id: "b", name: "Side B", memberIds: roster.slice(half).map((p) => p.id) },
+        ] }]
+      : [{ fromIdx: 0, sides: roster.map((p, i) => ({ id: "s" + i, name: "Side", memberIds: [p.id] })) }],
     games: Array.from({ length: 9 }, (_, i) => ({ idx: i, map: "Board Name Number " + (i + 1) })),
     summary: { players, boards: Array.from({ length: 9 }, (_, i) => ({ map: "Board Name Number " + (i + 1), games: 1 })) },
   } };
@@ -924,8 +964,21 @@ const CASES = [
   ["smash       16 ffa", "/smash/tv/x", smash(16), ".sm-tv__line"],
   ["smash       16 koth", "/smash/tv/x", smash(16, "koth"), ".sm-tv__line"],
   ["smash       16 smashdown", "/smash/tv/x", smash(16, "smashdown"), ".sm-tv__line"],
+  // FOUR IS THE ONLY COUNT THIS PACK CAPS AT, and it had no case until
+  // 2026-08-30. Without it the tag cases below could only be compared against
+  // EIGHT, which is a different shape, so what Tag Battle actually costs on a
+  // real board would have been an inference rather than a measurement.
+  ["mario party  4 boards", "/marioparty/tv/x", marioparty(4), ".mp-tv__line"],
   ["mario party  8 boards", "/marioparty/tv/x", marioparty(8), ".mp-tv__line"],
   ["mario party 16 boards", "/marioparty/tv/x", marioparty(16), ".mp-tv__line"],
+  // TAG BATTLE, added 2026-08-30 with the format. Four is the real shape (a
+  // 2v2 is what the pack caps at) and the two large counts are past the cap on
+  // purpose, the same way card table's sixteen is: they do not have to be
+  // reachable, they have to show what the extra line and the wider star figure
+  // cost on a screen this file already reports as over.
+  ["mario party  4 tag", "/marioparty/tv/x", marioparty(4, true), ".mp-tv__line"],
+  ["mario party  8 tag", "/marioparty/tv/x", marioparty(8, true), ".mp-tv__line"],
+  ["mario party 16 tag", "/marioparty/tv/x", marioparty(16, true), ".mp-tv__line"],
   ["deduction   6 players", "/deduction/tv/x", deduction(6), ".sd-p"],
   ["deduction  12 players", "/deduction/tv/x", deduction(12), ".sd-p"],
   ["deduction  16 players", "/deduction/tv/x", deduction(16), ".sd-p"],
@@ -1119,33 +1172,62 @@ const CASES = [
 // SMASH AND MARIO PARTY HAVE NO DENSITY LADDER AND HAVE NEVER BEEN IN THIS FILE.
 // Adding their cases was the last step of putting a QR on every television, and
 // it turned up two pack TVs that run off the bottom of a 1080p screen on their
-// own, by hundreds of pixels, in both themes. Measured with the QR suppressed,
-// so these are the numbers as they have been shipping:
+// own, by hundreds of pixels, in both themes.
 //
-//   smash        8 ffa        fits, 201px to spare
-//   smash       16 ffa        OVER by 367
-//   smash       16 koth       OVER by 794
-//   smash       16 smashdown  OVER by 787
-//   mario party  8 boards     OVER by  76
-//   mario party 16 boards     OVER by 738
+// RE-MEASURED 2026-08-30 by the Tag Battle session, WITH THE QR IN PLACE, which
+// is how these screens now ship. The 08-30 QR figures below were taken with the
+// QR suppressed, so each is about 26px light: the header row grew 97px to 123px
+// when the code went in, and 76 + 26 lands on the 101 measured here. That is
+// the same screen reported two ways, not a regression.
 //
-// The header row grew 97px to 123px on both, so 26px of each figure is this
-// session and the rest was already there. Sixteen players is reachable in both
-// packs from their own setup screens, and Mario Party is over at EIGHT.
+//                       measured    previously recorded
+//   smash        8 ffa   fits, 175 to spare   fits, 201 to spare
+//   smash       16 ffa        OVER by  392    OVER by  367
+//   smash       16 koth       OVER by  820    OVER by  794
+//   smash       16 smashdown  OVER by  812    OVER by  787
+//   mario party  4 boards     OVER by  101    (never measured)
+//   mario party  8 boards     OVER by  101    OVER by   76
+//   mario party 16 boards     OVER by  763    OVER by  738
+//   mario party  4 tag        OVER by  101    (new)
+//   mario party  8 tag        OVER by  584    (new)
+//   mario party 16 tag        OVER by 1650    (new)
 //
-// NOT FIXED HERE ON PURPOSE. Every other pack on this list got a ladder in a
-// session of its own, measured rung by rung, because that is what a ladder
-// costs; bolting two on at the end of a QR session would be guessing at rungs
-// nobody has looked at. Written down with the numbers, and in BACKLOG, so the
-// next session starts from a measurement instead of a discovery. The two
-// entries that FIT are deliberately absent: KNOWN excuses a case from the
-// check, so a case that passes must never be in it.
+// TWO THINGS THE TAG CASES SETTLED, and both were the opposite of the guess the
+// session was scoped on.
+//
+// FIRST, TAG BATTLE COSTS THIS SCREEN NOTHING AT THE ONLY COUNT IT CAN REACH.
+// The session expected the pairing line to make the overflow worse. At FOUR,
+// which is what this pack caps at, "4 boards" and "4 tag" are both 1181: byte
+// for byte the same overflow. The pairing line lands beside a boards panel that
+// is already the taller of the two columns, so it costs nothing until the
+// players column overtakes it. The 483px at eight and 887px at sixteen are real
+// and are also unreachable: those counts are past the roster cap, and the cost
+// there is the SIDE LABEL WRAPPING (it joins every member's name, so a side of
+// eight is one very long string), not the line itself.
+//
+// SECOND, THIS PACK IS OVER AT ITS OWN CAP, which is worse than what was
+// written down. The 08-30 entry said "Mario Party is over at EIGHT, which is an
+// ordinary night". Eight is not reachable: the setup screen caps the roster at
+// four. FOUR is over by 101, and it had no case at all until this session added
+// one, so the number that mattered most was the one nobody had measured.
+//
+// NOT FIXED HERE ON PURPOSE, unchanged from 08-30. Every other pack on this
+// list got a ladder in a session of its own, measured rung by rung, because
+// that is what a ladder costs; bolting one on at the end of a session this size
+// would be guessing at rungs nobody has looked at. Written down with the
+// numbers, and in BACKLOG, so the next session starts from a measurement
+// instead of a discovery. The entries that FIT are deliberately absent: KNOWN
+// excuses a case from the check, so a case that passes must never be in it.
 const KNOWN = new Set([
   "smash       16 ffa",
   "smash       16 koth",
   "smash       16 smashdown",
+  "mario party  4 boards",
   "mario party  8 boards",
   "mario party 16 boards",
+  "mario party  4 tag",
+  "mario party  8 tag",
+  "mario party 16 tag",
 ]);
 let newOverlaps = 0;
 let stale = 0;
