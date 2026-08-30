@@ -80,6 +80,11 @@ const ROUTES = [
   // measures the deep-linked case (param present at load) into the bargain.
   "/?help=1",
   "/g/x", "/e/x", "/e/x/recap", "/e/x/tv", "/b/x", "/tv/x",
+  // The page behind every television's QR, added 2026-08-29 with it. PUBLIC and
+  // signed out is its normal state, which the sweep already is; it paints out
+  // of index.css like the rest of the shell, and it is the one screen a person
+  // who has never used this app will ever look at.
+  "/e/x/live",
   // The tournament's setup step, added 2026-08-17 with the roster screen. It is
   // a shell screen rather than a pack one, so it paints out of index.css and the
   // interesting question here is the same as for /b/x: that it followed.
@@ -203,6 +208,49 @@ const API_STUB = {
    * without them sweeps a page with no anchor and reports that the link colour
    * is fine because it never saw one.
    */
+  /**
+   * THE NIGHT'S TV PAYLOAD, AND IT HAD NO STUB EITHER. `/e/x/tv` has been in
+   * ROUTES since that list was written and has been sweeping its LOADING state
+   * the whole time, which is one line of hint text: the between-games face, its
+   * standings columns, its result rows and its QR plate have all been
+   * unmeasured. Same gap `/e/x` had until 2026-08-26, same fix.
+   *
+   * IT CARRIES A RECAP AND A LIFETIME TABLE deliberately, and `now: null`, so
+   * the route paints the BETWEEN-GAMES face rather than the empty lobby: that
+   * is the state with every kind of element on it. One stub serves two routes,
+   * since the phone page behind every television's QR reads the same endpoint.
+   */
+  "/api/tv/event/x": {
+    event: { id: "x", title: "Sweep Night", scheduledFor: "2026-09-03T23:00:00.000Z", groupName: "Crew A" },
+    now: null,
+    lobby: {
+      yes: ["Ana", "Bo", "Cass", "Dev"],
+      inviteCode: "AAAA",
+      recap: {
+        eventId: "x", title: "Sweep Night", scheduledFor: "2026-09-03T23:00:00.000Z",
+        groupName: "Crew A", totalGames: 6,
+        games: [
+          { gameName: "Poker", label: null, format: null, pack: "poker", winnerName: "Ana" },
+          { gameName: "Mario Kart", label: null, format: "grand_prix", pack: "mariokart", winnerName: "Bo" },
+        ],
+        sessions: [
+          { gameName: "Poker", pack: "poker", format: null, label: "Table one", matches: 4, winnerName: "Ana", winnerWins: 3 },
+          { gameName: "Mario Kart", pack: "mariokart", format: "grand_prix", label: null, matches: 2, winnerName: "Bo", winnerWins: 2 },
+        ],
+        players: [
+          { userId: "u1", name: "Ana", games: 6, wins: 3, avgPlacement: 1.5 },
+          { userId: "u2", name: "Bo", games: 6, wins: 2, avgPlacement: 2.1 },
+          { userId: "u3", name: "Cass", games: 5, wins: 1, avgPlacement: 2.8 },
+        ],
+        mvp: { userId: "u1", name: "Ana" },
+      },
+      lifetime: [
+        { userId: "u1", name: "Ana", games: 40, wins: 22, avgPlacement: 1.6 },
+        { userId: "u2", name: "Bo", games: 37, wins: 15, avgPlacement: 2.2 },
+        { userId: "u3", name: "Cass", games: 31, wins: 9, avgPlacement: 2.9 },
+      ],
+    },
+  },
   "/api/events/x": {
     id: "x",
     groupId: "g1",

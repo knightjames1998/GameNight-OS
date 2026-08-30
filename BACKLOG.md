@@ -13,7 +13,7 @@ Read this FIRST, before any other work. The redraw rule is driven by this counte
 anyone's memory of how many sessions have happened.
 
     Last map redraw:                    2026-08-28 (the cue fix and sweep session, before its own work)
-    Shipped sessions since that redraw: 2
+    Shipped sessions since that redraw: 3
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -281,6 +281,22 @@ regenerated file in the same commit as the reconcile. If the MCP canvas is unava
 session, regenerating the committed file alone still counts as the redraw.
 
 ## SHIPPED — FOUNDATION
+- [x] ONE QR ON EVERY TV, AND A PHONE PAGE BEHIND IT (2026-08-30). Five commits. One address on every television in the house, all evening, and a public page behind it that a guest with no account can read. No schema, no new dependency, no new component adopted by any pack.
+  **IT IS LAID OUT, NOT OVERLAID, AND THAT IS THE WHOLE DESIGN.** Yesterday's corner probe measured every case in both themes and found no corner clear at any size (numbers in the entry below). A fixed overlay cannot move what is under it, which is its appeal and exactly why it cannot promise not to cover anything. A row child moves content instead. James chose the header line; this is that.
+  **STANDING RULE 3 WAS NEVER IN PLAY, and the NEXT UP entry that predicted "costs a header component the packs would have to adopt" was wrong in an interesting way.** What is shared is a code and a LAYOUT CONTRACT: every pack already has a brand row, every pack keeps its own markup, type, colours and class names, and every pack gains ONE MORE CHILD at the end of that row. `TvQr.tsx` knows nothing about what a pack looks like. The one thing it does impose is a WHITE PLATE, and that is functional rather than stylistic: a camera needs contrast and a quiet zone, and this lands on felt, baize and a Smash red. Its two colours are tokens declared IDENTICALLY in both theme blocks, deliberately, so the sweep MEASURES the exemption rather than having a blind spot where one is.
+  **THE QUIET ZONE IS A MEASUREMENT, NOT A MARGIN.** At the 88px floor this renders 25 modules, so a module is 3.52px and the four the spec asks for are 14.1px. The first draft cleared 3.07 modules on the plate and 2.45 to the caption: short on both, on the one part of this that either works or does not. Both are 1.6vmin now, which is 4.9 modules, and a longer URL packs more modules into the same 88px so the real one on gamenightos.app clears it by more.
+  **THE CAPTION SITS BESIDE THE CODE BECAUSE HEIGHT IS THE SCARCE DIMENSION.** Stacked it made a 152px block for an 88px code; beside, 123px tall and 269px wide. In a header line every screen has room to the right and none to spare below.
+  **WHAT IT COSTS, PER SCREEN, MEASURED AT 1920x1080 IN BOTH THEMES.** The header row is 123px on every television. It was 97px on most, 71px on Social Deduction, and 58px on poker's densest band, so the DENSEST screens pay the most: the ladder scales type and padding and cannot scale a QR. Thirteen cases went past 1080p when the slot landed and all thirteen fit now.
+  **THE LADDERS PAID FOR IT, IN THE SAME COMMIT AS THE SLOT.** The band above every brand went 4vmin to 2vmin, and 1.6vmin on the dense casino rungs. NOT LOWER: Tabletop paints a 14px rail across the top of every screen and a plate under the timber is the fit check's other question failing. Title night's floor rung gives a tenth of a vmin per row, which is what Tabletop needed at sixteen players.
+  **AND POKER'S SETTLEMENT BAND HAD NEVER JOINED THE LADDER**, which is why poker at twelve seats was 42px over while every other casino screen was within 12. It sits below the shared board and grew a row per payment at a fixed 2.1vmin however full the table was. A block that opts out of the ladder decides the rungs are wrong, silently, on exactly the screens the rungs exist for.
+  **THE PHONE PAGE IS PUBLIC AND THAT IS THE THING THAT FAILS SILENTLY.** `/e/:id/live` takes no `me`, its route hands it none, and it reads exactly one endpoint: `/api/tv/event/:id`, the same public resolver the big screen reads, so the phone and the television can never quote different numbers for the same person. The one person it exists for is guaranteed not to have an account, and a page that quietly starts needing one keeps working perfectly for everybody who built it.
+  **ONE SERVER CHANGE, AND IT IS THE FEATURE RATHER THAN SCOPE CREEP.** That endpoint skipped the lobby reads entirely while a game was live, with a comment saying why: nothing rendered them then. This page makes that false, because mid-game is exactly when a code on a television gets scanned. IT IS A FLAG (`?standings=1`), NOT AN UNCONDITIONAL READ, and the reason is the hot path: `EventTvPage` re-resolves this endpoint on every pack websocket event, which is every score in every game on every television, and two aggregate reads there would be paid a few hundred times an evening for data the big screen does not render. The televisions send nothing and pay nothing. The decision is a pure function so it can be tested, the same split `resolveNow` exists for.
+  **THE LOBBY'S OWN QR POINTED SOMEWHERE ELSE AND ONE BRANCH OF IT WAS BROKEN.** It carried the join flow when the night had an invite code and `/e/:id` when it did not, and that fallback is behind the authed router: a guest scanning the big screen on a night with no code landed on a sign-in wall. It now carries the same slot, sized by its own band (130px at roomy down to 88 at packed). That bespoke box also had a hardcoded `#17111f`, a Tailwind `bg-white` in a codebase whose standing rule is tokens only, and no quiet zone worth the name. Nobody loses the way in: the join button lives on the page the code opens.
+  **THE WAITING SCREENS TOO**, and on reflection they are the likeliest thing in the house to be scanned: they are what is up while people arrive, and the phone page reads the NIGHT rather than a pack's session, so it has the RSVP list and the crew's record to show while there is nothing on the table. NOT on the loading flash: both waiting components take the event as optional and the packs omit it before they know whether there is a session at all, because a code that appears for 200ms and vanishes is worse than no code.
+  **THE BRACKET TV KEEPS ITS OWN, DELIBERATELY.** `/tv/:id` says "scan to score", points at `/b/:bracketId`, is for the person running the tournament, and has no event to point anywhere else with. Converting it would have been tidiness at the cost of the one thing it does. Asserted, so it stays.
+  **THE FIT HARNESS GAINED A THIRD QUESTION AND IT IS THE ONE THAT MAKES THE OTHER TWO HONEST.** FITS asks whether the layout ends inside the screen; IS SEEN asks whether a fixed overlay covers it; neither notices a flex board that shrinks to absorb a taller header and hides its last rows inside its own overflow, which a television has nobody to scroll. Its first run reported 130 hits and every one was a long name in a tile with `text-overflow: ellipsis`, so a box that says it truncates is now taken at its word and only the silent kind is reported. That leaves exactly one, in BUGS.
+  **AND THE CORNER PROBE IS PUT AWAY, NOT THROWN AWAY**, behind `PROBE_CORNERS=1`. It answered its question; the code stays so the next person who wants a corner can ask rather than argue, and rebuilding a measurement is how a project ends up with two that disagree.
+  **VERIFICATION.** typecheck 4/4; 1226 tests, up from 1209, of which 12 are new and 8 were negative-controlled by breaking the thing they watch; build clean; `tv-fit` PASS. **THE SWEEP MOVED NOTHING:** 4546 differences in Arcade and 4545 in Tabletop, and ZERO of them a value that changed on an element present in both. 3952 additions (the new blocks, the new route's whole page, and re-indexed paths for the wrapped brand rows), 594 removals, of which 74 per theme are the bespoke lobby QR box being replaced by the shared one and the rest are the same values at re-indexed paths. The sweep also gained a stub for `/api/tv/event/x`, which `/e/x/tv` has been in ROUTES without since that list was written: it has been sweeping its LOADING state the whole time, so the between-games face, its standings columns and its result rows have all been unmeasured. Same gap `/e/x` had, same fix, and one stub serves both routes. `screens-baseline` RE-PINNED on 5 of 32 snapshots, all of them TV screens and all by exactly the expected delta: the caption in the text, and the header's growth minus the padding trim. Deploy: the push, no schema.
 - [x] tv-fit CAN NOW ASK WHERE A FIXED OVERLAY COULD GO, AND THE ANSWER WAS NOWHERE (2026-08-29). The measuring half of a QR-on-every-TV session, which is where that session stopped. No product change; the harness capability and the finding are the delivery.
   **THE REQUIREMENT WAS "NEVER OVERLAPS RELEVANT INFORMATION", AND THAT IS NOT A THING A FIXED OVERLAY CAN PROMISE.** It can only be proven, which is why the session was ordered to measure before designing. `tv-fit`'s IS SEEN already handled two fixed overlays (the rail, the connection pill); it now takes a THIRD as a CANDIDATE, four corner rectangles inset by the rail width read off the live document, evaluated in one pass per case so the answer costs one render rather than four. Size is env-overridable (`PROBE_W` / `PROBE_H`) so the question can be re-asked cheaply.
   **THE TABLE, at 170x200** (a 130px roomy-band QR plus padding and a label, an upper bound on anything that session would have shipped): top-left 159 case/theme collisions, top-right 159, bottom-left 97, bottom-right 53. **At 104x104** (a bare 88px packed-band QR, 8px padding, no label, the smallest thing still scannable from a sofa): top-left 139, top-right 159, bottom-left 54, bottom-right 22.
@@ -524,30 +540,32 @@ session, regenerating the committed file alone still counts as the redraw.
 
 ## NEXT UP (queued)
 
-**OPEN AND WAITING ON JAMES (2026-08-29): ONE QR ON EVERY TV.** The phone page
-and the one-URL idea are untouched and still good; what failed measurement is
-the FIXED CORNER OVERLAY that was to point at it. Numbers in SHIPPED. The
-options, so the next session starts from choices rather than from scratch:
+**ANSWERED AND SHIPPED (2026-08-30): ONE QR ON EVERY TV.** James chose the
+second option below, THE HEADER LINE, and it shipped over five commits. See
+SHIPPED. Kept here only because the four options and the reason one of them won
+are worth a minute to the next person weighing a fixed overlay:
 
-  - **RESERVE THE CORNER IN EACH LADDER.** The honest version of the original
-    plan and the expensive one: twelve screens, each re-measured, and a fit
-    ladder has been its own session every time it has been done here. It is the
-    only option that keeps "never overlaps" true by construction.
-  - **PUT THE QR IN THE ONE PLACE EVERY TV ALREADY AGREES ON.** Every one of
-    these screens has a header or a brand line, and unlike the corners it is
-    laid out rather than overlaid, so it moves content instead of covering it.
-    Costs a header component the packs would have to adopt.
-  - **DROP "EVERY TV" AND KEEP THE PAGE.** The phone page and the master URL
-    ship on their own; the lobby's existing large QR points at it, and the
-    in-game screens carry nothing. Cheapest by a wide margin, and it loses the
-    thing the session was actually for: a QR visible once play has started.
-  - **ACCEPT A MEASURED COMPROMISE**, for instance bottom-right everywhere
-    except the four screens that collide there, with those four getting a
-    reservation. 22 collisions at the small size across Social Deduction (4
-    cases x 2 themes), the event TV (4 x 2), and five one-off casino, Beerio and
-    bracket cases.
+  - RESERVE THE CORNER IN EACH LADDER. Honest and expensive: twelve screens
+    re-measured, and a fit ladder has been its own session every time.
+  - **PUT THE QR IN THE ONE PLACE EVERY TV ALREADY AGREES ON.** CHOSEN. Laid
+    out rather than overlaid, so it moves content instead of covering it. The
+    line that reads "costs a header component the packs would have to adopt"
+    turned out to be wrong, and that is the interesting part: what is shared is
+    a code and a LAYOUT CONTRACT, one more child at the end of a row each pack
+    already had. No pack's markup, type or colours changed, so standing rule 3
+    was never in play.
+  - DROP "EVERY TV" AND KEEP THE PAGE. Cheapest, and loses the thing the
+    session was for.
+  - ACCEPT A MEASURED COMPROMISE, 22 collisions at the small size.
 
-None of these is chosen. The measurement exists so the choice is informed.
+**TWO TELEVISIONS WITH NO DENSITY LADDER, FOUND 2026-08-30, EACH ITS OWN
+SESSION.** Not a queued idea: a measurement, in BUGS, with numbers. Smash and
+Mario Party have never been in `tv-fit` and have no ladder, and they run off the
+bottom of a 1080p screen by hundreds of pixels on rosters their own setup
+screens allow. The cases exist now and are named in that harness's `KNOWN`, so
+either session starts by deleting its entry and watching the run go red. The
+money board's ladder is the worked example; the Grand Prix one is the example of
+a board whose last rungs change LAYOUT rather than shrink.
 
 Priority order set by James, and the whole order was reset on 2026-08-04 (below). The top
 THREE are the committed next sessions, and the map draws exactly those three with a heavier
@@ -630,6 +648,18 @@ Wanted, not yet scheduled into a session.
 
 ## BUGS
 Open first, then environment traps worth remembering, then fixed (fixed items age out after a couple of map redraws).
+- OPEN: SMASH AND MARIO PARTY DO NOT FIT A 1080p SCREEN, AND NOTHING HAS EVER ASKED. Found 2026-08-30 by the QR session, whose last step was adding their cases to `tv-fit` so it could claim they fit. They have no density ladder and had never been in that file at all, so these are the numbers as they have been shipping, measured with the QR suppressed so the figures are the pre-existing ones:
+
+      smash        8 ffa        fits, 201px to spare
+      smash       16 ffa        OVER by 367
+      smash       16 koth       OVER by 794
+      smash       16 smashdown  OVER by 787
+      mario party  8 boards     OVER by  76
+      mario party 16 boards     OVER by 738
+
+  **BOTH ARE REACHABLE FROM THE PACKS' OWN SETUP SCREENS**, and Mario Party is over at EIGHT, which is an ordinary night. The header row grew 97px to 123px with the QR, so 26px of each figure is that session and the rest was already there.
+  **NOT FIXED THERE, ON PURPOSE.** Every other pack got its ladder in a session of its own, measured rung by rung; bolting two on at the end of a QR session would be guessing at rungs nobody has looked at. The five cases that are over are named in `tv-fit`'s `KNOWN`, the one that fits is deliberately not, so a session picking this up deletes an entry and watches the run go red. **THE LESSON IS THE SAME ONE THE BRACKET CEILING TAUGHT, one level up: a screen with no harness case is untested by construction, and it stays that way until somebody adds the case.**
+- OPEN: THE BRACKET TV CLIPS 317px HORIZONTALLY, ARCADE ONLY, `8 pairs mid` ONLY. Found 2026-08-30 by the first run of `tv-fit`'s new cut-off check. The root `.gn-tv` hides the overflow and what sticks out is `.gn-tv-col > .flex flex-col min-h-0`. Nothing on that screen is past 1080 and nothing is covered, so FITS and IS SEEN both call it clean and always would have: **a television has nobody to scroll it, so content that overflows a container which hides or scrolls is content the room never sees while every other column says the screen is fine.** Not fresh, not late, not champ, and not in Tabletop, which says it is a state-dependent width rather than a constant. Named in `KNOWN_CLIPS` with its number, kept separate from `KNOWN` so the case is still held to the other two checks, which it passes.
 - FIXED 2026-08-22 (the TV session): BEERIO'S GRAND PRIX TV DID NOT FIT A 1080p SCREEN AT ANY COUNT. Logged 08-19 at twelve racers only; measuring 4 and 8 for the first time on 08-22 found it had NEVER fitted. **BEFORE:** 1148 / 1717 / 2286px at 4 / 8 / 12 racers, over by 68 / 637 / 1206. **AFTER:** fits at 4, 6, 8, 10, 12, 14 and 16, with the prediction bar up and down. The largest gap of the five and the only one with nothing to tighten: `GpBoard` rendered Shell and Header at `band="roomy"` HARDCODED while the bracket board in the same file computed one per payload. Now `beerioGpBand` in `apps/web/src/beerio/band.ts` with its own `--bt-gp-*` rungs. **THE LAST TWO RUNGS GO TWO COLUMNS**, which is a layout decision the ladder makes rather than a shrink: a GP row carries a rank, a dot, a NAME, a record and a points total, so it cannot go under this pack's 1.25vw name floor, and sixteen single-column rows at that floor do not fit however tight the padding gets (measured: 10 rows of budget against 16 needed). `columns` flows column-major, which is the reading order a standings board wants. The original entry follows.
   **PRE-EXISTING AND VERIFIED SO, rather than assumed.** The same payload run against commit 8ef9431, before the crowd bar session, reports the identical 1206. The Grand Prix board also has NO density ladder: `GPBoard` renders `Shell` and `Header` at `band="roomy"` hardcoded, while the bracket board computes a band per payload, so there is nothing to tighten even if there were a case.
   **NOT FIXED HERE.** This is a density ladder plus a harness case, and a fit ladder has been its own session every time (the money board's is the worked example). Logged beside Ping Pong's, Board Game's, Mario Kart's and the bracket's.
@@ -943,6 +973,68 @@ their own number. Only overridden seats are sent (`buyIns`, keyed by roster inde
 **Deferred, do not build:** cross-pack night net. See FEATURES TO ADD.
 
 ## DECISION LOG
+
+**A SHARED SLOT IS NOT A SHARED HEADER** (2026-08-30). The distinction that let
+one QR reach twelve televisions without touching standing rule 3, written down
+because the next thing that wants to be on every TV will face the same choice.
+
+Standing rule 3 says a TV mode is styled in that mode's own design language,
+never a generic one. The obvious reading is that ANYTHING shared across the
+twelve breaks it, and the NEXT UP entry that costed this option said so in as
+many words: "costs a header component the packs would have to adopt". That was
+wrong, and the reason is worth keeping.
+
+WHAT A `<TvHeader>` WOULD HAVE SHARED is the part the rule protects: the pack's
+name, its face, its colours, the arrangement of its own line. WHAT WAS SHARED
+INSTEAD is a code and a contract: every pack already had a brand row, every pack
+kept every byte of its own markup, and every pack gained ONE MORE CHILD at the
+end of it. `TvQr.tsx` contains no pack name, no pack class and no pack colour,
+and it cannot: it is handed an event and a number.
+
+THE TEST FOR NEXT TIME is whether the shared thing would have to KNOW anything
+about the pack to render. A slot does not. A header does, and that is the line.
+
+ONE PART OF IT IS DELIBERATELY NOT THEMED, and that is an exemption rather than
+an oversight: the plate under the code is white in both themes because a camera
+needs contrast and a quiet zone, and the two tokens that paint it are declared
+identically in both theme blocks so the sweep MEASURES the exemption instead of
+having a blind spot where one is.
+
+**A QR IS A MEASUREMENT, NOT A GRAPHIC** (2026-08-30). Every number in the block
+was derived rather than chosen, and the first draft of each was wrong in the
+same direction: too small.
+
+The floor is 88px because the app's own two shipped codes bottom out at 88 and
+96 and a code nobody can scan is the feature not shipping while looking like it
+did. The quiet zone is 1.6vmin because at 88px this renders 25 modules, a module
+is 3.52px, and the spec asks for four of them: the eyeballed 1vmin measured 3.07
+modules and the eyeballed gap to the caption measured 2.45. The caption sits
+beside the code rather than under it because stacked cost 152px of header for an
+88px code and beside costs 123, and in a header line height is scarce and width
+is not.
+
+THE CONSEQUENCE IS THAT A QR CANNOT RIDE A DENSITY LADDER. 123px is 123px in
+every band, so the densest screens pay the most for it, which is the opposite of
+how every other metric on those screens behaves. That is what pushed thirteen
+cases past 1080p and it is why the ladders had to give the height back in the
+same commit rather than in a follow-up.
+
+**A FIT CHECK THAT ONLY ASKS ABOUT THE PAGE'S EDGES IS ASKING HALF THE QUESTION**
+(2026-08-30). The third question `tv-fit` learned, and the general form of it.
+
+FITS asks whether the layout ends inside the screen. IS SEEN asks whether a
+fixed overlay covers what the layout placed. NEITHER SEES A CONTAINER THAT
+SWALLOWED ITS OWN CONTENT: a flex board that shrinks to absorb a taller header
+hides its last rows inside its own overflow, the page still ends at 1080, and
+both older questions report a clean screen. On a phone that content is one
+scroll away. ON A TELEVISION THERE IS NOBODY TO SCROLL IT, so it does not exist.
+
+THE REFINEMENT MATTERS AS MUCH AS THE CHECK. Its first run reported 130 hits and
+every single one was a long name in a tile with `text-overflow: ellipsis`, doing
+exactly what it was built to do. A rule that flags the intended behaviour of half
+the app is a rule nobody reads twice, so a box that SAYS it truncates is taken at
+its word and only the silent kind is reported. That took 130 to one, and the one
+is real.
 
 **"NEVER OVERLAPS" IS PROVEN BY A HARNESS, NOT ASSURED BY A DESIGN** (2026-08-29).
 The general rule, written down because the QR is only the first thing that will
