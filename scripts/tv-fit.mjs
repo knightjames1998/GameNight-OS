@@ -792,6 +792,58 @@ async function measure(theme, route, payload, proof, waitMs) {
 // comparable to the runs before this existed.
 const PILL_WAIT = 8000;
 
+
+// SMASH AND MARIO PARTY HAD NEVER BEEN MEASURED, and that is a finding rather
+// than an addition. Every other pack TV has been in this file since its ladder
+// was built; these two have brand rows, rosters and panels like the rest and
+// no case, so nothing has ever asked whether they fit 1080p at all. They are
+// here now because 2026-08-29 put a 123px QR block in both their headers and
+// "it fits" is not a claim this session is entitled to make about a screen
+// nothing measures. NEITHER HAS A DENSITY LADDER, so the roster is taken to the
+// largest number the pack's own setup allows.
+const smash = (n, format = "ffa") => {
+  const roster = Array.from({ length: n }, (_, i) => ({
+    id: "p" + i, name: "Player Nameiskindalong " + (i + 1), character: "Character Name " + (i + 1),
+  }));
+  return { session: {
+    status: "live", format, mode: format === "koth" ? "koth" : "ffa",
+    roster,
+    games: Array.from({ length: 14 }, (_, i) => ({ idx: i })),
+    koth: format === "koth" ? { kingId: "p0", queue: roster.map((p) => p.id), streak: 4 } : null,
+    bestOf: 3,
+    series: format === "bestof" ? { aId: "p0", bId: "p1", games: [{ winnerId: "p0" }, { winnerId: "p1" }] } : null,
+    seriesLog: Array.from({ length: 6 }, (_, i) => ({ idx: i })),
+    seriesStandings: roster.map((p, i) => ({
+      slotId: p.id, name: p.name, seriesWins: 6 - i > 0 ? 6 - i : 0, seriesPlayed: 6,
+      gameWins: 12 - i, currentStreak: i === 0 ? 3 : 0,
+    })),
+    smashdown: format === "smashdown" ? {
+      battleCount: 8, battlesPlayed: 5, battlesLeft: 3,
+      burned: Array.from({ length: 24 }, (_, i) => "Burned Fighter " + (i + 1)),
+      poolSize: 89, fightersLeft: 65,
+      standings: roster.map((p, i) => ({ playerId: p.id, name: p.name, wins: 5 - i > 0 ? 5 - i : 0, played: 5, placement: i + 1 })),
+      clinched: false, over: false, winnerIds: [],
+    } : null,
+    summary: {
+      characters: Array.from({ length: 10 }, (_, i) => ({ character: "Character Name " + (i + 1), played: 4, wins: 2 })),
+      players: roster.map((p, i) => ({ playerId: p.id, name: p.name, played: 14, wins: 8 - i > 0 ? 8 - i : 0, mainCharacter: p.character })),
+    },
+  } };
+};
+
+const marioparty = (n) => {
+  const players = Array.from({ length: n }, (_, i) => ({
+    playerId: "p" + i, name: "Player Nameiskindalong " + (i + 1),
+    games: 9, wins: 6 - i > 0 ? 6 - i : 0, totalStars: 40 - i * 3,
+    mainCharacter: "Character Name " + (i + 1),
+  }));
+  return { session: {
+    status: "live",
+    games: Array.from({ length: 9 }, (_, i) => ({ idx: i, map: "Board Name Number " + (i + 1) })),
+    summary: { players, boards: Array.from({ length: 9 }, (_, i) => ({ map: "Board Name Number " + (i + 1), games: 1 })) },
+  } };
+};
+
 const CASES = [
   ["money board  4 seats", "/blackjack/tv/x", money(4, []), ".cg-tv__line"],
   ["money board  6 seats", "/blackjack/tv/x", money(6, []), ".cg-tv__line"],
@@ -849,6 +901,12 @@ const CASES = [
   // cases are the step boundaries and the cap. TWENTY IS THE ONE THAT MATTERS
   // and it is the reason this pack was designed against a 1080p screen rather
   // than measured after the fact.
+  ["smash        8 ffa", "/smash/tv/x", smash(8), ".sm-tv__line"],
+  ["smash       16 ffa", "/smash/tv/x", smash(16), ".sm-tv__line"],
+  ["smash       16 koth", "/smash/tv/x", smash(16, "koth"), ".sm-tv__line"],
+  ["smash       16 smashdown", "/smash/tv/x", smash(16, "smashdown"), ".sm-tv__line"],
+  ["mario party  8 boards", "/marioparty/tv/x", marioparty(8), ".mp-tv__line"],
+  ["mario party 16 boards", "/marioparty/tv/x", marioparty(16), ".mp-tv__line"],
   ["deduction   6 players", "/deduction/tv/x", deduction(6), ".sd-p"],
   ["deduction  12 players", "/deduction/tv/x", deduction(12), ".sd-p"],
   ["deduction  16 players", "/deduction/tv/x", deduction(16), ".sd-p"],
@@ -1036,11 +1094,40 @@ const CASES = [
 // sixteen single-column rows at that floor do not fit 1080p however tight the
 // padding gets. Sixteen in two columns do, at a size readable from a sofa.
 //
-// THE SET IS EMPTY NOW, for the first time since it was written. That is not a
-// promise that nothing will ever be added: it is what "KNOWN shrinks, never
-// grows, except for a genuinely new finding recorded with its numbers" looks
-// like when a session actually finishes the list.
-const KNOWN = new Set([]);
+// IT WENT BACK UP ON 2026-08-29, and every entry is a screen that had never
+// been measured rather than one that regressed.
+//
+// SMASH AND MARIO PARTY HAVE NO DENSITY LADDER AND HAVE NEVER BEEN IN THIS FILE.
+// Adding their cases was the last step of putting a QR on every television, and
+// it turned up two pack TVs that run off the bottom of a 1080p screen on their
+// own, by hundreds of pixels, in both themes. Measured with the QR suppressed,
+// so these are the numbers as they have been shipping:
+//
+//   smash        8 ffa        fits, 201px to spare
+//   smash       16 ffa        OVER by 367
+//   smash       16 koth       OVER by 794
+//   smash       16 smashdown  OVER by 787
+//   mario party  8 boards     OVER by  76
+//   mario party 16 boards     OVER by 738
+//
+// The header row grew 97px to 123px on both, so 26px of each figure is this
+// session and the rest was already there. Sixteen players is reachable in both
+// packs from their own setup screens, and Mario Party is over at EIGHT.
+//
+// NOT FIXED HERE ON PURPOSE. Every other pack on this list got a ladder in a
+// session of its own, measured rung by rung, because that is what a ladder
+// costs; bolting two on at the end of a QR session would be guessing at rungs
+// nobody has looked at. Written down with the numbers, and in BACKLOG, so the
+// next session starts from a measurement instead of a discovery. The two
+// entries that FIT are deliberately absent: KNOWN excuses a case from the
+// check, so a case that passes must never be in it.
+const KNOWN = new Set([
+  "smash       16 ffa",
+  "smash       16 koth",
+  "smash       16 smashdown",
+  "mario party  8 boards",
+  "mario party 16 boards",
+]);
 let newOverlaps = 0;
 let stale = 0;
 // THE FIT WAS REPORTED AND NEVER ENFORCED until 2026-08-15. This file has asked

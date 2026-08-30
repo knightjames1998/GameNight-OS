@@ -227,7 +227,7 @@ button.cg-pill { cursor: pointer; }
      index.css, which is deliberate (see the comment there). A TV has no
      notch, but these screens are reachable on a phone too. */
   padding:
-    calc(4vmin + env(safe-area-inset-top, 0px))
+    calc(var(--cg-tv-pad-top, 2vmin) + env(safe-area-inset-top, 0px))
     calc(4vmin + env(safe-area-inset-right, 0px))
     calc(4vmin + env(safe-area-inset-bottom, 0px))
     calc(4vmin + env(safe-area-inset-left, 0px));
@@ -415,6 +415,16 @@ button.cg-pill { cursor: pointer; }
         no longer paying for its own top margin. The line loses two thirds of
         its vertical padding and one pixel of border, which is the whole
         saving, and the blocks around it give up their margins. ---- */
+/* THE HEADER ROW GAINED A QR ON 2026-08-29 AND SOMETHING HAD TO PAY FOR IT.
+   A code that a phone camera can read is 88px of modules plus four modules of
+   quiet zone on every side, which is 123px of header whatever band the screen
+   is in: the ladder scales type and padding, and it cannot scale a QR, so the
+   DENSEST screens pay the most. The first place to take it from is the empty
+   band above the brand, because that is space the plate now visually occupies
+   anyway. It does not go below 1.6vmin: Tabletop paints a 14px rail across the
+   top of every screen, and a plate tucked under the timber is the fit check's
+   other question failing. */
+.cg-tv[data-band="tight"], .cg-tv[data-band="packed"], .cg-tv[data-band="full"] { --cg-tv-pad-top: 1.6vmin; }
 .cg-tv[data-band="close"] .cg-tv__board { margin-top: 1.6vmin; gap: 0.5vmin; }
 .cg-tv[data-band="close"] .cg-tv__line {
   padding: 0.35vmin 2vmin; border-radius: 1vmin; border-width: 1px; gap: 1.6vmin;

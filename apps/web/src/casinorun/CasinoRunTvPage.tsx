@@ -6,6 +6,7 @@ import { usePackLive } from "../useLiveUpdates";
 import BackButton from "../BackButton";
 import { StakesBadge } from "../casino/money";
 import { ModifierWall } from "../casino/modifiers";
+import TvQr, { TV_QR_MIN } from "../TvQr";
 import "../casino/casino.css";
 import "./casinorun.css";
 
@@ -76,6 +77,7 @@ export default function CasinoRunTvPage({ eventId: propEventId }: { eventId?: st
           {s.ladder.name} &middot; {s.players.length} running it
           {s.missed > 0 && ` · ${s.missed} stage${s.missed === 1 ? "" : "s"} missed`}
         </div>
+        <TvQr eventId={eventId} size={TV_QR_MIN} />
       </div>
 
       <div className="crun-tv__bank">

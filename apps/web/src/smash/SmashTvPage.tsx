@@ -4,6 +4,7 @@ import { SESSION_PACKS } from "@gamenight/shared";
 import { api } from "../api";
 import BackButton from "../BackButton";
 import { usePackLive } from "../useLiveUpdates";
+import TvQr, { TV_QR_MIN } from "../TvQr";
 import "./smash.css";
 
 interface Slot { id: string; name: string; character: string | null }
@@ -92,6 +93,7 @@ export default function SmashTvPage({ eventId: propEventId }: { eventId?: string
               ? "Series over"
               : `Battle ${sd.battlesPlayed + 1} of ${sd.battleCount}`}
           </div>
+          <TvQr eventId={eventId} size={TV_QR_MIN} />
         </div>
 
         {sd.over && winners.length > 0 && (
@@ -171,6 +173,7 @@ export default function SmashTvPage({ eventId: propEventId }: { eventId?: string
             ? `Best of ${session.bestOf} · ${session.seriesLog.length} set${session.seriesLog.length === 1 ? "" : "s"}`
             : `${session.mode === "koth" ? "King of the Hill" : "Free-for-all"} · ${session.games.length} games`}
         </div>
+        <TvQr eventId={eventId} size={TV_QR_MIN} />
       </div>
 
       {bestOf && cur && (

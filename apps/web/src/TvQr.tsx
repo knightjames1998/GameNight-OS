@@ -50,6 +50,11 @@ export function liveUrl(eventId: string): string {
 }
 
 export default function TvQr({ eventId, size }: { eventId: string; size: number }) {
+  // NO EVENT, NO CODE. Every pack TV resolves its id as
+  // `prop ?? params.eventId ?? ""`, so an empty string is a state that already
+  // reaches these screens, and a code for `/e//live` is a code that sends a
+  // guest to a 404 while looking exactly like a working one.
+  if (!eventId) return null;
   // A pack passes its own band-derived number, because QRCodeSVG takes a number
   // and cannot ride the CSS variables the rest of a ladder spends. Same reason
   // ETV_QR is a table of numbers rather than a custom property.

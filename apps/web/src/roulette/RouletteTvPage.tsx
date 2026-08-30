@@ -47,6 +47,7 @@ export default function RouletteTvPage({ eventId: propEventId }: { eventId?: str
 
   return (
     <MoneyBoard
+      eventId={eventId}
       summary={session.summary}
       className="rl-tv"
       brand={BRAND}

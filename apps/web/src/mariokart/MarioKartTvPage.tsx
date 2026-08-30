@@ -5,6 +5,7 @@ import { api } from "../api";
 import BackButton from "../BackButton";
 import { marioKartTvBand } from "./mariokart-tv-band";
 import { usePackLive } from "../useLiveUpdates";
+import TvQr, { TV_QR_MIN } from "../TvQr";
 import "./mariokart.css";
 
 interface Slot { id: string; name: string; character: string | null }
@@ -109,6 +110,7 @@ export default function MarioKartTvPage({ eventId: propEventId }: { eventId?: st
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div className="mk-tv__brand">Mario Kart</div>
         <div className="mk-tv__muted mk-tv__meta">{label}</div>
+        <TvQr eventId={eventId} size={TV_QR_MIN} />
       </div>
 
       {session.format === "bestof" && cur && (

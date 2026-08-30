@@ -1488,6 +1488,13 @@ body{ overscroll-behavior-y: none; }        /* no rubber-band background flash *
      152px was measured before the quiet zone below was corrected, so the
      saving is larger than the two numbers suggest, not smaller. */
   display:flex;flex-direction:row;align-items:center;gap:1.6vmin;
+  /* CENTRED BY THE BLOCK, NOT BY THE ROW. Every brand row in this app is
+     align-items: baseline, which is what keeps a pack's small meta line
+     sitting on the same baseline as its big display name. A block has no
+     baseline to align a code to, so it hangs below the type. Fixing that in
+     each pack's row would change how eleven packs align their own header;
+     fixing it here changes only the thing that arrived. */
+  align-self:center;
   flex:none;
   background:var(--gn-qr-plate);
   color:var(--gn-qr-ink);

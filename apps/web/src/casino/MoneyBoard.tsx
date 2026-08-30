@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { money, type CashPlayerRow, type CashSummary } from "@gamenight/shared";
 import BackButton from "../BackButton";
+import TvQr, { TV_QR_MIN } from "../TvQr";
 import { StakesBadge } from "./money";
 import { ModifierWall } from "./modifiers";
 import { moneyBoardBand } from "./band";
@@ -32,6 +33,7 @@ import "./casino.css";
 
 export function MoneyBoard<D>({
   summary,
+  eventId,
   className,
   brand,
   meta,
@@ -41,6 +43,16 @@ export function MoneyBoard<D>({
   emptyHint,
 }: {
   summary: CashSummary<D>;
+  /**
+   * The night this table belongs to, for the code in the header row.
+   *
+   * THE BOARD NEVER NEEDED TO KNOW THE NIGHT UNTIL NOW: it is handed a summary
+   * and renders it, which is why four packs can share it. This is the one piece
+   * of context it takes that is not about the money, and it is required rather
+   * than optional so a pack cannot forget it and quietly ship a television with
+   * no way onto a phone.
+   */
+  eventId: string;
   /** The pack's TV root class: sets the backdrop and the --cg-* tokens. */
   className: string;
   /** Brand lettering, e.g. <>Rou<em>lette</em></> */
@@ -98,6 +110,7 @@ export function MoneyBoard<D>({
           {summary.stillIn > 0 && ` · ${summary.stillIn} still in`}
           {meta}
         </div>
+        <TvQr eventId={eventId} size={TV_QR_MIN} />
       </div>
 
       {summary.warning && <div className="cg-tv__warn">⚠️ {summary.warning}</div>}

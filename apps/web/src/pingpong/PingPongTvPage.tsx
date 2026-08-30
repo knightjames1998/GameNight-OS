@@ -5,6 +5,7 @@ import { api } from "../api";
 import BackButton from "../BackButton";
 import { pingPongTvBand } from "./pingpong-tv-band";
 import { usePackLive } from "../useLiveUpdates";
+import TvQr, { TV_QR_MIN } from "../TvQr";
 import "./pingpong.css";
 
 interface Slot { id: string; name: string }
@@ -85,6 +86,7 @@ export default function PingPongTvPage({ eventId: propEventId }: { eventId?: str
         <div className="pp-tv__muted pp-tv__meta">
             {session.mode === "koth" ? "King of the Hill" : session.doubles ? "Doubles" : "Singles"} · {session.bestOf === 1 ? "free play" : `best of ${session.bestOf}`} · {session.matches.length} {session.bestOf === 1 ? "games" : "matches"}
         </div>
+        <TvQr eventId={eventId} size={TV_QR_MIN} />
       </div>
 
       {cur ? (

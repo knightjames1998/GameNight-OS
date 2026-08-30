@@ -207,6 +207,16 @@
    on either. The name floor is 2.2vmin (--tn-tv-line carries a player's name),
    the same one the money board settled on and every other TV ladder uses. */
 .tn-tv {
+  /* THE HEADER ROW GAINED A QR ON 2026-08-29 AND SOMETHING HAD TO PAY FOR IT.
+     A code that a phone camera can read is 88px of modules plus four modules of
+     quiet zone on every side, which is 123px of header whatever band the screen
+     is in: the ladder scales type and padding, and it cannot scale a QR, so the
+     DENSEST screens pay the most. The first place to take it from is the empty
+     band above the brand, because that is space the plate now visually occupies
+     anyway. It does not go below 1.6vmin: Tabletop paints a 14px rail across the
+     top of every screen, and a plate tucked under the timber is the fit check's
+     other question failing. */
+  --tn-tv-pad-top: 1.6vmin;
   --tn-tv-pad-y: 3vmin;
   --tn-tv-pad-x: 4vmin;
   --tn-tv-brand: 5.4vmin;
@@ -225,7 +235,7 @@
   --tn-tv-back-mt: 3vmin;
   min-height: 100dvh;
   color: var(--tn-tv-ink);
-  padding: calc(var(--tn-tv-pad-y) + env(safe-area-inset-top, 0px)) calc(var(--tn-tv-pad-x) + env(safe-area-inset-right, 0px)) calc(var(--tn-tv-pad-y) + env(safe-area-inset-bottom, 0px)) calc(var(--tn-tv-pad-x) + env(safe-area-inset-left, 0px));
+  padding: calc(var(--tn-tv-pad-top, 1.6vmin) + env(safe-area-inset-top, 0px)) calc(var(--tn-tv-pad-x) + env(safe-area-inset-right, 0px)) calc(var(--tn-tv-pad-y) + env(safe-area-inset-bottom, 0px)) calc(var(--tn-tv-pad-x) + env(safe-area-inset-left, 0px));
 }
 .tn-tv__brand { font-family: var(--gn-font-display); font-size: var(--tn-tv-brand); text-transform: uppercase; text-shadow: 0 0 20px var(--tn-tv-glow); }
 .tn-tv__muted { color: var(--tn-tv-muted); }
@@ -272,6 +282,11 @@
   --tn-tv-title: 4.4vmin; --tn-tv-title-idle: 3.2vmin;
   --tn-tv-grid-mt: 1.1vmin; --tn-tv-grid-gap: 1.1vmin; --tn-tv-panel-pad: 1vmin;
   --tn-tv-h3: 1.8vmin; --tn-tv-h3-mb: .5vmin;
-  --tn-tv-line-size: 2.2vmin; --tn-tv-line-pad: .2vmin; --tn-tv-line-gap: 1.1vmin;
+  /* 2.1vmin since 2026-08-29, and it is the QR in the header that spent it:
+     Tabletop lays this screen out about 33px taller than Arcade at sixteen
+     players (a pre-existing difference, logged), so it was the one theme that
+     ran past 1080 once the header row grew. Sixteen names across two panels
+     means eight rows a column, and a tenth of a vmin a row is what covers it. */
+  --tn-tv-line-size: 2.1vmin; --tn-tv-line-pad: .15vmin; --tn-tv-line-gap: 1vmin;
   --tn-tv-back-mt: 1.1vmin;
 }

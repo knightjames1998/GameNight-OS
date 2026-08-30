@@ -237,7 +237,7 @@
      class rule beats the zero-specificity shell inset in index.css, so it
      has to do it here like mk-tv / sm-tv / mp-tv already did. */
   padding:
-    calc(var(--pp-tv-pad, 4vmin) + env(safe-area-inset-top, 0px))
+    calc(var(--pp-tv-pad-top, 2vmin) + env(safe-area-inset-top, 0px))
     calc(var(--pp-tv-pad, 4vmin) + env(safe-area-inset-right, 0px))
     calc(var(--pp-tv-pad, 4vmin) + env(safe-area-inset-bottom, 0px))
     calc(var(--pp-tv-pad, 4vmin) + env(safe-area-inset-left, 0px));
@@ -254,6 +254,16 @@
    the same one the money board settled on and both other TV ladders use;
    --pp-tv-line carries a player's name and never goes below it. */
 .pp-tv {
+  /* THE HEADER ROW GAINED A QR ON 2026-08-29 AND SOMETHING HAD TO PAY FOR IT.
+     A code that a phone camera can read is 88px of modules plus four modules of
+     quiet zone on every side, which is 123px of header whatever band the screen
+     is in: the ladder scales type and padding, and it cannot scale a QR, so the
+     DENSEST screens pay the most. The first place to take it from is the empty
+     band above the brand, because that is space the plate now visually occupies
+     anyway. It does not go below 1.6vmin: Tabletop paints a 14px rail across the
+     top of every screen, and a plate tucked under the timber is the fit check's
+     other question failing. */
+  --pp-tv-pad-top: 2vmin;
   --pp-tv-pad: 4vmin;
   --pp-tv-brand: 6vmin;
   --pp-tv-meta: 2.4vmin;      /* the mode/format line under the brand */

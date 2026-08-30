@@ -10,7 +10,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -127,4 +127,62 @@ test("THE COMPONENT SPENDS THE TOKENS RATHER THAN RESTATING THE HEX", () => {
   assert.doesNotMatch(src, /#[0-9a-fA-F]{3,8}\b/, "a colour literal is back in TvQr.tsx");
   assert.match(src, /var\(--gn-qr-ink\)/);
   assert.match(src, /var\(--gn-qr-plate\)/);
+});
+
+// ---- every television carries one, and Beerio still carries none ----------
+
+/**
+ * The TV component for a pack, found the way the app finds it: by the pack's
+ * own `route`, which is the same string the URL and the API path are built
+ * from. A hardcoded list of twelve file paths is the thing that goes stale the
+ * day a thirteenth pack ships, which is precisely the case this test exists
+ * for.
+ */
+const tvFileFor = (route: string) => {
+  const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../web/src", route);
+  const stem = readdirSync(dir).find((f) => /TvPage\.tsx$/.test(f));
+  assert.ok(stem, `no TV page in apps/web/src/${route}`);
+  return path.join(dir, stem);
+};
+
+/** Does this file mount the slot, itself or through something it imports? */
+function mountsTvQr(file: string, depth = 0): boolean {
+  const src = bare(readFileSync(file, "utf8"));
+  if (/<TvQr\b/.test(src)) return true;
+  if (depth > 1) return false;
+  // Four casino packs render MoneyBoard and two title-night packs render
+  // TitleNightTv, so the slot is one level down for six of the twelve. One
+  // level is deliberate: a slot three imports deep is not a header row.
+  for (const m of src.matchAll(/from "(\.[^"]+)"/g)) {
+    const rel = path.resolve(path.dirname(file), m[1]!);
+    for (const ext of [".tsx", ".ts"]) {
+      if (existsSync(rel + ext) && mountsTvQr(rel + ext, depth + 1)) return true;
+    }
+  }
+  return false;
+}
+
+test("EVERY PACK TELEVISION HAS A WAY ONTO A PHONE", async () => {
+  const { SESSION_PACK_KEYS, SESSION_PACKS } = await import("@gamenight/shared");
+  const missing = SESSION_PACK_KEYS.filter((k) => !mountsTvQr(tvFileFor(SESSION_PACKS[k].route)));
+  assert.deepEqual(
+    missing,
+    [],
+    `these packs put a television in the room with no code on it: ${missing.join(", ")}`,
+  );
+});
+
+test("BEERIO IS EXEMPT AND STAYS EXEMPT", () => {
+  // Standing rule: Beerio Kart is a vendored 1:1 replica and does not follow
+  // this app's shared anything. It has carried its own QR since it shipped,
+  // sized by its own band, and dropping the shared one into it would be the
+  // same mistake as theming it.
+  const src = bare(
+    readFileSync(
+      path.join(path.dirname(fileURLToPath(import.meta.url)), "../../web/src/beerio/BeerioTvPage.tsx"),
+      "utf8",
+    ),
+  );
+  assert.doesNotMatch(src, /<TvQr\b/, "the shared slot was added to the replica");
+  assert.match(src, /QRCodeSVG/, "Beerio lost the QR it has always had of its own");
 });

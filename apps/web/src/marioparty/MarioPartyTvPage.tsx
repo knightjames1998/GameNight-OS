@@ -4,6 +4,7 @@ import { SESSION_PACKS } from "@gamenight/shared";
 import { api } from "../api";
 import BackButton from "../BackButton";
 import { usePackLive } from "../useLiveUpdates";
+import TvQr, { TV_QR_MIN } from "../TvQr";
 import "./marioparty.css";
 
 interface TvSession {
@@ -52,6 +53,7 @@ export default function MarioPartyTvPage({ eventId: propEventId }: { eventId?: s
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div className="mp-tv__brand">Mario Party</div>
         <div className="mp-tv__muted" style={{ fontSize: "2.4vmin" }}>{session.games.length} boards</div>
+        <TvQr eventId={eventId} size={TV_QR_MIN} />
       </div>
 
       {leader && leader.games > 0 && (

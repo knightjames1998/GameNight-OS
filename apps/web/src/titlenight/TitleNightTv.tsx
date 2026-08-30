@@ -5,6 +5,7 @@ import BackButton from "../BackButton";
 import { titleNightTvBand } from "./titlenight-tv-band";
 import { usePackLive } from "../useLiveUpdates";
 import type { TitleNightCopy, TnSummaryView } from "./TitleNight";
+import TvQr, { TV_QR_MIN } from "../TvQr";
 import "./titlenight.css";
 
 // THE BETWEEN-GAMES STATE IS THE PRIMARY ONE, and that is the whole design of
@@ -93,6 +94,7 @@ export function TitleNightTv({
         <div className="tn-tv__muted tn-tv__meta">
           {session.games.length} game{session.games.length === 1 ? "" : "s"} &middot; {session.summary.titles.length} title{session.summary.titles.length === 1 ? "" : "s"}
         </div>
+        <TvQr eventId={eventId} size={TV_QR_MIN} />
       </div>
 
       <div style={{ marginTop: "2vmin" }}>

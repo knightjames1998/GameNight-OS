@@ -141,3 +141,24 @@
   padding: 0.2vmin 0;
 }
 .pk-tv__pay b { margin-left: auto; }
+
+/* ---- and the settlement band joins the density ladder -------------------
+   IT NEVER HAD BAND RULES, which is why poker at twelve seats was the one
+   screen the QR pushed 42px past 1080 while every other casino screen was
+   within 12. `.cg-tv[data-band]` scales the board, the hero, the footer and
+   the name; this panel is poker's own, it sits BELOW the board, and it grew a
+   row per payment at a fixed 2.1vmin no matter how full the table was. A block
+   that opts out of the ladder is a block that decides the ladder's own rungs
+   are wrong, silently, on exactly the screens the rungs exist for.
+
+   Only the three dense rungs are given values. Four seats and eight seats fit
+   with 99px and 86px to spare and do not need to read a smaller settlement.  */
+.cg-tv[data-band="tight"] .pk-tv__settle,
+.cg-tv[data-band="packed"] .pk-tv__settle,
+.cg-tv[data-band="full"] .pk-tv__settle { margin-top: 0.6vmin; padding-top: 0.5vmin; }
+.cg-tv[data-band="tight"] .pk-tv__state { font-size: 2.2vmin; }
+.cg-tv[data-band="packed"] .pk-tv__state { font-size: 2vmin; }
+.cg-tv[data-band="full"] .pk-tv__state { font-size: 1.9vmin; }
+.cg-tv[data-band="tight"] .pk-tv__pay { font-size: 1.9vmin; padding: 0.1vmin 0; gap: 1.6vmin; }
+.cg-tv[data-band="packed"] .pk-tv__pay { font-size: 1.8vmin; padding: 0; gap: 1.4vmin; }
+.cg-tv[data-band="full"] .pk-tv__pay { font-size: 1.7vmin; padding: 0; gap: 1.2vmin; }

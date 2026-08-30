@@ -48,6 +48,7 @@ export default function BlackjackTvPage({ eventId: propEventId }: { eventId?: st
 
   return (
     <MoneyBoard
+      eventId={eventId}
       summary={session.summary}
       className="bj-tv"
       brand={BRAND}

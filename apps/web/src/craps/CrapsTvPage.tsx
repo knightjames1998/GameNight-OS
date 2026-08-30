@@ -52,6 +52,7 @@ export default function CrapsTvPage({ eventId: propEventId }: { eventId?: string
 
   return (
     <MoneyBoard
+      eventId={eventId}
       summary={s}
       className="cr-tv"
       brand={BRAND}

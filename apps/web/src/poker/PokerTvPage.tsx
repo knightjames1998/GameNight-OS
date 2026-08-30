@@ -79,6 +79,7 @@ export default function PokerTvPage({ eventId: propEventId }: { eventId?: string
 
   return (
     <MoneyBoard
+      eventId={eventId}
       summary={summary}
       className="pk-tv"
       brand={BRAND}
