@@ -7,9 +7,28 @@
 //
 // The "Which game?" title selector (standing rule) scopes three things
 // here: the character roster, the board list, and the bonus-star options.
+//
+// TAG BATTLE (2026-08-30) adds a second shape. In Mario Party 7's Tag Battle a
+// team SHARES its Orbs, Stars and coins, so a tag board has ONE star total per
+// SIDE rather than one per player. That collides with this pack's whole model,
+// which is a typed star count PER PLAYER. The resolution, locked and written up
+// in BACKLOG's decision log: the shared value is written to EVERY member of the
+// side, and the READ layer splits solo from tag off `side`. It is the Double
+// Dash precedent (foldMkStatRows) applied to stars and bonus stars alike, so
+// there is one rule rather than two. THE CONSEQUENCE TO REMEMBER: an unsplit
+// read of the star column now overstates a pair's night, so any NEW reader of
+// Mario Party stars has to ask about `side` first.
 
 import type { GameTitle, SmashPlayer, SmashAssignment } from "./smash.js";
 export type { SmashPlayer } from "./smash.js";
+import {
+  placementsFromRankedSides,
+  singletonSides,
+  validateSides,
+  type RankedSide,
+  type Side,
+} from "./teams.js";
+import { newSideLog, type SideLog } from "./sidelog.js";
 
 // A Mario Party title carries its playable roster, its boards, and the set
 // of bonus stars that game awards. Extends GameTitle so rosterForTitle()
@@ -198,6 +217,14 @@ export interface MpLine {
   bonusStars: string[];
   placement: number; // 1 = winner
   isWinner: boolean;
+  /**
+   * The side this player was on, or null when the board had NO team structure.
+   *
+   * Absent entirely on a line recorded before Tag Battle shipped, which is why
+   * every read of it coalesces. rankMpLines writes null, always: it is the
+   * per-player path and a board recorded through it has no sides by definition.
+   */
+  side?: string | null;
 }
 export interface MpGame {
   idx: number; // 0-based order in the night; also the dedup key suffix
@@ -216,12 +243,25 @@ export interface MpSessionState {
   openScoring: boolean;
   roster: SmashPlayer[];
   games: MpGame[];
+  /**
+   * Which arrangement of sides the night has been played under, and when it
+   * changed. A LOG rather than a field so a reshuffle does not retroactively
+   * apply to boards already recorded; see the header of sidelog.ts. The unit
+   * count for this pack is `games.length`.
+   *
+   * Seeded with singleton sides, which `sideIdFor` reads as NO team structure,
+   * so an ordinary Battle Royale night writes exactly the rows it wrote before
+   * this existed.
+   */
+  sideLog: SideLog;
 }
 
 export function newMpState(opts: {
   titleId?: string | null;
   assignment: SmashAssignment;
   roster: SmashPlayer[];
+  /** Tag Battle's opening arrangement. Omitted means singletons, i.e. no teams. */
+  sides?: Side[];
 }): MpSessionState {
   return {
     sessionKey: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
@@ -230,7 +270,29 @@ export function newMpState(opts: {
     openScoring: false,
     roster: opts.roster,
     games: [],
+    sideLog: newSideLog(opts.sides ?? singletonSides(opts.roster.map((p) => p.id))),
   };
+}
+
+/**
+ * Upgrade a session persisted before Tag Battle shipped.
+ *
+ * Rows in `game_sessions` were written with no `sideLog` at all. A night that
+ * is live when this deploys has to keep working, and a finished one has to stay
+ * readable by the guest backfill, so the upgrade happens at the ONE point where
+ * jsonb becomes state (PackRuntimeConfig.normalize) and nowhere else. Doing it
+ * at the pack's own call sites would mean getting all of them, and this pack
+ * reads state in a dozen places plus the backfill.
+ *
+ * THE UPGRADE IS EXACT RATHER THAN APPROXIMATE. Every board ever recorded by
+ * this pack was played by individuals, so the roster becomes one side per
+ * player, which `sideIdFor` then treats as no team structure, which is what it
+ * always was. Follows normalizeMkState, which does the same job for Mario Kart.
+ */
+export function normalizeMpState(state: MpSessionState): MpSessionState {
+  const raw = state as unknown as Record<string, unknown>;
+  if (Array.isArray(raw.sideLog) && raw.sideLog.length > 0) return state;
+  return { ...state, sideLog: newSideLog(singletonSides((state.roster ?? []).map((p) => p.id))) };
 }
 
 // ---------- pure ranking ----------
@@ -298,7 +360,110 @@ export function rankMpLines(
     bonusStars: e.bonusStars,
     placement: placements[i] ?? i + 1,
     isWinner: i === 0,
+    // Always null on this path: it is the per-player one, and a board recorded
+    // through it has no sides by definition. Written rather than left absent so
+    // rankMpSides on an all-singletons field is byte-identical to it.
+    side: null,
   }));
+  return { lines, error: null };
+}
+
+// ---------- tag battle: ranking by SIDE ----------
+// A SIBLING OF rankMpLines, NOT A MODE FLAG ON IT. The two take genuinely
+// different input shapes (a star total per player against a star total per
+// side) and threading a boolean through the one function would make every
+// refusal above read "unless teams, in which case". Both stay exported.
+
+/** One side's board result: the total the SIDE finished on, and its bonus stars. */
+export interface MpSideEntry {
+  sideId: string;
+  stars: number;
+  bonusStars: string[];
+}
+
+export function rankMpSides(
+  sides: readonly Side[],
+  entries: readonly MpSideEntry[],
+  winnerSideId: string | null | undefined,
+  /** Characters stay PER PLAYER: each player picks their own in Tag Battle. */
+  characters: Readonly<Record<string, string | null>> = {},
+): { lines: MpLine[]; error: string | null } {
+  // The arrangement's own validation, rather than a second opinion about what
+  // an acceptable arrangement is. Covers fewer than two sides, an empty side,
+  // duplicate ids and a player on two sides at once.
+  const check = validateSides(sides);
+  if (check.error) return { lines: [], error: check.error };
+
+  const byId = new Map(entries.map((e) => [e.sideId, e]));
+  const ordered: { side: Side; entry: MpSideEntry }[] = [];
+  for (const side of sides) {
+    const entry = byId.get(side.id);
+    if (!entry) return { lines: [], error: "Enter a star count for every side" };
+    ordered.push({ side, entry });
+  }
+  if (ordered.some((o) => !Number.isFinite(o.entry.stars) || o.entry.stars < 0)) {
+    return { lines: [], error: "Enter a star count for every side" };
+  }
+
+  // The per-player rule, one level up: a bonus star is awarded once per board,
+  // so it cannot sit on two SIDES. Within a side it is shared, which is the
+  // whole point of Tag Battle.
+  const claimed = new Set<string>();
+  for (const { entry } of ordered) {
+    for (const star of entry.bonusStars) {
+      if (claimed.has(star)) return { lines: [], error: `Only one side can get the ${star}` };
+      claimed.add(star);
+    }
+  }
+
+  const maxStars = Math.max(...ordered.map((o) => o.entry.stars));
+  const top = ordered.filter((o) => o.entry.stars === maxStars);
+  let winner = winnerSideId ? ordered.find((o) => o.side.id === winnerSideId) : undefined;
+  if (!winner) {
+    if (top.length === 1) winner = top[0];
+    else return { lines: [], error: "Two sides are tied on stars. Tap who won." };
+  }
+  if (!winner) return { lines: [], error: "Couldn't determine a winning side" };
+  if (winner.entry.stars !== maxStars) {
+    return { lines: [], error: "The winning side must have the most stars" };
+  }
+
+  const rest = ordered
+    .filter((o) => o.side.id !== winner!.side.id)
+    .sort((a, b) => b.entry.stars - a.entry.stars);
+  const finish = [winner, ...rest];
+
+  // Competition ranking over SIDES, and the winner's exception is the same one
+  // rankMpLines carries: the loop starts at index 2, so a side LEVEL with the
+  // winner takes 2 rather than sharing 1. It lost the coin tiebreak in-game.
+  // Ties below the winner do share, which is why this goes through
+  // placementsFromRankedSides rather than writing the side placement rule a
+  // second time. A 2v2 is 1,1,2,2 and never 1,1,3,3; see teams.ts.
+  const ranked: RankedSide[] = finish.map((o, i) => ({
+    side: o.side,
+    tiedWithAbove: i >= 2 && o.entry.stars === finish[i - 1]!.entry.stars,
+  }));
+  // Keyed by PLAYER rather than by side id, because a line from an
+  // all-singletons field carries side: null by design and could not look its
+  // own numbers back up. The side still supplies them; it just is not recorded.
+  const entryOfPlayer = new Map<string, MpSideEntry>();
+  for (const o of finish) for (const id of o.side.memberIds) entryOfPlayer.set(id, o.entry);
+
+  const lines: MpLine[] = placementsFromRankedSides(ranked).map((l) => {
+    const entry = entryOfPlayer.get(l.playerId)!;
+    return {
+      playerId: l.playerId,
+      character: characters[l.playerId] ?? null,
+      // THE SHARED VALUE GOES ON EVERY MEMBER. Not on one row (arbitrary, and
+      // it breaks every per-player read) and not halved (that invents a number
+      // an odd total cannot produce). The read layer splits it off `side`.
+      stars: entry.stars,
+      bonusStars: [...entry.bonusStars],
+      placement: l.placement,
+      isWinner: l.isWinner,
+      side: l.side,
+    };
+  });
   return { lines, error: null };
 }
 
@@ -306,9 +471,27 @@ export function rankMpLines(
 export interface MpPlayerStat {
   playerId: string;
   name: string;
+  /** Every board, solo and tag alike. A player played it either way. */
   games: number;
+  /**
+   * Every board won, solo and tag alike. WINS ARE NOT SPLIT AND DO NOT NEED TO
+   * BE: both members of a winning side genuinely won that board, which is not
+   * the same as both of them having earned the side's stars twice over.
+   */
   wins: number;
+  /**
+   * Stars from SOLO boards only, i.e. lines with no side on them.
+   *
+   * NOT THE UNSPLIT TOTAL, and the name is kept for the screens that already
+   * read it. A tag board's star total belongs to the SIDE and is written to
+   * every member, so summing it in here would credit a pair twice for one
+   * total and put them ahead of a solo player two to one.
+   */
   totalStars: number;
+  /** Stars from TAG boards, where the number is the SIDE's, shared. */
+  tagStars: number;
+  /** How many of `games` were tag boards. Solo boards are games - tagGames. */
+  tagGames: number;
   mainCharacter: string | null;
 }
 export function summarizeMpNight(state: MpSessionState): {
@@ -333,12 +516,22 @@ export function summarizeMpNight(state: MpSessionState): {
           games: 0,
           wins: 0,
           totalStars: 0,
+          tagStars: 0,
+          tagGames: 0,
           mainCharacter: null,
           charCounts: new Map<string, number>(),
         };
       p.games++;
       if (l.isWinner) p.wins++;
-      p.totalStars += l.stars;
+      // THE SPLIT, and the reason this is not one line. `l.side` is absent on
+      // every board recorded before Tag Battle shipped, so the coalesce is
+      // load-bearing rather than defensive.
+      if (l.side ?? null) {
+        p.tagGames++;
+        p.tagStars += l.stars;
+      } else {
+        p.totalStars += l.stars;
+      }
       if (l.character) p.charCounts.set(l.character, (p.charCounts.get(l.character) ?? 0) + 1);
       players.set(l.playerId, p);
     }
@@ -354,12 +547,21 @@ export function summarizeMpNight(state: MpSessionState): {
       games: p.games,
       wins: p.wins,
       totalStars: p.totalStars,
+      tagStars: p.tagStars,
+      tagGames: p.tagGames,
       mainCharacter: main,
     };
   });
 
   return {
-    players: playerList.sort((a, b) => b.wins - a.wins || b.totalStars - a.totalStars),
+    // Ordered on the COMBINED haul after wins, deliberately. Sorting on the
+    // solo figure alone would leave a tag-only night in roster order with every
+    // tiebreak reading zero. This is a display order rather than a claim that a
+    // solo star and a shared one are the same thing, which is exactly why the
+    // two are still reported apart.
+    players: playerList.sort(
+      (a, b) => b.wins - a.wins || b.totalStars + b.tagStars - (a.totalStars + a.tagStars),
+    ),
     boards: [...boards.entries()]
       .map(([map, games]) => ({ map, games }))
       .sort((a, b) => b.games - a.games),

@@ -18,7 +18,22 @@ import {
   MARIO_PARTY_TITLES,
   MP_BONUS_FAMILIES,
   MP_CUSTOM_BOARD,
+  rankMpSides,
+  newMpState,
+  normalizeMpState,
+  summarizeMpNight,
+  singletonSides,
+  hasTeamStructure,
+  currentSides,
+  sidesAtIdx,
+  reshuffle,
+  truncateSideLog,
   type MpRawEntry,
+  type MpSideEntry,
+  type MpSessionState,
+  type MpGame,
+  type SmashPlayer,
+  type Side,
 } from "../src/index.js";
 
 const entry = (playerId: string, stars: number, bonusStars: string[] = []): MpRawEntry => ({
@@ -298,4 +313,330 @@ test("THE CUSTOM-BOARD SENTINEL IS NOT ALSO A REAL BOARD NAME", () => {
       `${t.id} lists "${MP_CUSTOM_BOARD}" as a real board, which collides with the sentinel`,
     );
   }
+});
+
+// ---------- TAG BATTLE: ranking by side (2026-08-30) ----------
+//
+// Mario Party 7's Tag Battle shares Orbs, Stars and coins, so a tag board has
+// ONE star total per SIDE. The pack's model is a star count per PLAYER, so the
+// shared value is written to every member and the read layer splits solo from
+// tag off `side`. These pin both halves of that.
+//
+// The fixtures the all-singletons regression compares against were captured by
+// running the UNMODIFIED engine before rankMpSides was written, not typed out
+// by hand. Hand-written fixtures have been wrong three times in this repo.
+
+const side = (id: string, memberIds: string[]): Side => ({
+  id,
+  name: `Side ${id.toUpperCase()}`,
+  memberIds,
+});
+const sEntry = (sideId: string, stars: number, bonusStars: string[] = []): MpSideEntry => ({
+  sideId,
+  stars,
+  bonusStars,
+});
+
+test("A 2v2 IS 1,1,2,2 AND NEVER 1,1,3,3", () => {
+  // Placement rule 2 in teams.ts, and the comment block there explains why it
+  // is not the tie rule: competition ranking would say the losing pair came
+  // THIRD in a field of four, and there was no third place. There were two
+  // sides, and they came first and second.
+  const sides = [side("a", ["p1", "p2"]), side("b", ["p3", "p4"])];
+  const out = rankMpSides(sides, [sEntry("a", 12), sEntry("b", 7)], null);
+  assert.equal(out.error, null);
+  assert.deepEqual(
+    out.lines.map((l) => [l.playerId, l.placement, l.isWinner]),
+    [
+      ["p1", 1, true],
+      ["p2", 1, true],
+      ["p3", 2, false],
+      ["p4", 2, false],
+    ],
+  );
+});
+
+test("every line in a 2v2 carries a side, and teammates share it", () => {
+  const sides = [side("a", ["p1", "p2"]), side("b", ["p3", "p4"])];
+  const { lines } = rankMpSides(sides, [sEntry("a", 12), sEntry("b", 7)], null);
+  assert.ok(lines.every((l) => l.side !== null && l.side !== undefined));
+  const bySide = new Map(lines.map((l) => [l.playerId, l.side]));
+  assert.equal(bySide.get("p1"), bySide.get("p2"));
+  assert.equal(bySide.get("p3"), bySide.get("p4"));
+  assert.notEqual(bySide.get("p1"), bySide.get("p3"));
+});
+
+test("BOTH MEMBERS OF A SIDE CARRY THE SAME STAR TOTAL AND THE SAME BONUS STARS", () => {
+  // The locked decision, asserted rather than described: the shared value goes
+  // on EVERY member. Not on one row, which is arbitrary and breaks every
+  // per-player read, and not halved, which invents a number an odd total cannot
+  // produce. 11 is deliberately odd for exactly that reason.
+  const sides = [side("a", ["p1", "p2"]), side("b", ["p3", "p4"])];
+  const { lines } = rankMpSides(
+    sides,
+    [sEntry("a", 11, ["Minigame Star", "Orb Star"]), sEntry("b", 4, ["Red Star"])],
+    null,
+  );
+  const of = (id: string) => lines.find((l) => l.playerId === id)!;
+  assert.equal(of("p1").stars, 11);
+  assert.equal(of("p2").stars, 11);
+  assert.deepEqual(of("p1").bonusStars, ["Minigame Star", "Orb Star"]);
+  assert.deepEqual(of("p2").bonusStars, ["Minigame Star", "Orb Star"]);
+  assert.deepEqual(of("p3").bonusStars, ["Red Star"]);
+  // Separate arrays, so a screen mutating one member's list cannot reach into
+  // their partner's row.
+  assert.notEqual(of("p1").bonusStars, of("p2").bonusStars);
+});
+
+test("AN ALL-SINGLETONS FIELD IS BYTE-IDENTICAL TO rankMpLines", () => {
+  // THE REGRESSION THAT MATTERS MOST. The ordinary four-player Battle Royale
+  // board must be untouched by any of this: same order, same placements, same
+  // null side. Compared against the other function's live output rather than
+  // against a transcription of it, so the two cannot drift apart quietly.
+  const cases: [number[], string | null][] = [
+    [[9, 5, 3, 1], null],
+    [[9, 5, 5, 1], null],
+    [[6, 6, 2], "a"],
+    [[7, 4], null],
+    [[0, 0], "a"],
+  ];
+  for (const [stars, winner] of cases) {
+    const ids = stars.map((_, i) => `p${i}`);
+    const sides = singletonSides(ids);
+    const perPlayer = rankMpLines(
+      stars.map((n, i) => entry(ids[i]!, n)),
+      winner ? sides[["a", "b", "c", "d"].indexOf(winner)]!.memberIds[0] : null,
+    );
+    const perSide = rankMpSides(
+      sides,
+      stars.map((n, i) => sEntry(sides[i]!.id, n)),
+      winner,
+    );
+    assert.equal(perSide.error, perPlayer.error, `error differs on ${stars.join(",")}`);
+    assert.deepEqual(perSide.lines, perPlayer.lines, `lines differ on ${stars.join(",")}`);
+    assert.ok(perSide.lines.every((l) => l.side === null));
+  }
+});
+
+test("A 1v1 IS side: null ON BOTH, not \"a\" and \"b\"", () => {
+  // sideIdFor's rule, and the reason it lives in teams.ts once. A pack writing
+  // "a"/"b" for a 1v1 would make meetingOutcome classify two OPPONENTS as
+  // having played together, and the rivalry would be wrong forever with
+  // nothing erroring.
+  const sides = [side("a", ["p1"]), side("b", ["p2"])];
+  const { lines, error } = rankMpSides(sides, [sEntry("a", 8), sEntry("b", 3)], null);
+  assert.equal(error, null);
+  assert.equal(lines.length, 2);
+  assert.ok(lines.every((l) => l.side === null));
+});
+
+test("a 2v1 is allowed, because uneven sides are a fact rather than an error", () => {
+  // validateSides returns `even` for the screen to warn with; a 2v1 is a real
+  // thing a crew does and the app records what the night did.
+  const sides = [side("a", ["p1", "p2"]), side("b", ["p3"])];
+  const out = rankMpSides(sides, [sEntry("a", 5), sEntry("b", 9)], null);
+  assert.equal(out.error, null);
+  assert.equal(out.lines.find((l) => l.playerId === "p3")!.placement, 1);
+  assert.equal(out.lines.find((l) => l.playerId === "p1")!.placement, 2);
+});
+
+// ---------- tag battle refusals ----------
+
+test("fewer than two sides, or a side with nobody on it, is refused", () => {
+  assert.equal(rankMpSides([side("a", ["p1", "p2"])], [sEntry("a", 5)], null).error, "Need at least 2 sides");
+  const empty = [side("a", ["p1", "p2"]), side("b", [])];
+  assert.equal(
+    rankMpSides(empty, [sEntry("a", 5), sEntry("b", 2)], null).error,
+    "Every side needs at least one player",
+  );
+});
+
+test("a missing or negative side total is refused rather than read as zero", () => {
+  const sides = [side("a", ["p1", "p2"]), side("b", ["p3", "p4"])];
+  assert.ok(rankMpSides(sides, [sEntry("a", NaN), sEntry("b", 3)], null).error);
+  assert.ok(rankMpSides(sides, [sEntry("a", -1), sEntry("b", 3)], null).error);
+  assert.ok(rankMpSides(sides, [sEntry("a", Infinity), sEntry("b", 3)], null).error);
+  // And a side with no entry at all, which is the blank-box case one level up.
+  assert.equal(
+    rankMpSides(sides, [sEntry("a", 5)], null).error,
+    "Enter a star count for every side",
+  );
+});
+
+test("ONE BONUS STAR CANNOT SIT ON TWO SIDES", () => {
+  // The per-player rule raised one level. Within a side it IS shared, which is
+  // what Tag Battle means, so only the cross-side case is a mistake.
+  const sides = [side("a", ["p1", "p2"]), side("b", ["p3", "p4"])];
+  const out = rankMpSides(
+    sides,
+    [sEntry("a", 9, ["Minigame Star"]), sEntry("b", 4, ["Minigame Star"])],
+    null,
+  );
+  assert.equal(out.lines.length, 0);
+  assert.match(out.error!, /Only one side can get the Minigame Star/);
+});
+
+test("A TIE AT THE TOP IS REFUSED UNTIL THE HOST TAPS A SIDE", () => {
+  const sides = [side("a", ["p1", "p2"]), side("b", ["p3", "p4"])];
+  const tied = [sEntry("a", 6), sEntry("b", 6)];
+  assert.equal(rankMpSides(sides, tied, null).error, "Two sides are tied on stars. Tap who won.");
+  const resolved = rankMpSides(sides, tied, "b");
+  assert.equal(resolved.error, null);
+  assert.equal(resolved.lines[0]!.playerId, "p3");
+  assert.equal(resolved.lines[0]!.isWinner, true);
+});
+
+test("the host cannot hand the win to a side that is not on the most stars", () => {
+  const sides = [side("a", ["p1", "p2"]), side("b", ["p3", "p4"])];
+  const out = rankMpSides(sides, [sEntry("a", 9), sEntry("b", 4)], "b");
+  assert.equal(out.lines.length, 0);
+  assert.equal(out.error, "The winning side must have the most stars");
+});
+
+test("characters stay PER PLAYER in Tag Battle", () => {
+  // Each player still picks their own; only the stars are shared.
+  const sides = [side("a", ["p1", "p2"]), side("b", ["p3", "p4"])];
+  const { lines } = rankMpSides(sides, [sEntry("a", 9), sEntry("b", 4)], null, {
+    p1: "Dry Bones",
+    p2: "Birdo",
+  });
+  const of = (id: string) => lines.find((l) => l.playerId === id)!;
+  assert.equal(of("p1").character, "Dry Bones");
+  assert.equal(of("p2").character, "Birdo");
+  assert.equal(of("p3").character, null);
+});
+
+// ---------- the night summary, and the double count it must not do ----------
+
+const player = (id: string, name: string): SmashPlayer =>
+  ({ id, name, userId: null, isGuest: true }) as unknown as SmashPlayer;
+
+test("summarizeMpNight REPORTS SOLO AND TAG STARS APART AND DOES NOT DOUBLE COUNT", () => {
+  // A mixed night: one ordinary board, then one tag board. Summing l.stars over
+  // both would credit the pair twice for the side's single total and put them
+  // ahead of a solo player two to one.
+  const roster = [player("p1", "Ann"), player("p2", "Bo"), player("p3", "Cy"), player("p4", "Di")];
+  const state = newMpState({ titleId: "mp7", assignment: "self", roster });
+  const solo = rankMpLines(
+    [entry("p1", 10), entry("p2", 6), entry("p3", 4), entry("p4", 2)],
+    null,
+  );
+  const sides = [side("a", ["p1", "p2"]), side("b", ["p3", "p4"])];
+  const tag = rankMpSides(sides, [sEntry("a", 11), sEntry("b", 5)], null);
+  state.games = [
+    { idx: 0, map: "Grand Canal", lines: solo.lines, at: "2026-08-30T20:00:00.000Z" },
+    { idx: 1, map: "Pagoda Peak", lines: tag.lines, at: "2026-08-30T21:00:00.000Z" },
+  ];
+
+  const { players } = summarizeMpNight(state);
+  const of = (id: string) => players.find((p) => p.playerId === id)!;
+
+  // Ann: 10 solo stars, and 11 tag stars that are the SIDE's, kept apart.
+  assert.equal(of("p1").totalStars, 10);
+  assert.equal(of("p1").tagStars, 11);
+  assert.equal(of("p2").totalStars, 6);
+  assert.equal(of("p2").tagStars, 11);
+  // The side's total appears once per member and is never added into the solo
+  // column, which is the actual double count this split exists to prevent.
+  assert.equal(of("p1").totalStars + of("p2").totalStars, 16);
+
+  // Games and wins are NOT split: a player played the board either way, and
+  // both members of a winning side genuinely won it.
+  for (const id of ["p1", "p2", "p3", "p4"]) {
+    assert.equal(of(id).games, 2, `${id} played two boards`);
+    assert.equal(of(id).tagGames, 1, `${id} played one of them in a tag`);
+  }
+  assert.equal(of("p1").wins, 2);
+  assert.equal(of("p2").wins, 1);
+  assert.equal(of("p3").wins, 0);
+});
+
+test("a night with no tag boards reports zero tag stars and games", () => {
+  // The ordinary night, unchanged: the tag columns exist and stay empty.
+  const roster = [player("p1", "Ann"), player("p2", "Bo")];
+  const state = newMpState({ titleId: "mp6", assignment: "self", roster });
+  const { lines } = rankMpLines([entry("p1", 7), entry("p2", 3)], null);
+  state.games = [{ idx: 0, map: "Faire Square", lines, at: "2026-08-30T20:00:00.000Z" }];
+  const { players } = summarizeMpNight(state);
+  assert.equal(players[0]!.totalStars, 7);
+  assert.equal(players[0]!.tagStars, 0);
+  assert.equal(players[0]!.tagGames, 0);
+});
+
+test("A LINE RECORDED BEFORE TAG BATTLE, WITH NO side KEY AT ALL, COUNTS AS SOLO", () => {
+  // Boards already in jsonb have no `side` on their lines. The coalesce in the
+  // summary is load-bearing rather than defensive: without it those stars fall
+  // into neither column and a finished night reads as zero.
+  const roster = [player("p1", "Ann"), player("p2", "Bo")];
+  const state = newMpState({ titleId: "mp2", assignment: "self", roster });
+  const legacy = [
+    { playerId: "p1", character: null, stars: 8, bonusStars: [], placement: 1, isWinner: true },
+    { playerId: "p2", character: null, stars: 2, bonusStars: [], placement: 2, isWinner: false },
+  ];
+  state.games = [{ idx: 0, map: "Pirate Land", lines: legacy, at: "2026-08-30T20:00:00.000Z" }];
+  const { players } = summarizeMpNight(state);
+  assert.equal(players.find((p) => p.playerId === "p1")!.totalStars, 8);
+  assert.equal(players.find((p) => p.playerId === "p1")!.tagStars, 0);
+});
+
+// ---------- the side log ----------
+
+test("a new session opens with singleton sides, which is NO team structure", () => {
+  const roster = [player("p1", "Ann"), player("p2", "Bo"), player("p3", "Cy")];
+  const state = newMpState({ titleId: "mp7", assignment: "self", roster });
+  assert.equal(state.sideLog.length, 1);
+  assert.equal(state.sideLog[0]!.fromIdx, 0);
+  assert.equal(hasTeamStructure(state.sideLog), false);
+  assert.deepEqual(currentSides(state.sideLog).map((s) => s.memberIds), [["p1"], ["p2"], ["p3"]]);
+});
+
+test("normalizeMpState BACKFILLS A SESSION WRITTEN BEFORE THE LOG EXISTED", () => {
+  // Read out of jsonb with no sideLog key at all. The upgrade is exact: every
+  // board this pack ever recorded was played by individuals.
+  const roster = [player("p1", "Ann"), player("p2", "Bo")];
+  const legacy = { ...newMpState({ assignment: "self", roster }) } as Record<string, unknown>;
+  delete legacy.sideLog;
+  const out = normalizeMpState(legacy as unknown as MpSessionState);
+  assert.equal(out.sideLog.length, 1);
+  assert.equal(hasTeamStructure(out.sideLog), false);
+  // And it is a no-op on a session that already has one, rather than resetting
+  // a live night's pairs on every read.
+  const teamed = newMpState({ assignment: "self", roster, sides: [side("a", ["p1", "p2"])] });
+  assert.equal(normalizeMpState(teamed), teamed);
+});
+
+test("UNDO ACROSS A RESHUFFLE PUTS THE OLD PAIRS BACK", () => {
+  // The reason the arrangement is a LOG. Two boards under one pairing, a
+  // reshuffle, a third board, then an undo back past the boundary: the
+  // arrangement in force must be the ORIGINAL one again, not the new one.
+  const roster = [player("p1", "Ann"), player("p2", "Bo"), player("p3", "Cy"), player("p4", "Di")];
+  const state = newMpState({
+    titleId: "mp7",
+    assignment: "self",
+    roster,
+    sides: [side("a", ["p1", "p2"]), side("b", ["p3", "p4"])],
+  });
+  const board = (idx: number): MpGame => ({ idx, map: "Neon Heights", lines: [], at: "" });
+  state.games = [board(0), board(1)];
+
+  assert.equal(reshuffle(state.sideLog, [side("a", ["p1", "p3"]), side("b", ["p2", "p4"])], 2), null);
+  state.games.push(board(2));
+  assert.deepEqual(currentSides(state.sideLog).map((s) => s.memberIds), [["p1", "p3"], ["p2", "p4"]]);
+  // The boards played before the boundary still read under the OLD pairing,
+  // which is the whole point: a reshuffle is not retroactive.
+  assert.deepEqual(sidesAtIdx(state.sideLog, 1).map((s) => s.memberIds), [["p1", "p2"], ["p3", "p4"]]);
+
+  // UNDOING THE BOARD PLAYED UNDER THE NEW PAIRS DOES NOT UNDO THE RESHUFFLE,
+  // and that boundary is exact rather than approximate. With two boards left,
+  // an entry in force from board index 2 is still the arrangement the NEXT
+  // board will be played under, so it stays.
+  state.games.pop();
+  assert.equal(truncateSideLog(state.sideLog, state.games.length), false);
+  assert.deepEqual(currentSides(state.sideLog).map((s) => s.memberIds), [["p1", "p3"], ["p2", "p4"]]);
+
+  // Undoing back PAST the boundary is what restores the old pairs, which is
+  // the whole reason the arrangement is a log rather than a field.
+  state.games.pop();
+  assert.equal(truncateSideLog(state.sideLog, state.games.length), true);
+  assert.deepEqual(currentSides(state.sideLog).map((s) => s.memberIds), [["p1", "p2"], ["p3", "p4"]]);
 });
