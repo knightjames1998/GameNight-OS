@@ -174,16 +174,42 @@ export async function creditGuestMarioParty(
 
 // ---------- sides off the wire ----------
 
+// Side ids and names are MINTED SERVER-SIDE in both parsers below, never taken
+// from the body: `side` is compared for equality and never rendered, so letting
+// a client choose it buys nothing and lets a typo split one side in two.
+
 /**
- * Read a client's proposed arrangement into real `Side`s, or null for none.
+ * Sides at START, where the wire carries ROSTER INDICES.
  *
- * Ids and names are MINTED HERE rather than trusted from the body: `side` is
- * compared for equality and never rendered, so letting a client choose it buys
- * nothing and lets a typo split one side in two. Member ids are filtered to
- * this session's own roster slots, so a stale slot cannot smuggle a player in.
- * Everything else is left to validateSides, which owns what is acceptable.
+ * The setup screen has never seen a slot id, because the server mints them in
+ * this very request, so it sends positions into the roster it just posted.
+ * Follows Ping Pong, which shipped this shape with the primitive. An index that
+ * names nobody is dropped rather than guessed at, and the caller checks that
+ * everybody ended up placed.
  */
-function parseSides(raw: unknown, roster: SmashPlayer[]): Side[] | null {
+function sidesFromIndices(raw: unknown, roster: SmashPlayer[]): Side[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  return raw.map((members: unknown, i: number): Side => ({
+    id: sideIdAt(i),
+    name: defaultSideName(i),
+    memberIds: [
+      ...new Set(
+        (Array.isArray(members) ? members : [])
+          .map((n: unknown) => roster[Number(n)]?.id)
+          .filter((id: string | undefined): id is string => !!id),
+      ),
+    ],
+  }));
+}
+
+/**
+ * Sides at RESHUFFLE, where the session is live and the wire carries slot IDS.
+ *
+ * Filtered to this session's own roster, so a stale slot from a replaced
+ * session cannot smuggle a player in. Everything else is left to validateSides,
+ * which owns what is acceptable.
+ */
+function sidesFromIds(raw: unknown, roster: SmashPlayer[]): Side[] | null {
   if (!Array.isArray(raw) || raw.length === 0) return null;
   const slotIds = new Set(roster.map((p) => p.id));
   return raw.map((s: any, i: number): Side => ({
@@ -302,7 +328,7 @@ marioPartyRouter.post("/events/:eventId/marioparty", requireAuth, async (req: Au
   // flag that goes stale the moment a title's data is edited. The app records
   // what the night did rather than refereeing it, which is the principle
   // already written at validateSides.
-  const sides = parseSides(req.body?.sides, roster);
+  const sides = sidesFromIndices(req.body?.sides, roster);
   if (sides) {
     // maxSides 2 because Tag Battle is 2v2. MP7's 4-Team Battle is deferred:
     // four sides changes what the record screen IS, rather than being a bigger
@@ -314,6 +340,16 @@ marioPartyRouter.post("/events/:eventId/marioparty", requireAuth, async (req: Au
     }
     // UNEVEN IS NOT AN ERROR. validateSides returns `even` as a fact and a 2v1
     // is a real thing a crew does; the screen warns rather than blocking.
+    //
+    // A PLAYER LEFT OFF EVERY SIDE IS a different matter and IS refused: a
+    // roster slot with no side would be invisible to the record screen, which
+    // renders one star box per side. Reject rather than guess. Follows Ping
+    // Pong's doubles start.
+    const placed = new Set(sides.flatMap((x) => x.memberIds));
+    if (placed.size !== roster.length) {
+      res.status(400).json({ error: "Every player needs to be on a side" });
+      return;
+    }
   }
 
   let state = newMpState({ titleId, assignment, roster, sides: sides ?? undefined });
@@ -393,7 +429,7 @@ marioPartyRouter.post("/marioparty/:eventId/reshuffle", requireAuth, async (req:
     return;
   }
   const { state } = loaded;
-  const sides = parseSides(req.body?.sides, state.roster) ?? singletonSides(state.roster.map((p) => p.id));
+  const sides = sidesFromIds(req.body?.sides, state.roster) ?? singletonSides(state.roster.map((p) => p.id));
   const check = validateSides(sides, 2);
   if (check.error) {
     res.status(400).json({ error: check.error });

@@ -11,7 +11,13 @@ import {
   boardsForTitle,
   bonusStarsForTitle,
   MP_CUSTOM_BOARD,
+  currentSides,
+  hasTeamStructure,
+  sideLabel,
+  type Side,
+  type SideLog,
 } from "@gamenight/shared";
+import { TeamPicker, teamPickerStatus, dropRosterIndex } from "../teams/TeamPicker";
 import "./marioparty.css";
 
 type Assignment = "self" | "random" | "host";
@@ -30,6 +36,8 @@ interface GameLine {
   bonusStars: string[];
   placement: number;
   isWinner: boolean;
+  /** Absent on a board recorded before Tag Battle shipped. */
+  side?: string | null;
 }
 interface Session {
   status: "setup" | "live" | "completed";
@@ -39,8 +47,20 @@ interface Session {
   openScoring: boolean;
   roster: Slot[];
   games: { idx: number; map: string; lines: GameLine[]; at: string }[];
+  /** Backfilled server-side by normalizeMpState, so it is always present. */
+  sideLog: SideLog;
   summary: {
-    players: { playerId: string; name: string; games: number; wins: number; totalStars: number; mainCharacter: string | null }[];
+    players: {
+      playerId: string;
+      name: string;
+      games: number;
+      wins: number;
+      /** SOLO stars only. A tag board's total belongs to the side. */
+      totalStars: number;
+      tagStars: number;
+      tagGames: number;
+      mainCharacter: string | null;
+    }[];
     boards: { map: string; games: number }[];
   };
 }
@@ -134,6 +154,11 @@ function SetupOrWaiting({
   const [assignment, setAssignment] = useState<Assignment>("self");
   const [roster, setRoster] = useState<{ userId: string | null; name: string }[]>([]);
   const [guest, setGuest] = useState("");
+  const [tag, setTag] = useState(false);
+  // TeamPicker works in ROSTER INDICES, not ids: the server mints slot ids when
+  // the session starts, so at setup time this screen has never seen one. The
+  // start route reads the same indices back.
+  const [assign, setAssign] = useState<number[][]>([[], []]);
 
   useEffect(() => {
     if (ctx && roster.length === 0) {
@@ -165,8 +190,17 @@ function SetupOrWaiting({
     addGuestNamed(guest);
     setGuest("");
   };
-  const removeAt = (i: number) => setRoster(roster.filter((_, j) => j !== i));
+  // Removing a player shifts every index above them, so the assignment has to
+  // be renumbered with it. dropRosterIndex exists precisely because a version
+  // of this that forgets looks completely correct and pairs the wrong people.
+  const removeAt = (i: number) => {
+    setRoster(roster.filter((_, j) => j !== i));
+    setAssign((a) => dropRosterIndex(a, i));
+  };
   const notAdded = ctx.members.filter((m) => !roster.some((r) => r.userId === m.userId));
+
+  const teamStatus = teamPickerStatus(assign, roster.length, 2);
+  const blocked = tag && !teamStatus.ready;
 
   return (
     <>
@@ -241,13 +275,43 @@ function SetupOrWaiting({
         <p className="mp-hint" style={{ marginTop: 8 }}>Guests play, but lifetime stats only count crew members.</p>
       </div>
 
+      <div className="mp-card">
+        <div className="mp-h">Format</div>
+        <div className="mp-seg">
+          <button className={!tag ? "on" : ""} onClick={() => setTag(false)}>Battle Royale</button>
+          <button className={tag ? "on" : ""} onClick={() => setTag(true)}>Tag Battle</button>
+        </div>
+        {tag ? (
+          <>
+            <p className="mp-hint" style={{ marginTop: 8 }}>
+              Teams share Orbs, Stars and coins, so a board has one star total per side.
+              Everyone still picks their own character.
+            </p>
+            <TeamPicker cx="mp" roster={roster} assign={assign} setAssign={setAssign} maxSides={2} />
+            {teamStatus.unplaced.length > 0 && (
+              <p className="mp-hint" style={{ marginTop: 8 }}>
+                Everyone has to be on a side before the party starts.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="mp-hint" style={{ marginTop: 8 }}>
+            Everyone for themselves: one star total each, most stars wins the board.
+          </p>
+        )}
+      </div>
+
       <button
         className="mp-btn"
         style={{ marginTop: 12 }}
-        disabled={busy || roster.length < 2}
-        onClick={() => onStart({ titleId, assignment, roster })}
+        disabled={busy || roster.length < 2 || blocked}
+        onClick={() => onStart({ titleId, assignment, roster, ...(tag ? { sides: assign } : {}) })}
       >
-        {roster.length < 2 ? "Add at least 2 players" : "Start the party"}
+        {roster.length < 2
+          ? "Add at least 2 players"
+          : blocked
+            ? teamStatus.check.error ?? "Put everyone on a side"
+            : tag ? "Start the tag battle" : "Start the party"}
       </button>
     </>
   );
@@ -272,6 +336,11 @@ function LivePlay({
   const viewerId = ctx?.viewerId ?? "";
   const canScore = canHost || session.openScoring;
   const titleRoster = useMemo(() => rosterForTitle(MARIO_PARTY_TITLES, session.titleId), [session.titleId]);
+  // TEAM STRUCTURE IS READ OFF THE LOG, not off a flag on the session, so the
+  // arrangement a reshuffle put in force is the one the screen records under.
+  const sides = useMemo(() => currentSides(session.sideLog ?? []), [session.sideLog]);
+  const teamPlay = hasTeamStructure(session.sideLog ?? []);
+  const nameOf = (id: string) => session.roster.find((p) => p.id === id)?.name;
 
   // Optimistic: the dropdown reflects the pick instantly.
   const setChar = (playerId: string, character: string | null) =>
@@ -306,11 +375,26 @@ function LivePlay({
       </div>
 
       {canScore ? (
-        <RecordBoard
-          session={session}
-          busy={busy}
-          onRecord={(payload) => call(`/api/marioparty/${eventId}/record`, payload)}
-        />
+        // TWO RECORD SCREENS, NOT ONE WITH A FLAG THREADED THROUGH EVERY ROW.
+        // The entry shapes are different enough (a star box per SIDE against a
+        // star box per PLAYER, bonus stars owned by a side against by a player,
+        // a tiebreak that taps a side against one that taps a person) that a
+        // shared component would drift into a lowest common denominator. Same
+        // argument pack-runtime.ts makes for why routes stay per pack.
+        teamPlay ? (
+          <RecordTagBoard
+            session={session}
+            sides={sides}
+            busy={busy}
+            onRecord={(payload) => call(`/api/marioparty/${eventId}/record`, payload)}
+          />
+        ) : (
+          <RecordBoard
+            session={session}
+            busy={busy}
+            onRecord={(payload) => call(`/api/marioparty/${eventId}/record`, payload)}
+          />
+        )
       ) : (
         <div className="mp-card"><p className="mp-hint">The host is recording results. Standings update live below.</p></div>
       )}
@@ -327,7 +411,13 @@ function LivePlay({
                 <span style={{ flex: 1 }} className="mp-name">
                   {i === 0 && <span className="mp-pill mp-pill--star">★ lead</span>} {p.name}
                 </span>
-                <span className="mp-char">{p.wins}W · {p.totalStars}★ · {p.mainCharacter ?? "-"}</span>
+                <span className="mp-char">
+                  {p.wins}W · {p.totalStars}★
+                  {/* A tag board's stars are the SIDE's, so they are shown
+                      apart rather than added in. Adding them would credit a
+                      pair twice for one total. */}
+                  {p.tagGames > 0 && <> · {p.tagStars}★ tag</>} · {p.mainCharacter ?? "-"}
+                </span>
               </div>
             ))}
             {session.summary.boards.length > 0 && (
@@ -352,6 +442,19 @@ function LivePlay({
               {session.openScoring ? "ON" : "OFF"}
             </button>
           </div>
+          {teamPlay && (
+            <>
+              <div className="mp-lab" style={{ marginTop: 12 }}>
+                Sides ({sides.map((sd) => sideLabel(sd, nameOf)).join(" v ")})
+              </div>
+              <Reshuffle
+                session={session}
+                sides={sides}
+                busy={busy}
+                onReshuffle={(payload) => call(`/api/marioparty/${eventId}/reshuffle`, payload)}
+              />
+            </>
+          )}
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
             <button className="mp-btn mp-btn--ghost" disabled={busy || session.games.length === 0} onClick={() => call(`/api/marioparty/${eventId}/undo`)}>↶ Undo last</button>
             <button className="mp-btn mp-btn--go" disabled={busy} onClick={() => call(`/api/marioparty/${eventId}/complete`)}>End party</button>
@@ -510,6 +613,223 @@ function RecordBoard({
       <button className="mp-btn" style={{ marginTop: 14 }} disabled={busy || !ready} onClick={record}>
         {active.length < 2 ? "Pick at least 2 players" : !mapValue ? "Pick a board" : !allStarsSet ? "Enter everyone's stars" : needsTiebreak && !effectiveWinner ? "Tap the winner" : "Record board"}
       </button>
+    </div>
+  );
+}
+
+// ---------- Record a TAG board ----------
+//
+// The per-side entry shape. Deliberately NOT the screen above with a flag: in
+// Tag Battle a team shares its Orbs, Stars and coins, so there is one star box
+// and one set of bonus stars per SIDE, and the tiebreak taps a side. What is
+// still per player is the character, which each player picks for themselves,
+// and that lives on the Characters card above rather than here.
+
+function RecordTagBoard({
+  session,
+  sides,
+  busy,
+  onRecord,
+}: {
+  session: Session;
+  sides: readonly Side[];
+  busy: boolean;
+  onRecord: (payload: unknown) => void;
+}) {
+  const boards = useMemo(() => boardsForTitle(session.titleId), [session.titleId]);
+  const bonusOptions = useMemo(() => bonusStarsForTitle(session.titleId), [session.titleId]);
+  const nameOf = (id: string) => session.roster.find((p) => p.id === id)?.name;
+
+  const [board, setBoard] = useState<string>(boards[0] ?? MP_CUSTOM_BOARD);
+  const [customBoard, setCustomBoard] = useState("");
+  const [stars, setStars] = useState<Record<string, string>>({});
+  // Keyed by bonus star -> the one SIDE that got it. Exclusive by construction,
+  // the same way the per-player screen is: two sides cannot both hold the
+  // Minigame Star, and the engine refuses it if they somehow do.
+  const [bonusOwner, setBonusOwner] = useState<Record<string, string>>({});
+  const [winnerSideId, setWinnerSideId] = useState<string | null>(null);
+
+  const starNum = (id: string) => {
+    const v = stars[id];
+    return v === undefined || v === "" ? NaN : Math.max(0, Math.floor(Number(v)));
+  };
+  const allStarsSet = sides.length >= 2 && sides.every((sd) => Number.isFinite(starNum(sd.id)));
+  const maxStars = allStarsSet ? Math.max(...sides.map((sd) => starNum(sd.id))) : -1;
+  const topSides = sides.filter((sd) => starNum(sd.id) === maxStars);
+  const needsTiebreak = allStarsSet && topSides.length > 1;
+  const effectiveWinner = needsTiebreak
+    ? (winnerSideId && topSides.some((sd) => sd.id === winnerSideId) ? winnerSideId : null)
+    : (topSides[0]?.id ?? null);
+
+  const mapValue = board === MP_CUSTOM_BOARD ? customBoard.trim() : board;
+  const ready = !!mapValue && allStarsSet && !!effectiveWinner;
+
+  const setBonus = (star: string, sideId: string) =>
+    setBonusOwner((s) => {
+      const next = { ...s };
+      if (next[star] === sideId) delete next[star];
+      else next[star] = sideId;
+      return next;
+    });
+  const bonusFor = (sideId: string) =>
+    Object.entries(bonusOwner)
+      .filter(([, owner]) => owner === sideId)
+      .map(([star]) => star);
+
+  const record = () => {
+    onRecord({
+      map: mapValue,
+      winnerSideId: effectiveWinner,
+      lines: sides.map((sd) => ({ sideId: sd.id, stars: starNum(sd.id), bonusStars: bonusFor(sd.id) })),
+    });
+    setStars({});
+    setBonusOwner({});
+    setWinnerSideId(null);
+  };
+
+  return (
+    <div className="mp-card">
+      <div className="mp-h">Record a board (Tag Battle)</div>
+
+      <div className="mp-lab">Board</div>
+      <select className="mp-select" style={{ marginTop: 6 }} value={board} onChange={(e) => setBoard(e.target.value)}>
+        {boards.map((b) => <option key={b} value={b}>{b}</option>)}
+        <option value={MP_CUSTOM_BOARD}>{MP_CUSTOM_BOARD}...</option>
+      </select>
+      {board === MP_CUSTOM_BOARD && (
+        <input className="mp-input" style={{ marginTop: 6 }} placeholder="Board name" value={customBoard} onChange={(e) => setCustomBoard(e.target.value)} />
+      )}
+
+      <div className="mp-lab" style={{ marginTop: 14 }}>Final stars, per side</div>
+      {sides.map((sd) => (
+        <div key={sd.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: "1px solid #33244f" }}>
+          <div style={{ flex: 1 }}>
+            <div className="mp-name">{sideLabel(sd, nameOf)}</div>
+            <div className="mp-char">{sd.name}</div>
+          </div>
+          <input
+            className="mp-input mp-stars"
+            type="number"
+            min={0}
+            inputMode="numeric"
+            placeholder="★"
+            value={stars[sd.id] ?? ""}
+            onChange={(e) => setStars((s) => ({ ...s, [sd.id]: e.target.value }))}
+          />
+        </div>
+      ))}
+      <p className="mp-hint" style={{ marginTop: 8 }}>
+        One total for the side, not one each: teams share Orbs, Stars and coins.
+      </p>
+
+      {bonusOptions.length > 0 && (
+        <>
+          <div className="mp-lab" style={{ marginTop: 16 }}>Bonus stars (one side each, optional)</div>
+          {bonusOptions.map((star) => (
+            <div key={star} style={{ padding: "8px 0", borderTop: "1px solid #33244f" }}>
+              <div className="mp-char" style={{ marginBottom: 4 }}>{star}</div>
+              <div className="mp-bonus">
+                {sides.map((sd) => (
+                  <button
+                    key={sd.id}
+                    className={bonusOwner[star] === sd.id ? "on" : ""}
+                    onClick={() => setBonus(star, sd.id)}
+                  >
+                    {sideLabel(sd, nameOf)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+
+      {needsTiebreak && (
+        <div style={{ marginTop: 12 }}>
+          <div className="mp-lab">Tied on stars. Tap which side won (coins break the tie)</div>
+          <div className="mp-seg">
+            {topSides.map((sd) => (
+              <button key={sd.id} className={effectiveWinner === sd.id ? "on" : ""} onClick={() => setWinnerSideId(sd.id)}>
+                {sideLabel(sd, nameOf)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button className="mp-btn" style={{ marginTop: 14 }} disabled={busy || !ready} onClick={record}>
+        {!mapValue ? "Pick a board" : !allStarsSet ? "Enter both sides' stars" : needsTiebreak && !effectiveWinner ? "Tap the winning side" : "Record board"}
+      </button>
+    </div>
+  );
+}
+
+// ---------- Reshuffle the sides ----------
+//
+// Host only, and it takes effect FROM THE NEXT BOARD. Boards already recorded
+// keep the pairs they were played under, which is why the arrangement is a log
+// rather than a field, and why undoing back past a reshuffle puts the old pairs
+// back rather than rewriting history.
+
+function Reshuffle({
+  session,
+  sides,
+  busy,
+  onReshuffle,
+}: {
+  session: Session;
+  sides: readonly Side[];
+  busy: boolean;
+  onReshuffle: (payload: unknown) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  // Indices into the roster, the same currency TeamPicker works in. Seeded from
+  // the arrangement in force so opening the panel shows the current pairs.
+  const idx = (id: string) => session.roster.findIndex((p) => p.id === id);
+  const [assign, setAssign] = useState<number[][]>(() =>
+    sides.map((sd) => sd.memberIds.map(idx).filter((n) => n >= 0)),
+  );
+  const status = teamPickerStatus(assign, session.roster.length, 2);
+
+  if (!open) {
+    return (
+      <button
+        className="mp-btn mp-btn--ghost"
+        style={{ marginTop: 10 }}
+        disabled={busy}
+        onClick={() => {
+          setAssign(sides.map((sd) => sd.memberIds.map(idx).filter((n) => n >= 0)));
+          setOpen(true);
+        }}
+      >
+        🔀 Reshuffle sides
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <TeamPicker cx="mp" roster={session.roster} assign={assign} setAssign={setAssign} maxSides={2} />
+      <p className="mp-hint" style={{ marginTop: 8 }}>
+        Takes effect from the next board. Boards already recorded keep the sides they were played under.
+      </p>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <button className="mp-btn mp-btn--ghost" onClick={() => setOpen(false)}>Cancel</button>
+        <button
+          className="mp-btn"
+          disabled={busy || !status.ready}
+          onClick={() => {
+            onReshuffle({
+              sides: assign.map((members) => ({
+                memberIds: members.map((n) => session.roster[n]?.id).filter(Boolean),
+              })),
+            });
+            setOpen(false);
+          }}
+        >
+          {status.ready ? "Use these sides" : status.check.error ?? "Put everyone on a side"}
+        </button>
+      </div>
     </div>
   );
 }
