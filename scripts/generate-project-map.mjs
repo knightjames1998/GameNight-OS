@@ -13,38 +13,56 @@ import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
 const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-08-28, because the counter read 3. THE REDRAW WENT FIRST, before
-// this session's own work, which is what the counter is for: the signed-out cue
-// fix and the TRACKED_PROPS rebaseline that follow are NOT in this drawing and
-// increment the counter in their own commit. Same arrangement as every pass
-// since 08-17.
+// Redrawn 2026-08-30, because the counter read 3. THE REDRAW WENT FIRST, before
+// this session's own work, which is what the counter is for: MP7, the two MP6
+// data corrections and Tag Battle are NOT in this drawing and increment the
+// counter in their own commit. Same arrangement as every pass since 08-17.
 // This pass:
-//   - ZONE 1 TOOK TWO, both (NEW), 31 to 33: the help modal and the first-visit
-//     cue on its trigger. Recurring nights, the crew page crash and the pinned
-//     details card lost their (NEW) on schedule.
-//   - PLACE SEARCH LEAVES NO TRACE, AND THAT IS THE POINT OF RECONCILING RATHER
-//     THAN APPENDING. It shipped on 08-27 and was reverted on 08-28, entirely
-//     between two redraws, so it was never drawn and is not being drawn now. Its
-//     write-up lives in DEFERRED, which this protocol does not draw, and its six
-//     decision log entries stay. A pass that only ever added would have shown a
-//     feature the app does not have.
-//   - ZONE 5 TOOK ONE, 13 to 14: a word in a COMMENT can add a Tailwind utility
-//     to the shipped stylesheet, found by the sweep reporting a selector that
-//     session never touched. Two OPEN, twelve Watch.
-//   - ROW 1 GREW, 2850 -> 3150, the second consecutive raise driven by zone 1
-//     rather than by zone 2 taking packs. MEASURED BY READING THE GENERATED FILE
-//     BACK: two items put zone 1 at 2840, which is 10px of 2850. +300 rather
-//     than the usual +200 because this zone has now taken three items and then
-//     two in consecutive passes and is plainly the active one; 310 is about two
-//     more items. Row 2 moved 2970 -> 3270 to stay aligned; its heights did not
-//     change, since zone 5 has 344.
-//   - ZONES 2, 3, 4 AND 6 ARE UNCHANGED. NEXT UP still holds the same numbered
-//     three: nothing shipped out of the queue again, which is now five sessions
-//     running of work James brought directly.
-//   - THE RECONCILE WALKED git log AND FOUND NO DRIFT. All sixteen commits since
-//     d9cb556 belong to three sessions, each of which wrote itself up, including
-//     the one whose feature was deleted a day later.
-//   - Canvas 1560x4470, read off the generated file. Panorama camera 1600x4520.
+//   - ZONE 1 TOOK THREE, all (NEW), 33 to 36: the signed-out cue plus the sweep
+//     learning to see it, the tv-fit overlay probe, and one QR on every TV with
+//     the phone page behind it. The help modal and the help button cue lost
+//     their (NEW) on schedule.
+//   - ZONE 5 WENT 14 TO 16, AND EVERY PART OF THAT IS A RULE WORKING. Two Watch
+//     traps CLOSED on 08-28 and are drawn FIXED, the first of their two
+//     appearances: text-decoration-line and the four border widths. A third
+//     NARROWED rather than closing — the box-model trap is now padding only,
+//     and its entry says in as many words not to close it by momentum because
+//     the border half did. And TWO NEW OPEN BUGS went in that no earlier pass
+//     could have drawn, both found 08-30 by the QR session's own harness work:
+//     Smash and Mario Party have never been in tv-fit and have no ladder (Mario
+//     Party is over at EIGHT boards, an ordinary night), and the bracket TV
+//     clips 317px HORIZONTALLY in Arcade at one case. Four OPEN, ten Watch, two
+//     FIXED.
+//   - ROW 1 GREW, 3150 -> 3650, THE THIRD CONSECUTIVE RAISE DRIVEN BY ZONE 1,
+//     and the first where that zone was measured genuinely OVER rather than
+//     merely tight: three items put it at 3319 against a 3245 bottom, over by
+//     74. THE LAST RAISE WAS NOT ENOUGH AND THAT IS THE POINT OF RECORDING IT.
+//     08-28 added 300 on the reasoning that "310 is about two more items", and
+//     the very next pass took three. So this one is sized against the MEASURED
+//     RATE instead: zone 1 has taken three, then two, then three items in
+//     consecutive passes, and a zone-1 item is 136px with its gap, so a pass
+//     costs about 408. +500 leaves 426, which is one more pass at that rate
+//     rather than a guess at an item count. Row 2 moved 3270 -> 3770 to stay
+//     aligned; its heights did not change, because no row-2 zone is over
+//     (zone 5 has 228 of its 1200).
+//   - ZONES 2, 3, 4 AND 6 ARE UNCHANGED, at 29, 5, 11 and 9. NEXT UP still
+//     holds the same numbered three, which is now SIX sessions running with
+//     nothing shipped out of the queue: every one was work James brought
+//     directly. The QR session was raised and answered entirely between two
+//     redraws, so it was never drawn in zone 3 and is drawn only in zone 1.
+//     Zone 2 has 1408 of slack, which matters because THIS session's own work
+//     lands there next pass.
+//   - THE RECONCILE WALKED git log AND FOUND NO DRIFT. All ten commits since
+//     3735c7f belong to three sessions (the signed-out cue 08-28/29, the
+//     overlay probe 08-29, the QR pass 08-29/30) and every one wrote itself up.
+//   - Canvas 1560x4970, read off the generated file. Panorama camera 1600x5020.
+//
+// The 2026-08-28 pass, kept short: zone 1 took two (NEW), 31 to 33 (the help
+// modal, the help button cue); zone 5 took one, 13 to 14; row 1 grew 2850 ->
+// 3150, the second consecutive raise driven by zone 1. Place search shipped
+// 08-27 and was reverted 08-28, entirely between two redraws, so it was never
+// drawn — a pass that only ever added would have shown a feature the app does
+// not have. Canvas 1560x4470.
 //
 // The 2026-08-27 pass, kept short: zone 1 took three (NEW), 28 to 31 (recurring
 // nights, the crew page crash, the pinned card); zone 5 SHRANK 16 to 13 as the
@@ -103,11 +121,11 @@ const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
 // (row 1 860 -> 920).
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
-// each 480 wide, row 1 y=95 h=2650, row 2 y=2770 h=1200. Items 440x40, 46px
+// each 480 wide, row 1 y=95 h=3650, row 2 y=3770 h=1200. Items 440x40, 46px
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
-    x: 40, y: 95, h: 3150,
+    x: 40, y: 95, h: 3650,
     title: "SHIPPED — FOUNDATION", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Auth: 6-digit codes + links + passwords" },
@@ -141,12 +159,15 @@ const ZONES = [
       { t: "RECURRING GAME NIGHTS: the repeat rule on its OWN row, occurrences from anchor plus index so a moved night cannot drag the series, generated lazily on a crew page read", h: 130 },
       { t: "THE CREW PAGE THAT KEPT CRASHING: a create response that was not the shape the cached list expects, and a boundary that now clears the cache ONCE rather than promising a reload that could not work", h: 130 },
       { t: "THE NIGHT'S DETAILS GET PINNED: the read view becomes the card the edit view already was, and an accent edge that sets its OWN width, because Tabletop's card border is 0px", h: 130 },
-      { t: "A HELP MODAL OVER WHATEVER SCREEN YOU ARE ON: five sections, opened by a search param so the Back gesture closes it natively, and lazy because the budget gate refused it in the entry chunk (NEW)", bg: "#c3fae8", h: 130 },
-      { t: "THE HELP BUTTON ASKS TO BE NOTICED, ONCE: gold on a first visit only, and a reduced-motion branch that KEEPS the colour, because here the motion is the message (NEW)", bg: "#c3fae8", h: 130 },
+      { t: "A HELP MODAL OVER WHATEVER SCREEN YOU ARE ON: five sections, opened by a search param so the Back gesture closes it natively, and lazy because the budget gate refused it in the entry chunk", h: 130 },
+      { t: "THE HELP BUTTON ASKS TO BE NOTICED, ONCE: gold on a first visit only, and a reduced-motion branch that KEEPS the colour, because here the motion is the message", h: 106 },
+      { t: "THE SIGNED-OUT CUE GETS A SURFACE, AND THE SWEEP LEARNS TO SEE WHY IT DID NOT: a border COLOUR on a zero-width border paints nothing, and TRACKED_PROPS gains the four border widths and text-decoration-line (NEW)", bg: "#c3fae8", h: 130 },
+      { t: "tv-fit CAN ASK WHERE A FIXED OVERLAY COULD GO, AND THE ANSWER WAS NOWHERE: four corner rectangles per case, one render each, and no corner clear at any size in either theme (NEW)", bg: "#c3fae8", h: 130 },
+      { t: "ONE QR ON EVERY TV, AND A PHONE PAGE BEHIND IT: laid out rather than overlaid, one more child on a row every pack already had, a white plate whose quiet zone is measured, and a page a guest can read (NEW)", bg: "#c3fae8", h: 130 },
     ],
   },
   {
-    x: 560, y: 95, h: 3150,
+    x: 560, y: 95, h: 3650,
     title: "SHIPPED — GAME PACKS", zoneBg: "#d3f9d8", header: "#15803d", itemBg: "#b2f2bb",
     items: [
       { t: "Beerio Kart: full replica, predictions, TV" },
@@ -181,7 +202,7 @@ const ZONES = [
     ],
   },
   {
-    x: 1080, y: 95, h: 3150,
+    x: 1080, y: 95, h: 3650,
     title: "NEXT UP (queued)", zoneBg: "#fff3bf", header: "#b45309", itemBg: "#ffd8a8",
     items: [
       { t: "1. POKER, THE TOURNAMENT FORMAT: blind levels are a wall clock shared across devices, which is a live-sync problem rather than a money one", sw: 2, h: 70 },
@@ -192,7 +213,7 @@ const ZONES = [
     ],
   },
   {
-    x: 40, y: 3270, h: 1200,
+    x: 40, y: 3770, h: 1200,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
       { t: "FIX OR DELETE A COMPLETED RESULT: a question to answer before a screen", h: 52 },
@@ -209,9 +230,11 @@ const ZONES = [
     ],
   },
   {
-    x: 560, y: 3270, h: 1200,
+    x: 560, y: 3770, h: 1200,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
+      { t: "OPEN: SMASH AND MARIO PARTY do not fit 1080p and never had a ladder; MP is over at EIGHT boards", h: 52 },
+      { t: "OPEN: the bracket TV clips 317px HORIZONTALLY, Arcade only, at 8 pairs mid", h: 52 },
       { t: "OPEN: a late write to an ABANDONED session steals the TV off the game being played (touch-recency's cost)", h: 52 },
       { t: "OPEN: Casino Run's TV has the same back-button blind spot the money board had", h: 52 },
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
@@ -220,16 +243,16 @@ const ZONES = [
       { t: "Watch: drizzle push can no-op in CI, check build log", bg: "#fff3bf", h: 52 },
       { t: "Watch: color-mix's opaque fallback on pre-2023 browsers (shell-wide since stage 1)", bg: "#fff3bf", h: 52 },
       { t: "Watch: the canvas share cards follow NO theme (16 hardcoded colours, JS not CSS)", bg: "#fff3bf", h: 52 },
-      { t: "Watch: the sweep tracks no BOX-MODEL length, so padding and border-width move unseen", bg: "#fff3bf", h: 52 },
-      { t: "Watch: the sweep tracks no text-decoration LINE, so an underline and every strike-through are unmeasured", bg: "#fff3bf", h: 52 },
-      { t: "Watch: border COLOUR on .gn-card paints nothing in Tabletop (--gn-card-border is 0px) and the sweep passes", bg: "#fff3bf", h: 52 },
+      { t: "Watch: the sweep tracks no PADDING, narrowed 08-28 and left open on purpose: it holds meaning, not layout", bg: "#fff3bf", h: 52 },
       { t: "Watch: a word in a COMMENT can add a Tailwind utility to the shipped stylesheet", bg: "#fff3bf", h: 52 },
       { t: "Watch: judge a tiling texture at the PAINTED size; felt-variance scored a lattice higher", bg: "#fff3bf", h: 52 },
       { t: "Watch: Bevan overflows the stats tile on .gn-h2 at 390px (display face needs a width budget)", bg: "#fff3bf", h: 52 },
+      { t: "FIXED 08-28: the sweep tracks text-decoration-LINE, and the rules filter had to learn the word too", bg: "#b2f2bb", h: 52 },
+      { t: "FIXED 08-28: the sweep tracks all four border WIDTHS, after the gap shipped the same bug twice", bg: "#b2f2bb", h: 52 },
     ],
   },
   {
-    x: 1080, y: 3270, h: 1200,
+    x: 1080, y: 3770, h: 1200,
     title: "IDEAS — NOT SOLIDIFIED", zoneBg: "#e5dbff", header: "#6d28d9", itemBg: "#d0bfff",
     items: [
       { t: "Draft night mode (snake drafts, TV board)" },

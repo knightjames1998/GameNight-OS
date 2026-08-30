@@ -12,8 +12,8 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-28 (the cue fix and sweep session, before its own work)
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-08-30 (the MP7 and Tag Battle session, before its own work)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -69,39 +69,76 @@ anyone's memory of how many sessions have happened.
         Zone 1 took two (NEW), 23 to 25; zone 4 grew by six; row 1 grew 2400 -> 2650.
       - 2026-08-26.
       - 2026-08-27.
-      - 2026-08-28, this one. Below.
+      - 2026-08-28. Zone 1 took two, 31 to 33; zone 5 took one, 13 to 14; row 1 grew
+        2850 -> 3150. Place search shipped and was reverted between two redraws and was
+        therefore never drawn at all.
+      - 2026-08-30, this one. Below.
 
     THE REDRAW WENT FIRST, before this session's own work, which is the arrangement every
     pass since 2026-08-17 has used. The counter read 3 when this session started, so the
     reconcile and the drawing came before any feature work; the drawing therefore does NOT
-    contain the signed-out cue fix or the TRACKED_PROPS rebaseline, and that work counts
+    contain Mario Party 7, the two MP6 data corrections or Tag Battle, and that work counts
     itself.
 
     What this pass changed beyond the counter:
+      - ZONE 1 TOOK THREE, all (NEW), 33 to 36: the signed-out cue getting a surface (and
+        the sweep learning to see why it had not), tv-fit's overlay probe, and one QR on
+        every TV with the phone page behind it. The help modal and the help button cue lost
+        their (NEW) on schedule.
+      - ZONE 5 WENT 14 TO 16, AND EVERY PART OF THAT IS A RULE WORKING. Two Watch traps
+        CLOSED on 08-28 and are drawn FIXED, the first of the two appearances a FIXED entry
+        gets: the sweep now tracks `text-decoration-line`, and it now tracks all four border
+        widths. A third NARROWED rather than closing, and its own entry says in as many
+        words not to close it by momentum because the border half did: the box-model trap is
+        padding only now, because the line the sweep holds is MEANING rather than layout.
+        And TWO NEW OPEN BUGS went in that no earlier pass could have drawn, both found
+        2026-08-30 by the QR session's harness work — Smash and Mario Party have never been
+        in `tv-fit` and have no density ladder, with MARIO PARTY OVER AT EIGHT BOARDS, which
+        is an ordinary night, and the bracket TV clips 317px HORIZONTALLY in Arcade at one
+        case. Four OPEN, ten Watch, two FIXED.
+      - ROW 1 GREW, 3150 -> 3650, THE THIRD CONSECUTIVE RAISE DRIVEN BY ZONE 1, and the
+        first one where that zone was measured genuinely OVER rather than merely tight:
+        three items put it at 3319 against a 3245 bottom, over by 74. THE LAST RAISE WAS
+        NOT ENOUGH, AND THAT IS THE POINT OF WRITING THIS DOWN. The 08-28 pass added 300
+        on the reasoning that "310 is about two more items", and the very next pass took
+        three. So this raise is sized against the MEASURED RATE instead of an item count:
+        zone 1 has taken three, then two, then three items in consecutive passes, and a
+        zone-1 item costs 136px with its gap, so a pass costs about 408. +500 leaves 426,
+        which is one more pass at the rate this zone is actually moving. Row 2 moved
+        3270 -> 3770 to stay aligned, and its heights did not change, because no row-2 zone
+        is over: zone 5 uses 972 of its 1200.
+      - ZONES 2, 3, 4 AND 6 ARE UNCHANGED, at 29, 5, 11 and 9, and NEXT UP still holds the
+        same numbered three. That is now SIX sessions running with nothing shipped out of
+        the queue: every one was work James brought to the session directly. THE QR SESSION
+        WAS RAISED AND ANSWERED ENTIRELY BETWEEN TWO REDRAWS, so it was never drawn in zone
+        3 and appears only in zone 1 — the same shape as place search on the last pass, with
+        the opposite ending. Zone 2 has 1408 of slack, which is worth stating because THIS
+        session's own work lands in that zone next pass.
+      - THE RECONCILE WALKED `git log` AND FOUND NO DRIFT. All ten commits since 3735c7f
+        belong to three sessions (the signed-out cue 08-28/29, the overlay probe 08-29, the
+        QR pass 08-29/30) and every one of the three wrote itself up.
+
+    What the 2026-08-28 pass changed, kept for the arithmetic the next raise will need:
       - ZONE 1 TOOK TWO, both (NEW), 31 to 33: the help modal and the first-visit cue on
         its trigger. Recurring nights, the crew page crash and the pinned details card lost
         their (NEW) on schedule.
       - PLACE SEARCH LEAVES NO TRACE, WHICH IS THE POINT OF RECONCILING RATHER THAN
         APPENDING. It shipped 2026-08-27 and was reverted 2026-08-28, entirely between two
-        redraws, so it was never drawn and is not drawn now. Its write-up is in DEFERRED,
-        which this protocol does not draw, and its six decision log entries stay as the
-        record of what was decided. A pass that only ever added would be showing a feature
-        the app does not have.
+        redraws, so it was never drawn. Its write-up is in DEFERRED, which this protocol
+        does not draw, and its six decision log entries stay as the record of what was
+        decided. A pass that only ever added would be showing a feature the app does not
+        have.
       - ZONE 5 TOOK ONE, 13 to 14: a word in a COMMENT can add a Tailwind utility to the
         shipped stylesheet, found by the sweep reporting a selector that session never
         touched. Two OPEN, twelve Watch.
       - ROW 1 GREW, 2850 -> 3150, the SECOND consecutive raise driven by zone 1 rather than
         by zone 2 taking packs. Measured by reading the generated file back: two items put
         zone 1 at 2840, which is 10px of 2850. Raised by 300 rather than the usual 200
-        because this zone has taken three then two items in consecutive passes and is
-        plainly the active one; 310 is about two more items. Row 2 moved 2970 -> 3270 to
-        stay aligned, and its heights did not change, because zone 5 has 344.
-      - ZONES 2, 3, 4 AND 6 ARE UNCHANGED, and NEXT UP still holds the same numbered three.
-        That is now five sessions running with nothing shipped out of the queue: every one
-        was work James brought to the session directly.
-      - THE RECONCILE WALKED `git log` AND FOUND NO DRIFT. All sixteen commits since
-        d9cb556 belong to three sessions and each wrote itself up, including the one whose
-        feature was deleted the following day.
+        because that zone had taken three then two items in consecutive passes; the very
+        next pass took three and went over anyway, which is what the 08-30 raise is about.
+        Row 2 moved 2970 -> 3270 to stay aligned.
+      - ZONES 2, 3, 4 AND 6 WERE UNCHANGED, and the reconcile walked `git log` and found no
+        drift across all sixteen commits since d9cb556.
 
     What the 2026-08-27 pass changed, kept for the arithmetic the next raise will need:
       - THE RECONCILE WALKED `git log` AND FOUND NO DRIFT. All fifteen commits since the
@@ -199,7 +236,7 @@ another reference section does not change the map; adding or renaming one of the
 above does, and must update this table in the same commit.
 
 **Layout (fixed, so redraws are stable):** 3 columns x 2 rows. Columns at x=40, 560, 1080,
-each 480 wide. Row 1 at y=95 (height 2650), row 2 at y=2770 (height 1200). Zone header text
+each 480 wide. Row 1 at y=95 (height 3650), row 2 at y=3770 (height 1200). Zone header text
 15px below zone top, fontSize 22. Items 440 wide, 40 tall, 46px step, first item 50px below
 zone top; give a taller box (52-70) to any item whose label wraps past one line. Row 1 grew
 from 540 to 730 on 2026-07-27 (SHIPPED FOUNDATION reached 14 items and overflowed its
@@ -226,7 +263,13 @@ taking packs: three shipped sessions landed in zone 1 in one pass and left 82px,
 time. And from 2850 to 3150 on 2026-08-28, the SECOND consecutive raise driven by
 zone 1: two items put it at 2840 against 2850, leaving 10px. Raised by 300 rather than 200
 because zone 1 has taken three then two items in consecutive passes and is now the active
-zone.
+zone. And from 3150 to 3650 on 2026-08-30, the THIRD consecutive raise driven by zone 1 and
+THE FIRST WHERE A ZONE WAS FOUND GENUINELY OVER RATHER THAN MERELY TIGHT: three items put it
+at 3319 against a 3245 bottom, over by 74. The 08-28 raise of 300 was reasoned as "about two
+more items" and the next pass took three, so this one is sized against the MEASURED RATE
+instead: a zone-1 item costs 136px with its gap and this zone has taken three, two, three in
+consecutive passes, so a pass costs about 408. +500 leaves 426, which is one more pass at the
+rate the zone is moving rather than a guess at a count. SIZE A RAISE IN PASSES, NOT IN ITEMS.
 Each time it was raised pre-emptively rather than
 waiting for the next entry to overflow it, since the fix is mechanical and the trap would
 have landed on whoever added the next line.
@@ -261,8 +304,8 @@ they are the committed next sessions. Zone 4 blue (#dbe4ff / #a5d8ff / #2563eb).
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x4520 at the current zone heights; the canvas
-itself measures 1560x4470, read off the generated file rather than assumed. This line read
+on a panorama covering the full canvas (1600x5020 at the current zone heights; the canvas
+itself measures 1560x4970, read off the generated file rather than assumed. This line read
 2410 for four passes after the heights it describes had moved, which is why a redraw checks
 it against the file). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 
