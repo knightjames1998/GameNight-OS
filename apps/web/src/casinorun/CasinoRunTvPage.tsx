@@ -50,7 +50,7 @@ export default function CasinoRunTvPage({ eventId: propEventId }: { eventId?: st
   usePackLive(PACK.wsType, eventId, refetch);
 
   if (!loaded) return <Waiting hint="" brand="Loading..." />;
-  if (!session) return <Waiting brand={BRAND} hint="Waiting for the host to open the run." />;
+  if (!session) return <Waiting brand={BRAND} hint="Waiting for the host to open the run." eventId={eventId} />;
 
   const s = session.summary;
   const m = money(s.stakes);
@@ -186,10 +186,28 @@ export default function CasinoRunTvPage({ eventId: propEventId }: { eventId?: st
   );
 }
 
-function Waiting({ brand, hint }: { brand: React.ReactNode; hint: string }) {
+function Waiting({ brand, hint, eventId }: {
+  brand: React.ReactNode;
+  hint: string;
+  /**
+   * Omitted on the LOADING flash, before this screen knows whether it has a
+   * session at all: a code that appears for 200ms and vanishes is worse than
+   * no code. MoneyBoardWaiting says the same thing for the four packs that
+   * share it.
+   */
+  eventId?: string;
+}) {
   return (
     <div className="cg-tv crun-tv">
-      <div className="cg-tv__brand">{brand}</div>
+      {/* THE WAITING SCREEN IS THE ONE THAT IS UP WHILE PEOPLE ARRIVE, which
+          makes it the likeliest thing in the house to be scanned. The phone
+          page reads the NIGHT rather than this pack's session, so it has the
+          RSVP list and the crew's record to show even though there is nothing
+          on the table yet. */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <div className="cg-tv__brand">{brand}</div>
+        {eventId ? <TvQr eventId={eventId} size={TV_QR_MIN} /> : null}
+      </div>
       <p className="cg-tv__muted" style={{ fontSize: "3vmin", marginTop: "2vmin" }}>{hint}</p>
       <div style={{ marginTop: "3vmin" }}>
         <BackButton className="cg-textbtn" />

@@ -219,14 +219,31 @@ export function MoneyBoardWaiting({
   className,
   brand,
   hint,
+  eventId,
 }: {
   className: string;
   brand: ReactNode;
   hint: string;
+  /**
+   * Optional here and required on the board, and the difference is real: this
+   * also renders the LOADING flash, before a pack knows whether it has a
+   * session at all, and a code that appears for 200ms and vanishes is worse
+   * than no code. A pack passes it on the waiting screen and omits it on the
+   * loading one.
+   */
+  eventId?: string;
 }) {
   return (
     <div className={`cg-tv ${className}`}>
-      <div className="cg-tv__brand">{brand}</div>
+      {/* THE WAITING SCREEN IS THE ONE THAT IS UP WHILE PEOPLE ARRIVE, which
+          makes it the likeliest thing in the house to be scanned. The phone
+          page reads the NIGHT rather than this pack's session, so it has the
+          RSVP list and the crew's record to show even though there is nothing
+          on the table yet. */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <div className="cg-tv__brand">{brand}</div>
+        {eventId ? <TvQr eventId={eventId} size={TV_QR_MIN} /> : null}
+      </div>
       <p className="cg-tv__muted" style={{ fontSize: "3vmin", marginTop: "2vmin" }}>{hint}</p>
       <div style={{ marginTop: "3vmin" }}>
         <BackButton className="cg-textbtn" />

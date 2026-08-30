@@ -44,7 +44,7 @@ export default function CrapsTvPage({ eventId: propEventId }: { eventId?: string
 
   if (!loaded) return <MoneyBoardWaiting className="cr-tv" brand="Loading..." hint="" />;
   if (!session) {
-    return <MoneyBoardWaiting className="cr-tv" brand={BRAND} hint="Waiting for the host to open the table." />;
+    return <MoneyBoardWaiting className="cr-tv" brand={BRAND} hint="Waiting for the host to open the table." eventId={eventId} />;
   }
 
   const s = session.summary;

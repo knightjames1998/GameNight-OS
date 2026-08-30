@@ -58,7 +58,7 @@ export default function PokerTvPage({ eventId: propEventId }: { eventId?: string
 
   if (!loaded) return <MoneyBoardWaiting className="pk-tv" brand="Loading..." hint="" />;
   if (!session) {
-    return <MoneyBoardWaiting className="pk-tv" brand={BRAND} hint="Waiting for the host to open the table." />;
+    return <MoneyBoardWaiting className="pk-tv" brand={BRAND} hint="Waiting for the host to open the table." eventId={eventId} />;
   }
 
   const { summary, transfers } = session;

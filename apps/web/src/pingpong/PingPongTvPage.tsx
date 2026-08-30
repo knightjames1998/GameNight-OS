@@ -51,7 +51,15 @@ export default function PingPongTvPage({ eventId: propEventId }: { eventId?: str
   if (!session) {
     return (
       <div className="pp-tv">
-        <div className="pp-tv__brand">Ping Pong</div>
+        {/* THE WAITING SCREEN IS THE ONE THAT IS UP WHILE PEOPLE ARRIVE,
+            which makes it the likeliest thing in the house to be scanned. The
+            phone page reads the NIGHT rather than this pack's session, so it
+            has the RSVP list and the crew's record to show even though there
+            is nothing on the table yet. */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <div className="pp-tv__brand">Ping Pong</div>
+          <TvQr eventId={eventId} size={TV_QR_MIN} />
+        </div>
         <p className="pp-tv__muted" style={{ fontSize: "3vmin", marginTop: "2vmin" }}>Waiting for the host to start the night.</p>
         <div style={{ marginTop: "3vmin" }}><BackButton className="pp-textbtn" /></div>
       </div>

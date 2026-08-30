@@ -186,3 +186,39 @@ test("BEERIO IS EXEMPT AND STAYS EXEMPT", () => {
   assert.doesNotMatch(src, /<TvQr\b/, "the shared slot was added to the replica");
   assert.match(src, /QRCodeSVG/, "Beerio lost the QR it has always had of its own");
 });
+
+// ---- one address, spelled once -------------------------------------------
+
+test("NO TELEVISION SPELLS THE URL ITSELF", async () => {
+  const { SESSION_PACK_KEYS, SESSION_PACKS } = await import("@gamenight/shared");
+  const files = SESSION_PACK_KEYS.map((k) => tvFileFor(SESSION_PACKS[k].route)).concat(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), "../../web/src/pages/EventTvPage.tsx"),
+  );
+  for (const f of files) {
+    const src = bare(readFileSync(f, "utf8"));
+    // The event TV's lobby used to build its own: the join flow when the night
+    // had an invite code, and /e/:id when it did not, which is behind the
+    // authed router. A guest scanning that one landed on a sign-in wall. One
+    // address on every screen means exactly one place it is written down.
+    assert.doesNotMatch(
+      src,
+      /window\.location\.origin/,
+      `${path.basename(f)} builds its own URL; liveUrl in TvQr.tsx is the one place that address lives`,
+    );
+  }
+});
+
+test("THE BRACKET TV KEEPS ITS SCORING CODE, which is a different job", () => {
+  // /tv/:id is the tournament screen and its code says "scan to score": it is
+  // for the person running the bracket, it points at /b/:bracketId, and that
+  // screen has no eventId to point anywhere else with. Converting it would
+  // have been tidiness at the cost of the one thing it does.
+  const src = bare(
+    readFileSync(
+      path.join(path.dirname(fileURLToPath(import.meta.url)), "../../web/src/pages/TvPage.tsx"),
+      "utf8",
+    ),
+  );
+  assert.match(src, /\/b\/\$\{bracket\.id\}/);
+  assert.match(src, /scan to score/);
+});

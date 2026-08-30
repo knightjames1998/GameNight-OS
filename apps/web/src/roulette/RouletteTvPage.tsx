@@ -42,7 +42,7 @@ export default function RouletteTvPage({ eventId: propEventId }: { eventId?: str
 
   if (!loaded) return <MoneyBoardWaiting className="rl-tv" brand="Loading..." hint="" />;
   if (!session) {
-    return <MoneyBoardWaiting className="rl-tv" brand={BRAND} hint="Waiting for the host to open the wheel." />;
+    return <MoneyBoardWaiting className="rl-tv" brand={BRAND} hint="Waiting for the host to open the wheel." eventId={eventId} />;
   }
 
   return (

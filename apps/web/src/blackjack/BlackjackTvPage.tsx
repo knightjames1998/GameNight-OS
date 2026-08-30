@@ -42,7 +42,7 @@ export default function BlackjackTvPage({ eventId: propEventId }: { eventId?: st
   if (!loaded) return <MoneyBoardWaiting className="bj-tv" brand="Loading..." hint="" />;
   if (!session) {
     return (
-      <MoneyBoardWaiting className="bj-tv" brand={BRAND} hint="Waiting for the host to open the table." />
+      <MoneyBoardWaiting className="bj-tv" brand={BRAND} hint="Waiting for the host to open the table." eventId={eventId} />
     );
   }
 

@@ -70,7 +70,15 @@ export function TitleNightTv({
   if (!session) {
     return (
       <div className={`tn-tv ${className}`}>
-        <div className="tn-tv__brand">{brand}</div>
+        {/* THE WAITING SCREEN IS THE ONE THAT IS UP WHILE PEOPLE ARRIVE, which
+            makes it the likeliest thing in the house to be scanned. The phone
+            page reads the NIGHT rather than this pack's session, so it has the
+            RSVP list and the crew's record to show even though there is nothing
+            on the table yet. */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <div className="tn-tv__brand">{brand}</div>
+          <TvQr eventId={eventId} size={TV_QR_MIN} />
+        </div>
         <p className="tn-tv__muted" style={{ fontSize: "3vmin", marginTop: "2vmin" }}>{waitingHint}</p>
         <div className="tn-tv__back"><BackButton className="tn-textbtn" /></div>
       </div>

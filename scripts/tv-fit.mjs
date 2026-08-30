@@ -545,6 +545,25 @@ await send("Fetch.enable", { patterns: [{ urlPattern: "*" }] });
  */
 const PROBE_W = Number(process.env.PROBE_W || 170), PROBE_H = Number(process.env.PROBE_H || 200);
 
+/**
+ * THE INSTRUMENT IS PUT AWAY, NOT THROWN AWAY.
+ *
+ * This probe was built on 2026-08-29 to answer one question: is there a corner
+ * on any television where a fixed overlay would never cover anything. It
+ * answered it, in 53 case/theme collisions in the roomiest corner and none
+ * clear anywhere, and the QR went into the header row instead. The answer is
+ * recorded in BACKLOG and the code that produced it stays here, because the
+ * next person who wants to put something in a corner should be able to ASK
+ * rather than argue, and rebuilding a measurement is how a project ends up
+ * with two of them that disagree.
+ *
+ * It is off by default because it costs four rectangle tests on every painted
+ * element of every case, and because a table of 53 collisions that nobody is
+ * deciding anything from is a table nobody reads. Turn it on with
+ * PROBE_CORNERS=1, and size the rectangle with PROBE_W / PROBE_H.
+ */
+const PROBE_CORNERS = process.env.PROBE_CORNERS === "1";
+
 const MEASURE = (PROOF) => `(()=>{
   const PROOF = ${JSON.stringify(PROOF)};
   const railW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gn-rail-w')) || 0;
@@ -572,7 +591,7 @@ const MEASURE = (PROOF) => `(()=>{
   // INSET BY THE RAIL, read off the document like everything else here, because
   // a corner is inside the rail's band by definition and an overlay that
   // ignores it is under the timber in Tabletop and fine in Arcade.
-  const PROBE_W = ${PROBE_W}, PROBE_H = ${PROBE_H}, PROBE_PAD = 12;
+  const PROBE_W = ${PROBE_W}, PROBE_H = ${PROBE_H}, PROBE_PAD = 12, PROBE_ON = ${PROBE_CORNERS};
   const lvwP = document.documentElement.clientWidth, lvhP = document.documentElement.clientHeight;
   const inset = railW + PROBE_PAD;
   const probeRects = {
@@ -700,7 +719,7 @@ const MEASURE = (PROOF) => `(()=>{
     // four rectangles that are not there yet. Only PAINTED elements count, by
     // the same paints rule above: a container whose box merely reaches into
     // the corner is not something a person can see being covered.
-    for (const corner of ['top-left', 'top-right', 'bottom-left', 'bottom-right']) {
+    for (const corner of PROBE_ON ? ['top-left', 'top-right', 'bottom-left', 'bottom-right'] : []) {
       const pr = probeRects[corner];
       const ox = Math.min(r.right, pr.right) - Math.max(r.left, pr.left);
       const oy = Math.min(r.bottom, pr.bottom) - Math.max(r.top, pr.top);
@@ -1326,12 +1345,14 @@ const NEUTRALISE = `
     --gn-etv-foot:3vmin;--gn-etv-gap:3vmin;--gn-etv-more:1.8vmin;
     --gn-tv-stack-gap:1.3vmin;--gn-tv-cols-mt:2.6vmin;--gn-tv-h2:3vmin;--gn-tv-h2-mb:1.6vmin;
   }`;
-// ---- the corner table -----------------------------------------------------
-console.log(`\ncandidate overlay ${PROBE_W}x${PROBE_H} inset by the rail plus 12px, per corner:`);
-for (const corner of CORNERS) {
-  const hits = cornerHits[corner];
-  console.log(`\n  ${corner.toUpperCase()}  ${hits.length === 0 ? "CLEAR ON EVERY CASE IN BOTH THEMES" : hits.length + " case/theme collisions"}`);
-  for (const h of hits) console.log(`     ${h}`);
+// ---- the corner table, only when somebody asked for it --------------------
+if (PROBE_CORNERS) {
+  console.log(`\ncandidate overlay ${PROBE_W}x${PROBE_H} inset by the rail plus 12px, per corner:`);
+  for (const corner of CORNERS) {
+    const hits = cornerHits[corner];
+    console.log(`\n  ${corner.toUpperCase()}  ${hits.length === 0 ? "CLEAR ON EVERY CASE IN BOTH THEMES" : hits.length + " case/theme collisions"}`);
+    for (const h of hits) console.log(`     ${h}`);
+  }
 }
 
 let control = 0;

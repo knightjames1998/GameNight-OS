@@ -92,7 +92,15 @@ export default function DeductionTvPage({ eventId: fixed }: { eventId?: string }
   if (!tv) {
     return (
       <div className="sd-tv">
-        <Brand />
+        {/* THE WAITING SCREEN IS THE ONE THAT IS UP WHILE PEOPLE ARRIVE,
+            which makes it the likeliest thing in the house to be scanned. The
+            phone page reads the NIGHT rather than this pack's session, so it
+            has the RSVP list and the crew's record to show even though there
+            is nothing on the table yet. */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <Brand />
+          <TvQr eventId={eventId} size={TV_QR_MIN} />
+        </div>
         <p className="sd-tv__title sd-tv__title--idle">Waiting on the host to start the night.</p>
         <div className="sd-tv__foot">
           <span />

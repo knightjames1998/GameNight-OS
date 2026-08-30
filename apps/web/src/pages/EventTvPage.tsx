@@ -1,9 +1,9 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { QRCodeSVG } from "qrcode.react";
 import { PACK_WS_TYPES, type SessionPackKey } from "@gamenight/shared";
 import { api, type EventTv, type LifetimeStanding } from "../api";
 import BackButton from "../BackButton";
+import TvQr from "../TvQr";
 import { useLiveRefetch } from "../useLiveUpdates";
 import {
   ETV_PLAYER_SLICE,
@@ -200,9 +200,6 @@ function Lobby({ tv }: { tv: EventTv }) {
         minute: "2-digit",
       })
     : "Date TBD";
-  const joinUrl = lobby.inviteCode
-    ? `${window.location.origin}/join/${lobby.inviteCode}?event=${event.id}`
-    : `${window.location.origin}/e/${event.id}`;
 
   return (
     <Frame align="stretch" band={band}>
@@ -216,16 +213,20 @@ function Lobby({ tv }: { tv: EventTv }) {
               {recap && ` · ${recap.totalGames} ${recap.totalGames === 1 ? "game" : "games"} played`}
             </p>
           </div>
-          <div className="text-center shrink-0">
-            <div className="bg-white p-2 rounded-lg">
-              {/* Sized by the band: at base metrics the header is 169px and the
-                  QR is 130 of it, which makes this the cheapest chrome lever on
-                  the screen. It is a prop rather than a stylesheet value, so it
-                  cannot ride the CSS variables the rest of the ladder spends. */}
-              <QRCodeSVG value={joinUrl} size={ETV_QR[band]} fgColor="#17111f" />
-            </div>
-            <p className="gn-hint text-sm mt-1">scan to join</p>
-          </div>
+          {/* THE SAME SLOT EVERY OTHER TELEVISION GOT ON 2026-08-29, sized by
+              this screen's own band, which is the reason TvQr takes a number at
+              all. It used to be a bespoke white box here: a hardcoded #17111f,
+              a Tailwind `bg-white` in a codebase whose standing rule is tokens
+              only, no quiet zone worth the name, and a caption saying something
+              different from the eleven other screens.
+
+              AND IT USED TO POINT SOMEWHERE ELSE. The code carried the join
+              flow, or, when a night had no invite code, /e/:id, which is behind
+              the authed router: a guest scanning that landed on a sign-in wall.
+              Now every television in the house, in the lobby and mid-game
+              alike, carries the one address, and the join button lives on the
+              page it opens. */}
+          <TvQr eventId={event.id} size={ETV_QR[band]} />
         </header>
 
         {recap ? (
