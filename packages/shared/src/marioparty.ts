@@ -77,19 +77,42 @@ export const MARIO_PARTY_TITLES: MpTitle[] = [
     ],
   },
   {
+    id: "mp7",
+    name: "Mario Party 7",
+    // Twelve playable, and note what is NOT here: no Donkey Kong (he runs
+    // the DK Space in this one) and no Koopa Kid, who was playable in 6.
+    roster: [
+      "Mario", "Luigi", "Peach", "Daisy", "Yoshi", "Wario", "Waluigi", "Toad", "Toadette",
+      "Boo", "Birdo", "Dry Bones",
+    ],
+    // Five starters plus Bowser's Enchanted Inferno, which is unlocked.
+    boards: [
+      "Grand Canal", "Pagoda Peak", "Pyramid Park", "Neon Heights", "Windmillville",
+      "Bowser's Enchanted Inferno",
+    ],
+    // SIX EXIST AND THE GAME AWARDS THREE, PICKED AT RANDOM PER BOARD. All
+    // six are offered because the host records what actually happened, and
+    // which three the game rolled is part of that. Do NOT add a "pick only
+    // three" rule here: it would refuse a truthful record of a real night.
+    bonusStars: [
+      "Minigame Star", "Action Star", "Orb Star", "Shopping Star", "Red Star",
+      "Running Star",
+    ],
+  },
+  {
     id: "mp6",
     name: "Mario Party 6",
-    // Eleven playable: the ten from Mario Party 5 plus Toadette. Toad is
-    // not playable in this one.
+    // Eleven playable: the ten from Mario Party 5 plus Toadette. Donkey Kong
+    // is NOT playable in this one; he runs the DK Space.
     roster: [
-      "Mario", "Luigi", "Peach", "Daisy", "Yoshi", "Wario", "Waluigi", "Donkey Kong", "Boo",
+      "Mario", "Luigi", "Peach", "Daisy", "Yoshi", "Wario", "Waluigi", "Toad", "Boo",
       "Koopa Kid", "Toadette",
     ],
     boards: [
       "Towering Treetop", "E. Gadd's Garage", "Faire Square", "Snowflake Lake", "Castaway Bay",
       "Clockwork Castle",
     ],
-    bonusStars: ["Minigame Star", "Orb Star", "Event Star"],
+    bonusStars: ["Minigame Star", "Orb Star", "Happening Star"],
   },
   {
     id: "mp2",
@@ -115,6 +138,15 @@ export const MP_BONUS_FAMILIES: Record<string, string> = {
   "Rich Star": "Coins",
   "Rich Bonus": "Coins",
   "Happening Star": "Happening",
+  "Action Star": "Happening",
+  // RETAINED FOR ROWS ALREADY WRITTEN. No title offers "Event Star" any more:
+  // MP6 was corrected to "Happening Star" on 2026-08-30, because Event Star is
+  // a Superstars-era name that appears on no MP6 source. DO NOT DELETE THIS
+  // ENTRY as dead code. Bonus star names go into match_participants.meta
+  // VERBATIM, so any MP6 board recorded before that correction still says
+  // "Event Star" in the ledger; without this line those rows would stop folding
+  // onto Happening and start tallying under their own name. This map is
+  // read-side and additive, the title's offered list is write-side.
   "Event Star": "Happening",
   "Eventful Star": "Happening",
   "Eventful Bonus": "Happening",
@@ -125,9 +157,11 @@ export const MP_BONUS_FAMILIES: Record<string, string> = {
   "Shopping Bonus": "Shopping",
   "Sightseer Star": "Walked farthest",
   "Sightseer Bonus": "Walked farthest",
+  "Running Star": "Walked farthest",
   "Slowpoke Star": "Walked least",
   "Slowpoke Bonus": "Walked least",
   "Unlucky Star": "Bad luck spaces",
+  "Red Star": "Bad luck spaces",
   "Misfortune Bonus": "Bad luck spaces",
   "Bowser Space Star": "Bowser spaces",
   "Bowser Space Bonus": "Bowser spaces",

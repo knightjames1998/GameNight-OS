@@ -16,6 +16,7 @@ import {
   boardsForTitle,
   bonusStarsForTitle,
   MARIO_PARTY_TITLES,
+  MP_BONUS_FAMILIES,
   MP_CUSTOM_BOARD,
   type MpRawEntry,
 } from "../src/index.js";
@@ -187,16 +188,94 @@ test("an uncurated bonus star keeps its own name rather than being dropped", () 
   assert.equal(bonusFamilyOf(""), "");
 });
 
-test("every bonus star a title offers has a family, or it tallies under its own name", () => {
-  // Not an assertion that all of them are MAPPED, which would be a curation
-  // rule rather than a correctness one. It asserts the function is total: every
-  // offered star resolves to a non-empty string, so nothing reaches the stats
-  // as undefined.
+test("EVERY BONUS STAR A TITLE OFFERS HAS AN EXPLICIT FAMILY ENTRY", () => {
+  // THIS REPLACED AN ASSERTION THAT COULD NOT FAIL. It used to read
+  // `bonusFamilyOf(star).length > 0`, which the fallback satisfies for every
+  // non-empty string, so it was green on any curation gap at all: a title
+  // could ship a star nothing mapped and this test would pass while that
+  // star split its own lifetime tally off the family it belongs to.
+  // hasOwnProperty is the whole point: it asks the MAP, not the function.
   for (const t of MARIO_PARTY_TITLES) {
     for (const star of bonusStarsForTitle(t.id)) {
-      assert.ok(bonusFamilyOf(star).length > 0, `${t.id}'s "${star}" resolves to nothing`);
+      assert.ok(
+        Object.prototype.hasOwnProperty.call(MP_BONUS_FAMILIES, star),
+        `${t.id} offers "${star}" and MP_BONUS_FAMILIES has no entry for it, so it would ` +
+          `tally under its own name instead of folding onto a family`,
+      );
     }
   }
+});
+
+// ---------- Mario Party 7, added 2026-08-30 ----------
+
+test("MARIO PARTY 7 RESOLVES: six boards, six bonus stars, twelve characters", () => {
+  // Pinned against Super Mario Wiki and StrategyWiki rather than memory.
+  assert.deepEqual(boardsForTitle("mp7"), [
+    "Grand Canal", "Pagoda Peak", "Pyramid Park", "Neon Heights", "Windmillville",
+    "Bowser's Enchanted Inferno",
+  ]);
+  assert.deepEqual(bonusStarsForTitle("mp7"), [
+    "Minigame Star", "Action Star", "Orb Star", "Shopping Star", "Red Star", "Running Star",
+  ]);
+  const mp7 = MARIO_PARTY_TITLES.find((t) => t.id === "mp7")!;
+  assert.equal(mp7.roster.length, 12);
+  // The two absences are the interesting half of this roster, and both are
+  // easy to add back by reflex from another title in the list.
+  assert.equal(mp7.roster.includes("Donkey Kong"), false);
+  assert.equal(mp7.roster.includes("Koopa Kid"), false);
+  assert.ok(mp7.roster.includes("Dry Bones"));
+  assert.ok(mp7.roster.includes("Birdo"));
+});
+
+test("MP7 SITS BETWEEN Super Mario Party AND MP6, because the list is newest first", () => {
+  // The order is what the title selector renders, so it is a real behaviour
+  // rather than tidiness. MP7 is 2005 against MP6's 2004.
+  const ids = MARIO_PARTY_TITLES.map((t) => t.id);
+  assert.equal(ids.indexOf("mp7"), ids.indexOf("smp") + 1);
+  assert.equal(ids.indexOf("mp6"), ids.indexOf("mp7") + 1);
+});
+
+test("MP7'S THREE NEW STARS FOLD ONTO THE FAMILIES THEY BELONG TO", () => {
+  // The actual risk in adding a title: an unmapped name still "works", it just
+  // splits the lifetime bonus leaders in half with nothing erroring. Asserted
+  // as equality with the star each one shares an achievement with, rather than
+  // against a family string, so the pairing is what is pinned.
+  assert.equal(bonusFamilyOf("Running Star"), bonusFamilyOf("Sightseer Star"));
+  assert.equal(bonusFamilyOf("Action Star"), bonusFamilyOf("Eventful Star"));
+  assert.equal(bonusFamilyOf("Red Star"), bonusFamilyOf("Unlucky Star"));
+  // And none of the three is its own fallback, which is what "unmapped" looks
+  // like from the outside.
+  for (const s of ["Running Star", "Action Star", "Red Star"]) {
+    assert.notEqual(bonusFamilyOf(s), s, `${s} is falling back to its own name`);
+  }
+});
+
+test("MP6 OFFERS TOAD AND NOT DONKEY KONG", () => {
+  // The shipped roster had this exactly backwards, with a comment asserting the
+  // opposite of the truth. Safe to correct because `character` is a display
+  // string on match_participants rather than a ledger-permanent identifier, and
+  // the roster is only validated on WRITE.
+  const mp6 = MARIO_PARTY_TITLES.find((t) => t.id === "mp6")!;
+  assert.ok(mp6.roster.includes("Toad"));
+  assert.equal(mp6.roster.includes("Donkey Kong"), false);
+  assert.equal(mp6.roster.length, 11);
+  // Donkey Kong is still playable elsewhere, so no lifetime character history
+  // is orphaned by taking him out of this one.
+  const withDk = MARIO_PARTY_TITLES.filter((t) => t.roster.includes("Donkey Kong"));
+  assert.ok(withDk.length >= 3, "Donkey Kong should survive in other titles' rosters");
+});
+
+test("MP6 OFFERS THE HAPPENING STAR, AND \"Event Star\" STILL RESOLVES ANYWAY", () => {
+  // The whole reason the rename is safe. Bonus star names are written VERBATIM
+  // into match_participants.meta, so an MP6 board recorded before 2026-08-30
+  // still says "Event Star" in the ledger. No title offers it any more and it
+  // must still fold onto Happening, or those rows silently start a family of
+  // their own. Asserted directly so a tidy-up that deletes the entry goes red.
+  assert.deepEqual(bonusStarsForTitle("mp6"), ["Minigame Star", "Orb Star", "Happening Star"]);
+  const offeredAnywhere = MARIO_PARTY_TITLES.some((t) => t.bonusStars.includes("Event Star"));
+  assert.equal(offeredAnywhere, false, "no title should still offer Event Star");
+  assert.equal(bonusFamilyOf("Event Star"), "Happening");
+  assert.equal(bonusFamilyOf("Event Star"), bonusFamilyOf("Happening Star"));
 });
 
 test("an unknown title falls back to the default title's boards and stars", () => {
