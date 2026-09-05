@@ -263,7 +263,7 @@ function SetupOrWaiting({
   // on a format whose play screen still ranks individuals would be a switch
   // that appears to do something and does not, which is worse than not having
   // it yet. Add a format to this list in the same commit that converts it.
-  const teamFormats: Format[] = ["ffa", "koth"];
+  const teamFormats: Format[] = ["ffa", "koth", "bestof"];
   const teamsOffered = teamFormats.includes(format);
   const teamsOn = teams && teamsOffered;
 
@@ -637,7 +637,6 @@ function LivePlay({
         ) : session.format === "bestof" ? (
           <BestOfPlay
             session={session}
-            nameOf={nameOf}
             busy={busy}
             onStartSet={(aId, bId) => call(`/api/smash/${eventId}/start-series`, { aId, bId })}
             onWin={(winnerId) => call(`/api/smash/${eventId}/record`, { winnerId })}
@@ -822,7 +821,7 @@ function LivePlay({
 // Offered on the same formats the setup toggle is offered on, and for the same
 // reason: a rearrange on a format whose play screen still ranks individuals
 // would be a control that appears to do something and does not.
-const teamFormatsLive: Format[] = ["ffa", "koth"];
+const teamFormatsLive: Format[] = ["ffa", "koth", "bestof"];
 
 function RearrangeSides({
   eventId,
@@ -1390,18 +1389,22 @@ function FfaPlay({
 
 function BestOfPlay({
   session,
-  nameOf,
   busy,
   onStartSet,
   onWin,
 }: {
   session: Session;
-  nameOf: Map<string, string>;
   busy: boolean;
+  /** Two SIDE ids. On a solo night a side holds one player. */
   onStartSet: (aId: string, bId: string) => void;
-  onWin: (winnerId: string) => void;
+  onWin: (winnerSideId: string) => void;
 }) {
-  const charOf = useMemo(() => new Map(session.roster.map((p) => [p.id, p.character])), [session.roster]);
+  // A set is between two SIDES, and the ids in `series` are side ids. This is
+  // ONE screen rather than a sibling, unlike the FFA and KOTH pair, because the
+  // shape does not change: two things picked from a list, a scoreline, and a
+  // tap on the winner. A side of one is labelled with that player's name, so a
+  // solo night reads exactly as it did.
+  const unit = session.teamPlay ? "Side" : "Player";
   const [pickA, setPickA] = useState("");
   const [pickB, setPickB] = useState("");
   const [showPicker, setShowPicker] = useState(false);
@@ -1428,12 +1431,16 @@ function BestOfPlay({
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
           <select className="sm-select" value={pickA} onChange={(e) => setPickA(e.target.value)}>
-            <option value="">Player 1</option>
-            {session.roster.map((p) => <option key={p.id} value={p.id} disabled={p.id === pickB}>{p.name}</option>)}
+            <option value="">{unit} 1</option>
+            {session.sides.map((sd) => (
+              <option key={sd.id} value={sd.id} disabled={sd.id === pickB}>{sideLabel(session, sd.id)}</option>
+            ))}
           </select>
           <select className="sm-select" value={pickB} onChange={(e) => setPickB(e.target.value)}>
-            <option value="">Player 2</option>
-            {session.roster.map((p) => <option key={p.id} value={p.id} disabled={p.id === pickA}>{p.name}</option>)}
+            <option value="">{unit} 2</option>
+            {session.sides.map((sd) => (
+              <option key={sd.id} value={sd.id} disabled={sd.id === pickA}>{sideLabel(session, sd.id)}</option>
+            ))}
           </select>
         </div>
         <button
@@ -1457,19 +1464,19 @@ function BestOfPlay({
       <div className="sm-score" style={{ margin: "8px 0 12px" }}>{wins.a} &ndash; {wins.b}</div>
       <div className="sm-vs">
         <button className="sm-fighter" disabled={busy} onClick={() => onWin(cur.aId)}>
-          <div className="sm-fighter__n">{nameOf.get(cur.aId)}</div>
-          <div className="sm-fighter__c">{charOf.get(cur.aId) ?? "no fighter"}</div>
+          <div className="sm-fighter__n">{sideLabel(session, cur.aId)}</div>
+          <div className="sm-fighter__c">{sideFighters(session, cur.aId)}</div>
         </button>
         <div className="sm-vsbadge">VS</div>
         <button className="sm-fighter" disabled={busy} onClick={() => onWin(cur.bId)}>
-          <div className="sm-fighter__n">{nameOf.get(cur.bId)}</div>
-          <div className="sm-fighter__c">{charOf.get(cur.bId) ?? "no fighter"}</div>
+          <div className="sm-fighter__n">{sideLabel(session, cur.bId)}</div>
+          <div className="sm-fighter__c">{sideFighters(session, cur.bId)}</div>
         </button>
       </div>
       <p className="sm-hint" style={{ marginTop: 10 }}>Tap the winner of each game. The set records when someone reaches {need}.</p>
       {cur.games.length === 0 && (
         <button className="sm-textbtn" style={{ marginTop: 4 }} onClick={() => { setPickA(""); setPickB(""); setShowPicker(true); }}>
-          Change players
+          Change {session.teamPlay ? "sides" : "players"}
         </button>
       )}
     </div>

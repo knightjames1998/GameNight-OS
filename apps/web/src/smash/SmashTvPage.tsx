@@ -200,9 +200,11 @@ export default function SmashTvPage({ eventId: propEventId }: { eventId?: string
         <div style={{ marginTop: "2vmin" }}>
           <div className="sm-tv__muted" style={{ fontSize: "2.6vmin", textTransform: "uppercase", letterSpacing: "0.3vmin" }}>On stage</div>
           <div className="sm-tv__king" style={{ display: "flex", alignItems: "center", gap: "2vmin" }}>
-            <span>{nameOf.get(cur.aId)}</span>
+            {/* A set is between two SIDES. A side of one is that player's
+                name, so a solo night reads exactly as it did. */}
+            <span>{sideNames(cur.aId)}</span>
             <span className="sm-tv__muted">{setWins.a} - {setWins.b}</span>
-            <span>{nameOf.get(cur.bId)}</span>
+            <span>{sideNames(cur.bId)}</span>
           </div>
         </div>
       )}

@@ -115,7 +115,7 @@ export const SMASH_TITLES: GameTitle[] = [
 
 // ---------- Session shapes ----------
 
-import type { Series, SeriesBestOf } from "./series.js";
+import { seriesGameTally, type Series, type SeriesBestOf } from "./series.js";
 import {
   MAX_SIDES,
   placementsFromRankedSides,
@@ -748,6 +748,60 @@ export function smashOrderFromPlacements(
     if (sideId && !out.includes(sideId)) out.push(sideId);
   }
   return out;
+}
+
+// ---------- recording a best-of set ----------
+
+/** One participant row a completed set produces, before the runtime sees it. */
+export interface SmashSeriesLine {
+  playerId: string;
+  character: string | null;
+  placement: number;
+  isWinner: boolean;
+  meta: { gameWins: number; gamesPlayed: number };
+  side: string | null;
+}
+
+/**
+ * The rows one completed best-of set writes: winning side 1, losing side 2, on
+ * every member of each.
+ *
+ * The per-game tally is the SIDE's and is written onto each of its members,
+ * exactly as Ping Pong credits both members of a pair with the games their side
+ * won. Two people who won a set together both won that set.
+ *
+ * `sides` is the arrangement the SET was played under, which the caller looks
+ * up rather than assuming: a host can reshuffle between sets.
+ *
+ * `recordSeriesGame` is not touched by any of this. `series.ts` is generic over
+ * opaque slot ids, so a set between two sides is a change of what the ids MEAN
+ * and not a change to the primitive.
+ */
+export function smashSeriesLines(
+  series: Series,
+  sides: readonly Side[],
+  characterOf: (playerId: string) => string | null,
+): SmashSeriesLine[] {
+  if (!series.winnerId) return [];
+  const byId = new Map(sides.map((s) => [s.id, s]));
+  const loserId = series.winnerId === series.aId ? series.bId : series.aId;
+  const winner = byId.get(series.winnerId);
+  const loser = byId.get(loserId);
+  if (!winner || !loser) return [];
+
+  const tally = seriesGameTally(series);
+  return placementsFromRankedSides([{ side: winner }, { side: loser }]).map((line) => {
+    const mySide = winner.memberIds.includes(line.playerId) ? series.winnerId! : loserId;
+    const g = tally.get(mySide) ?? { wins: 0, played: 0 };
+    return {
+      playerId: line.playerId,
+      character: characterOf(line.playerId),
+      placement: line.placement,
+      isWinner: line.isWinner,
+      meta: { gameWins: g.wins, gamesPlayed: g.played },
+      side: line.side,
+    };
+  });
 }
 
 // ---------- Smashdown ----------

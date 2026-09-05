@@ -27,6 +27,7 @@ import {
   singletonSides,
   smashBattleLines,
   smashOrderFromPlacements,
+  smashSeriesLines,
   validateSmashBattleOrder,
   type Side,
 } from "../src/index.js";
@@ -203,5 +204,61 @@ test("a solo night's placements translate to exactly its own order", () => {
       solo,
     ),
     ["b", "d", "a", "c"],
+  );
+});
+
+// ---------- Best Of, side vs side ----------
+//
+// The set primitive is NOT touched: `series.ts` is generic over opaque slot
+// ids, so a set between two sides is a change of what the ids MEAN. What is
+// asserted here is the half that is this pack's: every member of the winning
+// side is a winner, the SIDE's game tally is written onto each of them, and a
+// solo set still writes two rows with no side.
+
+test("a set between two pairs writes all four rows, winners 1 and losers 2", () => {
+  const series = {
+    idx: 0,
+    aId: "a",
+    bId: "b",
+    games: [{ winnerId: "a" }, { winnerId: "b" }, { winnerId: "a" }],
+    winnerId: "a",
+    at: "2026-09-05T21:00:00.000Z",
+  };
+  assert.deepEqual(smashSeriesLines(series, PAIRS, charOf), [
+    { playerId: "p0", character: "Mario", placement: 1, isWinner: true, meta: { gameWins: 2, gamesPlayed: 3 }, side: "a" },
+    { playerId: "p1", character: "Fox", placement: 1, isWinner: true, meta: { gameWins: 2, gamesPlayed: 3 }, side: "a" },
+    { playerId: "p2", character: "Kirby", placement: 2, isWinner: false, meta: { gameWins: 1, gamesPlayed: 3 }, side: "b" },
+    { playerId: "p3", character: "Link", placement: 2, isWinner: false, meta: { gameWins: 1, gamesPlayed: 3 }, side: "b" },
+  ]);
+});
+
+test("a SOLO set still writes two rows with no side, tally unchanged", () => {
+  const solo = singletonSides(["p0", "p1"]);
+  const series = {
+    idx: 0,
+    aId: "a",
+    bId: "b",
+    games: [{ winnerId: "a" }, { winnerId: "b" }, { winnerId: "b" }],
+    winnerId: "b",
+    at: null,
+  };
+  assert.deepEqual(smashSeriesLines(series, solo, charOf), [
+    { playerId: "p1", character: "Fox", placement: 1, isWinner: true, meta: { gameWins: 2, gamesPlayed: 3 }, side: null },
+    { playerId: "p0", character: "Mario", placement: 2, isWinner: false, meta: { gameWins: 1, gamesPlayed: 3 }, side: null },
+  ]);
+});
+
+test("an unfinished set, or one naming a side that is gone, writes nothing", () => {
+  const live = { idx: -1, aId: "a", bId: "b", games: [{ winnerId: "a" }], winnerId: null, at: null };
+  assert.deepEqual(smashSeriesLines(live, PAIRS, charOf), []);
+  const stale = { idx: 0, aId: "a", bId: "z", games: [{ winnerId: "a" }], winnerId: "a", at: null };
+  assert.deepEqual(smashSeriesLines(stale, PAIRS, charOf), []);
+});
+
+test("a 2v1 set credits both of the pair and the solo, on the same rule", () => {
+  const series = { idx: 0, aId: "b", bId: "a", games: [{ winnerId: "b" }, { winnerId: "b" }], winnerId: "b", at: null };
+  assert.deepEqual(
+    smashSeriesLines(series, UNEVEN, charOf).map((l) => [l.playerId, l.placement, l.isWinner, l.meta.gameWins]),
+    [["p2", 1, true, 2], ["p0", 2, false, 0], ["p1", 2, false, 0]],
   );
 });

@@ -33,6 +33,9 @@ import {
   singletonSides,
   validateSides,
   smashSides,
+  smashSidesAtIdx,
+  smashSeriesLines,
+  sideLabel,
   smashBattleLines,
   smashOrderFromPlacements,
   validateSmashBattleOrder,
@@ -50,7 +53,6 @@ import {
   newSeries,
   recordSeriesGame,
   finalizeSeries,
-  seriesGameTally,
   summarizeSeriesLog,
   SESSION_PACKS,
   type SmashSessionState,
@@ -149,10 +151,16 @@ async function materializeGame(
 
 /**
  * Materialize one completed best-of SERIES (match-as-unit, like Ping Pong):
- * one matches row labeled bo{N}, winner placement 1 / loser 2, each player's
- * fighter on character, per-player game wins/played in meta. Shares the same
- * sessionKey-namespaced ledger key space as games; a bestof session only
- * produces series (no games) so idx never collides within it.
+ * one matches row labeled bo{N}, winning SIDE placement 1 and losing side 2 on
+ * every member of each, each player's own fighter on character, and the SIDE's
+ * game wins/played in meta on all of them. Two people who won a set together
+ * both won that set. Shares the same sessionKey-namespaced ledger key space as
+ * games; a bestof session only produces series (no games) so idx never collides
+ * within it.
+ *
+ * The label is still `bo{N}` and the format is still "bestof". A team set is
+ * the same unit as a solo one and belongs in the same leaderboard bucket; the
+ * only difference on the row is `side`.
  */
 async function materializeSeries(
   groupId: string,
@@ -162,23 +170,15 @@ async function materializeSeries(
   bestOf: SeriesBestOf,
   roster: SmashPlayer[],
   sessionKey: string,
+  /** The arrangement of sides THIS set was played under, not the current one. */
+  sides: readonly Side[],
   linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
 ): Promise<{ recorded: number; guests: number }> {
   if (!series.winnerId) return { recorded: 0, guests: 0 };
 
-  const tally = seriesGameTally(series);
-  const loserId = series.winnerId === series.aId ? series.bId : series.aId;
   const charOf = new Map(roster.map((p) => [p.id, p.character ?? null]));
-  const lines: LedgerLine[] = [series.winnerId, loserId].map((slotId) => {
-    const g = tally.get(slotId) ?? { wins: 0, played: 0 };
-    return {
-      playerId: slotId,
-      placement: slotId === series.winnerId ? 1 : 2,
-      isWinner: slotId === series.winnerId,
-      character: charOf.get(slotId) ?? null,
-      meta: { gameWins: g.wins, gamesPlayed: g.played },
-    };
-  });
+  const lines: LedgerLine[] = smashSeriesLines(series, sides, (id) => charOf.get(id) ?? null);
+  if (lines.length === 0) return { recorded: 0, guests: 0 };
 
   return rt.materializeUnit({
     groupId,
@@ -261,12 +261,26 @@ async function syncSeriesRow(
 }
 
 
-/** Per-player best-of standings with names, for the live page + TV. */
+/**
+ * Per-SIDE best-of standings with names, for the live page + TV.
+ *
+ * `summarizeSeriesLog` keys on whatever ids the series carried, and those are
+ * side ids now, so a row is a side. The label comes from the side's MEMBERS, so
+ * a solo night reads exactly as it did (a side of one is labelled with that
+ * player's name) and a team night reads "Ann + Ben". The field is still called
+ * `slotId` because that is what the primitive calls it and the client keys on
+ * it; the client never renders it.
+ */
 function seriesStandings(state: SmashSessionState) {
   const nameOf = new Map(state.roster.map((p) => [p.id, p.name]));
+  const sides = smashSides(state);
+  const label = (sideId: string) => {
+    const side = sides.find((s) => s.id === sideId);
+    return side ? sideLabel(side, (id) => nameOf.get(id)) : "?";
+  };
   return [...summarizeSeriesLog(state.seriesLog ?? []).values()]
     .filter((s) => s.seriesPlayed > 0)
-    .map((s) => ({ ...s, name: nameOf.get(s.slotId) ?? "?" }))
+    .map((s) => ({ ...s, name: label(s.slotId) }))
     .sort((a, b) => b.seriesWins - a.seriesWins || b.gameWins - a.gameWins || b.seriesPlayed - a.seriesPlayed);
 }
 
@@ -322,10 +336,19 @@ export async function creditGuestSmash(
         isWinner: line.isWinner,
       });
     }
+    // A set is between two SIDES, so "did the guest play in it" is a question
+    // about the side's members under the arrangement THAT set was played under,
+    // not about a slot id sitting on the series. A legacy set still carrying
+    // player ids answers the same way, because normalizeSmashState has already
+    // mapped it onto the side holding that player.
+    const guestInSide = (idx: number, sideId: string) =>
+      smashSidesAtIdx(state, idx).find((sd) => sd.id === sideId)?.memberIds.some((id) => guestSlots.has(id)) ?? false;
+
     for (const ser of state.seriesLog ?? []) {
-      if (!ser.winnerId || !(guestSlots.has(ser.aId) || guestSlots.has(ser.bId))) continue;
+      if (!ser.winnerId) continue;
+      if (!guestInSide(ser.idx, ser.aId) && !guestInSide(ser.idx, ser.bId)) continue;
       if (credited.has(rt.ledgerKey(eventId, state.sessionKey, ser.idx))) continue;
-      const won = guestSlots.has(ser.winnerId);
+      const won = guestInSide(ser.idx, ser.winnerId);
       items.push({
         pack: DEF.ledger,
         packLabel: DEF.name,
@@ -364,8 +387,11 @@ export async function creditGuestSmash(
         }
       }
       for (const ser of state.seriesLog ?? []) {
-        if (ser.winnerId && (guestSlots.has(ser.aId) || guestSlots.has(ser.bId))) {
-          await materializeSeries(groupId, eventId, gameId, ser, state.bestOf, state.roster, state.sessionKey, linkMap);
+        if (ser.winnerId && (guestInSide(ser.idx, ser.aId) || guestInSide(ser.idx, ser.bId))) {
+          await materializeSeries(
+            groupId, eventId, gameId, ser, state.bestOf, state.roster, state.sessionKey,
+            smashSidesAtIdx(state, ser.idx), linkMap,
+          );
         }
       }
       // Additive: reuses the series row that already exists and inserts the
@@ -667,16 +693,16 @@ smashRouter.post("/smash/:eventId/start-series", requireAuth, async (req: Authed
     res.status(409).json({ error: "Finish the current set first" });
     return;
   }
-  const ids = new Set(state.roster.map((p) => p.id));
+  // Two SIDES, not two players. `series.ts` is generic over opaque slot ids, so
+  // this is a change of what the ids mean and not a change to the primitive. On
+  // a solo night a side holds one player and its id is what the client sends,
+  // so the screen still reads as a head-to-head between two people.
+  const ids = new Set(smashSides(state).map((sd) => sd.id));
   const aId = String(req.body?.aId ?? "");
   const bId = String(req.body?.bId ?? "");
-  if (!ids.has(aId) || !ids.has(bId) || aId === bId) {
-    res.status(400).json({ error: "Pick two different players" });
-    return;
-  }
   const s = newSeries(aId, bId);
-  if (!s) {
-    res.status(400).json({ error: "Pick two different players" });
+  if (!ids.has(aId) || !ids.has(bId) || !s) {
+    res.status(400).json({ error: isTeamBattle(state) ? "Pick two different sides" : "Pick two different players" });
     return;
   }
   state.series = s;
@@ -724,7 +750,10 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
       state.seriesLog.push(done);
       state.series = null;
       const gameId = await rt.ensureGame(row.groupId);
-      report = await materializeSeries(row.groupId, eventId, gameId, done, state.bestOf, state.roster, state.sessionKey);
+      report = await materializeSeries(
+        row.groupId, eventId, gameId, done, state.bestOf, state.roster, state.sessionKey,
+        smashSidesAtIdx(state, done.idx),
+      );
     }
     const view = await rt.saveState(loaded, "live", origin);
     if (completed) broadcast({ type: "leaderboard_updated", eventId }, origin);
@@ -1145,7 +1174,10 @@ smashRouter.post("/smash/:eventId/complete", requireAuth, async (req: AuthedRequ
     state.seriesLog.push(done);
     state.series = null;
     const gameId = await rt.ensureGame(row.groupId);
-    await materializeSeries(row.groupId, eventId, gameId, done, state.bestOf, state.roster, state.sessionKey);
+    await materializeSeries(
+      row.groupId, eventId, gameId, done, state.bestOf, state.roster, state.sessionKey,
+      smashSidesAtIdx(state, done.idx),
+    );
     finalized = true;
   }
   // Smashdown: the last chance to reconcile. Nothing to do on a series that
