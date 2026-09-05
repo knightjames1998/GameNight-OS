@@ -84,6 +84,12 @@ const rt = casinoRunRuntime;
 interface Ok {
   loaded: Loaded<CrunState>;
   origin: string | undefined;
+  /**
+   * The request itself, which saveState now requires: the television gate reads
+   * `confirmTv` off its body. `origin` stays because these routes broadcast
+   * with it directly as well.
+   */
+  req: AuthedRequest;
 }
 
 /** Load + "may record" check. Standing rule 1 unless the host opened it up. */
@@ -106,7 +112,7 @@ async function scorer(req: AuthedRequest, res: import("express").Response): Prom
     res.status(409).json({ error: "That run has already been recorded" });
     return null;
   }
-  return { loaded, origin: req.get("x-gn-client") };
+  return { loaded, origin: req.get("x-gn-client"), req };
 }
 
 async function host(req: AuthedRequest, res: import("express").Response): Promise<Ok | null> {
@@ -119,7 +125,7 @@ async function host(req: AuthedRequest, res: import("express").Response): Promis
     res.status(403).json({ error: "Host only" });
     return null;
   }
-  return { loaded, origin: req.get("x-gn-client") };
+  return { loaded, origin: req.get("x-gn-client"), req };
 }
 
 // ---------- the modifier draws ----------
@@ -266,7 +272,7 @@ casinoRunRouter.post(`/events/:eventId/${SEG}`, requireAuth, async (req: AuthedR
     addDrawn(state, drawModifiers({ deck: available(state), count: OPENING_DRAW }));
   }
 
-  res.json(await rt.startSession(eventId, event.groupId, state, req.get("x-gn-client")));
+  res.json(await rt.startSession(eventId, event.groupId, state, req));
 });
 
 // ---------- playing the run ----------
@@ -322,7 +328,7 @@ casinoRunRouter.post(`/${SEG}/:eventId/leg`, requireAuth, async (req: AuthedRequ
     drew = drawOnMiss(state, after.missed);
   }
 
-  res.json({ ...(await rt.saveState(g.loaded, "live", g.origin)), drew });
+  res.json({ ...(await rt.saveState(g.loaded, "live", g.req)), drew });
 });
 
 /**
@@ -353,7 +359,7 @@ casinoRunRouter.post(`/${SEG}/:eventId/buy`, requireAuth, async (req: AuthedRequ
     res.status(400).json({ error: "No such card, or the run is over" });
     return;
   }
-  res.json({ ...(await rt.saveState(g.loaded, "live", g.origin)), bought: token.id });
+  res.json({ ...(await rt.saveState(g.loaded, "live", g.req)), bought: token.id });
 });
 
 /** The host can correct the opening ante; the rises on top of it stay derived. */
@@ -366,7 +372,7 @@ casinoRunRouter.post(`/${SEG}/:eventId/ante`, requireAuth, async (req: AuthedReq
     return;
   }
   g.loaded.state.ante = amount;
-  res.json(await rt.saveState(g.loaded, g.loaded.row.status, g.origin));
+  res.json(await rt.saveState(g.loaded, g.loaded.row.status, g.req));
 });
 
 casinoRunRouter.post(`/${SEG}/:eventId/undo-leg`, requireAuth, async (req: AuthedRequest, res) => {
@@ -379,7 +385,7 @@ casinoRunRouter.post(`/${SEG}/:eventId/undo-leg`, requireAuth, async (req: Authe
   // THE MODIFIERS ARE NOT ROLLED BACK, on purpose. The cards were drawn and the
   // table played under them; un-drawing one would rewrite what the night was.
   // Undo fixes a mistyped number, and the host can take a card off by hand.
-  res.json(await rt.saveState(g.loaded, "live", g.origin));
+  res.json(await rt.saveState(g.loaded, "live", g.req));
 });
 
 // ---------- host: the modifier controls ----------
@@ -389,7 +395,7 @@ casinoRunRouter.post(`/${SEG}/:eventId/modifiers`, requireAuth, async (req: Auth
   const g = await host(req, res);
   if (!g) return;
   g.loaded.state.modifiers = sanitizeModifierIds(req.body?.modifiers, DEF.ledger);
-  res.json(await rt.saveState(g.loaded, g.loaded.row.status, g.origin));
+  res.json(await rt.saveState(g.loaded, g.loaded.row.status, g.req));
 });
 
 /**
@@ -419,7 +425,7 @@ casinoRunRouter.post(`/${SEG}/:eventId/open-scoring`, requireAuth, async (req: A
   const g = await host(req, res);
   if (!g) return;
   g.loaded.state.openScoring = !!req.body?.open;
-  res.json(await rt.saveState(g.loaded, g.loaded.row.status, g.origin));
+  res.json(await rt.saveState(g.loaded, g.loaded.row.status, g.req));
 });
 
 // ---------- end the run ----------
@@ -489,7 +495,7 @@ casinoRunRouter.post(`/${SEG}/:eventId/complete`, requireAuth, async (req: Authe
 
   const gameId = await rt.ensureGame(loaded.row.groupId);
   const report = await materialize(loaded.row.groupId, eventId, gameId, state);
-  const view = await rt.saveState(loaded, "completed", origin);
+  const view = await rt.saveState(loaded, "completed", req);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json({ ...view, ...report, summary });
 });

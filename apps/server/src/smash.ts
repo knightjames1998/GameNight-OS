@@ -602,7 +602,7 @@ smashRouter.post("/events/:eventId/smash", requireAuth, async (req: AuthedReques
   });
   if (assignment === "random") state.roster = assignRandomFighters(state.roster, pool);
 
-  res.json(await rt.startSession(eventId, event.groupId, state, req.get("x-gn-client")));
+  res.json(await rt.startSession(eventId, event.groupId, state, req));
 });
 
 // ---------- assignment ----------
@@ -658,7 +658,7 @@ smashRouter.post("/smash/:eventId/character", requireAuth, async (req: AuthedReq
     }
   }
   slot.character = character ?? null;
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 // Host re-rolls random fighters for everyone.
@@ -683,7 +683,7 @@ smashRouter.post("/smash/:eventId/randomize", requireAuth, async (req: AuthedReq
       ? availableFighters(pool, burnedFrom(loaded.state.games))
       : pool,
   );
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 // ---------- best of: start the next set (host picks two players) ----------
@@ -726,7 +726,7 @@ smashRouter.post("/smash/:eventId/start-series", requireAuth, async (req: Authed
     return;
   }
   state.series = s;
-  res.json(await rt.saveState(loaded, "live", req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, "live", req));
 });
 
 // ---------- record a game / round ----------
@@ -775,7 +775,7 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
         smashSidesAtIdx(state, done.idx),
       );
     }
-    const view = await rt.saveState(loaded, "live", origin);
+    const view = await rt.saveState(loaded, "live", req);
     if (completed) broadcast({ type: "leaderboard_updated", eventId }, origin);
     res.json({ ...view, ...(report ?? {}) });
     return;
@@ -915,7 +915,7 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
     // Writes the series row if that battle ended the series; a no-op otherwise.
     await syncSeriesRow(row.groupId, eventId, state);
     const origin = req.get("x-gn-client");
-    const view = await rt.saveState(loaded, "live", origin);
+    const view = await rt.saveState(loaded, "live", req);
     broadcast({ type: "leaderboard_updated", eventId }, origin);
     res.json({ ...view, ...report });
     return;
@@ -1020,7 +1020,7 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
   const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster, state.sessionKey, state.format);
 
   const origin = req.get("x-gn-client");
-  const view = await rt.saveState(loaded, "live", origin);
+  const view = await rt.saveState(loaded, "live", req);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json({ ...view, ...report });
 });
@@ -1046,7 +1046,7 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
     const origin = req.get("x-gn-client");
     if (state.series && state.series.games.length > 0) {
       state.series.games.pop();
-      res.json(await rt.saveState(loaded, "live", origin));
+      res.json(await rt.saveState(loaded, "live", req));
       return;
     }
     const lastSet = state.seriesLog.pop();
@@ -1065,7 +1065,7 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
     // in force before it. Without this the set being re-opened would be played
     // by sides that did not exist when it was played the first time.
     truncateSideLog(state.sideSets, state.seriesLog.length);
-    const view = await rt.saveState(loaded, "live", origin);
+    const view = await rt.saveState(loaded, "live", req);
     broadcast({ type: "leaderboard_updated", eventId }, origin);
     res.json(view);
     return;
@@ -1099,7 +1099,7 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
   }
 
   const origin = req.get("x-gn-client");
-  const view = await rt.saveState(loaded, "live", origin);
+  const view = await rt.saveState(loaded, "live", req);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json(view);
 });
@@ -1148,7 +1148,7 @@ smashRouter.post("/smash/:eventId/sides", requireAuth, async (req: AuthedRequest
     res.status(400).json({ error: err });
     return;
   }
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 // Host toggles open scoring (members may record when on). Defaults off.
@@ -1164,7 +1164,7 @@ smashRouter.post("/smash/:eventId/open-scoring", requireAuth, async (req: Authed
     return;
   }
   loaded.state.openScoring = !!req.body?.open;
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 // Host toggles the Smashdown mercy rule mid-series. Defaults OFF at start:
@@ -1192,7 +1192,7 @@ smashRouter.post("/smash/:eventId/mercy", requireAuth, async (req: AuthedRequest
   // This is the case a "write the row when the last battle lands" rule misses.
   const origin = req.get("x-gn-client");
   await syncSeriesRow(loaded.row.groupId, eventId, loaded.state);
-  const view = await rt.saveState(loaded, loaded.row.status, origin);
+  const view = await rt.saveState(loaded, loaded.row.status, req);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json(view);
 });
@@ -1235,7 +1235,7 @@ smashRouter.post("/smash/:eventId/complete", requireAuth, async (req: AuthedRequ
     await syncSeriesRow(row.groupId, eventId, state);
     finalized = true;
   }
-  const view = await rt.saveState(loaded, "completed", origin);
+  const view = await rt.saveState(loaded, "completed", req);
   if (finalized) broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json(view);
 });

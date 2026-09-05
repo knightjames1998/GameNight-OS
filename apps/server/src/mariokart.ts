@@ -562,7 +562,7 @@ marioKartRouter.post("/events/:eventId/mariokart", requireAuth, async (req: Auth
   let state = newMkKartState({ format, titleId, assignment, resultDetail, roster, bestOf, raceCount, sides });
   if (assignment === "random") state.roster = assignRandomFighters(state.roster, pool);
 
-  res.json(await rt.startSession(eventId, event.groupId, state, req.get("x-gn-client")));
+  res.json(await rt.startSession(eventId, event.groupId, state, req));
 });
 
 // ---------- assignment ----------
@@ -601,7 +601,7 @@ marioKartRouter.post("/mariokart/:eventId/character", requireAuth, async (req: A
     return;
   }
   slot.character = character ?? null;
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 marioKartRouter.post("/mariokart/:eventId/randomize", requireAuth, async (req: AuthedRequest, res) => {
@@ -619,7 +619,7 @@ marioKartRouter.post("/mariokart/:eventId/randomize", requireAuth, async (req: A
     loaded.state.roster,
     rosterForTitle(MARIO_KART_TITLES, loaded.state.titleId),
   );
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 // ---------- record a race ----------
@@ -677,7 +677,7 @@ marioKartRouter.post("/mariokart/:eventId/record", requireAuth, async (req: Auth
         mkSidesAtIdx(state, done.idx),
       );
     }
-    const view = await rt.saveState(loaded, "live", origin);
+    const view = await rt.saveState(loaded, "live", req);
     if (completed) broadcast({ type: "leaderboard_updated", eventId }, origin);
     res.json({ ...view, ...(report ?? {}) });
     return;
@@ -751,7 +751,7 @@ marioKartRouter.post("/mariokart/:eventId/record", requireAuth, async (req: Auth
   const gameId = await rt.ensureGame(row.groupId);
   const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster, state.sessionKey, label, state.format);
 
-  const view = await rt.saveState(loaded, "live", origin);
+  const view = await rt.saveState(loaded, "live", req);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json({ ...view, ...report });
 });
@@ -794,7 +794,7 @@ marioKartRouter.post("/mariokart/:eventId/start-series", requireAuth, async (req
     return;
   }
   state.series = s;
-  res.json(await rt.saveState(loaded, "live", req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, "live", req));
 });
 
 
@@ -817,7 +817,7 @@ marioKartRouter.post("/mariokart/:eventId/undo", requireAuth, async (req: Authed
   if (state.format === "bestof") {
     if (state.series && state.series.games.length > 0) {
       state.series.games.pop();
-      res.json(await rt.saveState(loaded, "live", origin));
+      res.json(await rt.saveState(loaded, "live", req));
       return;
     }
     const lastSet = state.seriesLog.pop();
@@ -834,7 +834,7 @@ marioKartRouter.post("/mariokart/:eventId/undo", requireAuth, async (req: Authed
     // in force before it. Without this the set being re-opened would be raced
     // by karts that did not exist when it was raced the first time.
     truncateSideLog(state.sideSets, state.seriesLog.length);
-    const view = await rt.saveState(loaded, "live", origin);
+    const view = await rt.saveState(loaded, "live", req);
     broadcast({ type: "leaderboard_updated", eventId }, origin);
     res.json(view);
     return;
@@ -851,7 +851,7 @@ marioKartRouter.post("/mariokart/:eventId/undo", requireAuth, async (req: Authed
   }
   await rt.deleteMaterialized(eventId, state.sessionKey, unmaterializeIdx);
 
-  const view = await rt.saveState(loaded, "live", origin);
+  const view = await rt.saveState(loaded, "live", req);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json(view);
 });
@@ -898,7 +898,7 @@ marioKartRouter.post("/mariokart/:eventId/sides", requireAuth, async (req: Authe
     res.status(400).json({ error: err });
     return;
   }
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 marioKartRouter.post("/mariokart/:eventId/open-scoring", requireAuth, async (req: AuthedRequest, res) => {
@@ -913,7 +913,7 @@ marioKartRouter.post("/mariokart/:eventId/open-scoring", requireAuth, async (req
     return;
   }
   loaded.state.openScoring = !!req.body?.open;
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 marioKartRouter.post("/mariokart/:eventId/complete", requireAuth, async (req: AuthedRequest, res) => {
@@ -950,7 +950,7 @@ marioKartRouter.post("/mariokart/:eventId/complete", requireAuth, async (req: Au
     );
     finalized = true;
   }
-  const view = await rt.saveState(loaded, "completed", origin);
+  const view = await rt.saveState(loaded, "completed", req);
   if (finalized) broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json(view);
 });

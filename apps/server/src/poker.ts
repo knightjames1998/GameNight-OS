@@ -122,7 +122,7 @@ pokerRouter.post("/poker/:eventId/variant", requireAuth, async (req: AuthedReque
     return;
   }
   pokerSetVariant(g.loaded.state, name);
-  res.json(await rt.saveState(g.loaded, "live", g.origin));
+  res.json(await rt.saveState(g.loaded, "live", g.req));
 });
 
 pokerRouter.post("/poker/:eventId/game", requireAuth, async (req: AuthedRequest, res) => {
@@ -133,7 +133,7 @@ pokerRouter.post("/poker/:eventId/game", requireAuth, async (req: AuthedRequest,
     res.status(400).json({ error: "Put a variant on the table first" });
     return;
   }
-  res.json(await rt.saveState(g.loaded, "live", g.origin));
+  res.json(await rt.saveState(g.loaded, "live", g.req));
 });
 
 pokerRouter.post("/poker/:eventId/undo-game", requireAuth, async (req: AuthedRequest, res) => {
@@ -144,7 +144,7 @@ pokerRouter.post("/poker/:eventId/undo-game", requireAuth, async (req: AuthedReq
     return;
   }
   pokerUndoGame(g.loaded.state);
-  res.json(await rt.saveState(g.loaded, "live", g.origin));
+  res.json(await rt.saveState(g.loaded, "live", g.req));
 });
 
 pokerRouter.post("/poker/:eventId/dealers-choice", requireAuth, async (req: AuthedRequest, res) => {
@@ -156,7 +156,7 @@ pokerRouter.post("/poker/:eventId/dealers-choice", requireAuth, async (req: Auth
   // wherever it was left, because a host turning it back on mid-night means
   // "start passing the deal from here", not "remember an index nobody saw".
   if (state.dealersChoice) state.dealerIdx = 0;
-  res.json(await rt.saveState(g.loaded, "live", g.origin));
+  res.json(await rt.saveState(g.loaded, "live", g.req));
 });
 
 /** The starter list the picker offers. Free typing is still allowed. */

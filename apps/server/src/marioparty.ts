@@ -355,7 +355,7 @@ marioPartyRouter.post("/events/:eventId/marioparty", requireAuth, async (req: Au
   let state = newMpState({ titleId, assignment, roster, sides: sides ?? undefined });
   if (assignment === "random") state.roster = assignRandomFighters(state.roster, pool);
 
-  res.json(await rt.startSession(eventId, event.groupId, state, req.get("x-gn-client")));
+  res.json(await rt.startSession(eventId, event.groupId, state, req));
 });
 
 // ---------- assignment ----------
@@ -394,7 +394,7 @@ marioPartyRouter.post("/marioparty/:eventId/character", requireAuth, async (req:
     return;
   }
   slot.character = character ?? null;
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 marioPartyRouter.post("/marioparty/:eventId/randomize", requireAuth, async (req: AuthedRequest, res) => {
@@ -412,7 +412,7 @@ marioPartyRouter.post("/marioparty/:eventId/randomize", requireAuth, async (req:
     loaded.state.roster,
     rosterForTitle(MARIO_PARTY_TITLES, loaded.state.titleId),
   );
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 // ---------- host: reshuffle the sides ----------
@@ -443,7 +443,7 @@ marioPartyRouter.post("/marioparty/:eventId/reshuffle", requireAuth, async (req:
     res.status(400).json({ error });
     return;
   }
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 // ---------- record a board ----------
@@ -530,7 +530,7 @@ marioPartyRouter.post("/marioparty/:eventId/record", requireAuth, async (req: Au
   const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster, state.sessionKey);
 
   const origin = req.get("x-gn-client");
-  const view = await rt.saveState(loaded, "live", origin);
+  const view = await rt.saveState(loaded, "live", req);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json({ ...view, ...report });
 });
@@ -558,7 +558,7 @@ marioPartyRouter.post("/marioparty/:eventId/undo", requireAuth, async (req: Auth
   // arrangement in force that nothing was ever played under.
   truncateSideLog(state.sideLog, state.games.length);
   const origin = req.get("x-gn-client");
-  const view = await rt.saveState(loaded, "live", origin);
+  const view = await rt.saveState(loaded, "live", req);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json(view);
 });
@@ -575,7 +575,7 @@ marioPartyRouter.post("/marioparty/:eventId/open-scoring", requireAuth, async (r
     return;
   }
   loaded.state.openScoring = !!req.body?.open;
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 marioPartyRouter.post("/marioparty/:eventId/complete", requireAuth, async (req: AuthedRequest, res) => {
@@ -589,7 +589,7 @@ marioPartyRouter.post("/marioparty/:eventId/complete", requireAuth, async (req: 
     res.status(403).json({ error: "Host only" });
     return;
   }
-  res.json(await rt.saveState(loaded, "completed", req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, "completed", req));
 });
 
 // ---------- lifetime Mario Party stats ----------

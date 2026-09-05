@@ -325,7 +325,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
       return;
     }
 
-    res.json(await rt.startSession(eventId, event.groupId, newTnState({ roster }), req.get("x-gn-client")));
+    res.json(await rt.startSession(eventId, event.groupId, newTnState({ roster }), req));
   });
 
   // ---------- what is on the table now ----------
@@ -367,7 +367,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
       // that depended on which one would be a shape nobody could reason about.
       applyTitleShape(loaded.state, config, loaded.state.nowPlaying);
     }
-    res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+    res.json(await rt.saveState(loaded, loaded.row.status, req));
   });
 
   // ---------- record a game ----------
@@ -444,7 +444,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
     const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster, state.sessionKey);
 
     const origin = req.get("x-gn-client");
-    const view = await rt.saveState(loaded, "live", origin);
+    const view = await rt.saveState(loaded, "live", req);
     broadcast({ type: "leaderboard_updated", eventId }, origin);
     res.json({ ...view, ...report });
   });
@@ -472,7 +472,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
     // from.
     state.nowPlaying = last.title;
     const origin = req.get("x-gn-client");
-    const view = await rt.saveState(loaded, "live", origin);
+    const view = await rt.saveState(loaded, "live", req);
     broadcast({ type: "leaderboard_updated", eventId }, origin);
     res.json(view);
   });
@@ -529,7 +529,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
       res.status(400).json({ error: err });
       return;
     }
-    res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+    res.json(await rt.saveState(loaded, loaded.row.status, req));
   });
 
   router.post(`/${route}/:eventId/open-scoring`, requireAuth, async (req: AuthedRequest, res) => {
@@ -544,7 +544,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
       return;
     }
     loaded.state.openScoring = !!req.body?.open;
-    res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+    res.json(await rt.saveState(loaded, loaded.row.status, req));
   });
 
   router.post(`/${route}/:eventId/complete`, requireAuth, async (req: AuthedRequest, res) => {
@@ -559,7 +559,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
       return;
     }
     loaded.state.nowPlaying = null;
-    res.json(await rt.saveState(loaded, "completed", req.get("x-gn-client")));
+    res.json(await rt.saveState(loaded, "completed", req));
   });
 
   // ---------- lifetime stats ----------

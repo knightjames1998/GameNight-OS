@@ -109,7 +109,7 @@ rouletteRouter.post("/roulette/:eventId/spin", requireAuth, async (req: AuthedRe
     at: new Date().toISOString(),
   };
   state.spins.push(spin);
-  res.json({ ...(await rt.saveState(g.loaded, "live", g.origin)), payout: spinPayout(spin) });
+  res.json({ ...(await rt.saveState(g.loaded, "live", g.req)), payout: spinPayout(spin) });
 });
 
 rouletteRouter.post("/roulette/:eventId/undo-spin", requireAuth, async (req: AuthedRequest, res) => {
@@ -120,7 +120,7 @@ rouletteRouter.post("/roulette/:eventId/undo-spin", requireAuth, async (req: Aut
     return;
   }
   g.loaded.state.spins.pop();
-  res.json(await rt.saveState(g.loaded, "live", g.origin));
+  res.json(await rt.saveState(g.loaded, "live", g.req));
 });
 
 // ---------- guest -> member backfill (see guest-link.ts) ----------

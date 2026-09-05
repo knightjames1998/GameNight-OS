@@ -153,6 +153,13 @@ export interface CasinoConfig<S extends CashPackState> {
 export interface Ok<S> {
   loaded: Loaded<S>;
   origin: string | undefined;
+  /**
+   * The request itself, which saveState now requires: the television gate reads
+   * `confirmTv` off its body, and a guard object that carried only the derived
+   * origin could not hand that over. `origin` stays because half these routes
+   * broadcast with it directly.
+   */
+  req: AuthedRequest;
 }
 
 export interface CasinoRoutes<S extends CashPackState> {
@@ -324,7 +331,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
       res.status(409).json({ error: "That session has already been recorded" });
       return null;
     }
-    return { loaded, origin: req.get("x-gn-client") };
+    return { loaded, origin: req.get("x-gn-client"), req };
   }
 
   async function host(req: AuthedRequest, res: Response): Promise<Ok<S> | null> {
@@ -337,7 +344,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
       res.status(403).json({ error: "Host only" });
       return null;
     }
-    return { loaded, origin: req.get("x-gn-client") };
+    return { loaded, origin: req.get("x-gn-client"), req };
   }
 
   function slotOf(state: S, raw: unknown, res: Response): CashPlayer | null {
@@ -487,7 +494,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
       buyIns,
       tracker: !!req.body?.tracker,
     });
-    res.json(await rt.startSession(eventId, event.groupId, state, req.get("x-gn-client")));
+    res.json(await rt.startSession(eventId, event.groupId, state, req));
   });
 
   // ---------- money in ----------
@@ -507,7 +514,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
     const entry = g.loaded.state.entries.find((e) => e.playerId === slot.id);
     if (entry) entry.buyIn = amount;
     else g.loaded.state.entries.push({ playerId: slot.id, buyIn: amount, rebuys: [], cashOut: null, at: null });
-    res.json(await rt.saveState(g.loaded, "live", g.origin));
+    res.json(await rt.saveState(g.loaded, "live", g.req));
   });
 
   // One tap adds another buy-in amount. The amount is optional and defaults to
@@ -528,7 +535,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
       return;
     }
     entry.rebuys.push(amount);
-    res.json(await rt.saveState(g.loaded, "live", g.origin));
+    res.json(await rt.saveState(g.loaded, "live", g.req));
   });
 
   // A mis-tapped rebuy. Drops the LAST one, because that is the one just
@@ -544,7 +551,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
       return;
     }
     entry.rebuys.pop();
-    res.json(await rt.saveState(g.loaded, "live", g.origin));
+    res.json(await rt.saveState(g.loaded, "live", g.req));
   });
 
   // A late arrival. Cash games are not fixed rosters: somebody turns up at
@@ -577,7 +584,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
       cashOut: null,
       at: null,
     });
-    res.json(await rt.saveState(g.loaded, "live", g.origin));
+    res.json(await rt.saveState(g.loaded, "live", g.req));
   });
 
   // ---------- money out ----------
@@ -601,7 +608,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
     entry.cashOut = amount;
     entry.at = new Date().toISOString();
     cfg.applyDetail(state, slot.id, (req.body ?? {}) as Record<string, unknown>);
-    res.json(await rt.saveState(g.loaded, "live", g.origin));
+    res.json(await rt.saveState(g.loaded, "live", g.req));
   });
 
   // Somebody sat back down. Clears the cash-out so their chips are on the
@@ -618,7 +625,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
     }
     entry.cashOut = null;
     entry.at = null;
-    res.json(await rt.saveState(g.loaded, "live", g.origin));
+    res.json(await rt.saveState(g.loaded, "live", g.req));
   });
 
   // ---------- host toggles ----------
@@ -630,14 +637,14 @@ export function registerCasinoRoutes<S extends CashPackState>(
     // what the pack's details are derived from, and deleting them would
     // silently lose stats the host had already collected.
     g.loaded.state.tracker = !!req.body?.on;
-    res.json(await rt.saveState(g.loaded, g.loaded.row.status, g.origin));
+    res.json(await rt.saveState(g.loaded, g.loaded.row.status, g.req));
   });
 
   router.post(`/${seg}/:eventId/open-scoring`, requireAuth, async (req: AuthedRequest, res) => {
     const g = await host(req, res);
     if (!g) return;
     g.loaded.state.openScoring = !!req.body?.open;
-    res.json(await rt.saveState(g.loaded, g.loaded.row.status, g.origin));
+    res.json(await rt.saveState(g.loaded, g.loaded.row.status, g.req));
   });
 
   router.post(`/${seg}/:eventId/default-buy-in`, requireAuth, async (req: AuthedRequest, res) => {
@@ -649,7 +656,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
       return;
     }
     g.loaded.state.defaultBuyIn = amount;
-    res.json(await rt.saveState(g.loaded, g.loaded.row.status, g.origin));
+    res.json(await rt.saveState(g.loaded, g.loaded.row.status, g.req));
   });
 
   // ---------- end the night ----------
@@ -680,7 +687,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
 
     const gameId = await rt.ensureGame(loaded.row.groupId);
     const report = await materialize(loaded.row.groupId, eventId, gameId, state);
-    const view = await rt.saveState(loaded, "completed", origin);
+    const view = await rt.saveState(loaded, "completed", req);
     broadcast({ type: "leaderboard_updated", eventId }, origin);
     res.json({ ...view, ...report, balance: settlement.balance });
   });

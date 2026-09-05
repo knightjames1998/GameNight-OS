@@ -291,7 +291,7 @@ deductionRouter.post(`/events/:eventId/${route}`, requireAuth, async (req: Authe
   // whose dealNo does not match the session, but a stale secret sitting in the
   // database is not something to leave lying around either.
   await clearDeal(eventId);
-  res.json(await rt.startSession(eventId, event.groupId, newSdState({ roster }), req.get("x-gn-client")));
+  res.json(await rt.startSession(eventId, event.groupId, newSdState({ roster }), req));
 });
 
 // ---------- what is on the table now ----------
@@ -320,7 +320,7 @@ deductionRouter.post(`/${route}/:eventId/now-playing`, requireAuth, async (req: 
   loaded.state.nowPlaying = raw.trim()
     ? canonicalTitle(sdAliasTitle(raw), await known(loaded.row.groupId)).title
     : null;
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 // ---------- host: deal ----------
@@ -423,7 +423,7 @@ deductionRouter.post(`/${route}/:eventId/deal`, requireAuth, async (req: AuthedR
   // re-flip a toggle between games. The preference outlives a game; the board
   // does not, because it belongs to the game it was tracking.
   state.board = state.boardEnabled ? newSdBoard(state.roster, at) : null;
-  res.json(await rt.saveState(loaded, "live", req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, "live", req));
 });
 
 /** Take the deal back without recording anything. A mis-tapped setup. */
@@ -441,7 +441,7 @@ deductionRouter.post(`/${route}/:eventId/undeal`, requireAuth, async (req: Authe
   await clearDeal(eventId);
   loaded.state.deal = null;
   loaded.state.board = null;
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 // ---------- the live moderator board ----------
@@ -487,7 +487,7 @@ deductionRouter.post(`/${route}/:eventId/board`, requireAuth, async (req: Authed
     // people who are already out.
     state.board = newSdBoard(state.roster, new Date().toISOString());
   }
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 /** Night 1, Day 1, Night 2, Day 2. One tap. */
@@ -507,7 +507,7 @@ deductionRouter.post(`/${route}/:eventId/phase`, requireAuth, async (req: Authed
     return;
   }
   sdAdvancePhase(loaded.state.board);
-  res.json(await rt.saveState(loaded, "live", req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, "live", req));
 });
 
 /**
@@ -565,7 +565,7 @@ deductionRouter.post(`/${route}/:eventId/out`, requireAuth, async (req: AuthedRe
     res.status(400).json({ error: err });
     return;
   }
-  res.json(await rt.saveState(loaded, "live", req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, "live", req));
 });
 
 // ---------- record a game: THE REVEAL ----------
@@ -627,7 +627,7 @@ deductionRouter.post(`/${route}/:eventId/record`, requireAuth, async (req: Authe
   const report = await materializeGame(row.groupId, eventId, gameId, game, state.roster, state.sessionKey);
 
   const origin = req.get("x-gn-client");
-  const view = await rt.saveState(loaded, "live", origin);
+  const view = await rt.saveState(loaded, "live", req);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json({ ...view, ...report });
 });
@@ -656,7 +656,7 @@ deductionRouter.post(`/${route}/:eventId/undo`, requireAuth, async (req: AuthedR
   // re-dealing the same game is the only honest way to play it again.
   state.nowPlaying = last.title;
   const origin = req.get("x-gn-client");
-  const view = await rt.saveState(loaded, "live", origin);
+  const view = await rt.saveState(loaded, "live", req);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json(view);
 });
@@ -675,7 +675,7 @@ deductionRouter.post(`/${route}/:eventId/open-scoring`, requireAuth, async (req:
     return;
   }
   loaded.state.openScoring = !!req.body?.open;
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 deductionRouter.post(`/${route}/:eventId/complete`, requireAuth, async (req: AuthedRequest, res) => {
@@ -695,7 +695,7 @@ deductionRouter.post(`/${route}/:eventId/complete`, requireAuth, async (req: Aut
   loaded.state.nowPlaying = null;
   loaded.state.deal = null;
   loaded.state.board = null;
-  res.json(await rt.saveState(loaded, "completed", req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, "completed", req));
 });
 
 // ---------- guest -> member backfill (see guest-link.ts) ----------

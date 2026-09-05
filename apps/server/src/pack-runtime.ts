@@ -37,7 +37,7 @@
 // the message and screens stop updating until someone refreshes, which is the
 // one thing standing rule 6 says must never happen.
 
-import type { Response } from "express";
+import type { Request, Response } from "express";
 import {
   getDb,
   events,
@@ -51,10 +51,11 @@ import {
   and,
   eq,
 } from "@gamenight/db";
-import { SESSION_PACKS, type PackWsType, type SessionPackKey } from "@gamenight/shared";
+import { PACK_BY_LEDGER, SESSION_PACKS, type PackWsType, type SessionPackKey } from "@gamenight/shared";
 import { insertParticipants } from "./participants.js";
 import { eventPrefill, type PrefillSlot, type PrefillSource } from "./event-prefill.js";
 import { broadcast } from "./ws.js";
+import { gateTv, type TvSelf } from "./tv.js";
 
 type Db = ReturnType<typeof getDb>;
 type ParticipantRow = typeof matchParticipants.$inferInsert;
@@ -258,10 +259,19 @@ export interface PackRuntime<S> extends PackRuntimeConfig<S> {
    * Persist, broadcast, and hand back the session payload. Returning the view
    * is what lets a mutation handler answer from the state it already holds
    * instead of re-SELECTing the row it just wrote.
+   *
+   * TAKES THE REQUEST, NOT AN ORIGIN STRING, and that is the television gate's
+   * doing rather than a refactor for its own sake. The gate needs two things
+   * off the request (`confirmTv` from the body, and the client id it already
+   * needed) and it has to be IMPOSSIBLE FOR A NEW PACK TO FORGET. A required
+   * parameter is the only version of that the compiler enumerates: a pack
+   * cannot write without calling this, and cannot call this without handing
+   * over the request. Every call site got shorter, because `req` is what
+   * `req.get("x-gn-client")` was being derived from anyway.
    */
-  saveState(loaded: Loaded<S>, status: SessionStatus, origin?: string): Promise<SessionPayload>;
+  saveState(loaded: Loaded<S>, status: SessionStatus, req: Request): Promise<SessionPayload>;
   /** Create the session row, or replace it (start / confirm-and-replace). */
-  startSession(eventId: string, groupId: string, state: S, origin?: string): Promise<SessionPayload>;
+  startSession(eventId: string, groupId: string, state: S, req: Request): Promise<SessionPayload>;
   ensureGame(groupId: string): Promise<string>;
   ledgerKey(eventId: string, sessionKey: string | undefined, idx: number | string): string;
   deleteMaterialized(eventId: string, sessionKey: string | undefined, idx: number | string): Promise<void>;
@@ -336,6 +346,19 @@ export interface MaterializeArgs {
 
 export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<S> {
   const { pack, gameName, wsType, keyPrefix, table, extras, normalize } = config;
+  /**
+   * The CLIENT spelling of this pack, for the television gate.
+   *
+   * `config.pack` is the LEDGER spelling (games.pack) and TvSelf wants the
+   * CLIENT one, and the two disagree for three of the twelve packs:
+   * mario_kart/mariokart, mario_party/marioparty, casino_run/casinorun.
+   * Handing the ledger spelling to tvHolder would compare it against a client
+   * key, never match, and leave those three prompting on their OWN writes
+   * forever. That is the exact failure PACK_BY_LEDGER exists to prevent, and
+   * the compiler caught it here only because TvPack is a union rather than a
+   * string.
+   */
+  const tvSelf: TvSelf = { kind: "pack", pack: PACK_BY_LEDGER[pack]! };
   /** Identity when the pack has never changed its state shape. */
   const upgrade = (state: S): S => (normalize ? normalize(state) : state);
   const ownTable = table === "smash_sessions";
@@ -391,8 +414,19 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
   async function saveState(
     loaded: Loaded<S>,
     status: SessionStatus,
-    origin?: string,
+    req: Request,
   ): Promise<SessionPayload> {
+    // THE TELEVISION GATE, before anything is written. Skipped when this write
+    // COMPLETES the session: a completed session cannot hold the screen, so
+    // such a write can only move the TV away from itself.
+    await gateTv({
+      eventId: loaded.row.eventId,
+      self: tvSelf,
+      selfName: gameName,
+      body: req.body,
+      skip: status === "completed",
+    });
+    const origin = req.get("x-gn-client");
     const db = getDb();
     const set = {
       state: loaded.state as unknown as Record<string, unknown>,
@@ -422,8 +456,15 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
     eventId: string,
     groupId: string,
     state: S,
-    origin?: string,
+    req: Request,
   ): Promise<SessionPayload> {
+    await gateTv({
+      eventId,
+      self: tvSelf,
+      selfName: gameName,
+      body: req.body,
+    });
+    const origin = req.get("x-gn-client");
     const db = getDb();
     const value = state as unknown as Record<string, unknown>;
     if (ownTable) {

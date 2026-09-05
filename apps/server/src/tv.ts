@@ -390,6 +390,64 @@ export async function requireTvConfirm(eventId: string, self: TvSelf): Promise<s
   return holder ? tvHolderName(holder) : null;
 }
 
+/**
+ * The refusal a held television raises. Thrown, not returned, ON PURPOSE.
+ *
+ * `async-safe.ts` already routes every rejection from every handler to the
+ * error middleware in index.ts, which is what makes a throw here reach the
+ * client as a 409 WITHOUT any route doing anything. A returned value would have
+ * to be checked, and a check is a thing eighty-odd handlers can forget; a throw
+ * cannot be forgotten, only caught, and nothing catches it.
+ */
+export class TvHeldError extends Error {
+  readonly holder: string;
+  constructor(holder: string, message: string) {
+    super(message);
+    this.name = "TvHeldError";
+    this.holder = holder;
+  }
+}
+
+/**
+ * What the host reads. ONE SENTENCE FOR BOTH HALVES of the decision, because a
+ * dialog that only says what "yes" does leaves the person guessing at "no", and
+ * "no" here does something surprising: it cancels the write as well. There is
+ * nowhere to record a decline (see the 2026-08-19 decision against a stored
+ * pointer), so "record it but leave the screen alone" is not a state this app
+ * can be in, and the copy has to say so rather than imply otherwise.
+ */
+export const tvHeldMessage = (holder: string, self: string): string =>
+  `The TV is showing ${holder}. Continuing moves it to ${self}. Cancel and nothing is recorded.`;
+
+/**
+ * The gate itself: throw if this write would take the television off something
+ * else, unless the client has already said to go ahead.
+ *
+ * `confirmTv` is read off the request body rather than a query string or a
+ * header so it rides along with the retry the client already sends.
+ *
+ * A NOTE ON WHAT IS NOT GATED. Read-only routes never reach this, because they
+ * never write. Neither does a write that COMPLETES a session: a completed
+ * session cannot hold the screen (resolveNow drops it first), so such a write
+ * can only ever move the TV away from itself, and prompting about it would ask
+ * the host to confirm a hand-over that is already happening for another reason.
+ * Callers pass `skip` for that case rather than this function guessing at it.
+ */
+export async function gateTv(opts: {
+  eventId: string;
+  self: TvSelf;
+  /** The name of the thing being written to, for the sentence. */
+  selfName: string;
+  body: unknown;
+  /** True when this write cannot take the screen (it completes the session). */
+  skip?: boolean;
+}): Promise<void> {
+  if (opts.skip) return;
+  if ((opts.body as { confirmTv?: unknown } | null | undefined)?.confirmTv === true) return;
+  const holder = await requireTvConfirm(opts.eventId, opts.self);
+  if (holder) throw new TvHeldError(holder, tvHeldMessage(holder, opts.selfName));
+}
+
 // game_sessions.pack -> the pack key the client renders, from the one registry
 // (PACK_BY_LEDGER). This was a hand-written table here AND in events.ts AND,
 // keyed the other way round, in the recap card.

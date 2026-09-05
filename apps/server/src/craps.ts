@@ -118,7 +118,7 @@ crapsRouter.post("/craps/:eventId/tap", requireAuth, async (req: AuthedRequest, 
     res.status(409).json({ error: "Nobody has the dice. Hand them to a player first." });
     return;
   }
-  res.json(await rt.saveState(g.loaded, "live", g.origin));
+  res.json(await rt.saveState(g.loaded, "live", g.req));
 });
 
 crapsRouter.post("/craps/:eventId/undo-tap", requireAuth, async (req: AuthedRequest, res) => {
@@ -128,7 +128,7 @@ crapsRouter.post("/craps/:eventId/undo-tap", requireAuth, async (req: AuthedRequ
     res.json({ ...rt.viewOf(g.loaded), empty: true });
     return;
   }
-  res.json(await rt.saveState(g.loaded, "live", g.origin));
+  res.json(await rt.saveState(g.loaded, "live", g.req));
 });
 
 // The rotation is a default, not a rule: dice get declined, skipped and handed
@@ -142,7 +142,7 @@ crapsRouter.post("/craps/:eventId/shooter", requireAuth, async (req: AuthedReque
     res.status(400).json({ error: "That player is not at the table" });
     return;
   }
-  res.json(await rt.saveState(g.loaded, "live", g.origin));
+  res.json(await rt.saveState(g.loaded, "live", g.req));
 });
 
 // ---------- guest -> member backfill (see guest-link.ts) ----------

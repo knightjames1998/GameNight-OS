@@ -316,7 +316,7 @@ pingPongRouter.post("/events/:eventId/pingpong", requireAuth, async (req: Authed
   }
 
   const state = newPingPongState({ format, mode, bestOf, roster, sides });
-  res.json(await rt.startSession(eventId, event.groupId, state, req.get("x-gn-client")));
+  res.json(await rt.startSession(eventId, event.groupId, state, req));
 });
 
 // ---------- host: reshuffle the sides mid-night ----------
@@ -361,7 +361,7 @@ pingPongRouter.post("/pingpong/:eventId/sides", requireAuth, async (req: AuthedR
     res.status(400).json({ error: err });
     return;
   }
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 // ---------- singles: start the next match (FFA only) ----------
@@ -391,7 +391,7 @@ pingPongRouter.post("/pingpong/:eventId/start-match", requireAuth, async (req: A
     res.status(400).json({ error: "Pick two different sides; finish the current match first" });
     return;
   }
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 // ---------- record a game (one tap on the winner) ----------
@@ -436,7 +436,7 @@ pingPongRouter.post("/pingpong/:eventId/record", requireAuth, async (req: Authed
     const gameId = await rt.ensureGame(row.groupId);
     report = await materializeMatch(row.groupId, eventId, gameId, completed, state);
   }
-  const view = await rt.saveState(loaded, "live", origin);
+  const view = await rt.saveState(loaded, "live", req);
   if (completed) broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json({ ...view, ...(report ?? {}) });
 });
@@ -459,12 +459,12 @@ pingPongRouter.post("/pingpong/:eventId/undo", requireAuth, async (req: AuthedRe
   const origin = req.get("x-gn-client");
   if (unmaterializeIdx != null) {
     await rt.deleteMaterialized(eventId, state.sessionKey, unmaterializeIdx);
-    const view = await rt.saveState(loaded, "live", origin);
+    const view = await rt.saveState(loaded, "live", req);
     broadcast({ type: "leaderboard_updated", eventId }, origin);
     res.json(view);
     return;
   }
-  res.json(await rt.saveState(loaded, "live", origin));
+  res.json(await rt.saveState(loaded, "live", req));
 });
 
 // ---------- host toggles + complete ----------
@@ -481,7 +481,7 @@ pingPongRouter.post("/pingpong/:eventId/open-scoring", requireAuth, async (req: 
     return;
   }
   loaded.state.openScoring = !!req.body?.open;
-  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
+  res.json(await rt.saveState(loaded, loaded.row.status, req));
 });
 
 pingPongRouter.post("/pingpong/:eventId/complete", requireAuth, async (req: AuthedRequest, res) => {
@@ -505,7 +505,7 @@ pingPongRouter.post("/pingpong/:eventId/complete", requireAuth, async (req: Auth
     const gameId = await rt.ensureGame(loaded.row.groupId);
     await materializeMatch(loaded.row.groupId, eventId, gameId, finalized, loaded.state);
   }
-  const view = await rt.saveState(loaded, "completed", origin);
+  const view = await rt.saveState(loaded, "completed", req);
   if (finalized) broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json(view);
 });

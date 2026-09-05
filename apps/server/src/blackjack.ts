@@ -116,7 +116,7 @@ blackjackRouter.post("/blackjack/:eventId/hand", requireAuth, async (req: Authed
   }
   const hand: BjHand = { playerId: slot.id, bet, result, at: new Date().toISOString() };
   state.hands.push(hand);
-  res.json({ ...(await rt.saveState(g.loaded, "live", g.origin)), payout: handPayout(hand) });
+  res.json({ ...(await rt.saveState(g.loaded, "live", g.req)), payout: handPayout(hand) });
 });
 
 blackjackRouter.post("/blackjack/:eventId/undo-hand", requireAuth, async (req: AuthedRequest, res) => {
@@ -127,7 +127,7 @@ blackjackRouter.post("/blackjack/:eventId/undo-hand", requireAuth, async (req: A
     return;
   }
   g.loaded.state.hands.pop();
-  res.json(await rt.saveState(g.loaded, "live", g.origin));
+  res.json(await rt.saveState(g.loaded, "live", g.req));
 });
 
 // ---------- guest -> member backfill (see guest-link.ts) ----------

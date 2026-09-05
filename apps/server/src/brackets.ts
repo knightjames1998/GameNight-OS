@@ -15,6 +15,8 @@ import {
   inArray,
 } from "@gamenight/db";
 import {
+  GENERIC_LEDGER,
+  LEDGER_PACK_DISPLAY,
   bracketGameName,
   bracketLedgerRows,
   buildStructure,
@@ -36,6 +38,7 @@ import { requireAuth, type AuthedRequest } from "./auth.js";
 import { insertParticipants } from "./participants.js";
 import { roleOf } from "./pack-runtime.js";
 import { broadcast } from "./ws.js";
+import { gateTv } from "./tv.js";
 import { type GuestCreditResult } from "./guest-link-util.js";
 
 export const bracketsRouter = Router();
@@ -284,6 +287,18 @@ bracketsRouter.post("/brackets/:id/matches/:matchId/result", async (req: AuthedR
 
   const results: BracketResults = { ...loaded.results, [matchId]: winner };
   const after = computeBracket(loaded.entrants.length, structure, results);
+  // THE TELEVISION GATE. A bracket does not go through pack-runtime's
+  // saveState, so the two places in this file that write `updatedAt` carry it
+  // themselves. Skipped when this result CROWNS the champion: that write
+  // completes the bracket, resolveNow drops completed things first, so it can
+  // only move the screen away from itself and there is nothing to ask about.
+  await gateTv({
+    eventId: loaded.eventId,
+    self: { kind: "bracket", bracketId: loaded.id },
+    selfName: LEDGER_PACK_DISPLAY[GENERIC_LEDGER]!.name,
+    body: req.body,
+    skip: !!after.championSeed,
+  });
   // updatedAt is the event TV's ranking key: it is what lets a bracket being
   // scored all night beat a session someone started later and abandoned.
   await getDb()
@@ -333,6 +348,15 @@ bracketsRouter.delete("/brackets/:id/matches/:matchId/result", async (req: Authe
   for (const id of downstreamOf(structure, matchId)) {
     delete results[id];
   }
+
+  // Undoing puts the bracket back to "live", so this write CAN take the screen
+  // and is gated. See the note on the scoring route above.
+  await gateTv({
+    eventId: loaded.eventId,
+    self: { kind: "bracket", bracketId: loaded.id },
+    selfName: LEDGER_PACK_DISPLAY[GENERIC_LEDGER]!.name,
+    body: req.body,
+  });
 
   const db2 = getDb();
   await db2

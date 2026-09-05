@@ -11,7 +11,7 @@ import { authRouter, attachUser } from "./auth.js";
 import { groupsRouter, joinRouter } from "./groups.js";
 import { eventsRouter } from "./events.js";
 import { bracketsRouter, tvRouter } from "./brackets.js";
-import { eventTvRouter } from "./tv.js";
+import { eventTvRouter, TvHeldError } from "./tv.js";
 import { beerioRouter } from "./beerio.js";
 import { beerioGnRouter } from "./beerio-gn.js";
 import { quickPlayRouter } from "./quickplay.js";
@@ -140,6 +140,17 @@ app.get("*", (_req, res) => {
 // async-safe patch. Return a 500 and keep the process (and the WebSocket
 // hub) alive; a single bad query must never take the whole server down.
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  // THE TELEVISION GATE'S REFUSAL IS NOT AN ERROR, it is an answer, and it
+  // arrives here because that is what makes it impossible for a route to
+  // forget. `saveState` and `startSession` throw it from inside the shared
+  // runtime, async-safe.ts routes every rejection to this middleware, and this
+  // branch turns it into the 409 the client already knows how to read. No pack
+  // route has to remember anything, which was the whole requirement.
+  if (err instanceof TvHeldError) {
+    if (res.headersSent) return;
+    res.status(409).json({ error: err.message, code: "tv_held", holder: err.holder });
+    return;
+  }
   console.error("[route error]", err);
   if (res.headersSent) return;
   res.status(500).json({ error: "Something went wrong on our end." });
