@@ -10,10 +10,41 @@ import type { SlotSource } from "@gamenight/shared/bracket";
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /**
+   * The parsed error body, not just its `error` string.
+   *
+   * `message` alone was not enough once two different refusals started sharing
+   * a status code: `startSession` has used 409 for confirm-and-replace since it
+   * shipped, and the television gate uses 409 too. Telling them apart on the
+   * status would be guessing at a sentence, so the server sends a machine
+   * readable `code` and this carries it through.
+   */
+  body: { error?: string; code?: string; [k: string]: unknown };
+  constructor(status: number, message: string, body: Record<string, unknown> = {}) {
     super(message);
     this.status = status;
+    this.body = body;
   }
+  /** The server's machine-readable reason, when it sent one. */
+  get code(): string | undefined {
+    return typeof this.body.code === "string" ? this.body.code : undefined;
+  }
+}
+
+/**
+ * The television is showing something else, and the server is asking first.
+ *
+ * Returns the sentence to put in front of the person, or null when this is not
+ * that refusal. DETECTION LIVES HERE, ONCE, because two clients need it (the
+ * shared pack hook and the bracket page) and a second copy would be free to
+ * test the status instead of the code and swallow confirm-and-replace with it.
+ *
+ * The whole sentence comes from the server on purpose: it names the game the
+ * screen is on and the one it would move to, and neither of those is knowledge
+ * the client should be assembling from a key.
+ */
+export function tvHeldPrompt(e: unknown): string | null {
+  return e instanceof ApiError && e.code === "tv_held" ? e.message : null;
 }
 
 // Per-tab id sent with every request. The server stamps it onto the
@@ -33,7 +64,7 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new ApiError(res.status, body.error ?? `Request failed (${res.status})`);
+    throw new ApiError(res.status, body.error ?? `Request failed (${res.status})`, body);
   }
   return body as T;
 }

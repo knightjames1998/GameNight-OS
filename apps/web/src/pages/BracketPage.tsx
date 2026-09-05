@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, slotTeam, type BracketView, type BracketSlot, type BracketMatchView } from "../api";
+import { api, slotTeam, tvHeldPrompt, type BracketView, type BracketSlot, type BracketMatchView } from "../api";
 import { RecapModal } from "../recap";
 import { onIntent, routes } from "../prefetch";
 import { useBracketLive } from "../useLiveUpdates";
@@ -64,42 +64,68 @@ export default function BracketPage() {
   // would double the traffic.
   useBracketLive(id, load);
 
-  // Mutations return the re-derived bracket; apply it directly instead of
-  // refetching. busy stays: a double-tap must not score two matches.
-  const record = useCallback(
-    async (matchId: string, winner: "A" | "B") => {
+  /**
+   * Score a match, and answer the television gate if the server raises it.
+   *
+   * THIS PAGE DOES NOT USE usePackSession, so it needs its own handling of the
+   * same refusal: a bracket write can take the screen off a live pack exactly
+   * as a pack write can take it off a bracket. Without this the refusal would
+   * be an unhandled rejection here, because these two writes have never had a
+   * catch at all.
+   *
+   * `confirmTv` is added to the RETRY only, so declining leaves both the screen
+   * and the ledger alone. The detection is `tvHeldPrompt` from api.ts rather
+   * than a status check, because 409 already means other things elsewhere.
+   */
+  const send = useCallback(
+    async (run: (extra: Record<string, unknown>) => Promise<BracketView>) => {
       if (busy) return;
       setBusy(true);
       try {
-        setBracket(
-          await api<BracketView>(`/api/brackets/${id}/matches/${matchId}/result`, {
-            method: "POST",
-            body: JSON.stringify({ winner }),
-          }),
-        );
+        setBracket(await run({}));
+      } catch (e) {
+        const prompt = tvHeldPrompt(e);
+        if (!prompt) throw e;
+        // Drop busy before the blocking confirm, or the page stays frozen
+        // behind the dialog for as long as the host takes to decide.
+        setBusy(false);
+        if (!window.confirm(prompt)) return;
+        setBusy(true);
+        setBracket(await run({ confirmTv: true }));
       } finally {
         setBusy(false);
       }
     },
-    [busy, id],
+    [busy],
+  );
+
+  // Mutations return the re-derived bracket; apply it directly instead of
+  // refetching. busy stays: a double-tap must not score two matches.
+  const record = useCallback(
+    async (matchId: string, winner: "A" | "B") =>
+      send((extra) =>
+        api<BracketView>(`/api/brackets/${id}/matches/${matchId}/result`, {
+          method: "POST",
+          body: JSON.stringify({ winner, ...extra }),
+        }),
+      ),
+    [send, id],
   );
 
   const undo = useCallback(
     async (matchId: string) => {
-      if (busy || !window.confirm("Undo this result? Later results that depended on it clear too."))
-        return;
-      setBusy(true);
-      try {
-        setBracket(
-          await api<BracketView>(`/api/brackets/${id}/matches/${matchId}/result`, {
-            method: "DELETE",
-          }),
-        );
-      } finally {
-        setBusy(false);
-      }
+      if (!window.confirm("Undo this result? Later results that depended on it clear too.")) return;
+      await send((extra) =>
+        api<BracketView>(`/api/brackets/${id}/matches/${matchId}/result`, {
+          method: "DELETE",
+          // DELETE carries a body here for the same reason POST does: the
+          // confirmation has to reach the gate, and the route already parses
+          // JSON on every method.
+          body: JSON.stringify(extra),
+        }),
+      );
     },
-    [busy, id],
+    [send],
   );
 
   if (error) {

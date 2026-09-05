@@ -33,7 +33,7 @@
 // ---------------------------------------------------------------------------
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, ApiError } from "./api";
+import { api, ApiError, tvHeldPrompt } from "./api";
 import { usePackLive } from "./useLiveUpdates";
 import type { PrefillSource } from "./RosterCarryOver";
 
@@ -157,7 +157,31 @@ export function usePackSession<S, C extends PackCtx = PackCtx>(
       } catch (e) {
         // Roll back only what we painted ourselves. A failed write that had no
         // optimistic update must leave the screen alone.
+        //
+        // THIS HAS TO HAPPEN BEFORE THE DIALOG BELOW, and getting it backwards
+        // is visible: the screen would show the result as recorded while a
+        // prompt asks whether to record it.
         if (seq === reqSeq.current && optimistic) setSession(prev);
+
+        // The television is showing something else and the server asked first.
+        // Confirming re-posts the SAME write with confirmTv; declining does
+        // nothing further, and the rollback above already stands, so the result
+        // is not recorded either. That is the whole rule: "no" cancels the
+        // write, because there is nowhere to store the fact that somebody
+        // declined (see BACKLOG, and the 2026-08-19 decision it rests on).
+        const prompt = tvHeldPrompt(e);
+        if (prompt) {
+          // Drop busy before the blocking confirm, or the page stays frozen
+          // behind the dialog for as long as the host takes to decide. Same
+          // reason startSession does it.
+          setBusy(false);
+          if (window.confirm(prompt)) {
+            // A new reqSeq, which is correct: this is a new write, and an older
+            // in-flight response must not win against it.
+            await call(path, { ...(body as Record<string, unknown>), confirmTv: true }, optimistic);
+          }
+          return;
+        }
         setErr(e instanceof Error ? e.message : "Something went wrong");
       } finally {
         setBusy(false);
@@ -182,6 +206,18 @@ export function usePackSession<S, C extends PackCtx = PackCtx>(
         });
         if (r && typeof r === "object" && "session" in r) setSession(r.session);
       } catch (e) {
+        // TWO DIFFERENT REFUSALS SHARE THIS STATUS CODE and they are told apart
+        // on the server's `code`, never on the 409 alone. The television gate
+        // is checked FIRST because it is the specific one; confirm-and-replace
+        // is the pre-existing meaning of a bare 409 here and stays the fallback.
+        const tvPrompt = tvHeldPrompt(e);
+        if (tvPrompt) {
+          setBusy(false);
+          if (window.confirm(tvPrompt)) {
+            await startSession({ ...payload, confirmTv: true });
+          }
+          return;
+        }
         if (e instanceof ApiError && e.status === 409) {
           // Drop busy before the blocking confirm, or the page stays frozen
           // behind the dialog for as long as the host takes to decide.
