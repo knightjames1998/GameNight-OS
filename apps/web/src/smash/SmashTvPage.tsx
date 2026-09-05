@@ -27,8 +27,12 @@ interface TvSession {
   format: "ffa" | "koth" | "bestof" | "smashdown";
   mode: "ffa" | "koth";
   roster: Slot[];
+  /** The arrangement of sides in force. A solo night is sides of one. */
+  sides: { id: string; name: string; memberIds: string[] }[];
+  /** True when a side in force holds more than one player. */
+  teamPlay: boolean;
   games: { idx: number }[];
-  koth: { kingId: string | null; queue: string[]; streak: number } | null;
+  koth: { kingSideId: string | null; queue: string[]; streak: number } | null;
   bestOf: number;
   series: { aId: string; bId: string; games: { winnerId: string }[] } | null;
   seriesLog: { idx: number }[];
@@ -83,7 +87,15 @@ export default function SmashTvPage({ eventId: propEventId }: { eventId?: string
 
   const nameOf = new Map(session.roster.map((p) => [p.id, p.name]));
   const charOf = new Map(session.roster.map((p) => [p.id, p.character]));
-  const kingId = session.koth?.kingId ?? null;
+  // The throne and the queue hold SIDE ids, so a side is resolved to the names
+  // and fighters of its members. A side of one reads as that one player, which
+  // is what every solo night on this screen has always shown.
+  const sideById = new Map(session.sides.map((s) => [s.id, s]));
+  const sideNames = (sideId: string | null | undefined): string =>
+    (sideById.get(sideId ?? "")?.memberIds ?? []).map((id) => nameOf.get(id) ?? "?").join(" + ");
+  const sideChars = (sideId: string | null | undefined): string =>
+    (sideById.get(sideId ?? "")?.memberIds ?? []).map((id) => charOf.get(id) ?? "?").join(" + ");
+  const kingId = session.koth?.kingSideId ?? null;
   const bestOf = session.format === "bestof";
   const sd = session.format === "smashdown" ? session.smashdown : null;
 
@@ -198,18 +210,18 @@ export default function SmashTvPage({ eventId: propEventId }: { eventId?: string
       {session.mode === "koth" && kingId && (
         <div style={{ marginTop: "2vmin" }}>
           <div className="sm-tv__muted" style={{ fontSize: "2.6vmin" }}>👑 Current king{session.koth && session.koth.streak > 0 ? ` · ${session.koth.streak} in a row` : ""}</div>
-          <div className="sm-tv__king">{nameOf.get(kingId)} <span style={{ fontSize: "3.4vmin" }} className="sm-tv__muted">as {charOf.get(kingId) ?? "?"}</span></div>
+          <div className="sm-tv__king">{sideNames(kingId)} <span style={{ fontSize: "3.4vmin" }} className="sm-tv__muted">as {sideChars(kingId)}</span></div>
           {session.koth && session.koth.queue.length > 0 && (
             <div style={{ marginTop: "1.6vmin" }}>
               <span style={{ fontSize: "3.4vmin", fontFamily: "Fredoka, sans-serif", fontWeight: 700 }}>
-                ⚔️ Up next: {nameOf.get(session.koth.queue[0]!)}
-                {charOf.get(session.koth.queue[0]!) ? (
-                  <span className="sm-tv__muted" style={{ fontSize: "2.6vmin" }}> as {charOf.get(session.koth.queue[0]!)}</span>
+                ⚔️ Up next: {sideNames(session.koth.queue[0])}
+                {sideChars(session.koth.queue[0]) ? (
+                  <span className="sm-tv__muted" style={{ fontSize: "2.6vmin" }}> as {sideChars(session.koth.queue[0])}</span>
                 ) : null}
               </span>
               {session.koth.queue.length > 1 && (
                 <div className="sm-tv__muted" style={{ fontSize: "2.4vmin", marginTop: "0.6vmin" }}>
-                  Then: {session.koth.queue.slice(1).map((id) => nameOf.get(id)).filter(Boolean).join(" · ")}
+                  Then: {session.koth.queue.slice(1).map((id) => sideNames(id)).filter(Boolean).join(" · ")}
                 </div>
               )}
             </div>

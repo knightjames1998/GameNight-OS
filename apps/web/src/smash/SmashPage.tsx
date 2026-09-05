@@ -5,6 +5,7 @@ import { formatLabel } from "../formats";
 import { usePackSession, type PackCtx as Ctx } from "../usePackSession";
 import RosterCarryOver from "../RosterCarryOver";
 import GuestChips from "../GuestChips";
+import { TeamPicker, dropRosterIndex, teamPickerStatus } from "../teams/TeamPicker";
 import {
   SESSION_PACKS,
   SMASH_TITLES,
@@ -28,13 +29,16 @@ interface Slot {
   name: string;
   character: string | null;
 }
+/** One side of a battle. `memberIds` are roster slot ids. */
+interface SideT { id: string; name: string; memberIds: string[] }
 interface Koth {
-  kingId: string | null;
+  kingSideId: string | null;
+  /** Challenger SIDE ids, front plays next. */
   queue: string[];
   streak: number;
-  bestStreak: { playerId: string; streak: number } | null;
+  bestStreak: { sideId: string; memberIds: string[]; streak: number } | null;
 }
-interface GameLine { playerId: string; character: string | null; placement: number; isWinner: boolean }
+interface GameLine { playerId: string; character: string | null; placement: number; isWinner: boolean; side: string | null }
 interface SeriesT { idx: number; aId: string; bId: string; games: { winnerId: string }[]; winnerId: string | null; at: string | null }
 interface SeriesStanding {
   slotId: string; name: string; seriesWins: number; seriesPlayed: number;
@@ -64,6 +68,10 @@ interface Session {
   resultDetail: Detail;
   openScoring: boolean;
   roster: Slot[];
+  /** The arrangement of sides in force, flattened by the server. */
+  sides: SideT[];
+  /** True when a side in force holds more than one player. Drives the screen. */
+  teamPlay: boolean;
   games: { idx: number; mode: Mode; lines: GameLine[]; at: string }[];
   koth: Koth | null;
   bestOf: BestOf;
@@ -203,6 +211,15 @@ function SetupOrWaiting({
   const [detail, setDetail] = useState<Detail>("winner");
   const [roster, setRoster] = useState<{ userId: string | null; name: string }[]>([]);
   const [guest, setGuest] = useState("");
+  // Team battles are OFF by default, which is every Smash night this pack has
+  // ever recorded. NOTHING TURNS THEM ON BY ITSELF: Mario Kart auto-pairs for
+  // Double Dash at exactly four players because a shared kart is what that game
+  // IS, and Smash has no title where a shared slot is the game, so there is
+  // nothing to auto-apply here. See the DECISION LOG.
+  const [teams, setTeams] = useState(false);
+  // Side membership by ROSTER INDEX; slot ids are minted server-side and this
+  // screen has never seen one.
+  const [assign, setAssign] = useState<number[][]>([[], []]);
 
   useEffect(() => {
     if (ctx && roster.length === 0) {
@@ -233,9 +250,29 @@ function SetupOrWaiting({
     addGuestNamed(guest);
     setGuest("");
   };
-  const removeAt = (i: number) => setRoster(roster.filter((_, j) => j !== i));
+  const removeAt = (i: number) => {
+    // Indices shift when somebody is removed, so the assignment has to shift
+    // with them or the sides silently hold the wrong people.
+    setRoster(roster.filter((_, j) => j !== i));
+    setAssign(dropRosterIndex(assign, i));
+  };
 
   const notAdded = ctx.members.filter((m) => !roster.some((r) => r.userId === m.userId));
+
+  // THE TOGGLE IS OFFERED ONLY FOR THE FORMATS THAT ARE CONVERTED. Offering it
+  // on a format whose play screen still ranks individuals would be a switch
+  // that appears to do something and does not, which is worse than not having
+  // it yet. Add a format to this list in the same commit that converts it.
+  const teamFormats: Format[] = ["ffa", "koth"];
+  const teamsOffered = teamFormats.includes(format);
+  const teamsOn = teams && teamsOffered;
+
+  // The picker owns the sides and the primitive owns what is valid, so this
+  // screen cannot drift from the answer the server will give it.
+  const { unplaced, check } = teamPickerStatus(assign, roster.length);
+  const teamsReady = !teamsOn || (check.error === null && unplaced.length === 0);
+  const kothOddWarning =
+    teamsOn && format === "koth" && check.error === null && unplaced.length === 0 && assign.length < 3;
 
   // The battle cap is a property of the TITLE, not of Smash: Ultimate's 86
   // fighters give four players 21 battles, but Smash 64's 12 give them three.
@@ -411,6 +448,37 @@ function SetupOrWaiting({
         <p className="sm-hint" style={{ marginTop: 8 }}>Guests play, but lifetime stats only count crew members.</p>
       </div>
 
+      {teamsOffered && (
+        <div className="sm-card">
+          <div className="sm-row">
+            <span style={{ flex: 1 }} className="sm-name">Team battles</span>
+            <button
+              className={`gn-toggle ${teamsOn ? "gn-toggle--on" : "gn-toggle--off"}`}
+              aria-pressed={teamsOn}
+              onClick={() => setTeams(!teams)}
+            >
+              {teamsOn ? "ON" : "OFF"}
+            </button>
+          </div>
+          <p className="sm-hint">
+            {teamsOn
+              ? "Put everybody on a side. A side wins or loses as one, and every member gets the result."
+              : "Off means one player per side, exactly as before."}
+          </p>
+
+          {teamsOn && <TeamPicker cx="sm" roster={roster} assign={assign} setAssign={setAssign} />}
+          {/* Uneven sides are INFORMATION, never a blocking error: TeamPicker
+              already says so. 2v1 and 3v1 record exactly like a 2v2. The one
+              thing worth adding is that a two-side ladder is a king and a queue
+              of one, which stops meaning anything. */}
+          {kothOddWarning && (
+            <p className="sm-hint" style={{ marginTop: 8 }}>
+              Two sides in King of the Hill is one side waiting its turn. Three or more makes a ladder.
+            </p>
+          )}
+        </div>
+      )}
+
       {tooManyForSmashdown && (
         <p className="sm-err">
           Smashdown is capped at 8 players, because everyone plays every battle. Drop{" "}
@@ -420,16 +488,21 @@ function SetupOrWaiting({
       <button
         className="sm-btn"
         style={{ marginTop: 12 }}
-        disabled={busy || roster.length < 2 || smashdownImpossible || tooManyForSmashdown}
+        disabled={busy || roster.length < 2 || smashdownImpossible || tooManyForSmashdown || !teamsReady}
         onClick={() =>
           onStart({
             titleId, format, bestOf, assignment, resultDetail: detail, roster,
             battleCount: battles, mercy,
+            ...(teamsOn ? { sides: assign } : {}),
           })
         }
       >
         {roster.length < 2
           ? "Add at least 2 players"
+          : teamsOn && unplaced.length > 0
+          ? `${unplaced.length} still to put on a side`
+          : teamsOn && check.error
+          ? check.error
           : format === "smashdown" && !smashdownImpossible && !tooManyForSmashdown
           ? `Start Smashdown · ${battles} battle${battles === 1 ? "" : "s"}`
           : `Start ${formatLabel(format)}`}
@@ -439,6 +512,34 @@ function SetupOrWaiting({
 }
 
 // ---------- Live play ----------
+
+/** Every player's name, keyed by slot id. */
+const namesOf = (session: Session) => new Map(session.roster.map((p) => [p.id, p.name]));
+
+/**
+ * A side's label: its members' names.
+ *
+ * A side of one is that player's name, which is why every screen below reads
+ * the same on a solo night as it did before sides existed.
+ */
+function sideLabel(session: Session, sideId: string | null | undefined): string {
+  const names = namesOf(session);
+  const side = session.sides.find((s) => s.id === sideId);
+  if (!side) return "?";
+  return side.memberIds.map((id) => names.get(id) ?? "?").join(" + ");
+}
+
+/** A side's fighters, one per member, because fighters are per PLAYER. */
+function sideFighters(session: Session, sideId: string | null | undefined): string {
+  const side = session.sides.find((s) => s.id === sideId);
+  if (!side) return "";
+  const charOf = new Map(session.roster.map((p) => [p.id, p.character]));
+  return side.memberIds.map((id) => charOf.get(id) ?? "no fighter").join(" + ");
+}
+
+/** The side holding a roster slot, out of the arrangement in force. */
+const sideOfSlot = (session: Session, slotId: string): SideT | undefined =>
+  session.sides.find((s) => s.memberIds.includes(slotId));
 
 function LivePlay({
   eventId,
@@ -491,14 +592,17 @@ function LivePlay({
           </p>
         )}
         {session.roster.map((slot) => {
-          const isKing = session.koth?.kingId === slot.id;
+          const isKing = !!session.koth?.kingSideId && sideOfSlot(session, slot.id)?.id === session.koth.kingSideId;
           return (
             <div className="sm-row" key={slot.id}>
               <div style={{ flex: 1 }}>
                 <div className="sm-name">
                   {slot.name} {isKing && <span className="sm-pill sm-pill--king">👑 king</span>}
                 </div>
-                <div className="sm-char">{slot.character ?? "no fighter yet"}</div>
+                <div className="sm-char">
+                  {slot.character ?? "no fighter yet"}
+                  {session.teamPlay && <> · {sideLabel(session, sideOfSlot(session, slot.id)?.id)}</>}
+                </div>
               </div>
               {mayEditChar(slot) && !(sd && sd.over) && (
                 <div style={{ width: 160 }}>
@@ -539,7 +643,26 @@ function LivePlay({
             onWin={(winnerId) => call(`/api/smash/${eventId}/record`, { winnerId })}
           />
         ) : session.mode === "koth" ? (
-          <KothPlay session={session} nameOf={nameOf} busy={busy} onWin={(winnerId) => call(`/api/smash/${eventId}/record`, { winnerId })} />
+          // SEPARATE COMPONENTS, NOT ONE WITH A FLAG. The entry shapes genuinely
+          // differ: one taps a player and one taps a side, and threading a
+          // boolean would make every line in them read "unless teams". Mario
+          // Party's RecordTagBoard sits next to its per-player screen for the
+          // same reason.
+          session.teamPlay ? (
+            <KothTeamPlay
+              session={session}
+              busy={busy}
+              onWin={(winnerSideId) => call(`/api/smash/${eventId}/record`, { winnerSideId })}
+            />
+          ) : (
+            <KothPlay session={session} nameOf={nameOf} busy={busy} onWin={(winnerId) => call(`/api/smash/${eventId}/record`, { winnerId })} />
+          )
+        ) : session.teamPlay ? (
+          <FfaTeamPlay
+            session={session}
+            busy={busy}
+            onRecord={(sideIds) => call(`/api/smash/${eventId}/record`, { sides: sideIds })}
+          />
         ) : (
           <FfaPlay session={session} busy={busy} onRecord={(lines) => call(`/api/smash/${eventId}/record`, { lines })} />
         )
@@ -626,6 +749,10 @@ function LivePlay({
       )}
 
       {/* Host controls */}
+      {canHost && teamFormatsLive.includes(session.format) && (
+        <RearrangeSides eventId={eventId} session={session} busy={busy} call={call} />
+      )}
+
       {canHost && (
         <div className="sm-card">
           <div className="sm-h">Host controls</div>
@@ -681,6 +808,280 @@ function LivePlay({
         </div>
       )}
     </>
+  );
+}
+
+// ---------- Rearrange the sides mid-night ----------
+//
+// Sides are fixed for the night by default and this is the explicit way to
+// change them. Battles already recorded keep the side written on their lines,
+// so the night's history stays true; in King of the Hill the ladder restarts,
+// because a queue of sides that no longer exist is not a queue, and a Best Of
+// set in progress blocks it. The server owns all three rules.
+//
+// Offered on the same formats the setup toggle is offered on, and for the same
+// reason: a rearrange on a format whose play screen still ranks individuals
+// would be a control that appears to do something and does not.
+const teamFormatsLive: Format[] = ["ffa", "koth"];
+
+function RearrangeSides({
+  eventId,
+  session,
+  busy,
+  call,
+}: {
+  eventId: string;
+  session: Session;
+  busy: boolean;
+  call: (path: string, body?: unknown) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<string[][]>([]);
+
+  const start = () => {
+    setDraft(session.sides.map((s) => [...s.memberIds]));
+    setOpen(true);
+  };
+
+  const names = namesOf(session);
+  const placed = new Set(draft.flat());
+  const loose = session.roster.filter((p) => !placed.has(p.id));
+  const putOn = (sideIdx: number, playerId: string) =>
+    setDraft(draft.map((k, i) => (i === sideIdx ? [...k, playerId] : k.filter((id) => id !== playerId))));
+  const takeOff = (playerId: string) => setDraft(draft.map((k) => k.filter((id) => id !== playerId)));
+  const sizes = draft.map((k) => k.length);
+  const even = sizes.length > 0 && sizes.every((n) => n === sizes[0]);
+
+  if (!open) {
+    return (
+      <div className="sm-card">
+        <div className="sm-h">Sides</div>
+        {session.sides.map((sd) => (
+          <div className="sm-row" key={sd.id}>
+            <span style={{ flex: 1 }} className="sm-name">{sideLabel(session, sd.id)}</span>
+            <span className="sm-char">{sideFighters(session, sd.id)}</span>
+          </div>
+        ))}
+        <button className="sm-btn sm-btn--ghost" style={{ marginTop: 10 }} disabled={busy} onClick={start}>
+          🔀 Rearrange sides
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="sm-card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <div className="sm-h" style={{ margin: 0 }}>Rearrange sides</div>
+        <button className="sm-textbtn" onClick={() => setOpen(false)}>cancel</button>
+      </div>
+      <div className="sm-lab" style={{ marginTop: 10 }}>New sides, from the next battle on</div>
+      {draft.map((members, i) => (
+        <div key={i} style={{ marginTop: 10 }}>
+          <div className="sm-lab" style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Side {String.fromCharCode(65 + i)} ({members.length})</span>
+            {draft.length > 2 && (
+              <button className="sm-textbtn" onClick={() => setDraft(draft.filter((_, j) => j !== i))}>remove</button>
+            )}
+          </div>
+          <div className="sm-seg">
+            {members.length === 0 && <span className="sm-hint">nobody yet</span>}
+            {members.map((id) => (
+              <button key={id} className="on" onClick={() => takeOff(id)}>{names.get(id)} &times;</button>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {loose.length > 0 && (
+        <>
+          <div className="sm-lab" style={{ marginTop: 12 }}>Not on a side yet</div>
+          {loose.map((p) => (
+            <div className="sm-row" key={p.id}>
+              <span className="sm-name" style={{ flex: 1 }}>{p.name}</span>
+              <div className="sm-seg" style={{ flex: "0 0 auto", marginTop: 0 }}>
+                {draft.map((_, i) => (
+                  <button key={i} onClick={() => putOn(i, p.id)}>{String.fromCharCode(65 + i)}</button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <button className="sm-btn sm-btn--ghost" onClick={() => setDraft([...draft, []])} disabled={draft.length >= 8}>+ Side</button>
+      </div>
+
+      {/* Uneven is allowed and warned, never blocked. */}
+      {!even && loose.length === 0 && (
+        <p className="sm-hint" style={{ marginTop: 8 }}>⚠️ Uneven sides ({sizes.join(" v ")}). That is allowed.</p>
+      )}
+      <p className="sm-hint" style={{ marginTop: 8 }}>
+        Battles already recorded keep the sides they were fought with.
+        {session.format === "koth" ? " The ladder restarts from the new sides." : ""}
+      </p>
+      <button
+        className="sm-btn"
+        style={{ marginTop: 10 }}
+        disabled={busy || loose.length > 0 || draft.length < 2 || sizes.some((n) => n === 0)}
+        onClick={() => {
+          void call(`/api/smash/${eventId}/sides`, { sides: draft.map((memberIds) => ({ memberIds })) });
+          setOpen(false);
+        }}
+      >
+        {loose.length > 0 ? `${loose.length} still to place` : "Use these sides"}
+      </button>
+    </div>
+  );
+}
+
+// ---------- FFA team play (a tapped order of SIDES) ----------
+//
+// A SIBLING OF FfaPlay, not FfaPlay with a flag. That screen ranks players and
+// this one ranks sides; the checklist, the winner tap and the placement select
+// are all keyed on a different thing, and there is no line in either that reads
+// better for having both cases in it.
+
+function FfaTeamPlay({
+  session,
+  busy,
+  onRecord,
+}: {
+  session: Session;
+  busy: boolean;
+  onRecord: (sideIds: string[]) => void;
+}) {
+  const allChecked = () => Object.fromEntries(session.sides.map((s): [string, boolean] => [s.id, true]));
+  const [inGame, setInGame] = useState<Record<string, boolean>>(allChecked);
+  const [winner, setWinner] = useState<string | null>(null);
+  const [places, setPlaces] = useState<Record<string, number>>({});
+
+  const active = session.sides.filter((s) => inGame[s.id]);
+  const everyoneIn = active.length === session.sides.length;
+  const detail = session.resultDetail;
+  const seats = active.reduce((n, s) => n + s.memberIds.length, 0);
+
+  const toggle = (id: string) => setInGame((s) => ({ ...s, [id]: !s[id] }));
+
+  const record = () => {
+    if (detail === "winner") {
+      if (!winner) return;
+      // The winner first, then everybody else in the order they are listed. The
+      // placement rule collapses the rest to second, so their order among
+      // themselves carries no meaning and is not asked for.
+      onRecord([winner, ...active.filter((s) => s.id !== winner).map((s) => s.id)]);
+    } else {
+      onRecord([...active].sort((a, b) => (places[a.id] ?? 0) - (places[b.id] ?? 0)).map((s) => s.id));
+    }
+    setInGame(allChecked());
+    setWinner(null);
+    setPlaces({});
+  };
+
+  const ready =
+    active.length >= 2 &&
+    // Smash seats eight PLAYERS, not eight sides, and this is the same cap the
+    // server checks. Blocked on the button rather than reported afterwards.
+    seats <= 8 &&
+    (detail === "winner"
+      ? !!winner && !!inGame[winner]
+      : active.every((s) => (places[s.id] ?? 0) >= 1 && (places[s.id] ?? 0) <= active.length) &&
+        new Set(active.map((s) => places[s.id] ?? 0)).size === active.length);
+
+  return (
+    <div className="sm-card">
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+        <div className="sm-h">Record a battle</div>
+        <button className="sm-textbtn" onClick={() => setInGame(everyoneIn ? {} : allChecked())}>
+          {everyoneIn ? "clear all" : "check all"}
+        </button>
+      </div>
+      <p className="sm-hint" style={{ marginBottom: 8 }}>
+        Every side starts checked; untick who sat out, then {detail === "winner" ? "tap the winning side" : "set each placement"}.
+      </p>
+      {session.sides.map((s) => (
+        <div className="sm-row" key={s.id}>
+          <input type="checkbox" checked={!!inGame[s.id]} onChange={() => toggle(s.id)} />
+          <div style={{ flex: 1 }}>
+            <div className="sm-name">{sideLabel(session, s.id)}</div>
+            <div className="sm-char">{sideFighters(session, s.id)}</div>
+          </div>
+          {inGame[s.id] && detail === "winner" && (
+            <button
+              className={winner === s.id ? "sm-fighter win" : "sm-textbtn"}
+              style={{ padding: "6px 12px" }}
+              onClick={() => setWinner(s.id)}
+            >
+              {winner === s.id ? "★ winner" : "win"}
+            </button>
+          )}
+          {inGame[s.id] && detail === "placement" && (
+            <select
+              className="sm-select"
+              style={{ width: 72 }}
+              value={places[s.id] ?? ""}
+              onChange={(e) => setPlaces((v) => ({ ...v, [s.id]: Number(e.target.value) }))}
+            >
+              <option value="">–</option>
+              {active.map((_, i) => (
+                <option key={i + 1} value={i + 1}>{i + 1}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      ))}
+      <button className="sm-btn" style={{ marginTop: 12 }} disabled={busy || !ready} onClick={record}>
+        {active.length < 2 ? "Pick at least 2 sides" : seats > 8 ? "Smash seats 8 players" : "Record battle"}
+      </button>
+      <p className="sm-hint" style={{ marginTop: 8 }}>
+        Every member of a side gets the side's result, and everybody keeps their own fighter.
+      </p>
+    </div>
+  );
+}
+
+// ---------- KOTH team play (the throne held by a side) ----------
+
+function KothTeamPlay({
+  session,
+  busy,
+  onWin,
+}: {
+  session: Session;
+  busy: boolean;
+  onWin: (winnerSideId: string) => void;
+}) {
+  const koth = session.koth;
+  const kingId = koth?.kingSideId ?? null;
+  const challengerId = koth?.queue[0] ?? null;
+
+  if (!kingId || !challengerId) {
+    return <div className="sm-card"><p className="sm-hint">Need at least two sides queued to play.</p></div>;
+  }
+  return (
+    <div className="sm-card">
+      <div className="sm-h">Next round {koth && koth.streak > 0 ? `· on a ${koth.streak} streak` : ""}</div>
+      <div className="sm-vs">
+        <button className="sm-fighter" disabled={busy} onClick={() => onWin(kingId)}>
+          <div className="sm-fighter__n">{sideLabel(session, kingId)}</div>
+          <div className="sm-fighter__c">{sideFighters(session, kingId)}</div>
+          <div className="sm-pill sm-pill--king" style={{ marginTop: 6 }}>👑 defending</div>
+        </button>
+        <div className="sm-vsbadge">VS</div>
+        <button className="sm-fighter" disabled={busy} onClick={() => onWin(challengerId)}>
+          <div className="sm-fighter__n">{sideLabel(session, challengerId)}</div>
+          <div className="sm-fighter__c">{sideFighters(session, challengerId)}</div>
+          <div className="sm-pill" style={{ marginTop: 6 }}>challenger</div>
+        </button>
+      </div>
+      <p className="sm-hint" style={{ marginTop: 10 }}>
+        Tap the winner. The losing side goes to the back of the line, together.
+      </p>
+      {koth && koth.queue.length > 1 ? (
+        <p className="sm-hint">Up next: {koth.queue.slice(1).map((id) => sideLabel(session, id)).join(", ")}</p>
+      ) : null}
+    </div>
   );
 }
 
@@ -856,8 +1257,14 @@ function KothPlay({
   onWin: (winnerId: string) => void;
 }) {
   const koth = session.koth;
-  const kingId = koth?.kingId ?? null;
-  const challengerId = koth?.queue[0] ?? null;
+  // The throne and the queue hold SIDE ids. This screen is the solo one, where a
+  // side holds exactly one player, so each id resolves to that player and the
+  // screen reads exactly as it did before sides existed. The team ladder has its
+  // own component; see KothTeamPlay.
+  const soloIn = (sideId: string | null | undefined): string | null =>
+    session.sides.find((sd) => sd.id === sideId)?.memberIds[0] ?? null;
+  const kingId = soloIn(koth?.kingSideId);
+  const challengerId = soloIn(koth?.queue[0]);
   const charOf = useMemo(() => new Map(session.roster.map((p) => [p.id, p.character])), [session.roster]);
 
   if (!kingId || !challengerId) {
@@ -881,7 +1288,9 @@ function KothPlay({
       </div>
       <p className="sm-hint" style={{ marginTop: 10 }}>Tap the winner. Loser goes to the back of the line.</p>
       {koth?.queue.length ? (
-        <p className="sm-hint">Up next: {koth.queue.slice(1).map((id) => nameOf.get(id)).join(", ") || "–"}</p>
+        <p className="sm-hint">
+          Up next: {koth.queue.slice(1).map((id) => nameOf.get(soloIn(id) ?? "")).join(", ") || "–"}
+        </p>
       ) : null}
     </div>
   );
