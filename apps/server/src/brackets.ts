@@ -215,6 +215,24 @@ bracketsRouter.post("/events/:eventId/bracket", async (req: AuthedRequest, res) 
       .returning()
   )[0]!;
 
+  // THE TELEVISION GATE, on creation as well as on the two scoring writes.
+  //
+  // BEYOND THE TWO PLACES THE BRIEF NAMED, and deliberately: a new bracket row
+  // carries a fresh `updatedAt`, so starting a tournament takes the screen
+  // exactly as scoring one does. `startSession` is gated for every pack, and
+  // this is the tournament's startSession; leaving it out would mean the single
+  // most likely hand-over of a night, starting a new game, is the one case that
+  // never asks.
+  //
+  // `self` is "new" because the row does not exist yet: nothing on the screen
+  // can be this bracket, so any incumbent belongs to somebody else.
+  await gateTv({
+    eventId: event.id,
+    self: { kind: "new" },
+    selfName: LEDGER_PACK_DISPLAY[GENERIC_LEDGER]!.name,
+    body: req.body,
+  });
+
   const bracket = (
     await db
       .insert(brackets)

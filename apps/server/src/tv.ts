@@ -234,7 +234,16 @@ function better(
  * here (its sync is a debounced whole-state PUT with no discrete write to
  * gate, see BACKLOG), though it is perfectly able to be the INCUMBENT below.
  */
-export type TvSelf = { kind: "pack"; pack: TvPack } | { kind: "bracket"; bracketId: string };
+export type TvSelf =
+  | { kind: "pack"; pack: TvPack }
+  | { kind: "bracket"; bracketId: string }
+  /**
+   * A thing that does not exist yet, so nothing on the screen can be it and
+   * every incumbent is somebody else's. Creating a bracket is the case: it is
+   * the tournament's `startSession`, and expressing "I own nothing" as a
+   * variant beats passing an id chosen to match nothing.
+   */
+  | { kind: "new" };
 
 /**
  * Is something else currently holding the television?

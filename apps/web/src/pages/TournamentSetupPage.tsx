@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, type EventDetail, type EventPrefill } from "../api";
+import { api, tvHeldPrompt, type EventDetail, type EventPrefill } from "../api";
 import BackButton from "../BackButton";
 import { MAX_ENTRANTS, MAX_TEAM_MEMBERS, type Entrant, type SoloEntrant } from "@gamenight/shared";
 import { TeamPicker, dropRosterIndex, teamPickerStatus } from "../teams/TeamPicker";
@@ -248,11 +248,28 @@ export default function TournamentSetupPage() {
             : { kind: "team", members: side.map(personAt) },
         )
       : roster.map((_, i) => personAt(i));
-    try {
-      const b = await api<{ id: string }>(`/api/events/${eventId}/bracket`, {
+    const create = (extra: Record<string, unknown>) =>
+      api<{ id: string }>(`/api/events/${eventId}/bracket`, {
         method: "POST",
-        body: JSON.stringify({ format, entrants }),
+        body: JSON.stringify({ format, entrants, ...extra }),
       });
+    try {
+      let b: { id: string };
+      try {
+        b = await create({});
+      } catch (e) {
+        // The television is showing something else and the server asked first.
+        // Declining leaves both the screen and the night alone: no bracket is
+        // created, which is the same "no cancels the write" rule every pack
+        // route follows. Without this branch the sentence would land in `setErr`
+        // as an error with no way to proceed.
+        const prompt = tvHeldPrompt(e);
+        if (!prompt) throw e;
+        setBusy(false);
+        if (!window.confirm(prompt)) return;
+        setBusy(true);
+        b = await create({ confirmTv: true });
+      }
       // REPLACE, never push. See the note at the top of this file.
       navigate(`/b/${b.id}`, { replace: true });
     } catch (e) {
