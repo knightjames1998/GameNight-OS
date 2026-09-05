@@ -50,7 +50,15 @@ import {
   and,
   eq,
 } from "@gamenight/db";
-import { PACK_BY_LEDGER, SESSION_PACK_KEYS, type SessionPackKey } from "@gamenight/shared";
+import {
+  BEERIO_LEDGER,
+  GENERIC_LEDGER,
+  LEDGER_PACK_DISPLAY,
+  PACK_BY_LEDGER,
+  SESSION_PACKS,
+  SESSION_PACK_KEYS,
+  type SessionPackKey,
+} from "@gamenight/shared";
 import { eventRecap } from "./events.js";
 // THE SHARED AGGREGATION, called rather than reimplemented. newAgg / feedAgg /
 // finishAgg are exported from stats.ts precisely so a second consumer cannot
@@ -272,6 +280,116 @@ export function tvHolder(c: TvCandidates, self: TvSelf): TvNow {
   return now;
 }
 
+/**
+ * Every candidate row for one event, read in one round trip's worth of parallel
+ * queries. EXTRACTED FROM THE ROUTE rather than written a second time: two
+ * copies of this query set, disagreeing about (say) whether completed brackets
+ * are read, is exactly how the hand-written pack table below came to exist in
+ * three places and be wrong in one of them.
+ *
+ * The event's own two Beerio columns are passed in rather than read here,
+ * because the one caller that already holds them (the route) should not pay for
+ * them twice. The caller that does not (requireTvConfirm) reads them narrowly.
+ */
+export async function tvCandidates(
+  db: ReturnType<typeof getDb>,
+  eventId: string,
+  ev: { beerioCode: string | null; beerioCompletedAt: Date | null },
+): Promise<TvCandidates> {
+  const [shared, smash, bracketRows, beerioRows] = await Promise.all([
+    db
+      .select({ pack: gameSessions.pack, status: gameSessions.status, updatedAt: gameSessions.updatedAt })
+      .from(gameSessions)
+      .where(eq(gameSessions.eventId, eventId)),
+    db
+      .select({ status: smashSessions.status, updatedAt: smashSessions.updatedAt })
+      .from(smashSessions)
+      .where(eq(smashSessions.eventId, eventId))
+      .limit(1),
+    // NO LIMIT AND NO ORDER BY, both on purpose. A night can hold more than
+    // one bracket now, so a limit would pick one arbitrarily; ordering here
+    // would only move the decision into the database, and resolveNow sorts
+    // totally anyway. Indexed on event_id.
+    db
+      .select({ id: brackets.id, status: brackets.status, updatedAt: brackets.updatedAt })
+      .from(brackets)
+      .where(eq(brackets.eventId, eventId)),
+    ev.beerioCode
+      ? db
+          .select({ updatedAt: beerioSessions.updatedAt })
+          .from(beerioSessions)
+          .where(eq(beerioSessions.code, ev.beerioCode))
+          .limit(1)
+      : Promise.resolve([]),
+  ]);
+
+  const packs: PackCandidate[] = [];
+  for (const s of shared) {
+    const pack = PACK_BY_LEDGER[s.pack];
+    if (pack) packs.push({ pack, status: s.status, updatedAt: s.updatedAt });
+  }
+  // Smash keeps its own table, so it is read separately and pushed by key.
+  if (smash[0]) packs.push({ pack: "smash", status: smash[0].status, updatedAt: smash[0].updatedAt });
+
+  return {
+    packs,
+    brackets: bracketRows.map((b) => ({ bracketId: b.id, status: b.status, updatedAt: b.updatedAt })),
+    beerio: {
+      code: ev.beerioCode,
+      completedAt: ev.beerioCompletedAt,
+      updatedAt: beerioRows[0]?.updatedAt ?? null,
+    },
+  };
+}
+
+/**
+ * What a person reads when the prompt names the holder.
+ *
+ * Off the shared registry (LEDGER_PACK_DISPLAY, keyed by the ledger spelling)
+ * rather than a table here, so a thirteenth pack cannot be missing from it and
+ * read as "the game" in a dialog. The bracket's name is "Tournament" and
+ * Beerio's is "Beerio Kart", both already declared there for the recap card.
+ */
+export function tvHolderName(now: NonNullable<TvNow>): string {
+  if (now.kind === "pack") return SESSION_PACKS[now.pack].name;
+  if (now.kind === "beerio") return LEDGER_PACK_DISPLAY[BEERIO_LEDGER]!.name;
+  return LEDGER_PACK_DISPLAY[GENERIC_LEDGER]!.name;
+}
+
+/**
+ * Would writing to `self` take the television off something else? Returns the
+ * holder's display name to say so, or null when there is nothing to ask about.
+ *
+ * THE COST, STATED HONESTLY: this adds indexed reads to the write path. Four
+ * when the event has no Beerio code (its two columns off `events`, plus the
+ * shared sessions table, Smash's own table and the brackets), five and a second
+ * round trip when it does. That is real, and it is accepted at friend-group
+ * scale: a busy night is a few hundred writes, all of them behind a human tap.
+ *
+ * DO NOT BUILD A SHORT-CIRCUIT THAT GUESSES WHEN TO SKIP IT. The obvious ones
+ * ("only check when the session was not touched recently", "cache the answer
+ * for a few seconds") reintroduce the bug on exactly the nights they guess
+ * wrong, and a prompt that fails to appear is indistinguishable from the bug
+ * this is fixing.
+ *
+ * A missing event answers null rather than throwing: the write that follows
+ * will fail on its own terms, and refusing it here would turn a 404 into a
+ * confusing dialog.
+ */
+export async function requireTvConfirm(eventId: string, self: TvSelf): Promise<string | null> {
+  const db = getDb();
+  const ev = (
+    await db
+      .select({ beerioCode: events.beerioCode, beerioCompletedAt: events.beerioCompletedAt })
+      .from(events)
+      .where(eq(events.id, eventId))
+      .limit(1)
+  )[0];
+  if (!ev) return null;
+  const holder = tvHolder(await tvCandidates(db, eventId, ev), self);
+  return holder ? tvHolderName(holder) : null;
+}
+
 // game_sessions.pack -> the pack key the client renders, from the one registry
 // (PACK_BY_LEDGER). This was a hand-written table here AND in events.ts AND,
 // keyed the other way round, in the recap card.
@@ -412,55 +530,10 @@ eventTvRouter.get("/event/:eventId", async (req, res) => {
     return;
   }
 
-  // Everything the rule needs, in one round trip's worth of parallel reads.
-  const [shared, smash, bracketRows, beerioRows] = await Promise.all([
-    db
-      .select({ pack: gameSessions.pack, status: gameSessions.status, updatedAt: gameSessions.updatedAt })
-      .from(gameSessions)
-      .where(eq(gameSessions.eventId, eventId)),
-    db
-      .select({ status: smashSessions.status, updatedAt: smashSessions.updatedAt })
-      .from(smashSessions)
-      .where(eq(smashSessions.eventId, eventId))
-      .limit(1),
-    // NO LIMIT AND NO ORDER BY, both on purpose. A night can hold more than
-    // one bracket now, so a limit would pick one arbitrarily; ordering here
-    // would only move the decision into the database, and resolveNow sorts
-    // totally anyway. Indexed on event_id.
-    db
-      .select({ id: brackets.id, status: brackets.status, updatedAt: brackets.updatedAt })
-      .from(brackets)
-      .where(eq(brackets.eventId, eventId)),
-    row.beerioCode
-      ? db
-          .select({ updatedAt: beerioSessions.updatedAt })
-          .from(beerioSessions)
-          .where(eq(beerioSessions.code, row.beerioCode))
-          .limit(1)
-      : Promise.resolve([]),
-  ]);
-
-  const packs: PackCandidate[] = [];
-  for (const s of shared) {
-    const pack = PACK_BY_LEDGER[s.pack];
-    if (pack) packs.push({ pack, status: s.status, updatedAt: s.updatedAt });
-  }
-  // Smash keeps its own table, so it is read separately and pushed by key.
-  if (smash[0]) packs.push({ pack: "smash", status: smash[0].status, updatedAt: smash[0].updatedAt });
-
-  const now = resolveNow({
-    packs,
-    brackets: bracketRows.map((b) => ({
-      bracketId: b.id,
-      status: b.status,
-      updatedAt: b.updatedAt,
-    })),
-    beerio: {
-      code: row.beerioCode,
-      completedAt: row.beerioCompletedAt,
-      updatedAt: beerioRows[0]?.updatedAt ?? null,
-    },
-  });
+  // Everything the rule needs, in one round trip's worth of parallel reads. The
+  // gathering is shared with the write-path gate (requireTvConfirm), so the two
+  // cannot come to disagree about what counts as a candidate.
+  const now = resolveNow(await tvCandidates(db, eventId, row));
 
   // The lobby is the most common state of the evening's first twenty minutes,
   // because the TV goes on before the games do, and it is on screen again
