@@ -18,6 +18,8 @@ interface TvSdStatus {
   poolSize: number;
   fightersLeft: number;
   standings: TvSdStanding[];
+  /** Present only when sides are in force; see smashdownSideStatus. */
+  sideStandings?: { sideId: string; memberIds: string[]; name: string; wins: number; played: number; placement: number }[];
   clinched: boolean;
   over: boolean;
   winnerIds: string[];
@@ -152,6 +154,23 @@ export default function SmashTvPage({ eventId: propEventId }: { eventId?: string
           <div className="sm-tv__panel">
             <h3>Standings</h3>
             {sd.battlesPlayed === 0 && <div className="sm-tv__muted">No battles yet</div>}
+            {/* THE SIDE TABLE, when there is one. The clinch and the mercy rule
+                run over SIDES, so the table the rule reads is the one the room
+                should see; the per-player rows stay underneath because that is
+                what the ledger writes. Renders nothing on a solo series. */}
+            {sd.battlesPlayed > 0 &&
+              sd.sideStandings?.map((x) => (
+                <div className="sm-tv__line" key={x.sideId}>
+                  <span>
+                    <span className="sm-tv__muted" style={{ marginRight: "1.4vmin" }}>{x.placement}</span>
+                    {x.name}
+                  </span>
+                  <span>{x.wins}W · {x.played}</span>
+                </div>
+              ))}
+            {sd.battlesPlayed > 0 && sd.sideStandings && (
+              <div className="sm-tv__muted" style={{ fontSize: "2.2vmin", margin: "1vmin 0" }}>per player</div>
+            )}
             {sd.battlesPlayed > 0 &&
               sd.standings.map((p) => (
                 <div className="sm-tv__line" key={p.playerId}>

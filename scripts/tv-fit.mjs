@@ -875,7 +875,19 @@ const smash = (n, format = "ffa", teams = false) => {
       battleCount: 8, battlesPlayed: 5, battlesLeft: 3,
       burned: Array.from({ length: 24 }, (_, i) => "Burned Fighter " + (i + 1)),
       poolSize: 89, fightersLeft: 65,
-      standings: roster.map((p, i) => ({ playerId: p.id, name: p.name, wins: 5 - i > 0 ? 5 - i : 0, played: 5, placement: i + 1 })),
+      standings: roster.map((p, i) => ({
+        playerId: p.id, name: p.name, wins: 5 - i > 0 ? 5 - i : 0, played: 5,
+        placement: teams ? Math.floor(i / 2) + 1 : i + 1,
+        side: teams ? "s" + Math.floor(i / 2) : null,
+      })),
+      // The side table a team series adds, above the per-player rows.
+      sideStandings: teams
+        ? sides.map((sd, i) => ({
+            sideId: sd.id, memberIds: sd.memberIds,
+            name: sd.memberIds.map((id) => roster.find((p) => p.id === id).name).join(" + "),
+            wins: 5 - i > 0 ? 5 - i : 0, played: 5, placement: i + 1,
+          }))
+        : undefined,
       clinched: false, over: false, winnerIds: [],
     } : null,
     summary: {
@@ -978,9 +990,13 @@ const CASES = [
   ["smash        8 ffa", "/smash/tv/x", smash(8), ".sm-tv__line"],
   ["smash       16 ffa", "/smash/tv/x", smash(16), ".sm-tv__line"],
   ["smash       16 koth", "/smash/tv/x", smash(16, "koth"), ".sm-tv__line"],
+  // The solo control for the team case below: without it the team number says
+  // nothing about what teams cost, only about what this screen costs.
+  ["smash        8 smashdown", "/smash/tv/x", smash(8, "smashdown"), ".sm-tv__line"],
   ["smash       16 smashdown", "/smash/tv/x", smash(16, "smashdown"), ".sm-tv__line"],
   ["smash        8 ffa teams", "/smash/tv/x", smash(8, "ffa", true), ".sm-tv__line"],
   ["smash       16 koth teams", "/smash/tv/x", smash(16, "koth", true), ".sm-tv__line"],
+  ["smash        8 smashdown teams", "/smash/tv/x", smash(8, "smashdown", true), ".sm-tv__line"],
   // FOUR IS THE ONLY COUNT THIS PACK CAPS AT, and it had no case until
   // 2026-08-30. Without it the tag cases below could only be compared against
   // EIGHT, which is a different shape, so what Tag Battle actually costs on a
@@ -1215,6 +1231,8 @@ const CASES = [
 //
 //   smash        8 ffa teams        OVER by  319   (new)
 //   smash       16 koth teams       OVER by 1873   (new)
+//   smash        8 smashdown        OVER by  277   (never measured)
+//   smash        8 smashdown teams  OVER by  797   (new)
 //
 // AND HERE THE TAG BATTLE PRECEDENT DID NOT TRANSFER, which is exactly why it
 // was measured rather than predicted. Mario Party's pairing line cost its screen
@@ -1228,6 +1246,19 @@ const CASES = [
 // a full house. So this is not an unreachable-count finding like Mario Party's
 // eight and sixteen: it is the ordinary team night going over. Logged in BUGS
 // with these numbers.
+//
+// AND THE SOLO CONTROL FOUND THE WORSE ONE. "8 smashdown" had no case in this
+// file at all, only the sixteen, and sixteen is not reachable for that format:
+// tooManyForSmashdown caps the roster at EIGHT. So the only Smashdown count a
+// crew can actually play had never been measured, and it is over by 277 with
+// no teams involved and nothing this session changed. Same shape of miss as
+// Mario Party's "4 boards" on 08-30: the number that mattered most was the one
+// nobody had taken. It is added as a permanent case rather than a one-off
+// reading, so the ladder session cannot miss it either.
+//
+// The team side table costs that screen 520px on top (277 -> 797) at four
+// sides, for the same reason as the FFA panel: it lands in a column that is
+// already the tall one, and each label joins two names and wraps.
 //
 // NOT FIXED HERE ON PURPOSE, for the reason the paragraph below already gives:
 // Smash's density ladder is its own queued session, ranked third by James, and
@@ -1267,6 +1298,8 @@ const KNOWN = new Set([
   "smash       16 smashdown",
   "smash        8 ffa teams",
   "smash       16 koth teams",
+  "smash        8 smashdown",
+  "smash        8 smashdown teams",
   "mario party  4 boards",
   "mario party  8 boards",
   "mario party 16 boards",

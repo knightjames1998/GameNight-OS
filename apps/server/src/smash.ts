@@ -45,6 +45,7 @@ import {
   summarizeNight,
   smashdownCap,
   smashdownStatus,
+  smashdownSideStatus,
   burnedFrom,
   availableFighters,
   currentPicks,
@@ -101,11 +102,25 @@ export const smashRuntime = createPackRuntime<SmashSessionState>({
     // The burn board, standings, remaining battles and whether the series is
     // over, derived server-side so the pack page, the TV and this file cannot
     // reach three different answers about who won.
-    smashdown: state.format === "smashdown" ? smashdownStatus(state) : null,
+    smashdown: state.format === "smashdown" ? sdStatus(state) : null,
   }),
 });
 
 const rt = smashRuntime;
+
+/**
+ * THE ONE ANSWER about a Smashdown series, so nothing in this file can reach a
+ * different one about whether it is over or who won it.
+ *
+ * Per SIDE whenever the arrangement in force has team structure, because the
+ * per-player mercy arithmetic is provably wrong there: every member of a
+ * winning side is a winner, so both members of the leading side always share
+ * the top total, `leaders.length` is never 1, and `clinched` is false forever.
+ * See smashdownSideStatus. Per player otherwise, which is byte-identical to
+ * what this pack has always computed.
+ */
+const sdStatus = (state: SmashSessionState) =>
+  isTeamBattle(state) ? smashdownSideStatus(state) : smashdownStatus(state);
 
 // ---------- ledger ----------
 
@@ -228,7 +243,7 @@ async function syncSeriesRow(
   linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
 ): Promise<void> {
   if (state.format !== "smashdown") return;
-  const status = smashdownStatus(state);
+  const status = sdStatus(state);
   if (!status.over) {
     // A backfill only ever ADDS a participant to a row that already exists, so
     // it must never reach the retract branch: passing a link map means "credit
@@ -255,6 +270,11 @@ async function syncSeriesRow(
       isWinner: winners.has(s.playerId),
       character: null,
       meta: { battleWins: s.wins, battles: status.battlesPlayed },
+      // Null on a solo series, the side id on a team one, from the same rule
+      // every other row in this pack uses. A team series row that claimed no
+      // team structure would make buildRivalry read four opponents where there
+      // were two sides.
+      side: s.side ?? null,
     })),
     linkMap,
   });
@@ -363,7 +383,7 @@ export async function creditGuestSmash(
     // item because it is its own row: without this the linked member would
     // pick up every battle and none of the series wins those battles add up
     // to, which is the sort of half-credit the preview promise rules out.
-    const sd = state.format === "smashdown" ? smashdownStatus(state) : null;
+    const sd = state.format === "smashdown" ? sdStatus(state) : null;
     if (sd?.over && !credited.has(rt.ledgerKey(eventId, state.sessionKey, SERIES_KEY_UNIT))) {
       const stand = sd.standings.find((s) => guestSlots.has(s.playerId));
       if (stand) {
@@ -770,7 +790,7 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
   // and adds three rules the other formats do not have: everybody plays,
   // everybody needs a fighter, and no fighter may be reused or shared.
   if (state.format === "smashdown") {
-    const status = smashdownStatus(state);
+    const status = sdStatus(state);
     if (status.over) {
       res.status(409).json({ error: "This series is finished" });
       return;
@@ -797,7 +817,32 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
       seen.add(c);
     }
 
-    if (state.resultDetail === "placement") {
+    // A TEAM BATTLE IS A TAPPED ORDER OF SIDES, exactly as in FFA, and the
+    // placement rule is the same one: sides ranked 1..N, every member carrying
+    // its side's placement. Everybody plays every battle, so the order has to
+    // name every side in force rather than a subset.
+    if (isTeamBattle(state)) {
+      const sides = smashSides(state);
+      const rawOrder = Array.isArray(req.body?.sides)
+        ? req.body.sides.map((x: unknown) => String(x))
+        : smashOrderFromPlacements(
+            (Array.isArray(req.body?.lines) ? req.body.lines : []).map((l: any) => ({
+              playerId: String(l?.playerId ?? ""),
+              placement: Number(l?.placement) || 0,
+            })),
+            sides,
+          );
+      const err = validateSmashBattleOrder(rawOrder, sides);
+      if (err) {
+        res.status(400).json({ error: err });
+        return;
+      }
+      if (new Set(rawOrder).size !== sides.length) {
+        res.status(400).json({ error: "Every side plays every Smashdown battle" });
+        return;
+      }
+      lines = smashBattleLines(rawOrder, sides, state.resultDetail, (id) => charOf.get(id) ?? null);
+    } else if (state.resultDetail === "placement") {
       const raw = Array.isArray(req.body?.lines) ? req.body.lines : [];
       const given = new Map<string, number>(
         raw
@@ -825,10 +870,12 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
         side: null,
       }));
     }
-    const err = validateFfa(lines, state.resultDetail);
-    if (err) {
-      res.status(400).json({ error: err });
-      return;
+    if (!isTeamBattle(state)) {
+      const err = validateFfa(lines, state.resultDetail);
+      if (err) {
+        res.status(400).json({ error: err });
+        return;
+      }
     }
 
     const battle: SmashGame = {
@@ -848,7 +895,7 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
     // have to tap for it. Only while the series is still running: on the last
     // battle the picks stay put, so every screen can still show what the series
     // finished on, and an undo puts them back anyway.
-    const after = smashdownStatus(state);
+    const after = sdStatus(state);
     if (!after.over) {
       for (const p of state.roster) p.character = null;
       if (state.assignment === "random") {

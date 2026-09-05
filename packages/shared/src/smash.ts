@@ -120,6 +120,8 @@ import {
   MAX_SIDES,
   placementsFromRankedSides,
   sideIdAt,
+  sideIdFor,
+  sideLabel,
   sideOf,
   singletonSides,
   validateSides,
@@ -914,6 +916,25 @@ export interface SmashdownStanding {
   played: number;
   /** Competition ranking: two players tied on 3 wins are both 1, next is 3. */
   placement: number;
+  /**
+   * The side this row belongs to, or null. Null on every row `smashdownStatus`
+   * produces, because that is the no-team-structure path by definition; set by
+   * `smashdownSideStatus`. Written rather than left absent for the same reason
+   * a line's `side` is: one series never carries both spellings of "no side".
+   */
+  side: string | null;
+}
+
+/** One SIDE's row in a team Smashdown series. */
+export interface SmashdownSideStanding {
+  sideId: string;
+  memberIds: string[];
+  /** The members' names, joined. Never the side's own label. */
+  name: string;
+  wins: number;
+  played: number;
+  /** Competition ranking over SIDES: two sides level on 3 are both 1, next is 3. */
+  placement: number;
 }
 
 export interface SmashdownStatus {
@@ -936,6 +957,11 @@ export interface SmashdownStatus {
   over: boolean;
   /** playerIds on placement 1. More than one is a genuine co-win. */
   winnerIds: string[];
+}
+
+/** A Smashdown series played by sides: the same status, plus the side table. */
+export interface SmashdownSideStatus extends SmashdownStatus {
+  sideStandings: SmashdownSideStanding[];
 }
 
 /**
@@ -977,6 +1003,7 @@ export function smashdownStatus(state: SmashSessionState): SmashdownStatus {
   const standings: SmashdownStanding[] = ranked.map((r) => ({
     ...r,
     placement: ranked.findIndex((x) => x.wins === r.wins) + 1,
+    side: null,
   }));
 
   // Mercy: the leader has clinched when NO other player can still reach them,
@@ -1003,6 +1030,119 @@ export function smashdownStatus(state: SmashSessionState): SmashdownStatus {
     clinched,
     over,
     winnerIds: over ? standings.filter((s) => s.placement === 1).map((s) => s.playerId) : [],
+  };
+}
+
+/**
+ * The same thing per SIDE, and the reason it is a SIBLING rather than a flag on
+ * `smashdownStatus` is a measured bug rather than a preference.
+ *
+ * MERCY SILENTLY STOPS WORKING WHEN STANDINGS ARE PER PLAYER. `smashdownStatus`
+ * computes `clinched` as
+ *
+ *     leaders.length === 1 && standings.every(s => s.playerId === leaders[0].playerId
+ *                                               || top > s.wins + battlesLeft)
+ *
+ * where `leaders` is everybody on the top win total. Every member of a winning
+ * side is a winner (that is what the placement rule means), so in a 2v2 with
+ * fixed sides BOTH members of the leading side always share that total,
+ * `leaders.length` is 2, and `clinched` is false forever. Mercy would never
+ * fire, the series would run its full length, and nothing anywhere would error.
+ *
+ * Running the same arithmetic over SIDES makes it correct again, because there
+ * is one row per side and a clear leader is one row. Follows rankMpSides, which
+ * sits next to rankMpLines for the same reason: the two take genuinely
+ * different input and threading a boolean would make every line read "unless
+ * teams".
+ *
+ * `standings` is still per PLAYER, because that is what the ledger writes and
+ * what every screen already reads, but the PLACEMENT on each row comes from the
+ * side ranking, so a 2v2 at 2-1 reads 1,1,2,2 rather than competition ranking's
+ * 1,1,3,3. Read the block at the top of teams.ts. `winnerIds` is the members of
+ * the winning side or sides, so the series row credits both and carries `side`.
+ *
+ * A RESHUFFLE MID-SERIES credits each battle to the side that NOW holds its
+ * winner. Standings have to cover the whole series or mercy is wrong, so
+ * skipping the battles before a reshuffle (which is what the KOTH ladder does,
+ * correctly, for a different question) is not an option here; crediting the
+ * person is the honest reading of "how many has this side won".
+ */
+export function smashdownSideStatus(state: SmashSessionState): SmashdownSideStatus {
+  const base = smashdownStatus(state);
+  const games = state.games ?? [];
+  const sides = currentSides(state.sideSets);
+  const nameOf = new Map(state.roster.map((p) => [p.id, p.name]));
+
+  // One win per BATTLE, not per winning line: a pair that wins together has won
+  // one battle, and counting its two winner lines would double every figure.
+  const winsBySide = new Map<string, number>();
+  for (const g of games) {
+    const won = g.lines.find((l) => l.isWinner);
+    const side = won ? sideOf(sides, won.playerId) : undefined;
+    if (side) winsBySide.set(side.id, (winsBySide.get(side.id) ?? 0) + 1);
+  }
+
+  const ranked = sides
+    .map((s) => ({
+      sideId: s.id,
+      memberIds: [...s.memberIds],
+      name: sideLabel(s, (id) => nameOf.get(id)),
+      wins: winsBySide.get(s.id) ?? 0,
+      played: games.length,
+    }))
+    .sort((a, b) => b.wins - a.wins || a.name.localeCompare(b.name));
+
+  const sideStandings: SmashdownSideStanding[] = ranked.map((r) => ({
+    ...r,
+    placement: ranked.findIndex((x) => x.wins === r.wins) + 1,
+  }));
+
+  // The same mercy rule, one level up, and now `leaders` is one row when one
+  // side leads. Strictly greater, on purpose: drawing level is a co-win here
+  // and not a formality, exactly as in the per-player version.
+  const top = sideStandings[0]?.wins ?? 0;
+  const leaders = sideStandings.filter((s) => s.wins === top);
+  const clinched =
+    base.battlesPlayed > 0 &&
+    leaders.length === 1 &&
+    sideStandings.every((s) => s.sideId === leaders[0]!.sideId || top > s.wins + base.battlesLeft);
+
+  const over = base.battleCount > 0 && (base.battlesPlayed >= base.battleCount || (!!state.mercy && clinched));
+  const winningSides = over ? sideStandings.filter((s) => s.placement === 1) : [];
+  const winnerIds = winningSides.flatMap((s) => s.memberIds);
+
+  const placeOf = new Map<string, { placement: number; sideId: string | null; wins: number }>();
+  for (const s of sideStandings) {
+    for (const id of s.memberIds) {
+      // sideIdFor, NOT the raw side id: an arrangement where every side holds
+      // one player has no team structure, and writing "a" on those rows would
+      // make every solo Smashdown series in the ledger look like a team one to
+      // buildRivalry. The server only calls this function when there IS team
+      // structure, and it still has to be right on its own.
+      placeOf.set(id, { placement: s.placement, sideId: sideIdFor(sides, id), wins: s.wins });
+    }
+  }
+
+  return {
+    ...base,
+    // Per-player rows keyed to the SIDE's placement and carrying the side id, so
+    // the ledger writes 1,1,2,2 with a side on every row rather than the
+    // competition ranking a field of individuals would take.
+    standings: base.standings
+      .map((row) => {
+        const mine = placeOf.get(row.playerId);
+        return {
+          ...row,
+          wins: mine?.wins ?? row.wins,
+          placement: mine?.placement ?? row.placement,
+          side: mine?.sideId ?? null,
+        };
+      })
+      .sort((a, b) => a.placement - b.placement || a.name.localeCompare(b.name)),
+    sideStandings,
+    clinched,
+    over,
+    winnerIds,
   };
 }
 

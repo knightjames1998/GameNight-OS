@@ -44,7 +44,15 @@ interface SeriesStanding {
   slotId: string; name: string; seriesWins: number; seriesPlayed: number;
   gameWins: number; gamesPlayed: number; currentStreak: number; bestStreak: number;
 }
-interface SdStanding { playerId: string; name: string; wins: number; played: number; placement: number }
+interface SdStanding {
+  playerId: string; name: string; wins: number; played: number; placement: number;
+  /** Null on a solo series, the side id on a team one. */
+  side: string | null;
+}
+/** One SIDE's row in a team Smashdown series. Absent on a solo one. */
+interface SdSideStanding {
+  sideId: string; memberIds: string[]; name: string; wins: number; played: number; placement: number;
+}
 /** Everything Smashdown-shaped, derived server-side (see smashdownStatus). */
 interface SdStatus {
   battleCount: number;
@@ -54,6 +62,8 @@ interface SdStatus {
   poolSize: number;
   fightersLeft: number;
   standings: SdStanding[];
+  /** Present only when sides are in force; see smashdownSideStatus. */
+  sideStandings?: SdSideStanding[];
   clinched: boolean;
   over: boolean;
   winnerIds: string[];
@@ -263,7 +273,7 @@ function SetupOrWaiting({
   // on a format whose play screen still ranks individuals would be a switch
   // that appears to do something and does not, which is worse than not having
   // it yet. Add a format to this list in the same commit that converts it.
-  const teamFormats: Format[] = ["ffa", "koth", "bestof"];
+  const teamFormats: Format[] = ["ffa", "koth", "bestof", "smashdown"];
   const teamsOffered = teamFormats.includes(format);
   const teamsOn = teams && teamsOffered;
 
@@ -467,6 +477,12 @@ function SetupOrWaiting({
           </p>
 
           {teamsOn && <TeamPicker cx="sm" roster={roster} assign={assign} setAssign={setAssign} />}
+          {teamsOn && format === "smashdown" && (
+            <p className="sm-hint" style={{ marginTop: 8 }}>
+              Everybody still picks their OWN fighter, so a battle burns one fighter per player and the number of
+              battles that fit does not change.
+            </p>
+          )}
           {/* Uneven sides are INFORMATION, never a blocking error: TeamPicker
               already says so. 2v1 and 3v1 record exactly like a 2v2. The one
               thing worth adding is that a two-side ladder is a king and a queue
@@ -633,6 +649,7 @@ function LivePlay({
             busy={busy}
             onWin={(winnerId) => call(`/api/smash/${eventId}/record`, { winnerId })}
             onPlacements={(lines) => call(`/api/smash/${eventId}/record`, { lines })}
+            onSideOrder={(sideIds) => call(`/api/smash/${eventId}/record`, { sides: sideIds })}
           />
         ) : session.format === "bestof" ? (
           <BestOfPlay
@@ -677,6 +694,25 @@ function LivePlay({
           <div className="sm-h">
             Standings ({sd.battlesPlayed} of {sd.battleCount} battle{sd.battleCount === 1 ? "" : "s"})
           </div>
+          {/* THE SIDE TABLE, above the per-player rows rather than instead of
+              them. The clinch and the mercy rule run over SIDES (a per-player
+              leader board can never have a single leader in a team series, see
+              smashdownSideStatus), so the table the rule actually reads is the
+              one the room should be looking at. The per-player rows underneath
+              stay, because that is what the ledger writes. */}
+          {sd.sideStandings && sd.battlesPlayed > 0 && (
+            <>
+              <div className="sm-lab">Sides</div>
+              {sd.sideStandings.map((x) => (
+                <div className="sm-row" key={x.sideId}>
+                  <span className="sm-char" style={{ width: 22 }}>{x.placement}</span>
+                  <span style={{ flex: 1 }} className="sm-name">{x.name}</span>
+                  <span className="sm-char">{x.wins}W / {x.played}</span>
+                </div>
+              ))}
+              <div className="sm-lab" style={{ marginTop: 10 }}>Players</div>
+            </>
+          )}
           {sd.battlesPlayed === 0 ? (
             <p className="sm-hint">No battles recorded yet.</p>
           ) : (
@@ -821,7 +857,7 @@ function LivePlay({
 // Offered on the same formats the setup toggle is offered on, and for the same
 // reason: a rearrange on a format whose play screen still ranks individuals
 // would be a control that appears to do something and does not.
-const teamFormatsLive: Format[] = ["ffa", "koth", "bestof"];
+const teamFormatsLive: Format[] = ["ffa", "koth", "bestof", "smashdown"];
 
 function RearrangeSides({
   eventId,
@@ -1147,15 +1183,24 @@ function SmashdownPlay({
   busy,
   onWin,
   onPlacements,
+  onSideOrder,
 }: {
   session: Session;
   sd: SdStatus;
   busy: boolean;
   onWin: (winnerId: string) => void;
   onPlacements: (lines: { playerId: string; placement: number; isWinner: boolean }[]) => void;
+  /** A tapped finish order of SIDES, used only when sides are in force. */
+  onSideOrder: (sideIds: string[]) => void;
 }) {
   const [places, setPlaces] = useState<Record<string, number>>({});
-  const n = session.roster.length;
+  // A team Smashdown battle ranks SIDES; a solo one ranks players. Everybody
+  // plays every battle either way, which is what makes the cap arithmetic true,
+  // so the list is the whole arrangement rather than a checklist.
+  const units = session.teamPlay
+    ? session.sides.map((sd2) => ({ id: sd2.id, name: sideLabel(session, sd2.id), fighters: sideFighters(session, sd2.id) }))
+    : session.roster.map((p) => ({ id: p.id, name: p.name, fighters: p.character ?? "" }));
+  const n = units.length;
   const missing = session.roster.filter((p) => !p.character);
 
   if (sd.over) {
@@ -1181,25 +1226,25 @@ function SmashdownPlay({
 
   if (session.resultDetail === "placement") {
     const ready =
-      session.roster.every((p) => (places[p.id] ?? 0) >= 1 && (places[p.id] ?? 0) <= n) &&
-      new Set(session.roster.map((p) => places[p.id] ?? 0)).size === n;
+      units.every((u) => (places[u.id] ?? 0) >= 1 && (places[u.id] ?? 0) <= n) &&
+      new Set(units.map((u) => places[u.id] ?? 0)).size === n;
     return (
       <div className="sm-card">
         <div className="sm-h">Battle {sd.battlesPlayed + 1} of {sd.battleCount}</div>
-        {session.roster.map((p) => (
-          <div className="sm-row" key={p.id}>
+        {units.map((u) => (
+          <div className="sm-row" key={u.id}>
             <div style={{ flex: 1 }}>
-              <div className="sm-name">{p.name}</div>
-              <div className="sm-char">{p.character}</div>
+              <div className="sm-name">{u.name}</div>
+              <div className="sm-char">{u.fighters}</div>
             </div>
             <select
               className="sm-select"
               style={{ width: 72 }}
-              value={places[p.id] ?? ""}
-              onChange={(e) => setPlaces((s) => ({ ...s, [p.id]: Number(e.target.value) }))}
+              value={places[u.id] ?? ""}
+              onChange={(e) => setPlaces((s) => ({ ...s, [u.id]: Number(e.target.value) }))}
             >
               <option value="">–</option>
-              {session.roster.map((_, i) => (
+              {units.map((_, i) => (
                 <option key={i + 1} value={i + 1}>{i + 1}</option>
               ))}
             </select>
@@ -1210,13 +1255,17 @@ function SmashdownPlay({
           style={{ marginTop: 12 }}
           disabled={busy || !ready}
           onClick={() => {
-            onPlacements(
-              session.roster.map((p) => ({
-                playerId: p.id,
-                placement: places[p.id] ?? 0,
-                isWinner: (places[p.id] ?? 0) === 1,
-              })),
-            );
+            if (session.teamPlay) {
+              onSideOrder([...units].sort((a, b) => (places[a.id] ?? 0) - (places[b.id] ?? 0)).map((u) => u.id));
+            } else {
+              onPlacements(
+                units.map((u) => ({
+                  playerId: u.id,
+                  placement: places[u.id] ?? 0,
+                  isWinner: (places[u.id] ?? 0) === 1,
+                })),
+              );
+            }
             setPlaces({});
           }}
         >
@@ -1229,12 +1278,23 @@ function SmashdownPlay({
   return (
     <div className="sm-card">
       <div className="sm-h">Battle {sd.battlesPlayed + 1} of {sd.battleCount}</div>
-      <p className="sm-hint" style={{ marginBottom: 8 }}>Tap the winner. Every fighter below is struck off after this.</p>
+      <p className="sm-hint" style={{ marginBottom: 8 }}>
+        Tap the winner{session.teamPlay ? "ing side" : ""}. Every fighter below is struck off after this.
+      </p>
       <div className="sm-picks">
-        {session.roster.map((p) => (
-          <button className="sm-fighter" key={p.id} disabled={busy} onClick={() => onWin(p.id)}>
-            <div className="sm-fighter__n">{p.name}</div>
-            <div className="sm-fighter__c">{p.character}</div>
+        {units.map((u) => (
+          <button
+            className="sm-fighter"
+            key={u.id}
+            disabled={busy}
+            onClick={() =>
+              session.teamPlay
+                ? onSideOrder([u.id, ...units.filter((x) => x.id !== u.id).map((x) => x.id)])
+                : onWin(u.id)
+            }
+          >
+            <div className="sm-fighter__n">{u.name}</div>
+            <div className="sm-fighter__c">{u.fighters}</div>
           </button>
         ))}
       </div>
