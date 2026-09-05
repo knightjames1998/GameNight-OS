@@ -272,3 +272,159 @@ test("a missing timestamp sorts oldest rather than winning by accident", () => {
     { kind: "pack", pack: "pingpong", status: "live" },
   );
 });
+
+// ---------------------------------------------------------------------------
+// tvHolder: is something ELSE holding the screen right now?
+//
+// The question behind the prompt. A write that would take the television off a
+// live session asks first, and this is the rule that decides whether to ask. It
+// calls resolveNow rather than reimplementing the comparison, so the two
+// answers cannot drift, and these tests are here beside resolveNow's own for
+// the same reason.
+//
+// THE THREE CONSEQUENCES ARE ASSERTED RATHER THAN DESCRIBED, because each of
+// them is the difference between one dialog a night and a dialog on every tap:
+// no incumbent is no prompt, holding the screen yourself is no prompt, and a
+// completed session is not an incumbent (which resolveNow's first rule already
+// gives, so it is free and stays free only if something checks).
+
+import { tvHolder, type TvSelf } from "../src/tv.js";
+
+const SELF_SMASH: TvSelf = { kind: "pack", pack: "smash" };
+const SELF_MK: TvSelf = { kind: "pack", pack: "mariokart" };
+
+test("HOLDER: nothing live at all is nobody to ask about", () => {
+  // Taking the screen off the LOBBY is not a steal, so the night's first write
+  // is never interrupted.
+  assert.equal(tvHolder(NOTHING, SELF_SMASH), null);
+  assert.equal(tvHolder({ ...NOTHING, beerio: { code: null, completedAt: null, updatedAt: null } }, SELF_MK), null);
+});
+
+test("HOLDER: you are never asked about a screen you already hold", () => {
+  // This is what makes the prompt fire on HAND-OVER rather than on every
+  // result. A host who confirms once then scores that pack all night sees one
+  // dialog, and this assertion is the whole reason that is true.
+  const c: TvCandidates = {
+    ...NOTHING,
+    packs: [{ pack: "smash", status: "live", updatedAt: t(5000) }],
+  };
+  // resolveNow still says Smash is on the screen...
+  assert.deepEqual(resolveNow(c), { kind: "pack", pack: "smash", status: "live" });
+  // ...and precisely because that is Smash, Smash is not asked.
+  assert.equal(tvHolder(c, SELF_SMASH), null);
+});
+
+test("HOLDER: another pack holding the screen is the incumbent", () => {
+  const c: TvCandidates = {
+    ...NOTHING,
+    packs: [
+      { pack: "smash", status: "live", updatedAt: t(9000) },
+      { pack: "mariokart", status: "live", updatedAt: t(1000) },
+    ],
+  };
+  // Mario Kart is the abandoned one; writing to it would take the screen off
+  // Smash, which is the reported bug exactly.
+  assert.deepEqual(tvHolder(c, SELF_MK), { kind: "pack", pack: "smash", status: "live" });
+  // And the other way round there is nothing to ask: Smash already holds it.
+  assert.equal(tvHolder(c, SELF_SMASH), null);
+});
+
+test("HOLDER: a bracket holds the screen against a pack write", () => {
+  // The reported reproduction: a tournament being scored, a Mario Kart session
+  // abandoned earlier in the evening, and a stray write from a phone on the
+  // sofa. The stray write raises a dialog nobody answers.
+  const c: TvCandidates = {
+    packs: [{ pack: "mariokart", status: "live", updatedAt: t(1000) }],
+    brackets: [{ bracketId: "b1", status: "live", updatedAt: t(9000) }],
+    beerio: null,
+  };
+  assert.deepEqual(tvHolder(c, SELF_MK), { kind: "bracket", bracketId: "b1", status: "live" });
+});
+
+test("HOLDER: a pack holds the screen against a bracket write", () => {
+  const c: TvCandidates = {
+    packs: [{ pack: "pingpong", status: "live", updatedAt: t(9000) }],
+    brackets: [{ bracketId: "b1", status: "live", updatedAt: t(1000) }],
+    beerio: null,
+  };
+  assert.deepEqual(tvHolder(c, { kind: "bracket", bracketId: "b1" }), {
+    kind: "pack",
+    pack: "pingpong",
+    status: "live",
+  });
+});
+
+test("HOLDER: one bracket is an incumbent to the OTHER bracket", () => {
+  // A night can run two tournaments, so "bracket" is not one thing. Writing to
+  // the older one would take the screen off the one being scored.
+  const c: TvCandidates = {
+    packs: [],
+    brackets: [
+      { bracketId: "b1", status: "live", updatedAt: t(1000) },
+      { bracketId: "b2", status: "live", updatedAt: t(9000) },
+    ],
+    beerio: null,
+  };
+  assert.deepEqual(tvHolder(c, { kind: "bracket", bracketId: "b1" }), {
+    kind: "bracket",
+    bracketId: "b2",
+    status: "live",
+  });
+  assert.equal(tvHolder(c, { kind: "bracket", bracketId: "b2" }), null);
+});
+
+test("HOLDER: a live BEERIO room is an incumbent, though it never asks itself", () => {
+  // Beerio is out of scope as a writer (no discrete write to gate; see BACKLOG)
+  // and perfectly able to be the holder. TvSelf has no beerio variant, so this
+  // asymmetry is in the type rather than in a comment.
+  const c: TvCandidates = {
+    ...NOTHING,
+    packs: [{ pack: "smash", status: "live", updatedAt: t(1000) }],
+    beerio: { code: "ABCD", completedAt: null, updatedAt: t(9000) },
+  };
+  assert.deepEqual(tvHolder(c, SELF_SMASH), { kind: "beerio", code: "ABCD" });
+});
+
+test("HOLDER: every other candidate completed means there is no incumbent", () => {
+  // Free, and it stays free only because something checks: resolveNow's first
+  // rule drops a completed session, so ending the night between games needs no
+  // prompt and no code here.
+  const c: TvCandidates = {
+    packs: [
+      { pack: "smash", status: "completed", updatedAt: t(9000) },
+      { pack: "mariokart", status: "live", updatedAt: t(1000) },
+    ],
+    brackets: [{ bracketId: "b1", status: "completed", updatedAt: t(9500) }],
+    beerio: null,
+  };
+  assert.equal(tvHolder(c, SELF_MK), null);
+});
+
+test("HOLDER: the millisecond tie over-prompts, and that is the accepted cost", () => {
+  // The check runs BEFORE the write, so self's updatedAt here is still its old
+  // value. On an exact tie TIEBREAK decides, and "bracket" outranks every pack,
+  // so the bracket reads as the incumbent and the host is asked. The write is
+  // about to stamp a fresh timestamp that would very likely have taken the
+  // screen anyway; modelling this case would mean predicting the write's own
+  // clock inside a pure function. Asserted so the behaviour is a decision on
+  // the record rather than a surprise.
+  const c: TvCandidates = {
+    packs: [{ pack: "smash", status: "live", updatedAt: t(4242) }],
+    brackets: [{ bracketId: "b1", status: "live", updatedAt: t(4242) }],
+    beerio: null,
+  };
+  assert.deepEqual(tvHolder(c, SELF_SMASH), { kind: "bracket", bracketId: "b1", status: "live" });
+});
+
+test("HOLDER: a setup session is a real incumbent, exactly as resolveNow says", () => {
+  // "setup" is showable (the pack's own TV view says it is waiting for the
+  // host), so it can be stolen from and the prompt has to cover it.
+  const c: TvCandidates = {
+    ...NOTHING,
+    packs: [
+      { pack: "pingpong", status: "setup", updatedAt: t(9000) },
+      { pack: "smash", status: "live", updatedAt: t(10) },
+    ],
+  };
+  assert.deepEqual(tvHolder(c, SELF_SMASH), { kind: "pack", pack: "pingpong", status: "setup" });
+});

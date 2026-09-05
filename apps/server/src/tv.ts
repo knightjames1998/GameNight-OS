@@ -218,6 +218,60 @@ function better(
   return a.tie < b.tie;
 }
 
+// ---------- who holds the screen, and is it you ----------
+
+/**
+ * The thing a write belongs to, for the question "would this take the TV off
+ * something else". Beerio has no variant on purpose: it is never the WRITER
+ * here (its sync is a debounced whole-state PUT with no discrete write to
+ * gate, see BACKLOG), though it is perfectly able to be the INCUMBENT below.
+ */
+export type TvSelf = { kind: "pack"; pack: TvPack } | { kind: "bracket"; bracketId: string };
+
+/**
+ * Is something else currently holding the television?
+ *
+ * Returns the incumbent when one exists and is NOT `self`, and null otherwise.
+ * Null is the answer that means "nothing to ask about"; the return type is
+ * `TvNow`, which already admits null, rather than a redundant `TvNow | null`.
+ *
+ * IT CALLS resolveNow RATHER THAN REIMPLEMENTING THE COMPARISON. That is the
+ * whole design: the question "what is on the screen" has exactly one answer in
+ * this app, and a second implementation of it would be free to drift from the
+ * first, which would show up as a prompt that fires when the screen would not
+ * actually have moved (or, worse, does not fire when it would).
+ *
+ * PURE, like resolveNow and for the same stated reason: the rule that matters
+ * is testable without a Postgres anywhere near it.
+ *
+ * THREE CONSEQUENCES FALL OUT AND ALL THREE ARE WANTED:
+ *
+ *   - NO INCUMBENT MEANS NO PROMPT. Taking the screen off the lobby is not a
+ *     steal, so a night's first write is never interrupted.
+ *   - IF YOU ALREADY HOLD THE SCREEN YOU ARE NEVER ASKED, so the prompt fires
+ *     on HAND-OVER rather than on every result. A host who confirms once and
+ *     then scores that pack all night sees one dialog.
+ *   - A COMPLETED SESSION IS NOT AN INCUMBENT, because resolveNow's first rule
+ *     already drops it. Ending the night between games needs no prompt and no
+ *     code here at all. That one is free.
+ *
+ * THE MILLISECOND TIE IS AN ACCEPTED OVER-PROMPT, not a modelled case. This
+ * runs BEFORE the write, so `self`'s own `updatedAt` in `c` is still its old
+ * value; the write is about to set a fresh `new Date()`, which is newest in
+ * every case except an exact millisecond tie with the incumbent. In that one
+ * case TIEBREAK could keep the incumbent, so the screen would not have moved
+ * and the host is asked anyway. Modelling it would mean predicting the write's
+ * own timestamp, which is a clock in a function whose whole value is not having
+ * one, to remove a dialog that needs two writes in the same millisecond.
+ */
+export function tvHolder(c: TvCandidates, self: TvSelf): TvNow {
+  const now = resolveNow(c);
+  if (!now) return null;
+  if (now.kind === "pack" && self.kind === "pack" && now.pack === self.pack) return null;
+  if (now.kind === "bracket" && self.kind === "bracket" && now.bracketId === self.bracketId) return null;
+  return now;
+}
+
 // game_sessions.pack -> the pack key the client renders, from the one registry
 // (PACK_BY_LEDGER). This was a hand-written table here AND in events.ts AND,
 // keyed the other way round, in the recap card.
