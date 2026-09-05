@@ -437,7 +437,7 @@ smashRouter.get("/smash-context/:eventId", requireAuth, async (req: AuthedReques
 
 smashRouter.get("/smash/:eventId", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (loaded && !(await roleOf(loaded.row.groupId, req.user!.id))) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -500,7 +500,7 @@ smashRouter.post("/events/:eventId/smash", requireAuth, async (req: AuthedReques
   // Don't clobber a session already in progress (standing rule 8) unless the
   // host confirmed a replace (client resends force after a 409). A session is
   // "in progress" if it has recorded games (ffa/koth) or series (bestof).
-  const existing = await rt.loadState(eventId);
+  const existing = await rt.loadState(eventId, req);
   const inProgress =
     !!existing &&
     existing.row.status !== "completed" &&
@@ -611,7 +611,7 @@ smashRouter.post("/events/:eventId/smash", requireAuth, async (req: AuthedReques
 // Host may set any slot. Guests are always host-set.
 smashRouter.post("/smash/:eventId/character", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -664,7 +664,7 @@ smashRouter.post("/smash/:eventId/character", requireAuth, async (req: AuthedReq
 // Host re-rolls random fighters for everyone.
 smashRouter.post("/smash/:eventId/randomize", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -690,7 +690,7 @@ smashRouter.post("/smash/:eventId/randomize", requireAuth, async (req: AuthedReq
 
 smashRouter.post("/smash/:eventId/start-series", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -733,7 +733,7 @@ smashRouter.post("/smash/:eventId/start-series", requireAuth, async (req: Authed
 
 smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -1029,7 +1029,7 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
 // KOTH state from scratch so the throne/queue can't drift.
 smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -1115,7 +1115,7 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
 
 smashRouter.post("/smash/:eventId/sides", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -1154,7 +1154,7 @@ smashRouter.post("/smash/:eventId/sides", requireAuth, async (req: AuthedRequest
 // Host toggles open scoring (members may record when on). Defaults off.
 smashRouter.post("/smash/:eventId/open-scoring", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -1173,7 +1173,7 @@ smashRouter.post("/smash/:eventId/open-scoring", requireAuth, async (req: Authed
 // buried at setup that nobody can change once the burn board is going.
 smashRouter.post("/smash/:eventId/mercy", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -1200,7 +1200,7 @@ smashRouter.post("/smash/:eventId/mercy", requireAuth, async (req: AuthedRequest
 // Host ends the night.
 smashRouter.post("/smash/:eventId/complete", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req, { completing: true });
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;

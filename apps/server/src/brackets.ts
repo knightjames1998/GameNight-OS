@@ -230,7 +230,7 @@ bracketsRouter.post("/events/:eventId/bracket", async (req: AuthedRequest, res) 
     eventId: event.id,
     self: { kind: "new" },
     selfName: LEDGER_PACK_DISPLAY[GENERIC_LEDGER]!.name,
-    body: req.body,
+    req,
   });
 
   const bracket = (
@@ -314,7 +314,7 @@ bracketsRouter.post("/brackets/:id/matches/:matchId/result", async (req: AuthedR
     eventId: loaded.eventId,
     self: { kind: "bracket", bracketId: loaded.id },
     selfName: LEDGER_PACK_DISPLAY[GENERIC_LEDGER]!.name,
-    body: req.body,
+    req,
     skip: !!after.championSeed,
   });
   // updatedAt is the event TV's ranking key: it is what lets a bracket being
@@ -373,7 +373,7 @@ bracketsRouter.delete("/brackets/:id/matches/:matchId/result", async (req: Authe
     eventId: loaded.eventId,
     self: { kind: "bracket", bracketId: loaded.id },
     selfName: LEDGER_PACK_DISPLAY[GENERIC_LEDGER]!.name,
-    body: req.body,
+    req,
   });
 
   const db2 = getDb();

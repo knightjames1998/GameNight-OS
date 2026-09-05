@@ -224,7 +224,7 @@ deductionRouter.get(`/${route}-context/:eventId`, requireAuth, async (req: Authe
  * a variable it could accidentally serialize.
  */
 deductionTvRouter.get(`/${route}/:eventId`, async (req, res) => {
-  const loaded = await rt.loadState(String(req.params.eventId));
+  const loaded = await rt.loadState(String(req.params.eventId), req);
   res.json({ session: loaded ? sdTvView(loaded.state) : null });
 });
 
@@ -232,7 +232,7 @@ deductionTvRouter.get(`/${route}/:eventId`, async (req, res) => {
 
 deductionRouter.get(`/${route}/:eventId`, requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (loaded && !(await roleOf(loaded.row.groupId, req.user!.id))) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -259,7 +259,7 @@ deductionRouter.post(`/events/:eventId/${route}`, requireAuth, async (req: Authe
 
   // Don't clobber a session already in progress (standing rule 8) unless the
   // host confirmed a replace (client resends force after a 409).
-  const existing = await rt.loadState(eventId);
+  const existing = await rt.loadState(eventId, req);
   if (
     !req.body?.force &&
     existing &&
@@ -298,7 +298,7 @@ deductionRouter.post(`/events/:eventId/${route}`, requireAuth, async (req: Authe
 
 deductionRouter.post(`/${route}/:eventId/now-playing`, requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -340,7 +340,7 @@ deductionRouter.post(`/${route}/:eventId/now-playing`, requireAuth, async (req: 
  */
 deductionRouter.post(`/${route}/:eventId/deal`, requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -429,7 +429,7 @@ deductionRouter.post(`/${route}/:eventId/deal`, requireAuth, async (req: AuthedR
 /** Take the deal back without recording anything. A mis-tapped setup. */
 deductionRouter.post(`/${route}/:eventId/undeal`, requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -463,7 +463,7 @@ deductionRouter.post(`/${route}/:eventId/undeal`, requireAuth, async (req: Authe
 /** Flip the board on or off. It flips mid-session, in both directions. */
 deductionRouter.post(`/${route}/:eventId/board`, requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -493,7 +493,7 @@ deductionRouter.post(`/${route}/:eventId/board`, requireAuth, async (req: Authed
 /** Night 1, Day 1, Night 2, Day 2. One tap. */
 deductionRouter.post(`/${route}/:eventId/phase`, requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -531,7 +531,7 @@ deductionRouter.post(`/${route}/:eventId/phase`, requireAuth, async (req: Authed
  */
 deductionRouter.post(`/${route}/:eventId/out`, requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -572,7 +572,7 @@ deductionRouter.post(`/${route}/:eventId/out`, requireAuth, async (req: AuthedRe
 
 deductionRouter.post(`/${route}/:eventId/record`, requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -634,7 +634,7 @@ deductionRouter.post(`/${route}/:eventId/record`, requireAuth, async (req: Authe
 
 deductionRouter.post(`/${route}/:eventId/undo`, requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -665,7 +665,7 @@ deductionRouter.post(`/${route}/:eventId/undo`, requireAuth, async (req: AuthedR
 
 deductionRouter.post(`/${route}/:eventId/open-scoring`, requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -680,7 +680,7 @@ deductionRouter.post(`/${route}/:eventId/open-scoring`, requireAuth, async (req:
 
 deductionRouter.post(`/${route}/:eventId/complete`, requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req, { completing: true });
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;

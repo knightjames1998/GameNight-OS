@@ -436,26 +436,51 @@ export const tvHeldMessage = (holder: string, self: string): string =>
  * header so it rides along with the retry the client already sends.
  *
  * A NOTE ON WHAT IS NOT GATED. Read-only routes never reach this, because they
- * never write. Neither does a write that COMPLETES a session: a completed
- * session cannot hold the screen (resolveNow drops it first), so such a write
- * can only ever move the TV away from itself, and prompting about it would ask
- * the host to confirm a hand-over that is already happening for another reason.
- * Callers pass `skip` for that case rather than this function guessing at it.
+ * never write. Neither does a write that COMPLETES a session, or one to a
+ * session that is already completed: a completed session cannot hold the screen
+ * (resolveNow drops it first), so such a write can only ever move the TV away
+ * from itself, and prompting about it would ask the host to confirm a hand-over
+ * that is already happening for another reason. Callers pass `skip` for that
+ * case rather than this function guessing at it.
+ *
+ * FORGETTING `skip` COSTS A NEEDLESS DIALOG; forgetting the gate costs the bug
+ * it exists to fix. The asymmetry is deliberate and is why `skip` is opt-in.
  */
 export async function gateTv(opts: {
   eventId: string;
   self: TvSelf;
   /** The name of the thing being written to, for the sentence. */
   selfName: string;
-  body: unknown;
+  /** The request, for `confirmTv` and for the once-per-request mark below. */
+  req: { method?: string; body?: unknown };
   /** True when this write cannot take the screen (it completes the session). */
   skip?: boolean;
 }): Promise<void> {
+  const req = opts.req as Record<PropertyKey, unknown>;
+  // ONCE PER REQUEST. The gate is asked at two points on purpose (see
+  // pack-runtime): early, in loadState, so it runs BEFORE anything is written
+  // to the ledger, and again in saveState, so no future write can slip past it.
+  // Without this mark the second ask would pay the reads a second time on every
+  // successful write, which is the common path.
+  if (req[TV_GATE_CLEARED] === true) return;
   if (opts.skip) return;
-  if ((opts.body as { confirmTv?: unknown } | null | undefined)?.confirmTv === true) return;
+  if ((opts.req.body as { confirmTv?: unknown } | null | undefined)?.confirmTv === true) {
+    req[TV_GATE_CLEARED] = true;
+    return;
+  }
   const holder = await requireTvConfirm(opts.eventId, opts.self);
   if (holder) throw new TvHeldError(holder, tvHeldMessage(holder, opts.selfName));
+  req[TV_GATE_CLEARED] = true;
 }
+
+/**
+ * "This request has already cleared the gate."
+ *
+ * A Symbol rather than a string property, so it cannot collide with anything
+ * Express, a body parser or a future middleware might put on the request, and
+ * so it never appears in a JSON dump of one.
+ */
+const TV_GATE_CLEARED = Symbol("tvGateCleared");
 
 // game_sessions.pack -> the pack key the client renders, from the one registry
 // (PACK_BY_LEDGER). This was a hand-written table here AND in events.ts AND,

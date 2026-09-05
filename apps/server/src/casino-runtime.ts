@@ -64,8 +64,7 @@ import {
   roleOf,
   type LedgerLine,
   type Loaded,
-  type PackRuntime,
-} from "./pack-runtime.js";
+  type PackRuntime, type LoadOpts } from "./pack-runtime.js";
 import { broadcast } from "./ws.js";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
 
@@ -313,7 +312,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
   // ---------- guards ----------
 
   async function scorer(req: AuthedRequest, res: Response): Promise<Ok<S> | null> {
-    const loaded = await rt.loadState(String(req.params.eventId));
+    const loaded = await rt.loadState(String(req.params.eventId), req);
     if (!loaded) {
       res.status(404).json({ error: "No session" });
       return null;
@@ -334,8 +333,8 @@ export function registerCasinoRoutes<S extends CashPackState>(
     return { loaded, origin: req.get("x-gn-client"), req };
   }
 
-  async function host(req: AuthedRequest, res: Response): Promise<Ok<S> | null> {
-    const loaded = await rt.loadState(String(req.params.eventId));
+  async function host(req: AuthedRequest, res: Response, opts?: LoadOpts): Promise<Ok<S> | null> {
+    const loaded = await rt.loadState(String(req.params.eventId), req, opts);
     if (!loaded) {
       res.status(404).json({ error: "No session" });
       return null;
@@ -369,7 +368,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
 
   router.get(`/${seg}/:eventId`, requireAuth, async (req: AuthedRequest, res) => {
     const eventId = String(req.params.eventId);
-    const loaded = await rt.loadState(eventId);
+    const loaded = await rt.loadState(eventId, req);
     if (loaded && !(await roleOf(loaded.row.groupId, req.user!.id))) {
       res.status(404).json({ error: "Not found" });
       return;
@@ -397,7 +396,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
     // host confirmed a replace (client resends force after a 409). "In
     // progress" for a cash game means money is on the table, so any recorded
     // buy-in counts, not just a cash-out.
-    const existing = await rt.loadState(eventId);
+    const existing = await rt.loadState(eventId, req);
     if (!req.body?.force && existing && existing.row.status !== "completed" && existing.state.entries.length > 0) {
       res.status(409).json({ error: "A session is already in progress for this event" });
       return;
@@ -669,7 +668,7 @@ export function registerCasinoRoutes<S extends CashPackState>(
    * WITHOUT saying so, hence the 409-then-force.
    */
   router.post(`/${seg}/:eventId/complete`, requireAuth, async (req: AuthedRequest, res) => {
-    const g = await host(req, res);
+    const g = await host(req, res, { completing: true });
     if (!g) return;
     const { loaded, origin } = g;
     const eventId = loaded.row.eventId;

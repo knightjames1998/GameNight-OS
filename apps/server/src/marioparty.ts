@@ -240,7 +240,7 @@ marioPartyRouter.get("/marioparty-context/:eventId", requireAuth, async (req: Au
 
 marioPartyRouter.get("/marioparty/:eventId", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (loaded && !(await roleOf(loaded.row.groupId, req.user!.id))) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -286,7 +286,7 @@ marioPartyRouter.post("/events/:eventId/marioparty", requireAuth, async (req: Au
   // the setup screen with no way forward, and the only escape was to complete
   // or abandon the night. Found while unifying the four pack shells, which is
   // exactly the sort of drift a fourth hand-copied implementation hides.
-  const existing = await rt.loadState(eventId);
+  const existing = await rt.loadState(eventId, req);
   if (
     !req.body?.force &&
     existing &&
@@ -362,7 +362,7 @@ marioPartyRouter.post("/events/:eventId/marioparty", requireAuth, async (req: Au
 
 marioPartyRouter.post("/marioparty/:eventId/character", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -399,7 +399,7 @@ marioPartyRouter.post("/marioparty/:eventId/character", requireAuth, async (req:
 
 marioPartyRouter.post("/marioparty/:eventId/randomize", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -419,7 +419,7 @@ marioPartyRouter.post("/marioparty/:eventId/randomize", requireAuth, async (req:
 
 marioPartyRouter.post("/marioparty/:eventId/reshuffle", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -450,7 +450,7 @@ marioPartyRouter.post("/marioparty/:eventId/reshuffle", requireAuth, async (req:
 
 marioPartyRouter.post("/marioparty/:eventId/record", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -537,7 +537,7 @@ marioPartyRouter.post("/marioparty/:eventId/record", requireAuth, async (req: Au
 
 marioPartyRouter.post("/marioparty/:eventId/undo", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -565,7 +565,7 @@ marioPartyRouter.post("/marioparty/:eventId/undo", requireAuth, async (req: Auth
 
 marioPartyRouter.post("/marioparty/:eventId/open-scoring", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -580,7 +580,7 @@ marioPartyRouter.post("/marioparty/:eventId/open-scoring", requireAuth, async (r
 
 marioPartyRouter.post("/marioparty/:eventId/complete", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req, { completing: true });
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;

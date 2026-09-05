@@ -59,8 +59,17 @@ interface Route {
 }
 
 const ROUTE_RE = /(\w+)\.(post|put|patch|delete)\(\s*"([^"]+)"/gm;
-/** The three doors into a write that can move the screen. */
-const GATE_CALLS = ["saveState(", "startSession(", "gateTv("];
+/**
+ * The doors into a write that can move the screen.
+ *
+ * `loadState` is one of them because that is where the gate actually fires: it
+ * is the chokepoint every mutating route passes through FIRST, which is what
+ * puts the gate ahead of the ledger write rather than after it. `saveState`
+ * asks again (free, the request is already marked) so no future write can slip
+ * past. Counting `loadState` changes no route's classification today, which was
+ * checked before it was added.
+ */
+const GATE_CALLS = ["loadState(", "saveState(", "startSession(", "gateTv("];
 
 function routes(): Route[] {
   const out: Route[] = [];
@@ -244,7 +253,7 @@ test("an already-confirmed write never reads the database", async () => {
     eventId: "e1",
     self: { kind: "pack", pack: "smash" },
     selfName: "Smash Bros",
-    body: { confirmTv: true },
+    req: { method: "POST", body: { confirmTv: true } },
   });
 });
 
@@ -253,7 +262,7 @@ test("a write that completes a session never reads the database either", async (
     eventId: "e1",
     self: { kind: "pack", pack: "smash" },
     selfName: "Smash Bros",
-    body: {},
+    req: { method: "POST", body: {} },
     skip: true,
   });
 });
@@ -265,10 +274,35 @@ test("anything other than confirmTv === true is not a confirmation", async () =>
   // resolve.
   for (const body of [{}, null, undefined, { confirmTv: "true" }, { confirmTv: 1 }]) {
     await assert.rejects(
-      gateTv({ eventId: "e1", self: { kind: "pack", pack: "smash" }, selfName: "Smash Bros", body }),
+      gateTv({ eventId: "e1", self: { kind: "pack", pack: "smash" }, selfName: "Smash Bros", req: { method: "POST", body } }),
       "a non-confirmation should have fallen through to the database check",
     );
   }
+});
+
+test("readState IS PRIVATE, which is what puts the gate ahead of the ledger", () => {
+  // THE INVARIANT THE FIX RESTS ON. Several packs materialize the ledger BEFORE
+  // they save the session, so a gate that only fired at save time would let a
+  // DECLINED write leave a matches row behind, and the next genuine result at
+  // that index would reuse it (materializeUnit no-ops on an existing
+  // externalKey) and keep the declined placements forever.
+  //
+  // The gate is in `loadState` instead. `saveState` cannot be called without a
+  // Loaded, and a Loaded can only come from `loadState` or from the ungated
+  // `readState`, so the whole guarantee is that readState stays private to
+  // pack-runtime. Asserted, because "private" here is a convention rather than
+  // a language feature.
+  const leaked = sources(SERVER)
+    .filter((f) => path.basename(f) !== "pack-runtime.ts")
+    .filter((f) => readFileSync(f, "utf8").includes("readState"))
+    .map((f) => path.basename(f));
+  assert.deepEqual(leaked, [], `readState escaped pack-runtime into: ${leaked.join(", ")}`);
+  // And it is genuinely there to be leaked, so this cannot pass by typo.
+  assert.match(readFileSync(path.join(SERVER, "pack-runtime.ts"), "utf8"), /function readState\(/);
+  assert.ok(
+    !readFileSync(path.join(SERVER, "pack-runtime.ts"), "utf8").includes("readState(eventId: string, req"),
+    "readState must stay the ungated read; the gated one is loadState",
+  );
 });
 
 test("the refusal carries the holder, and says what BOTH answers do", () => {

@@ -46,8 +46,7 @@ import {
   packConfig,
   roleOf,
   type LedgerLine,
-  type Loaded,
-} from "./pack-runtime.js";
+  type Loaded, type LoadOpts } from "./pack-runtime.js";
 import { cents } from "./casino-runtime.js";
 import { broadcast } from "./ws.js";
 import { memberCreditedKeys, type GuestCreditResult } from "./guest-link-util.js";
@@ -94,7 +93,7 @@ interface Ok {
 
 /** Load + "may record" check. Standing rule 1 unless the host opened it up. */
 async function scorer(req: AuthedRequest, res: import("express").Response): Promise<Ok | null> {
-  const loaded = await rt.loadState(String(req.params.eventId));
+  const loaded = await rt.loadState(String(req.params.eventId), req);
   if (!loaded) {
     res.status(404).json({ error: "No run" });
     return null;
@@ -115,8 +114,8 @@ async function scorer(req: AuthedRequest, res: import("express").Response): Prom
   return { loaded, origin: req.get("x-gn-client"), req };
 }
 
-async function host(req: AuthedRequest, res: import("express").Response): Promise<Ok | null> {
-  const loaded = await rt.loadState(String(req.params.eventId));
+async function host(req: AuthedRequest, res: import("express").Response, opts?: LoadOpts): Promise<Ok | null> {
+  const loaded = await rt.loadState(String(req.params.eventId), req, opts);
   if (!loaded) {
     res.status(404).json({ error: "No run" });
     return null;
@@ -188,7 +187,7 @@ casinoRunRouter.get(`/${SEG}-context/:eventId`, requireAuth, async (req: AuthedR
 
 casinoRunRouter.get(`/${SEG}/:eventId`, requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (loaded && !(await roleOf(loaded.row.groupId, req.user!.id))) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -218,7 +217,7 @@ casinoRunRouter.post(`/events/:eventId/${SEG}`, requireAuth, async (req: AuthedR
 
   // Standing rule 8: never clobber a run in progress unless the host confirmed
   // a replace. "In progress" means legs have been played.
-  const existing = await rt.loadState(eventId);
+  const existing = await rt.loadState(eventId, req);
   if (!req.body?.force && existing && existing.row.status !== "completed" && existing.state.legs.length > 0) {
     res.status(409).json({ error: "A run is already in progress for this event" });
     return;
@@ -478,7 +477,7 @@ async function materialize(
  * cash packs use for a table that does not balance.
  */
 casinoRunRouter.post(`/${SEG}/:eventId/complete`, requireAuth, async (req: AuthedRequest, res) => {
-  const g = await host(req, res);
+  const g = await host(req, res, { completing: true });
   if (!g) return;
   const { loaded, origin } = g;
   const eventId = loaded.row.eventId;

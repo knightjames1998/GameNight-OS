@@ -198,7 +198,7 @@ pingPongRouter.get("/pingpong-context/:eventId", requireAuth, async (req: Authed
 
 pingPongRouter.get("/pingpong/:eventId", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (loaded && !(await roleOf(loaded.row.groupId, req.user!.id))) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -254,7 +254,7 @@ pingPongRouter.post("/events/:eventId/pingpong", requireAuth, async (req: Authed
 
   // Don't clobber a session already in progress (standing rule 8) unless the
   // host explicitly confirmed a replace (client sends force after a 409).
-  const existing = await rt.loadState(eventId);
+  const existing = await rt.loadState(eventId, req);
   if (
     !req.body?.force &&
     existing &&
@@ -329,7 +329,7 @@ pingPongRouter.post("/events/:eventId/pingpong", requireAuth, async (req: Authed
 
 pingPongRouter.post("/pingpong/:eventId/sides", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -368,7 +368,7 @@ pingPongRouter.post("/pingpong/:eventId/sides", requireAuth, async (req: AuthedR
 
 pingPongRouter.post("/pingpong/:eventId/start-match", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -398,7 +398,7 @@ pingPongRouter.post("/pingpong/:eventId/start-match", requireAuth, async (req: A
 
 pingPongRouter.post("/pingpong/:eventId/record", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -445,7 +445,7 @@ pingPongRouter.post("/pingpong/:eventId/record", requireAuth, async (req: Authed
 
 pingPongRouter.post("/pingpong/:eventId/undo", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -471,7 +471,7 @@ pingPongRouter.post("/pingpong/:eventId/undo", requireAuth, async (req: AuthedRe
 
 pingPongRouter.post("/pingpong/:eventId/open-scoring", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -486,7 +486,7 @@ pingPongRouter.post("/pingpong/:eventId/open-scoring", requireAuth, async (req: 
 
 pingPongRouter.post("/pingpong/:eventId/complete", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req, { completing: true });
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;

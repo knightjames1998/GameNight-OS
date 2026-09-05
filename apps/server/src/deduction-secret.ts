@@ -184,7 +184,7 @@ export function registerSecretRoutes(router: Router, rt: PackRuntime<SdSessionSt
    */
   router.get(`/${route}/:eventId/my-role`, requireAuth, async (req: AuthedRequest, res) => {
     const eventId = String(req.params.eventId);
-    const loaded = await rt.loadState(eventId);
+    const loaded = await rt.loadState(eventId, req);
     if (!loaded) {
       res.status(404).json({ error: "No session" });
       return;
@@ -220,7 +220,7 @@ export function registerSecretRoutes(router: Router, rt: PackRuntime<SdSessionSt
    */
   router.get(`/${route}/:eventId/deal`, requireAuth, async (req: AuthedRequest, res) => {
     const eventId = String(req.params.eventId);
-    const loaded = await rt.loadState(eventId);
+    const loaded = await rt.loadState(eventId, req);
     if (!loaded) {
       res.status(404).json({ error: "No session" });
       return;

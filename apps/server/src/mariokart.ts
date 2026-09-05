@@ -439,7 +439,7 @@ marioKartRouter.get("/mariokart-context/:eventId", requireAuth, async (req: Auth
 
 marioKartRouter.get("/mariokart/:eventId", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (loaded && !(await roleOf(loaded.row.groupId, req.user!.id))) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -489,7 +489,7 @@ marioKartRouter.post("/events/:eventId/mariokart", requireAuth, async (req: Auth
   // Don't clobber a session already in progress (standing rule 8) unless the
   // host confirmed a replace (client resends force after a 409). In progress =
   // has recorded races (free/gp/koth) or series (bestof).
-  const existing = await rt.loadState(eventId);
+  const existing = await rt.loadState(eventId, req);
   const inProgress =
     !!existing &&
     existing.row.status !== "completed" &&
@@ -569,7 +569,7 @@ marioKartRouter.post("/events/:eventId/mariokart", requireAuth, async (req: Auth
 
 marioKartRouter.post("/mariokart/:eventId/character", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -606,7 +606,7 @@ marioKartRouter.post("/mariokart/:eventId/character", requireAuth, async (req: A
 
 marioKartRouter.post("/mariokart/:eventId/randomize", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -626,7 +626,7 @@ marioKartRouter.post("/mariokart/:eventId/randomize", requireAuth, async (req: A
 
 marioKartRouter.post("/mariokart/:eventId/record", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -760,7 +760,7 @@ marioKartRouter.post("/mariokart/:eventId/record", requireAuth, async (req: Auth
 
 marioKartRouter.post("/mariokart/:eventId/start-series", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -800,7 +800,7 @@ marioKartRouter.post("/mariokart/:eventId/start-series", requireAuth, async (req
 
 marioKartRouter.post("/mariokart/:eventId/undo", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -865,7 +865,7 @@ marioKartRouter.post("/mariokart/:eventId/undo", requireAuth, async (req: Authed
 
 marioKartRouter.post("/mariokart/:eventId/sides", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -903,7 +903,7 @@ marioKartRouter.post("/mariokart/:eventId/sides", requireAuth, async (req: Authe
 
 marioKartRouter.post("/mariokart/:eventId/open-scoring", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req);
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;
@@ -918,7 +918,7 @@ marioKartRouter.post("/mariokart/:eventId/open-scoring", requireAuth, async (req
 
 marioKartRouter.post("/mariokart/:eventId/complete", requireAuth, async (req: AuthedRequest, res) => {
   const eventId = String(req.params.eventId);
-  const loaded = await rt.loadState(eventId);
+  const loaded = await rt.loadState(eventId, req, { completing: true });
   if (!loaded) {
     res.status(404).json({ error: "No session" });
     return;

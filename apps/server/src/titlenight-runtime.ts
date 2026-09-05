@@ -264,7 +264,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
 
   router.get(`/${route}/:eventId`, requireAuth, async (req: AuthedRequest, res) => {
     const eventId = String(req.params.eventId);
-    const loaded = await rt.loadState(eventId);
+    const loaded = await rt.loadState(eventId, req);
     if (loaded && !(await roleOf(loaded.row.groupId, req.user!.id))) {
       res.status(404).json({ error: "Not found" });
       return;
@@ -297,7 +297,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
 
     // Don't clobber a session already in progress (standing rule 8) unless the
     // host confirmed a replace (client resends force after a 409).
-    const existing = await rt.loadState(eventId);
+    const existing = await rt.loadState(eventId, req);
     if (
       !req.body?.force &&
       existing &&
@@ -335,7 +335,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
   // which is where a title night actually lives.
   router.post(`/${route}/:eventId/now-playing`, requireAuth, async (req: AuthedRequest, res) => {
     const eventId = String(req.params.eventId);
-    const loaded = await rt.loadState(eventId);
+    const loaded = await rt.loadState(eventId, req);
     if (!loaded) {
       res.status(404).json({ error: "No session" });
       return;
@@ -374,7 +374,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
 
   router.post(`/${route}/:eventId/record`, requireAuth, async (req: AuthedRequest, res) => {
     const eventId = String(req.params.eventId);
-    const loaded = await rt.loadState(eventId);
+    const loaded = await rt.loadState(eventId, req);
     if (!loaded) {
       res.status(404).json({ error: "No session" });
       return;
@@ -451,7 +451,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
 
   router.post(`/${route}/:eventId/undo`, requireAuth, async (req: AuthedRequest, res) => {
     const eventId = String(req.params.eventId);
-    const loaded = await rt.loadState(eventId);
+    const loaded = await rt.loadState(eventId, req);
     if (!loaded) {
       res.status(404).json({ error: "No session" });
       return;
@@ -490,7 +490,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
   // than stacks.
   router.post(`/${route}/:eventId/sides`, requireAuth, async (req: AuthedRequest, res) => {
     const eventId = String(req.params.eventId);
-    const loaded = await rt.loadState(eventId);
+    const loaded = await rt.loadState(eventId, req);
     if (!loaded) {
       res.status(404).json({ error: "No session" });
       return;
@@ -534,7 +534,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
 
   router.post(`/${route}/:eventId/open-scoring`, requireAuth, async (req: AuthedRequest, res) => {
     const eventId = String(req.params.eventId);
-    const loaded = await rt.loadState(eventId);
+    const loaded = await rt.loadState(eventId, req);
     if (!loaded) {
       res.status(404).json({ error: "No session" });
       return;
@@ -549,7 +549,7 @@ export function createTitleNightPack(def: TitleNightPackDef): TitleNightPack {
 
   router.post(`/${route}/:eventId/complete`, requireAuth, async (req: AuthedRequest, res) => {
     const eventId = String(req.params.eventId);
-    const loaded = await rt.loadState(eventId);
+    const loaded = await rt.loadState(eventId, req, { completing: true });
     if (!loaded) {
       res.status(404).json({ error: "No session" });
       return;

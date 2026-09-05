@@ -254,7 +254,7 @@ export function participantRows(args: {
 // ---------- the runtime ----------
 
 export interface PackRuntime<S> extends PackRuntimeConfig<S> {
-  loadState(eventId: string): Promise<Loaded<S> | null>;
+  loadState(eventId: string, req: Request, opts?: LoadOpts): Promise<Loaded<S> | null>;
   /**
    * Persist, broadcast, and hand back the session payload. Returning the view
    * is what lets a mutation handler answer from the state it already holds
@@ -344,6 +344,16 @@ export interface MaterializeArgs {
   linkMap?: Map<string, string>;
 }
 
+/** Options for loadState, all of them about the television gate. */
+export interface LoadOpts {
+  /**
+   * This route is about to COMPLETE the session, so the write cannot take the
+   * screen and there is nothing to ask about. Opt-in, because forgetting it
+   * costs a needless dialog while forgetting the gate costs the bug.
+   */
+  completing?: boolean;
+}
+
 export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<S> {
   const { pack, gameName, wsType, keyPrefix, table, extras, normalize } = config;
   /**
@@ -402,13 +412,53 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
     };
   }
 
-  async function loadState(eventId: string): Promise<Loaded<S> | null> {
+  /**
+   * The row and its upgraded state, with NO television gate.
+   *
+   * PRIVATE, and it stays private: it is not on the PackRuntime interface, so a
+   * pack cannot reach it and cannot accidentally write behind the gate. The two
+   * callers are both reads that render a screen (the session payload and the
+   * launch context), and a read cannot move anything.
+   */
+  async function readState(eventId: string): Promise<Loaded<S> | null> {
     const db = getDb();
     const row = ownTable
       ? (await db.select().from(smashSessions).where(whereSession(eventId)).limit(1))[0]
       : (await db.select().from(gameSessions).where(whereSession(eventId)).limit(1))[0];
     if (!row) return null;
     return { row, state: upgrade(row.state as unknown as S) };
+  }
+
+  async function loadState(
+    eventId: string,
+    req: Request,
+    opts?: LoadOpts,
+  ): Promise<Loaded<S> | null> {
+    const loaded = await readState(eventId);
+    if (!loaded) return null;
+    // THE TELEVISION GATE RUNS HERE, AND HERE IS WHY IT IS NOT ONLY IN
+    // saveState. Several packs materialize the ledger BEFORE they save the
+    // session (Smash's record route writes the match row, then the state), so a
+    // gate that only fired at save time would let a DECLINED write leave a
+    // matches row behind. Worse than an orphan: the next genuine result at that
+    // index reuses the same externalKey, materializeUnit no-ops on the existing
+    // row, and the declined result's placements stay in the ledger forever.
+    //
+    // loadState is the right chokepoint because saveState cannot be called
+    // without a Loaded, and a Loaded can only come from here. It runs first in
+    // every mutating route by construction, so the gate runs before any write.
+    //
+    // GET is exempt because a read cannot move anything, and an already
+    // completed session is exempt because resolveNow drops it: writing to one
+    // can only move the screen away from itself.
+    await gateTv({
+      eventId,
+      self: tvSelf,
+      selfName: gameName,
+      req,
+      skip: req.method === "GET" || loaded.row.status === "completed" || !!opts?.completing,
+    });
+    return loaded;
   }
 
   async function saveState(
@@ -423,7 +473,7 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
       eventId: loaded.row.eventId,
       self: tvSelf,
       selfName: gameName,
-      body: req.body,
+      req,
       skip: status === "completed",
     });
     const origin = req.get("x-gn-client");
@@ -462,7 +512,7 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
       eventId,
       self: tvSelf,
       selfName: gameName,
-      body: req.body,
+      req,
     });
     const origin = req.get("x-gn-client");
     const db = getDb();
@@ -582,7 +632,7 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
     // A caller that already holds the row and state passes it in rather than
     // making this re-SELECT what it just read or wrote. `null` is a real answer
     // (no session), so the check is for `undefined`, not falsiness.
-    return viewOf(preloaded !== undefined ? preloaded : await loadState(eventId));
+    return viewOf(preloaded !== undefined ? preloaded : await readState(eventId));
   }
 
   async function respondState(eventId: string, res: Response, preloaded?: Loaded<S> | null) {
@@ -618,7 +668,7 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
         .from(memberships)
         .innerJoin(users, eq(memberships.userId, users.id))
         .where(eq(memberships.groupId, event.groupId)),
-      loadState(event.id),
+      readState(event.id),
     ]);
     if (!role) return null;
 
