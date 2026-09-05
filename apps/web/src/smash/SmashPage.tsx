@@ -7,6 +7,7 @@ import RosterCarryOver from "../RosterCarryOver";
 import GuestChips from "../GuestChips";
 import { TeamPicker, dropRosterIndex, teamPickerStatus } from "../teams/TeamPicker";
 import {
+  FFA_MAX_PLAYERS,
   SESSION_PACKS,
   SMASH_TITLES,
   rosterForTitle,
@@ -539,10 +540,14 @@ const namesOf = (session: Session) => new Map(session.roster.map((p) => [p.id, p
  * the same on a solo night as it did before sides existed.
  */
 function sideLabel(session: Session, sideId: string | null | undefined): string {
-  const names = namesOf(session);
   const side = session.sides.find((s) => s.id === sideId);
   if (!side) return "?";
-  return side.memberIds.map((id) => names.get(id) ?? "?").join(" + ");
+  const names = namesOf(session);
+  // Falls back to the side's own name rather than to a row of "?", which is the
+  // rule teams.ts sideLabel already owns; a side whose members are gone should
+  // read "Side A", not "? + ?".
+  const out = side.memberIds.map((id) => names.get(id)).filter((n): n is string => !!n);
+  return out.length ? out.join(" + ") : side.name;
 }
 
 /** A side's fighters, one per member, because fighters are per PLAYER. */
@@ -1017,8 +1022,9 @@ function FfaTeamPlay({
   const ready =
     active.length >= 2 &&
     // Smash seats eight PLAYERS, not eight sides, and this is the same cap the
-    // server checks. Blocked on the button rather than reported afterwards.
-    seats <= 8 &&
+    // server checks. Off the shared constant rather than a literal, so raising
+    // FFA_MAX_PLAYERS cannot leave this button refusing what the server allows.
+    seats <= FFA_MAX_PLAYERS &&
     (detail === "winner"
       ? !!winner && !!inGame[winner]
       : active.every((s) => (places[s.id] ?? 0) >= 1 && (places[s.id] ?? 0) <= active.length) &&
@@ -1067,7 +1073,11 @@ function FfaTeamPlay({
         </div>
       ))}
       <button className="sm-btn" style={{ marginTop: 12 }} disabled={busy || !ready} onClick={record}>
-        {active.length < 2 ? "Pick at least 2 sides" : seats > 8 ? "Smash seats 8 players" : "Record battle"}
+        {active.length < 2
+          ? "Pick at least 2 sides"
+          : seats > FFA_MAX_PLAYERS
+          ? `Smash seats ${FFA_MAX_PLAYERS} players`
+          : "Record battle"}
       </button>
       <p className="sm-hint" style={{ marginTop: 8 }}>
         Every member of a side gets the side's result, and everybody keeps their own fighter.

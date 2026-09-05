@@ -93,8 +93,14 @@ export default function SmashTvPage({ eventId: propEventId }: { eventId?: string
   // and fighters of its members. A side of one reads as that one player, which
   // is what every solo night on this screen has always shown.
   const sideById = new Map(session.sides.map((s) => [s.id, s]));
-  const sideNames = (sideId: string | null | undefined): string =>
-    (sideById.get(sideId ?? "")?.memberIds ?? []).map((id) => nameOf.get(id) ?? "?").join(" + ");
+  const sideNames = (sideId: string | null | undefined): string => {
+    const side = sideById.get(sideId ?? "");
+    if (!side) return "";
+    // Falls back to the side's own name rather than to a row of "?", the rule
+    // teams.ts sideLabel owns.
+    const out = side.memberIds.map((id) => nameOf.get(id)).filter((n): n is string => !!n);
+    return out.length ? out.join(" + ") : side.name;
+  };
   const sideChars = (sideId: string | null | undefined): string =>
     (sideById.get(sideId ?? "")?.memberIds ?? []).map((id) => charOf.get(id) ?? "?").join(" + ");
   const kingId = session.koth?.kingSideId ?? null;

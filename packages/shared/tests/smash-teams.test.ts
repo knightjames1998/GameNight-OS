@@ -74,9 +74,12 @@ test("five pairs is ten players and is refused on players, not on sides", () => 
   );
 });
 
-test("the MAX_SIDES rule only bites in the all-singletons case", () => {
-  // Nine solo players: nine sides AND nine players. The player cap fires first,
-  // which is the right message; MAX_SIDES is the backstop behind it.
+test("MAX_SIDES cannot fire ahead of the player cap, even on singletons", () => {
+  // Nine solo players is nine sides AND nine players, so the PLAYER cap fires
+  // first and gives the better message. This is asserted rather than assumed
+  // because the brief expected MAX_SIDES to bite here, and it does not: it can
+  // only fire on more than eight sides holding eight or fewer people between
+  // them, which needs an empty side, and validateSides refuses those.
   const nine = singletonSides(Array.from({ length: 9 }, (_, i) => `x${i}`));
   assert.equal(nine.length, 9);
   assert.ok(nine.length > MAX_SIDES);

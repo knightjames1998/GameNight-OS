@@ -655,8 +655,16 @@ export function undoSmashGame(state: SmashSessionState): { unmaterializeIdx: num
  * says so in players, because "at most 8 sides" is not a sentence that helps
  * somebody who has just put sixteen people in a battle.
  *
- * MAX_SIDES is still checked, after it, and only bites in the all-singletons
- * case where eight sides IS eight players.
+ * MAX_SIDES IS A BACKSTOP THAT CANNOT CURRENTLY FIRE, and it is kept rather
+ * than deleted, with this note so the next reader does not have to work it out.
+ * The brief for this function expected it to bite in the all-singletons case;
+ * it does not, because nine singleton sides is nine PLAYERS and rule 2 catches
+ * that first with a better message. It can only fire on more than eight sides
+ * holding eight or fewer people between them, which needs an EMPTY side, and
+ * `validateSides` refuses those at every point an arrangement is created. It
+ * stays because it costs one comparison and because the day something does
+ * mint an empty side, a cap that is checked is better than one that was
+ * removed as dead.
  */
 export function validateSmashBattleOrder(
   order: readonly string[],

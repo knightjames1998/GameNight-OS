@@ -116,8 +116,12 @@ test("BASELINE LEDGER: NO SIDE REACHES THE COLUMN ON A SOLO NIGHT", () => {
     { playerId: "p1", placement: 2, isWinner: false, character: "Fox", meta: { gameWins: 2, gamesPlayed: 5 } },
   ]);
   const smashdown = rowsFor(gameLines(winnerOnly("p0")));
-  for (const { rows } of [ffa, koth, bestof, smashdown]) {
-    assert.deepEqual(rows.map((r) => r.side ?? null), rows.map(() => null));
+  for (const [label, { rows }] of Object.entries({ ffa, koth, bestof, smashdown })) {
+    // The row count is asserted too, so an empty result cannot pass this
+    // vacuously, which is the shape of every test in this repo that turned out
+    // to be unable to fail.
+    assert.ok(rows.length > 0, `${label} produced no rows at all`);
+    assert.deepEqual(rows.map((r) => r.side ?? null), rows.map(() => null), label);
   }
 });
 
