@@ -120,7 +120,9 @@ import {
   MAX_SIDES,
   placementsFromRankedSides,
   sideIdAt,
+  sideOf,
   singletonSides,
+  validateSides,
   type RankedSide,
   type Side,
 } from "./teams.js";
@@ -128,7 +130,9 @@ import {
   currentSides,
   hasTeamStructure,
   newSideLog,
+  reshuffle,
   sidesAtIdx,
+  truncateSideLog,
   type SideLog,
 } from "./sidelog.js";
 
@@ -543,6 +547,90 @@ export function validateFfa(
     if (places[i] !== i + 1) return "Placements must be 1 through " + lines.length;
   }
   return null;
+}
+
+/**
+ * Put a new arrangement of sides in force from the next battle on.
+ *
+ * Returns an error string or null. Battles already recorded keep the `side`
+ * that was written on their lines, so the night's history stays true; in King
+ * of the Hill THE LADDER RESTARTS, because a queue of sides that no longer
+ * exist is not a queue, and a Best Of set in progress BLOCKS the reshuffle,
+ * because the set is between two sides and swapping them mid-set would credit
+ * games to a side that did not play them. Both follow reshuffleMkSides.
+ */
+export function reshuffleSmashSides(state: SmashSessionState, sides: Side[]): string | null {
+  // The primitive's verdict first, then this pack's own check, so an
+  // arrangement that fails both reports the structural problem rather than the
+  // roster one. `reshuffle` asks the primitive again; both calls are pure.
+  const check = validateSides(sides);
+  if (check.error) return check.error;
+  const known = new Set(state.roster.map((p) => p.id));
+  if (sides.some((s) => s.memberIds.some((id) => !known.has(id)))) {
+    return "Somebody on a side is not in this session";
+  }
+  if (state.series && state.series.games.length > 0) {
+    return "Finish the set in progress first";
+  }
+  reshuffle(state.sideSets, sides, smashUnitCount(state));
+  if (state.format === "koth") state.koth = openSmashKoth(sides);
+  else if (state.format === "bestof") state.series = null;
+  return null;
+}
+
+/**
+ * Rebuild the throne and queue by REPLAYING the rounds played under the current
+ * arrangement. Mutates.
+ *
+ * Rounds from before a reshuffle are skipped: they were fought by sides that no
+ * longer exist, and the ladder restarts at a reshuffle. This is why the
+ * arrangement is a log with a `fromIdx` rather than a field, and it is what
+ * makes undo correct by construction instead of correct until somebody forgets
+ * to unwind a counter.
+ *
+ * The winning and losing SIDE are recovered from the round's lines through the
+ * arrangement rather than read off them, because a solo night writes `side`
+ * null on every line by design and the side is still perfectly well defined:
+ * one player, one side.
+ */
+export function rebuildSmashKoth(state: SmashSessionState): void {
+  const set = state.sideSets[state.sideSets.length - 1];
+  const sides = set?.sides ?? [];
+  let k = openSmashKoth(sides);
+  for (const g of state.games) {
+    if (!set || g.idx < set.fromIdx) continue;
+    const won = g.lines.find((l) => l.isWinner);
+    const lost = g.lines.find((l) => !l.isWinner);
+    const winner = won ? sideOf(sides, won.playerId) : undefined;
+    const loser = lost ? sideOf(sides, lost.playerId) : undefined;
+    if (!winner || !loser || winner.id === loser.id) continue;
+    k = kothAdvance(k, winner, loser);
+  }
+  state.koth = k;
+}
+
+/**
+ * Undo the last recorded battle. Mutates. Returns the idx the caller has to
+ * un-materialize from the ledger, or null when there was nothing to undo.
+ *
+ * THE ORDER OF THE TWO STEPS IS THE WHOLE FUNCTION, which is why it is here
+ * rather than inline in a route. Truncating the side log has to happen BEFORE
+ * the throne is rebuilt: the rebuild replays the rounds played under the
+ * arrangement in force, so rebuilding first would replay them under an
+ * arrangement nothing is played under any more and hand the throne to a pair
+ * that never won it. Nothing errors either way, and the screen is simply wrong.
+ *
+ * Smashdown's burn board is NOT re-derived here. It is derived from the same
+ * games log by `burnedFrom`, and the route does it alongside the fighter
+ * hand-back and the series-row reconcile, which are database-shaped work this
+ * pure function has no business knowing about.
+ */
+export function undoSmashGame(state: SmashSessionState): { unmaterializeIdx: number | null } {
+  const last = state.games.pop();
+  if (!last) return { unmaterializeIdx: null };
+  truncateSideLog(state.sideSets, state.games.length);
+  if (state.mode === "koth") rebuildSmashKoth(state);
+  return { unmaterializeIdx: last.idx };
 }
 
 // ---------- recording a team battle ----------

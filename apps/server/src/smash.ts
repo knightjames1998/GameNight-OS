@@ -23,8 +23,10 @@ import {
   kothAdvance,
   kothNextPair,
   normalizeSmashState,
-  openSmashKoth,
   isTeamBattle,
+  truncateSideLog,
+  reshuffleSmashSides,
+  undoSmashGame,
   defaultSideName,
   shuffleIntoSides,
   sideIdAt,
@@ -844,30 +846,36 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
   }
 
   if (state.mode === "koth") {
-    // Round input is just the winner id; the pair is derived from state. The
-    // throne is held by a SIDE now, so the two playing are resolved through the
-    // arrangement in force. Every side holds exactly one player until the team
-    // work lands, so the tapped player IS the side and this reads as it always
-    // did; the side tap arrives with the team screens.
+    // The throne is held by a SIDE, so the two playing are resolved through the
+    // arrangement in force. A team screen taps `winnerSideId`; the shipped solo
+    // screen taps `winnerId`, and on a solo night a side holds one player, so
+    // that tap resolves to the same side and keeps working.
     const sides = smashSides(state);
     const pair = kothNextPair(state.koth, sides);
     if (!pair) {
       res.status(400).json({ error: "Not enough players queued" });
       return;
     }
-    const winnerId = String(req.body?.winnerId ?? "");
-    const tapped = sideOf(sides, winnerId);
+    const rawSideId = String(req.body?.winnerSideId ?? "");
+    const tapped = rawSideId
+      ? sides.find((sd) => sd.id === rawSideId)
+      : sideOf(sides, String(req.body?.winnerId ?? ""));
     const winnerSide = tapped && (tapped.id === pair.king.id || tapped.id === pair.challenger.id) ? tapped : null;
     if (!winnerSide) {
       res.status(400).json({ error: "Winner must be one of the two playing" });
       return;
     }
     const loserSide = winnerSide.id === pair.king.id ? pair.challenger : pair.king;
-    const loserId = loserSide.memberIds[0]!;
-    lines = [
-      { playerId: winnerId, character: charOf.get(winnerId) ?? null, placement: 1, isWinner: true, side: null },
-      { playerId: loserId, character: charOf.get(loserId) ?? null, placement: 2, isWinner: false, side: null },
-    ];
+    // Two sides, so the order IS the result and the detail setting cannot
+    // change it: one side won and one lost. The placement rule then writes 1
+    // onto every member of the winner and 2 onto every member of the loser,
+    // with `side` null whenever both sides hold one player.
+    lines = smashBattleLines(
+      [winnerSide.id, loserSide.id],
+      sides,
+      "placement",
+      (id) => charOf.get(id) ?? null,
+    );
     state.koth = kothAdvance(state.koth!, winnerSide, loserSide);
   } else if (isTeamBattle(state) || Array.isArray(req.body?.sides)) {
     // FFA, TEAM BATTLE: a tapped finish order of SIDES. A SPLIT, not a boolean
@@ -977,25 +985,34 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
     lastSet.at = null;
     lastSet.idx = -1;
     state.series = lastSet;
+    // Undoing back PAST a reshuffle restores the arrangement of sides that was
+    // in force before it. Without this the set being re-opened would be played
+    // by sides that did not exist when it was played the first time.
+    truncateSideLog(state.sideSets, state.seriesLog.length);
     const view = await rt.saveState(loaded, "live", origin);
     broadcast({ type: "leaderboard_updated", eventId }, origin);
     res.json(view);
     return;
   }
 
-  const last = state.games.pop();
-  if (!last) {
+  // Popping the battle, restoring the arrangement of sides it was played under,
+  // and replaying the throne so it cannot drift, in that order and for the
+  // reason spelled out on undoSmashGame. The battle's own lines are still
+  // needed below, so they are read before the pop.
+  const last = state.games[state.games.length - 1];
+  const { unmaterializeIdx } = undoSmashGame(state);
+  if (!last || unmaterializeIdx === null) {
     res.json({ ...rt.viewOf(loaded), empty: true });
     return;
   }
-  await rt.deleteMaterialized(eventId, state.sessionKey, last.idx);
+  await rt.deleteMaterialized(eventId, state.sessionKey, unmaterializeIdx);
 
   // Smashdown: unburn exactly the undone battle's fighters and hand them back
   // to the players who used them, so the battle can simply be replayed. The
   // burn board is re-derived from the remaining log rather than having the
-  // fighters subtracted from it, which is the same reason KOTH replays its
-  // throne below: a state that is recomputed cannot drift, and a state that is
-  // patched eventually does.
+  // fighters subtracted from it, which is the same reason undoSmashGame replays
+  // the throne rather than unwinding it: a state that is recomputed cannot
+  // drift, and a state that is patched eventually does.
   if (state.format === "smashdown") {
     state.burned = burnedFrom(state.games);
     const usedBy = new Map(last.lines.map((l) => [l.playerId, l.character]));
@@ -1005,27 +1022,57 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
     await syncSeriesRow(row.groupId, eventId, state);
   }
 
-  if (state.mode === "koth") {
-    // Rebuild from the opening throne by replaying the survivors. The winning
-    // and losing SIDE are recovered from each round's lines through the
-    // arrangement rather than read off them, because a solo night writes `side`
-    // null on every line by design and the side is still perfectly well
-    // defined: one player, one side.
-    const sides = smashSides(state);
-    let koth = openSmashKoth(sides);
-    for (const g of state.games) {
-      const w = g.lines.find((l) => l.isWinner);
-      const lo = g.lines.find((l) => !l.isWinner);
-      const winner: Side | undefined = w ? sideOf(sides, w.playerId) : undefined;
-      const loser: Side | undefined = lo ? sideOf(sides, lo.playerId) : undefined;
-      if (winner && loser && winner.id !== loser.id) koth = kothAdvance(koth, winner, loser);
-    }
-    state.koth = koth;
-  }
   const origin = req.get("x-gn-client");
   const view = await rt.saveState(loaded, "live", origin);
   broadcast({ type: "leaderboard_updated", eventId }, origin);
   res.json(view);
+});
+
+// ---------- host: rearrange the sides mid-night ----------
+//
+// Sides are FIXED for the night by default (James's call), and this is the
+// explicit way out of that: it applies from the NEXT battle on and never
+// touches a battle already recorded, because each recorded game carries its own
+// `side` on its lines. In King of the Hill the ladder restarts, since a queue
+// of sides that no longer exist is not a queue, and a Best Of set in progress
+// blocks it. Both rules live in reshuffleSmashSides, not here.
+
+smashRouter.post("/smash/:eventId/sides", requireAuth, async (req: AuthedRequest, res) => {
+  const eventId = String(req.params.eventId);
+  const loaded = await rt.loadState(eventId);
+  if (!loaded) {
+    res.status(404).json({ error: "No session" });
+    return;
+  }
+  if (!isHostRole(await roleOf(loaded.row.groupId, req.user!.id))) {
+    res.status(403).json({ error: "Host only" });
+    return;
+  }
+  // Here the client HAS seen the roster, so sides come as slot ids.
+  const ids = loaded.state.roster.map((p) => p.id);
+  const known = new Set(ids);
+  const rawSides = Array.isArray(req.body?.sides) ? req.body.sides : null;
+  const sides: Side[] = rawSides
+    ? rawSides.map((sd: any, i: number): Side => ({
+        id: sideIdAt(i),
+        name: defaultSideName(i),
+        memberIds: (Array.isArray(sd?.memberIds) ? sd.memberIds : [])
+          .map((id: unknown) => String(id))
+          .filter((id: string) => known.has(id)),
+      }))
+    : shuffleIntoSides(ids, Math.max(2, Number(req.body?.sideCount) || 2));
+
+  const placed = new Set(sides.flatMap((x) => x.memberIds));
+  if (placed.size !== ids.length) {
+    res.status(400).json({ error: "Every player has to be on a side" });
+    return;
+  }
+  const err = reshuffleSmashSides(loaded.state, sides);
+  if (err) {
+    res.status(400).json({ error: err });
+    return;
+  }
+  res.json(await rt.saveState(loaded, loaded.row.status, req.get("x-gn-client")));
 });
 
 // Host toggles open scoring (members may record when on). Defaults off.
