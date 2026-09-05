@@ -21,6 +21,12 @@ import {
   SMASH_TITLES,
   rosterForTitle,
   kothAdvance,
+  kothNextPair,
+  normalizeSmashState,
+  openSmashKoth,
+  isTeamBattle,
+  smashSides,
+  sideOf,
   validateFfa,
   isFighter,
   summarizeNight,
@@ -47,6 +53,7 @@ import {
   type SmashGame,
   type Series,
   type SeriesBestOf,
+  type Side,
 } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 
@@ -64,8 +71,20 @@ export const smashTvRouter = Router();
 // data migration, not a refactor.
 export const smashRuntime = createPackRuntime<SmashSessionState>({
   ...packConfig("smash"),
+  // Sessions written before sides existed load through this at the two points
+  // where jsonb becomes state, so a night already in progress when this deploys
+  // keeps working and the guest backfill can still read finished ones. Smash
+  // had no normalize hook at all until 2026-09-05, which is the whole reason
+  // this line is called out: the pack did not need one before it had a second
+  // state shape.
+  normalize: normalizeSmashState,
   extras: (state) => ({
     summary: summarizeNight(state),
+    // The arrangement of sides in force, flattened for the screen, plus the one
+    // boolean every panel on it branches on. A solo night is sides of one and
+    // `teamPlay` is false, which is what keeps its screens reading as they did.
+    sides: smashSides(state),
+    teamPlay: isTeamBattle(state),
     seriesStandings: state.format === "bestof" ? seriesStandings(state) : [],
     // The burn board, standings, remaining battles and whether the series is
     // over, derived server-side so the pack page, the TV and this file cannot
@@ -93,11 +112,16 @@ async function materializeGame(
   format: SmashFormat,
   linkMap?: Map<string, string>, // guest display name -> member userId (backfill)
 ): Promise<{ recorded: number; guests: number }> {
+  // `side` goes straight through. It is null on every line a solo night writes,
+  // which is the same NULL the column has always held for this pack, and it is
+  // the side id on a team battle. Nothing else in the ledger path moves: same
+  // format string, same label, same key prefix.
   const lines: LedgerLine[] = game.lines.map((line) => ({
     playerId: line.playerId,
     placement: line.placement,
     isWinner: line.isWinner,
     character: line.character ?? null,
+    side: line.side ?? null,
   }));
 
   return rt.materializeUnit({
@@ -711,6 +735,7 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
         character: p.character,
         placement: given.get(p.id) ?? 0,
         isWinner: (given.get(p.id) ?? 0) === 1,
+        side: null,
       }));
     } else {
       const winnerId = String(req.body?.winnerId ?? "");
@@ -723,6 +748,7 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
         character: p.character,
         placement: p.id === winnerId ? 1 : 2,
         isWinner: p.id === winnerId,
+        side: null,
       }));
     }
     const err = validateFfa(lines, state.resultDetail);
@@ -775,24 +801,31 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
   }
 
   if (state.mode === "koth") {
-    // Round input is just the winner id; the pair is derived from state.
-    const koth = state.koth!;
-    const pair = koth.kingId && koth.queue[0] ? [koth.kingId, koth.queue[0]] : null;
+    // Round input is just the winner id; the pair is derived from state. The
+    // throne is held by a SIDE now, so the two playing are resolved through the
+    // arrangement in force. Every side holds exactly one player until the team
+    // work lands, so the tapped player IS the side and this reads as it always
+    // did; the side tap arrives with the team screens.
+    const sides = smashSides(state);
+    const pair = kothNextPair(state.koth, sides);
     if (!pair) {
       res.status(400).json({ error: "Not enough players queued" });
       return;
     }
     const winnerId = String(req.body?.winnerId ?? "");
-    if (!pair.includes(winnerId)) {
+    const tapped = sideOf(sides, winnerId);
+    const winnerSide = tapped && (tapped.id === pair.king.id || tapped.id === pair.challenger.id) ? tapped : null;
+    if (!winnerSide) {
       res.status(400).json({ error: "Winner must be one of the two playing" });
       return;
     }
-    const loserId = pair.find((id) => id !== winnerId)!;
+    const loserSide = winnerSide.id === pair.king.id ? pair.challenger : pair.king;
+    const loserId = loserSide.memberIds[0]!;
     lines = [
-      { playerId: winnerId, character: charOf.get(winnerId) ?? null, placement: 1, isWinner: true },
-      { playerId: loserId, character: charOf.get(loserId) ?? null, placement: 2, isWinner: false },
+      { playerId: winnerId, character: charOf.get(winnerId) ?? null, placement: 1, isWinner: true, side: null },
+      { playerId: loserId, character: charOf.get(loserId) ?? null, placement: 2, isWinner: false, side: null },
     ];
-    state.koth = kothAdvance(koth, winnerId, loserId);
+    state.koth = kothAdvance(state.koth!, winnerSide, loserSide);
   } else {
     // FFA: client sends the full line set. Validate against roster + detail.
     const raw = Array.isArray(req.body?.lines) ? req.body.lines : [];
@@ -803,6 +836,7 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
         character: isFighter(l?.character) ? l.character : (charOf.get(String(l.playerId)) ?? null),
         placement: Number(l?.placement) || 0,
         isWinner: !!l?.isWinner,
+        side: null,
       }));
     if (state.resultDetail === "winner") {
       // Winner-only: everyone else is placement 2 (tied second), one winner.
@@ -899,17 +933,19 @@ smashRouter.post("/smash/:eventId/undo", requireAuth, async (req: AuthedRequest,
   }
 
   if (state.mode === "koth") {
-    // Rebuild from the opening throne (roster[0]) by replaying survivors.
-    let koth = {
-      kingId: state.roster[0]?.id ?? null,
-      queue: state.roster.slice(1).map((p) => p.id),
-      streak: 0,
-      bestStreak: null as { playerId: string; streak: number } | null,
-    };
+    // Rebuild from the opening throne by replaying the survivors. The winning
+    // and losing SIDE are recovered from each round's lines through the
+    // arrangement rather than read off them, because a solo night writes `side`
+    // null on every line by design and the side is still perfectly well
+    // defined: one player, one side.
+    const sides = smashSides(state);
+    let koth = openSmashKoth(sides);
     for (const g of state.games) {
       const w = g.lines.find((l) => l.isWinner);
       const lo = g.lines.find((l) => !l.isWinner);
-      if (w && lo) koth = kothAdvance(koth, w.playerId, lo.playerId);
+      const winner: Side | undefined = w ? sideOf(sides, w.playerId) : undefined;
+      const loser: Side | undefined = lo ? sideOf(sides, lo.playerId) : undefined;
+      if (winner && loser && winner.id !== loser.id) koth = kothAdvance(koth, winner, loser);
     }
     state.koth = koth;
   }

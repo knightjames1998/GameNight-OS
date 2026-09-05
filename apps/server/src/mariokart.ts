@@ -74,9 +74,9 @@ export const marioKartRuntime = createPackRuntime<MkSessionState>({
   // keeps working and the guest backfill can still read finished ones.
   normalize: normalizeMkState,
   extras: (state) => ({
-    // summarizeNight only reads roster + games, and MkResultLine is the Smash
-    // line plus a `side`, so the cast is over a SUPERSET and MK's wider format
-    // union is irrelevant to it.
+    // summarizeNight only reads roster + games, which are now the same shape in
+    // both packs; the cast is only over MK's wider format union and the three
+    // Smashdown fields it drops, neither of which that function reads.
     summary: summarizeNight(state as unknown as import("@gamenight/shared").SmashSessionState),
     cup: state.format === "grandprix" ? cupStandings(state) : null,
     seriesStandings: state.format === "bestof" ? seriesStandings(state) : [],

@@ -116,6 +116,14 @@ export const SMASH_TITLES: GameTitle[] = [
 // ---------- Session shapes ----------
 
 import type { Series, SeriesBestOf } from "./series.js";
+import { sideIdAt, singletonSides, type Side } from "./teams.js";
+import {
+  currentSides,
+  hasTeamStructure,
+  newSideLog,
+  sidesAtIdx,
+  type SideLog,
+} from "./sidelog.js";
 
 export type SmashMode = "ffa" | "koth";
 // User-facing FORMAT chosen at start. "ffa" and "koth" record each game (the
@@ -150,6 +158,17 @@ export interface SmashResultLine {
   character: string | null;
   placement: number; // 1 = winner
   isWinner: boolean;
+  /**
+   * Which SIDE this player was on, or null whenever every side in that battle
+   * held exactly one player. `teams.ts` sideIdFor owns that rule and no pack
+   * may decide it differently: null is what "no team structure" means to
+   * buildRivalry, and a solo night has always written it.
+   *
+   * A legacy line read out of jsonb gets it written explicitly by
+   * normalizeSmashState rather than left absent, so the two spellings of "no
+   * side" never both exist in one session.
+   */
+  side: string | null;
 }
 export interface SmashGame {
   idx: number; // 0-based order within the night; also the dedup key suffix
@@ -158,13 +177,25 @@ export interface SmashGame {
   at: string; // ISO
 }
 
-// King of the Hill running state. The reigning player stays; the loser goes
-// to the back of the queue. streak is the current king's win count.
+/**
+ * King of the Hill running state, keyed on SIDE ids rather than player ids.
+ *
+ * The winning side holds the throne and the losing side rotates to the back
+ * TOGETHER, which is the whole point of a team ladder; a solo night is sides of
+ * one and rotates exactly as it always did. `streak` is the current holder's
+ * win count.
+ *
+ * `bestStreak` NAMES THE SIDE AND CARRIES ITS MEMBERS, which is not decoration:
+ * a throne held by a pair has to be able to name that pair after a reshuffle
+ * has replaced the arrangement, and the side id alone would then resolve to
+ * whoever happens to be "side a" now. Ping Pong's reign record took the same
+ * call, and Mario Kart's MkKothState is this shape exactly.
+ */
 export interface KothState {
-  kingId: string | null;
-  queue: string[]; // playerIds waiting, front plays next
+  kingSideId: string | null;
+  queue: string[]; // challenger side ids, front plays next
   streak: number;
-  bestStreak: { playerId: string; streak: number } | null;
+  bestStreak: { sideId: string; memberIds: string[]; streak: number } | null;
 }
 
 export interface SmashSessionState {
@@ -187,6 +218,19 @@ export interface SmashSessionState {
   // host may flip it on to let members score. Defaults off.
   openScoring: boolean;
   roster: SmashPlayer[];
+  /**
+   * Which arrangement of SIDES was in force when, oldest first.
+   *
+   * A log rather than a field because the King of the Hill throne is REBUILT by
+   * replaying battles, and a replay that cannot tell which stretch of the night
+   * was fought under which arrangement hands the throne to a pair that never
+   * won it. Nothing errors; the screen is simply wrong. See sidelog.ts.
+   *
+   * A solo night is one side per player, which `sideIdFor` reads as no team
+   * structure, so every row it writes is the row this pack wrote before sides
+   * existed.
+   */
+  sideSets: SideLog;
   games: SmashGame[];
   koth: KothState | null;
   // Best Of format only. bestOf is the set length; series is the in-progress
@@ -221,8 +265,11 @@ export function newSmashState(opts: {
   bestOf?: SeriesBestOf;
   battleCount?: number;
   mercy?: boolean;
+  /** Defaults to one side per player, which is every night this pack had before. */
+  sides?: Side[];
 }): SmashSessionState {
   const format: SmashFormat = opts.format ?? (opts.mode === "koth" ? "koth" : "ffa");
+  const sides = opts.sides?.length ? opts.sides : singletonSides(opts.roster.map((p) => p.id));
   return {
     sessionKey: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
     format,
@@ -232,16 +279,9 @@ export function newSmashState(opts: {
     resultDetail: opts.resultDetail,
     openScoring: false,
     roster: opts.roster,
+    sideSets: newSideLog(sides),
     games: [],
-    koth:
-      opts.mode === "koth"
-        ? {
-            kingId: opts.roster[0]?.id ?? null,
-            queue: opts.roster.slice(1).map((p) => p.id),
-            streak: 0,
-            bestStreak: null,
-          }
-        : null,
+    koth: opts.mode === "koth" ? openSmashKoth(sides) : null,
     bestOf: opts.bestOf ?? 3,
     series: null,
     seriesLog: [],
@@ -249,6 +289,124 @@ export function newSmashState(opts: {
     burned: [],
     mercy: opts.mercy ?? false,
   };
+}
+
+// ---------- legacy state ----------
+
+/**
+ * Upgrade a session persisted under the pre-teams shape.
+ *
+ * Every row in `smash_sessions` was written with no `sideSets` at all, no
+ * `side` on a battle's lines, a `koth` holding a `kingId` plus a queue of
+ * PLAYER ids, and a `series` between two PLAYER ids. A night that is live when
+ * this deploys has to keep working, and a finished one has to stay readable by
+ * the guest backfill, so the upgrade happens at the two points where jsonb
+ * becomes state (PackRuntimeConfig.normalize) and nowhere else. Doing it at the
+ * pack's own call sites means getting all of them, and this pack reads state in
+ * a dozen places plus the backfill.
+ *
+ * THE UPGRADE IS EXACT RATHER THAN APPROXIMATE. Every battle this pack ever
+ * recorded was fought by individuals, so the arrangement becomes one side per
+ * player, which `sideIdFor` then treats as no team structure, which is what it
+ * always was. A legacy line gets `side: null` written on it EXPLICITLY rather
+ * than left absent, so one session never carries both spellings of "no side".
+ *
+ * Follows normalizeMkState, which does this job for Mario Kart, and
+ * normalizePpState, which did it first for Ping Pong's KOTH queue.
+ */
+export function normalizeSmashState(state: SmashSessionState): SmashSessionState {
+  const raw = state as unknown as Record<string, unknown>;
+  if (Array.isArray(raw.sideSets) && raw.sideSets.length > 0) return state;
+
+  const roster = (state.roster ?? []) as SmashPlayer[];
+  const sides = singletonSides(roster.map((p) => p.id));
+  const sideIdOfPlayer = new Map(roster.map((p, i) => [p.id, sideIdAt(i)]));
+  /** A player id becomes the id of the side holding them; anything else is left. */
+  const toSideId = (id: string | null | undefined): string | null =>
+    id ? sideIdOfPlayer.get(id) ?? null : null;
+
+  const upgradeSeries = (s: Series | null | undefined): Series | null => {
+    if (!s) return null;
+    const aId = toSideId(s.aId);
+    const bId = toSideId(s.bId);
+    if (!aId || !bId) return null;
+    return {
+      idx: s.idx ?? -1,
+      aId,
+      bId,
+      games: (s.games ?? []).map((g) => ({ winnerId: toSideId(g.winnerId) ?? aId })),
+      winnerId: s.winnerId ? toSideId(s.winnerId) : null,
+      at: s.at ?? null,
+    };
+  };
+
+  const k = raw.koth as Record<string, unknown> | null | undefined;
+  const legacyBest = k?.bestStreak as { playerId?: string; streak?: number } | null | undefined;
+  const bestSideId = toSideId(legacyBest?.playerId);
+  const koth: KothState | null = k
+    ? {
+        kingSideId: toSideId(k.kingId as string) ?? sides[0]?.id ?? null,
+        queue: ((k.queue ?? []) as string[])
+          .map((id) => toSideId(id))
+          .filter((id): id is string => !!id),
+        streak: (k.streak as number) ?? 0,
+        bestStreak:
+          legacyBest && bestSideId
+            ? { sideId: bestSideId, memberIds: [legacyBest.playerId!], streak: legacyBest.streak ?? 0 }
+            : null,
+      }
+    : null;
+
+  return {
+    ...state,
+    sideSets: newSideLog(sides),
+    games: ((raw.games ?? []) as SmashGame[]).map((g) => ({
+      ...g,
+      lines: (g.lines ?? []).map((l) => ({ ...l, side: l.side ?? null })),
+    })),
+    koth,
+    series: upgradeSeries(state.series),
+    seriesLog: ((state.seriesLog ?? []) as Series[])
+      .map(upgradeSeries)
+      .filter((s): s is Series => s !== null),
+  };
+}
+
+/** The arrangement of sides in force right now. */
+export function smashSides(state: SmashSessionState): Side[] {
+  return currentSides(state.sideSets);
+}
+
+/** True when a side in force holds more than one player. Drives the whole screen. */
+export function isTeamBattle(state: SmashSessionState): boolean {
+  return hasTeamStructure(state.sideSets);
+}
+
+/** A side by id out of the arrangement in force. */
+export function smashSideById(
+  state: SmashSessionState,
+  sideId: string | null | undefined,
+): Side | undefined {
+  return sideId ? smashSides(state).find((s) => s.id === sideId) : undefined;
+}
+
+/**
+ * How many ledger units this session has recorded, which is the index space the
+ * side log is keyed in.
+ *
+ * Smash has TWO of them and exactly one is live in any session: FFA, King of
+ * the Hill and Smashdown record BATTLES into `games`, and Best Of records SETS
+ * into `seriesLog`. Getting this wrong is the silent kind: a reshuffle keyed to
+ * the wrong counter puts its `fromIdx` in the wrong place and the arrangement a
+ * recorded unit is reported under drifts.
+ */
+export function smashUnitCount(state: SmashSessionState): number {
+  return state.format === "bestof" ? (state.seriesLog?.length ?? 0) : (state.games?.length ?? 0);
+}
+
+/** The arrangement of sides the recorded unit at `idx` was played under. */
+export function smashSidesAtIdx(state: SmashSessionState, idx: number): Side[] {
+  return sidesAtIdx(state.sideSets, idx);
 }
 
 // ---------- Pure helpers ----------
@@ -281,26 +439,48 @@ export function assignRandomFighters(
   });
 }
 
-/**
- * Fold a KOTH result into the state: winner keeps the throne, loser rotates
- * to the back, next challenger comes off the front of the queue. Pure:
- * returns the next KothState, doesn't mutate.
- */
-export function kothAdvance(koth: KothState, winnerId: string, loserId: string): KothState {
-  const nextStreak = koth.kingId === winnerId ? koth.streak + 1 : 1;
-  const best =
-    !koth.bestStreak || nextStreak > koth.bestStreak.streak
-      ? { playerId: winnerId, streak: nextStreak }
-      : koth.bestStreak;
-  // Loser to the back; the next challenger is whoever is now at the front.
-  const queue = [...koth.queue.filter((id) => id !== winnerId && id !== loserId), loserId];
-  return { kingId: winnerId, queue, streak: nextStreak, bestStreak: best };
+/** The opening ladder: the first side holds the throne, the rest queue behind it. */
+export function openSmashKoth(sides: readonly Side[]): KothState {
+  return {
+    kingSideId: sides[0]?.id ?? null,
+    queue: sides.slice(1).map((s) => s.id),
+    streak: 0,
+    bestStreak: null,
+  };
 }
 
-/** The two playerIds due to play the next KOTH round, or null if not ready. */
-export function kothNextPair(koth: KothState): [string, string] | null {
-  if (!koth.kingId || koth.queue.length === 0) return null;
-  return [koth.kingId, koth.queue[0]!];
+/**
+ * Fold a KOTH result into the state: the winning SIDE keeps the throne, the
+ * losing SIDE rotates to the back TOGETHER, and the next challenger comes off
+ * the front of the queue. Pure: returns the next KothState, doesn't mutate.
+ *
+ * Sides rather than players, which is what a team ladder means and what a solo
+ * night already was: a side of one rotates exactly as that player did. The
+ * winner arrives as a Side rather than an id because `bestStreak` carries its
+ * MEMBERS, and a bare id cannot name them once a reshuffle has replaced the
+ * arrangement. Mario Kart's mkKothAdvance is this function; the filter before
+ * the append is what stops a side appearing in the queue twice.
+ */
+export function kothAdvance(koth: KothState, winner: Side, loser: Side): KothState {
+  const streak = koth.kingSideId === winner.id ? koth.streak + 1 : 1;
+  const bestStreak =
+    !koth.bestStreak || streak > koth.bestStreak.streak
+      ? { sideId: winner.id, memberIds: [...winner.memberIds], streak }
+      : koth.bestStreak;
+  // Loser to the back; the next challenger is whoever is now at the front.
+  const queue = [...koth.queue.filter((id) => id !== winner.id && id !== loser.id), loser.id];
+  return { kingSideId: winner.id, queue, streak, bestStreak };
+}
+
+/** The two sides up next: the one holding the throne and the front of the queue. */
+export function kothNextPair(
+  koth: KothState | null | undefined,
+  sides: readonly Side[],
+): { king: Side; challenger: Side } | null {
+  const king = sides.find((s) => s.id === koth?.kingSideId);
+  const challenger = sides.find((s) => s.id === koth?.queue[0]);
+  if (!king || !challenger || king.id === challenger.id) return null;
+  return { king, challenger };
 }
 
 /**

@@ -20,12 +20,29 @@
 // survive it unchanged.
 //
 // IF A LATER COMMIT TURNS ONE OF THESE RED, THE LATER COMMIT IS WRONG.
+//
+// AMENDED ONCE, in the commit that put sides into the session shape, and the
+// amendment is worth understanding before making another one. Two things moved
+// and NEITHER is an asserted value:
+//
+//   - `sideSets` was ADDED to the field list. A field appearing is harmless; a
+//     field DISAPPEARING is a live night reading undefined, and nothing
+//     disappeared.
+//   - `replayThrone` folds over the SINGLETON ARRANGEMENT instead of over bare
+//     player ids, because `kothAdvance` is keyed on sides now. Every id it
+//     asserts is still a player id, mapped back out of the side holding them,
+//     so the ladder below is the same sequence it was captured as. That makes
+//     this fixture stronger rather than weaker: it now pins that a solo ladder
+//     comes out identical THROUGH the side machinery.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   burnedFrom,
   kothAdvance,
+  openSmashKoth,
+  sideOf,
+  singletonSides,
   newSeries,
   newSmashState,
   recordSeriesGame,
@@ -34,7 +51,6 @@ import {
   summarizeNight,
   summarizeSeriesLog,
   validateFfa,
-  type KothState,
   type SmashFormat,
   type SmashGame,
   type SmashMode,
@@ -124,6 +140,7 @@ test("BASELINE: a fresh Smash session has exactly these fields", () => {
     "series",
     "seriesLog",
     "sessionKey",
+    "sideSets", // ADDED 2026-09-05 with team battles. Nothing was removed.
     "titleId",
   ]);
 });
@@ -132,7 +149,18 @@ test("BASELINE: a KOTH session opens with the first slot on the throne", () => {
   const s = state("koth", "koth");
   assert.equal(s.mode, "koth");
   assert.equal(s.format, "koth");
-  assert.deepEqual(s.koth, { kingId: "p0", queue: ["p1", "p2", "p3"], streak: 0, bestStreak: null });
+  // Read back in PLAYERS, which is what a solo night's ladder is and what this
+  // pinned before the throne was keyed on sides.
+  assert.deepEqual(
+    { king: memberOf(s.koth!.kingSideId), queue: s.koth!.queue.map(memberOf), streak: s.koth!.streak, bestStreak: s.koth!.bestStreak },
+    { king: "p0", queue: ["p1", "p2", "p3"], streak: 0, bestStreak: null },
+  );
+  // And the arrangement it opened under is one side per player, in roster
+  // order, which is the exactness claim the whole conversion rests on.
+  assert.deepEqual(
+    s.sideSets,
+    [{ fromIdx: 0, sides: ROSTER.map((p, i) => ({ id: "abcd"[i], name: `Side ${"ABCD"[i]}`, memberIds: [p.id] })) }],
+  );
 });
 
 test("BASELINE: bestof and smashdown open on the ffa engine, with empty logs", () => {
@@ -196,18 +224,29 @@ test("BASELINE: FFA, three games, the night summary reads exactly this", () => {
 
 // ---------- King of the Hill: six rounds, a throne change, a bestStreak ----------
 
+/** The solo arrangement: one side per player, in roster order. */
+const SIDES = singletonSides(ROSTER.map((p) => p.id));
+/** The one player a singleton side holds, so every step below reads in players. */
+const memberOf = (sideId: string | null | undefined): string | null =>
+  SIDES.find((s) => s.id === sideId)?.memberIds[0] ?? null;
+
 /**
- * The throne replay EXACTLY as apps/server/src/smash.ts does it on undo today:
- * open on the roster order and fold every remaining game through kothAdvance.
- * The team work replaces this with a side-keyed rotation, and this is the
- * sequence that rotation has to reproduce for a solo night.
+ * The throne replay EXACTLY as apps/server/src/smash.ts does it on undo: open
+ * on the roster order and fold every remaining game through kothAdvance.
+ *
+ * The rotation is keyed on SIDES, so a solo night folds the singleton
+ * arrangement through it and maps each side back to the one player it holds.
+ * The sequence asserted below is unchanged by that: it is what the pre-teams
+ * engine produced, and this is the fixture that says the side machinery gives
+ * a solo ladder back untouched.
  */
 function replayThrone(rounds: readonly [string, string][]) {
-  let koth: KothState = { kingId: ROSTER[0]!.id, queue: ROSTER.slice(1).map((p) => p.id), streak: 0, bestStreak: null };
-  const steps: { kingId: string | null; queue: string[]; streak: number }[] = [];
+  const sideFor = (playerId: string) => sideOf(SIDES, playerId)!;
+  let koth = openSmashKoth(SIDES);
+  const steps: { kingId: string | null; queue: (string | null)[]; streak: number }[] = [];
   for (const [winnerId, loserId] of rounds) {
-    koth = kothAdvance(koth, winnerId, loserId);
-    steps.push({ kingId: koth.kingId, queue: [...koth.queue], streak: koth.streak });
+    koth = kothAdvance(koth, sideFor(winnerId), sideFor(loserId));
+    steps.push({ kingId: memberOf(koth.kingSideId), queue: koth.queue.map(memberOf), streak: koth.streak });
   }
   return { koth, steps };
 }
@@ -237,9 +276,14 @@ test("BASELINE: KOTH, six rounds replay to exactly this throne and queue", () =>
     { kingId: "p3", queue: ["p0", "p2", "p1"], streak: 1 },
   ]);
   // The throne changed twice and bestStreak stayed with the run that earned
-  // it, rather than following whoever is holding the table now.
-  assert.deepEqual(koth.bestStreak, { playerId: "p0", streak: 3 });
-  assert.deepEqual({ kingId: koth.kingId, queue: koth.queue, streak: koth.streak }, {
+  // it, rather than following whoever is holding the table now. It names the
+  // SIDE and carries its members; on a solo night that member list is the one
+  // player, which is the same fact the pre-teams `{ playerId, streak }` held.
+  assert.deepEqual({ memberIds: koth.bestStreak!.memberIds, streak: koth.bestStreak!.streak }, {
+    memberIds: ["p0"],
+    streak: 3,
+  });
+  assert.deepEqual({ kingId: memberOf(koth.kingSideId), queue: koth.queue.map(memberOf), streak: koth.streak }, {
     kingId: "p3",
     queue: ["p0", "p2", "p1"],
     streak: 1,
@@ -251,7 +295,10 @@ test("BASELINE: KOTH, undoing the last round is the replay of what is left", () 
   const full = replayThrone(LADDER);
   const short = replayThrone(LADDER.slice(0, 5));
   assert.deepEqual(short.steps, full.steps.slice(0, 5));
-  assert.deepEqual({ kingId: short.koth.kingId, queue: short.koth.queue }, { kingId: "p1", queue: ["p3", "p0", "p2"] });
+  assert.deepEqual({ kingId: memberOf(short.koth.kingSideId), queue: short.koth.queue.map(memberOf) }, {
+    kingId: "p1",
+    queue: ["p3", "p0", "p2"],
+  });
 });
 
 // ---------- Best Of: a bo5 played to completion ----------

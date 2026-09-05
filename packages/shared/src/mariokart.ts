@@ -56,24 +56,50 @@ export type { GameTitle } from "./smash.js";
 // apps/server/tests/mariokart-ledger-baseline.test.ts, both written and
 // confirmed green against the pre-conversion engine.
 //
-// THE FORK, AND WHY IT IS NOT A SHARED CHANGE. `packages/shared/src/smash.ts`
-// is not touched by any of this. Mario Kart stops inheriting the parts of the
-// Smash session shape that now have to carry a side (its games, whose lines
-// gain a `side`, and its KOTH state, which is keyed on kart ids rather than
-// player ids) and declares its own; everything else still comes through the
-// Omit. Ping Pong answered this question first and the same way: share the
-// primitive, fork the rotation. Putting sides into SmashSessionState instead
-// would drag Smashdown's burn board into a decision nobody has taken, and
-// changing what kothAdvance's ids MEAN fails silently, because nothing errors
-// when a throne is held by somebody who never played.
+// THE FORK IS OVER, AMENDED 2026-09-05 BY THE SMASH TEAM BATTLES SESSION.
+//
+// What this block used to say, and it was true on the day it was written: that
+// `packages/shared/src/smash.ts` is not touched by any of this, that Mario Kart
+// stops inheriting the side-bearing parts of the Smash session shape and
+// declares its own, and that putting sides into SmashSessionState would drag
+// Smashdown's burn board into a decision nobody had taken.
+//
+// That decision has now been taken. Smash's own 2v2 work put `sideSets` into
+// SmashSessionState, put `side` on SmashResultLine, and re-keyed `kothAdvance`
+// onto SIDES, which is what this block predicted would be needed and declined
+// to do pre-emptively. Smashdown's burn board turned out not to be dragged
+// anywhere at all: it burns per LINE and each player picks their own fighter,
+// so a 2v2 burns four fighters per battle exactly as four solo players do, and
+// `smashdownCap` did not move. The Smashdown problem that WAS real was a
+// different one (mercy stops firing when standings are per player), and it is
+// solved in Smash, not here.
+//
+// So Mario Kart declares LESS than it used to rather than more: MkResultLine,
+// MkGame and MkKothState are now aliases of the Smash shapes they had forked
+// from, `sideSets` is inherited, and the Omit is down to the four fields that
+// genuinely differ (its own format union, and Smashdown's three, which a kart
+// session still has no use for). What survives unchanged is the paragraph above
+// this one: a kart is a side, a solo night is one racer per kart, and every row
+// a solo night writes is the row it wrote before any of this existed.
+//
+// Left as a warning for the next reader: the reason this block existed at all
+// was that changing what `kothAdvance`'s ids MEAN fails silently, because
+// nothing errors when a throne is held by somebody who never played. That is
+// still true. It was safe to do here only because both packs moved together and
+// both carry a captured pre-conversion fixture that would have caught it.
 // ===========================================================================
 import {
+  kothAdvance,
   newSmashState,
-  type SmashSessionState,
-  type SmashPlayer,
-  type SmashMode,
+  openSmashKoth,
+  type KothState,
   type SmashAssignment,
+  type SmashGame,
+  type SmashMode,
+  type SmashPlayer,
   type SmashResultDetail,
+  type SmashResultLine,
+  type SmashSessionState,
 } from "./smash.js";
 import type { SeriesBestOf, Series } from "./series.js";
 import { seriesGameTally } from "./series.js";
@@ -94,7 +120,6 @@ import {
   reshuffle,
   sidesAtIdx,
   truncateSideLog,
-  type SideLog,
 } from "./sidelog.js";
 
 export type MkFormat = "free" | "grandprix" | "bestof" | "koth";
@@ -113,28 +138,19 @@ export function cupNoForRace(idx: number, raceCount: number): number {
 }
 
 /**
- * One racer's line in a recorded race.
+ * One racer's line in a recorded race. Mario Kart's NAME for the Smash line.
  *
- * The Smash line plus `side`, which is why this is Mario Kart's own type rather
- * than an import. `side` is the KART the racer was in, or null whenever every
+ * It was this pack's own interface from 2026-08-16 to 2026-09-05, for the one
+ * reason the header block gives: the Smash line had no `side` and this one
+ * needed it. It has one now, so the fork has nothing left to hold apart and
+ * this is an alias. `side` is the KART the racer was in, or null whenever every
  * kart in that race held exactly one racer; teams.ts `sideIdFor` owns that rule
  * and no pack may decide it differently.
  */
-export interface MkResultLine {
-  playerId: string;
-  character: string | null;
-  placement: number;
-  isWinner: boolean;
-  side: string | null;
-}
+export type MkResultLine = SmashResultLine;
 
-/** One recorded race. Smash's game shape with Mario Kart's lines in it. */
-export interface MkGame {
-  idx: number;
-  mode: SmashMode;
-  lines: MkResultLine[];
-  at: string;
-}
+/** One recorded race. Smash's game shape, which now carries Mario Kart's lines. */
+export type MkGame = SmashGame;
 
 /**
  * King of the Hill, keyed on KART ids rather than player ids.
@@ -145,46 +161,31 @@ export interface MkGame {
  * the screen names the pair that did it and each member is credited
  * individually.
  */
-export interface MkKothState {
-  kingSideId: string | null;
-  queue: string[]; // challenger kart ids, front races next
-  streak: number;
-  bestStreak: { sideId: string; memberIds: string[]; streak: number } | null;
-}
+export type MkKothState = KothState;
 
-// MK's state is the Smash session shape with MK's own format union, the Grand
-// Prix bookkeeping, the side log, and the two pieces that now carry a side.
-// A distinct type so the two packs never entangle.
+// MK's state is the Smash session shape with MK's own format union and the
+// Grand Prix bookkeeping. A distinct type so the two packs never entangle.
 //
 // Smashdown's three fields are dropped rather than inherited: a Mario Kart
 // session has no burn board, and carrying dead bookkeeping in its jsonb is how
-// a future reader ends up wondering whether MK is supposed to have one.
+// a future reader ends up wondering whether MK is supposed to have one. That is
+// the whole Omit now.
 //
-// `games` and `koth` are dropped for a different reason: they are the
-// SIDE-BEARING parts, and inheriting them would mean either putting a side into
-// the Smash shape (rejected, see the block at the top of this file) or leaving
-// Mario Kart with a line type that cannot say which kart somebody was in.
+// `games`, `koth` and `sideSets` used to be dropped and redeclared too, because
+// they were the SIDE-BEARING parts and the Smash shape had no sides. It has
+// them as of 2026-09-05, so redeclaring them here would be either a redundant
+// restatement of the inherited type or a silent divergence from it. They are
+// inherited. See the header block.
+//
+// `series` and `seriesLog` are inherited for the same reason and mean the same
+// thing in both packs: a set is between two SIDE ids, not two player ids.
+// `series.ts` is generic over opaque slot ids, so that is a change of what the
+// ids MEAN and not a change to the primitive. Legacy sessions carrying player
+// ids are upgraded by `normalizeMkState` here and `normalizeSmashState` there.
 export interface MkSessionState
-  extends Omit<SmashSessionState, "format" | "battleCount" | "burned" | "mercy" | "games" | "koth"> {
+  extends Omit<SmashSessionState, "format" | "battleCount" | "burned" | "mercy"> {
   format: MkFormat;
   grandPrix: MkGrandPrix;
-  /**
-   * Which arrangement of karts was in force when, oldest first. A log rather
-   * than a field because the KOTH throne is REBUILT by replaying races, and a
-   * replay that cannot tell which stretch was raced under which arrangement
-   * hands the table to a pair that never won it. See sidelog.ts.
-   */
-  sideSets: SideLog;
-  games: MkGame[];
-  koth: MkKothState | null;
-  /**
-   * Best Of: the series is between two KART ids, not two player ids. `series.ts`
-   * is generic over opaque slot ids, so this is a change of what the ids MEAN
-   * and not a change to the primitive. Legacy sessions carrying player ids are
-   * upgraded by `normalizeMkState`.
-   */
-  series: Series | null;
-  seriesLog: Series[];
 }
 
 export function newMkKartState(opts: {
@@ -199,6 +200,9 @@ export function newMkKartState(opts: {
   sides?: Side[];
 }): MkSessionState {
   const mode: SmashMode = opts.format === "koth" ? "koth" : "ffa";
+  // The side log, the empty games log and the opening ladder all come out of
+  // the shared factory now, off the same `sides` this one takes. Only the three
+  // Smashdown fields and the format union are dropped.
   const base = newSmashState({
     mode,
     titleId: opts.titleId,
@@ -206,25 +210,14 @@ export function newMkKartState(opts: {
     resultDetail: opts.resultDetail,
     roster: opts.roster,
     bestOf: opts.bestOf,
+    sides: opts.sides,
   });
-  const {
-    format: _drop,
-    battleCount: _b,
-    burned: _bu,
-    mercy: _m,
-    games: _g,
-    koth: _k,
-    ...rest
-  } = base;
+  const { format: _drop, battleCount: _b, burned: _bu, mercy: _m, ...rest } = base;
   const raceCount = Math.min(Math.max(Math.floor(Number(opts.raceCount) || 4), 2), 12);
-  const sides = opts.sides?.length ? opts.sides : singletonSides(opts.roster.map((p) => p.id));
   return {
     ...rest,
     format: opts.format,
     grandPrix: { raceCount },
-    sideSets: newSideLog(sides),
-    games: [],
-    koth: mode === "koth" ? openMkKoth(sides) : null,
   };
 }
 
@@ -346,15 +339,13 @@ export function mkSidesAtIdx(state: MkSessionState, idx: number): Side[] {
   return sidesAtIdx(state.sideSets, idx);
 }
 
-/** The opening ladder: the first kart holds the table, the rest queue behind it. */
-function openMkKoth(sides: readonly Side[]): MkKothState {
-  return {
-    kingSideId: sides[0]?.id ?? null,
-    queue: sides.slice(1).map((s) => s.id),
-    streak: 0,
-    bestStreak: null,
-  };
-}
+/**
+ * The opening ladder: the first kart holds the table, the rest queue behind it.
+ *
+ * The shared opener under Mario Kart's name. It was five duplicated lines until
+ * the Smash pack grew the same ladder; see the header block.
+ */
+const openMkKoth = openSmashKoth;
 
 /**
  * Put a new arrangement of karts in force from the next race on.
@@ -474,25 +465,13 @@ export function mkOrderFromPlacements(
  * Advance the ladder after one race: the winning kart holds the table and the
  * LOSING KART GOES TO THE BACK TOGETHER.
  *
- * Mario Kart's own rotation, sitting next to Mario Kart's own state, which is
- * what `pingpong.ts` did rather than reaching for `kothAdvance`. That function
- * is keyed on `winnerId` / `loserId` meaning PLAYERS, it is shipped, and it is
- * shared with Smash; quietly changing what its ids mean is the exact failure
- * this project guards against, because nothing errors when a throne ends up
- * held by somebody who never raced.
- *
- * The filter before the append is what stops a kart appearing in the queue
- * twice when it was already in it, and it is the same line Ping Pong uses.
+ * This was Mario Kart's own rotation, forked deliberately in 2026-08 because
+ * the shared `kothAdvance` was keyed on ids meaning PLAYERS and quietly
+ * changing what they mean fails silently. The Smash team-battles session moved
+ * that function onto SIDES, under the same fixture protection, so the two are
+ * now the same rotation and this is its Mario Kart name. See the header block.
  */
-export function mkKothAdvance(koth: MkKothState, winner: Side, loser: Side): MkKothState {
-  const streak = winner.id === koth.kingSideId ? koth.streak + 1 : 1;
-  const bestStreak =
-    !koth.bestStreak || streak > koth.bestStreak.streak
-      ? { sideId: winner.id, memberIds: [...winner.memberIds], streak }
-      : koth.bestStreak;
-  const queue = [...koth.queue.filter((id) => id !== winner.id && id !== loser.id), loser.id];
-  return { kingSideId: winner.id, queue, streak, bestStreak };
-}
+export const mkKothAdvance = kothAdvance;
 
 /** The two karts up next: the one holding the table and the front of the queue. */
 export function mkKothPair(state: MkSessionState): { king: Side; challenger: Side } | null {

@@ -24,6 +24,9 @@ import {
   cupStandings,
   kothAdvance,
   newMkKartState,
+  openSmashKoth,
+  sideOf,
+  singletonSides,
   newSeries,
   recordSeriesGame,
   seriesGameTally,
@@ -217,24 +220,33 @@ test("BASELINE: BEST OF, a bo3 that goes the distance records exactly this", () 
 
 // ---------- King of the Hill: the throne, rebuilt by replay ----------
 
+/** The solo arrangement: one kart per racer, in roster order. */
+const KARTS = singletonSides(ROSTER.map((p) => p.id));
+/** The one racer a singleton kart holds, so every step below reads in racers. */
+const racerIn = (sideId: string | null | undefined): string | null =>
+  KARTS.find((s) => s.id === sideId)?.memberIds[0] ?? null;
+
 /**
  * The throne rebuild EXACTLY as apps/server/src/mariokart.ts does it on undo
  * today: start from the roster order and replay every remaining race through
  * kothAdvance. Copied here rather than imported because the server route is not
- * a function; the pairs work replaces it with a side-keyed rotation, and this
- * is the sequence that rotation has to reproduce for a solo night.
+ * a function, and this is the sequence the side-keyed rotation has to reproduce
+ * for a solo night.
+ *
+ * AMENDED 2026-09-05. `kothAdvance` was keyed on player ids when this fixture
+ * was captured; the Smash team-battles session moved it onto SIDES, which is
+ * what `mkKothAdvance` had already forked to do and is now the same function.
+ * So the fold runs over the singleton arrangement and maps each kart back to
+ * the one racer it holds. NOT ONE ASSERTED VALUE BELOW CHANGED, which is the
+ * point: this fixture is why that move was safe to make.
  */
 function replayThrone(winners: readonly [string, string][]) {
-  let koth = {
-    kingId: ROSTER[0]!.id as string | null,
-    queue: ROSTER.slice(1).map((p) => p.id),
-    streak: 0,
-    bestStreak: null as { playerId: string; streak: number } | null,
-  };
-  const steps: { kingId: string | null; queue: string[]; streak: number }[] = [];
+  const kartFor = (playerId: string) => sideOf(KARTS, playerId)!;
+  let koth = openSmashKoth(KARTS);
+  const steps: { kingId: string | null; queue: (string | null)[]; streak: number }[] = [];
   for (const [winnerId, loserId] of winners) {
-    koth = kothAdvance(koth, winnerId, loserId);
-    steps.push({ kingId: koth.kingId, queue: [...koth.queue], streak: koth.streak });
+    koth = kothAdvance(koth, kartFor(winnerId), kartFor(loserId));
+    steps.push({ kingId: racerIn(koth.kingSideId), queue: koth.queue.map(racerIn), streak: koth.streak });
   }
   return { koth, steps };
 }
@@ -258,7 +270,13 @@ test("BASELINE: KOTH, a full ladder replays to exactly this throne and queue", (
     { kingId: "p3", queue: ["p1", "p2", "p0"], streak: 1 },
     { kingId: "p3", queue: ["p2", "p0", "p1"], streak: 2 },
   ]);
-  assert.deepEqual(koth.bestStreak, { playerId: "p0", streak: 2 });
+  // bestStreak names the KART and carries its members; on a solo night that is
+  // the one racer, which is the same fact the pre-pairs `{ playerId, streak }`
+  // held.
+  assert.deepEqual({ memberIds: koth.bestStreak!.memberIds, streak: koth.bestStreak!.streak }, {
+    memberIds: ["p0"],
+    streak: 2,
+  });
 });
 
 test("BASELINE: KOTH, undoing the last race is the replay of what is left", () => {
@@ -268,5 +286,8 @@ test("BASELINE: KOTH, undoing the last race is the replay of what is left", () =
   const full = replayThrone([["p0", "p1"], ["p0", "p2"], ["p3", "p0"], ["p3", "p1"]]);
   const short = replayThrone([["p0", "p1"], ["p0", "p2"], ["p3", "p0"]]);
   assert.deepEqual(short.steps, full.steps.slice(0, 3));
-  assert.deepEqual({ kingId: short.koth.kingId, queue: short.koth.queue }, { kingId: "p3", queue: ["p1", "p2", "p0"] });
+  assert.deepEqual({ kingId: racerIn(short.koth.kingSideId), queue: short.koth.queue.map(racerIn) }, {
+    kingId: "p3",
+    queue: ["p1", "p2", "p0"],
+  });
 });
