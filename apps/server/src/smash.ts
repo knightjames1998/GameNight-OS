@@ -25,7 +25,15 @@ import {
   normalizeSmashState,
   openSmashKoth,
   isTeamBattle,
+  defaultSideName,
+  shuffleIntoSides,
+  sideIdAt,
+  singletonSides,
+  validateSides,
   smashSides,
+  smashBattleLines,
+  smashOrderFromPlacements,
+  validateSmashBattleOrder,
   sideOf,
   validateFfa,
   isFighter,
@@ -506,8 +514,43 @@ smashRouter.post("/events/:eventId/smash", requireAuth, async (req: AuthedReques
   }
   const mercy = format === "smashdown" && !!req.body?.mercy;
 
+  // SIDES AT SETUP. The client expresses them as ROSTER INDICES, because slot
+  // ids are minted here and it has never seen them: `sides: [[0,1],[2,3]]` is
+  // "p0 and p1 against p2 and p3". Absent means one side per player, which is a
+  // solo night and exactly what every client sent before sides existed.
+  //
+  // `sideCount` with no `sides` is the random deal, done server-side so the
+  // arrangement everybody sees is the one that was actually stored.
+  const rawSides = Array.isArray(req.body?.sides) ? req.body.sides : null;
+  let sides: Side[];
+  if (rawSides) {
+    sides = rawSides.map((members: unknown, i: number): Side => ({
+      id: sideIdAt(i),
+      name: defaultSideName(i),
+      memberIds: (Array.isArray(members) ? members : [])
+        .map((n: unknown) => roster[Number(n)]?.id)
+        .filter((id: string | undefined): id is string => !!id),
+    }));
+    const check = validateSides(sides);
+    if (check.error) {
+      res.status(400).json({ error: check.error });
+      return;
+    }
+    // Anybody the host left off a side is not playing, and a roster slot with
+    // no side would be invisible to every screen. Reject rather than guess.
+    const placed = new Set(sides.flatMap((x) => x.memberIds));
+    if (placed.size !== roster.length) {
+      res.status(400).json({ error: "Every player has to be on a side" });
+      return;
+    }
+  } else if (Number(req.body?.sideCount) >= 2) {
+    sides = shuffleIntoSides(roster.map((p) => p.id), Number(req.body.sideCount));
+  } else {
+    sides = singletonSides(roster.map((p) => p.id));
+  }
+
   let state = newSmashState({
-    format, titleId, mode, assignment, resultDetail, roster, bestOf, battleCount, mercy,
+    format, titleId, mode, assignment, resultDetail, roster, bestOf, battleCount, mercy, sides,
   });
   if (assignment === "random") state.roster = assignRandomFighters(state.roster, pool);
 
@@ -826,8 +869,35 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
       { playerId: loserId, character: charOf.get(loserId) ?? null, placement: 2, isWinner: false, side: null },
     ];
     state.koth = kothAdvance(state.koth!, winnerSide, loserSide);
+  } else if (isTeamBattle(state) || Array.isArray(req.body?.sides)) {
+    // FFA, TEAM BATTLE: a tapped finish order of SIDES. A SPLIT, not a boolean
+    // threaded through the path below, because the two entry shapes are
+    // genuinely different: one ranks sides and one ranks players. Mario Kart's
+    // record route splits the same way.
+    //
+    // The side order is what a team screen taps. A client that has not been
+    // updated still sends per-player placements, and on a night with sides in
+    // force those carry the same information (each player is on exactly one
+    // side), so they are TRANSLATED rather than refused.
+    const sides = smashSides(state);
+    const rawOrder = Array.isArray(req.body?.sides)
+      ? req.body.sides.map((x: unknown) => String(x))
+      : smashOrderFromPlacements(
+          (Array.isArray(req.body?.lines) ? req.body.lines : []).map((l: any) => ({
+            playerId: String(l?.playerId ?? ""),
+            placement: Number(l?.placement) || 0,
+          })),
+          sides,
+        );
+    const err = validateSmashBattleOrder(rawOrder, sides);
+    if (err) {
+      res.status(400).json({ error: err });
+      return;
+    }
+    lines = smashBattleLines(rawOrder, sides, state.resultDetail, (id) => charOf.get(id) ?? null);
   } else {
-    // FFA: client sends the full line set. Validate against roster + detail.
+    // FFA, NO TEAM STRUCTURE: client sends the full line set. Untouched, so a
+    // solo night writes exactly the rows it wrote before sides existed.
     const raw = Array.isArray(req.body?.lines) ? req.body.lines : [];
     lines = raw
       .filter((l: any) => slotIds.has(String(l?.playerId)))
@@ -836,6 +906,9 @@ smashRouter.post("/smash/:eventId/record", requireAuth, async (req: AuthedReques
         character: isFighter(l?.character) ? l.character : (charOf.get(String(l.playerId)) ?? null),
         placement: Number(l?.placement) || 0,
         isWinner: !!l?.isWinner,
+        // Null by construction, not by choice: this branch only runs when no
+        // side in force holds more than one player, which is exactly when
+        // sideIdFor writes null. See teams.ts.
         side: null,
       }));
     if (state.resultDetail === "winner") {

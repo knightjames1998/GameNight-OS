@@ -116,7 +116,14 @@ export const SMASH_TITLES: GameTitle[] = [
 // ---------- Session shapes ----------
 
 import type { Series, SeriesBestOf } from "./series.js";
-import { sideIdAt, singletonSides, type Side } from "./teams.js";
+import {
+  MAX_SIDES,
+  placementsFromRankedSides,
+  sideIdAt,
+  singletonSides,
+  type RankedSide,
+  type Side,
+} from "./teams.js";
 import {
   currentSides,
   hasTeamStructure,
@@ -536,6 +543,123 @@ export function validateFfa(
     if (places[i] !== i + 1) return "Placements must be 1 through " + lines.length;
   }
   return null;
+}
+
+// ---------- recording a team battle ----------
+// SIBLINGS OF validateFfa, NOT MODE FLAGS ON IT. `validateFfa` stays exactly as
+// it is and keeps every caller it has: it checks a set of per-PLAYER lines, and
+// a rule expressed over players cannot say "these two finished first" without
+// saying it twice. The two shapes are genuinely different input, which is the
+// same call rankMpSides took next to rankMpLines.
+
+/**
+ * Check a tapped finish order of SIDES against the arrangement in force.
+ *
+ * THE CAP IS ON PLAYERS, NOT SIDES, AND THIS IS WHERE COPYING MARIO KART WOULD
+ * HAVE BEEN WRONG. `validateMkRaceOrder` caps at MAX_SIDES because eight karts
+ * of two is sixteen racers, which is Mario Kart's roster cap exactly. Smash is
+ * a different game: Ultimate seats EIGHT PLAYERS, and FFA_MAX_PLAYERS is
+ * load-bearing arithmetic for `smashdownCap(fighterCount, playerCount)`. A
+ * validator capped on SIDES would let a host record a sixteen-player Smash
+ * battle and NOTHING WOULD ERROR. So the cap is counted over members, and it
+ * says so in players, because "at most 8 sides" is not a sentence that helps
+ * somebody who has just put sixteen people in a battle.
+ *
+ * MAX_SIDES is still checked, after it, and only bites in the all-singletons
+ * case where eight sides IS eight players.
+ */
+export function validateSmashBattleOrder(
+  order: readonly string[],
+  sides: readonly Side[],
+): string | null {
+  if (order.length < 2) return "At least 2 sides have to battle";
+
+  const byId = new Map(sides.map((s) => [s.id, s]));
+  // Counted over the DISTINCT sides in the order: a side listed twice is an
+  // error two rules down, and double-counting its members first would report
+  // the wrong problem. A side id that is not in the arrangement contributes
+  // nothing here and is caught by the same rule.
+  const seen = new Set(order);
+  let players = 0;
+  for (const id of seen) players += byId.get(id)?.memberIds.length ?? 0;
+  if (players > FFA_MAX_PLAYERS) return `Smash seats ${FFA_MAX_PLAYERS} players`;
+
+  if (order.length > MAX_SIDES) return `At most ${MAX_SIDES} sides`;
+  if (seen.size !== order.length) return "A side can only finish once";
+  if (order.some((id) => !byId.has(id))) return "That side is not in this session";
+  return null;
+}
+
+/**
+ * The lines one recorded battle produces, from a tapped finish order of SIDES.
+ *
+ * `placementsFromRankedSides` owns the placement rule, so it stays in exactly
+ * one place: sides ranked 1..N over N sides and every member carrying its
+ * side's placement, which makes a 2v2 read 1,1,2,2 and a 2v1 read 1,1,2 or
+ * 1,2,2. That is deliberately NOT competition ranking, which is for genuine
+ * ties between individuals; read the block at the top of teams.ts before
+ * changing it. Uneven sides are a fact rather than an error and this function
+ * is size-blind, which is why 2v1 and 3v1 come out for free.
+ *
+ * WINNER-ONLY DETAIL IS THE SAME RULE WITH TIES. The host who only taps a
+ * winner is saying "this side won and the rest did not place", which is every
+ * side after the first finishing LEVEL with each other, so it is one code path
+ * and not two.
+ *
+ * CHARACTERS STAY PER PLAYER. Each player picks their own fighter in a team
+ * battle, which is what the real game does and what Tag Battle settled for the
+ * shared-slot case; the fighter is looked up per line, never per side.
+ *
+ * THE SIDE IS DECIDED OVER THE SIDES THAT BATTLED, not over the whole
+ * arrangement, because `sideIdFor` is asked about the sides it is given. A
+ * night with one pair and two solo sides, in a battle between the two solo
+ * sides, has no team structure IN THAT BATTLE and writes null on both rows,
+ * which is exactly what "null means no team structure" has to mean if
+ * buildRivalry is going to keep reading it correctly.
+ */
+export function smashBattleLines(
+  order: readonly string[],
+  sides: readonly Side[],
+  resultDetail: SmashResultDetail,
+  characterOf: (playerId: string) => string | null,
+): SmashResultLine[] {
+  const byId = new Map(sides.map((s) => [s.id, s]));
+  const ranked: RankedSide[] = [];
+  for (const [i, sideId] of order.entries()) {
+    const side = byId.get(sideId);
+    if (!side) continue;
+    ranked.push({ side, tiedWithAbove: resultDetail === "winner" && i > 1 });
+  }
+  return placementsFromRankedSides(ranked).map((line) => ({
+    playerId: line.playerId,
+    character: characterOf(line.playerId),
+    placement: line.placement,
+    isWinner: line.isWinner,
+    side: line.side,
+  }));
+}
+
+/**
+ * The finish order of sides a per-player submission implies.
+ *
+ * The shipped client sends a battle as explicit per-player placements, and a
+ * solo night is sides of one, so the two spellings carry the same information.
+ * Sorting by placement recovers the order; ties (winner-only detail puts
+ * everybody who did not win on 2) keep their submitted order, which the
+ * placement rule then collapses back to 2 anyway.
+ */
+export function smashOrderFromPlacements(
+  lines: readonly { playerId: string; placement: number }[],
+  sides: readonly Side[],
+): string[] {
+  const sideOfPlayer = new Map<string, string>();
+  for (const s of sides) for (const id of s.memberIds) sideOfPlayer.set(id, s.id);
+  const out: string[] = [];
+  for (const line of [...lines].sort((a, b) => a.placement - b.placement)) {
+    const sideId = sideOfPlayer.get(line.playerId);
+    if (sideId && !out.includes(sideId)) out.push(sideId);
+  }
+  return out;
 }
 
 // ---------- Smashdown ----------
