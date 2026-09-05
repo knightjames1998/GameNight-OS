@@ -840,15 +840,30 @@ const PILL_WAIT = 8000;
 // "it fits" is not a claim this session is entitled to make about a screen
 // nothing measures. NEITHER HAS A DENSITY LADDER, so the roster is taken to the
 // largest number the pack's own setup allows.
-const smash = (n, format = "ffa") => {
+// `teams` puts the roster on sides of two, which costs the TV two things and
+// both are MEASURED below rather than guessed at: one line per side in the
+// players panel (the pairing), and a king/challenger line that is two names
+// joined instead of one. Mario Party's tag rows cost its screen nothing at its
+// reachable cap because they landed beside the taller column; that was measured
+// there and it does not transfer here.
+const smash = (n, format = "ffa", teams = false) => {
   const roster = Array.from({ length: n }, (_, i) => ({
     id: "p" + i, name: "Player Nameiskindalong " + (i + 1), character: "Character Name " + (i + 1),
   }));
+  // Sides of two, in roster order, which is the widest label a pair produces
+  // and so the honest worst case for the line it adds.
+  const sides = teams
+    ? Array.from({ length: Math.ceil(n / 2) }, (_, i) => ({
+        id: "s" + i, name: "Side", memberIds: roster.slice(i * 2, i * 2 + 2).map((p) => p.id),
+      }))
+    : roster.map((p, i) => ({ id: "s" + i, name: "Side", memberIds: [p.id] }));
   return { session: {
     status: "live", format, mode: format === "koth" ? "koth" : "ffa",
     roster,
+    sides,
+    teamPlay: teams,
     games: Array.from({ length: 14 }, (_, i) => ({ idx: i })),
-    koth: format === "koth" ? { kingId: "p0", queue: roster.map((p) => p.id), streak: 4 } : null,
+    koth: format === "koth" ? { kingSideId: sides[0].id, queue: sides.map((sd) => sd.id), streak: 4 } : null,
     bestOf: 3,
     series: format === "bestof" ? { aId: "p0", bId: "p1", games: [{ winnerId: "p0" }, { winnerId: "p1" }] } : null,
     seriesLog: Array.from({ length: 6 }, (_, i) => ({ idx: i })),
@@ -964,6 +979,8 @@ const CASES = [
   ["smash       16 ffa", "/smash/tv/x", smash(16), ".sm-tv__line"],
   ["smash       16 koth", "/smash/tv/x", smash(16, "koth"), ".sm-tv__line"],
   ["smash       16 smashdown", "/smash/tv/x", smash(16, "smashdown"), ".sm-tv__line"],
+  ["smash        8 ffa teams", "/smash/tv/x", smash(8, "ffa", true), ".sm-tv__line"],
+  ["smash       16 koth teams", "/smash/tv/x", smash(16, "koth", true), ".sm-tv__line"],
   // FOUR IS THE ONLY COUNT THIS PACK CAPS AT, and it had no case until
   // 2026-08-30. Without it the tag cases below could only be compared against
   // EIGHT, which is a different shape, so what Tag Battle actually costs on a
@@ -1192,6 +1209,32 @@ const CASES = [
 //   mario party  8 tag        OVER by  584    (new)
 //   mario party 16 tag        OVER by 1650    (new)
 //
+// RE-MEASURED AGAIN 2026-09-05 by the Smash team-battles session, and the four
+// solo Smash numbers above came back UNCHANGED, which is the half of this that
+// mattered: a solo night's TV is the screen it was.
+//
+//   smash        8 ffa teams        OVER by  319   (new)
+//   smash       16 koth teams       OVER by 1873   (new)
+//
+// AND HERE THE TAG BATTLE PRECEDENT DID NOT TRANSFER, which is exactly why it
+// was measured rather than predicted. Mario Party's pairing line cost its screen
+// nothing at its reachable cap because it landed beside the taller column. On
+// Smash it lands IN the taller column (the players panel is where the sides
+// go), so it adds directly, and each side label WRAPS because it joins two
+// names. Four pairs cost 494px at eight players, which is enough to take the
+// one Smash case that fitted and push it over by 319.
+//
+// EIGHT IS REACHABLE AND EIGHT IS THE HEADLINE. "8 ffa teams" is a 2v2v2v2 with
+// a full house. So this is not an unreachable-count finding like Mario Party's
+// eight and sixteen: it is the ordinary team night going over. Logged in BUGS
+// with these numbers.
+//
+// NOT FIXED HERE ON PURPOSE, for the reason the paragraph below already gives:
+// Smash's density ladder is its own queued session, ranked third by James, and
+// bolting rungs on at the end of this one would be guessing at numbers nobody
+// has looked at. The ladder now has a measured brief to start from, which is
+// more than it had this morning.
+//
 // TWO THINGS THE TAG CASES SETTLED, and both were the opposite of the guess the
 // session was scoped on.
 //
@@ -1222,6 +1265,8 @@ const KNOWN = new Set([
   "smash       16 ffa",
   "smash       16 koth",
   "smash       16 smashdown",
+  "smash        8 ffa teams",
+  "smash       16 koth teams",
   "mario party  4 boards",
   "mario party  8 boards",
   "mario party 16 boards",

@@ -245,7 +245,20 @@ export default function SmashTvPage({ eventId: propEventId }: { eventId?: string
       ) : (
         <div className="sm-tv__grid">
           <div className="sm-tv__panel">
-            <h3>Players</h3>
+            <h3>{session.teamPlay ? "Sides" : "Players"}</h3>
+            {/* THE PAIRING, one line per SIDE, above the per-player figures
+                rather than instead of them. A side wins or loses as one, so the
+                room needs to see who is on it; the wins underneath stay per
+                player because that is what the ledger counts and what a
+                lifetime stat is made of. On a solo night this renders nothing
+                at all and the panel is the one it always was. */}
+            {session.teamPlay &&
+              session.sides.map((sd) => (
+                <div className="sm-tv__line" key={sd.id}>
+                  <span>{sideNames(sd.id)}</span>
+                  <span className="sm-tv__muted">{sd.memberIds.length}</span>
+                </div>
+              ))}
             {session.summary.players.length === 0 && <div className="sm-tv__muted">No games yet</div>}
             {session.summary.players.map((p) => (
               <div className="sm-tv__line" key={p.playerId}>
