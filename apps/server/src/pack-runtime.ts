@@ -368,7 +368,17 @@ export function createPackRuntime<S>(config: PackRuntimeConfig<S>): PackRuntime<
    * the compiler caught it here only because TvPack is a union rather than a
    * string.
    */
-  const tvSelf: TvSelf = { kind: "pack", pack: PACK_BY_LEDGER[pack]! };
+  const tvClientKey = PACK_BY_LEDGER[pack];
+  if (!tvClientKey) {
+    // LOUD AT CONSTRUCTION, because the alternative is silent forever.
+    // `PackRuntimeConfig.pack` is typed `string`, so a runtime built with
+    // something outside the registry compiles; its TvSelf would then carry
+    // `undefined`, match no incumbent, and prompt on its OWN writes for the
+    // life of the pack with nothing erroring. Every runtime today spreads
+    // packConfig(key) so this cannot fire; it exists for the day one does not.
+    throw new Error(`createPackRuntime: "${pack}" is not a registry ledger key, so the TV gate cannot identify it`);
+  }
+  const tvSelf: TvSelf = { kind: "pack", pack: tvClientKey };
   /** Identity when the pack has never changed its state shape. */
   const upgrade = (state: S): S => (normalize ? normalize(state) : state);
   const ownTable = table === "smash_sessions";
