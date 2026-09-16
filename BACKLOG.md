@@ -12,8 +12,8 @@ reorder headings without updating MAP PROTOCOL in the same commit.
 Read this FIRST, before any other work. The redraw rule is driven by this counter, not by
 anyone's memory of how many sessions have happened.
 
-    Last map redraw:                    2026-08-30 (the MP7 and Tag Battle session, before its own work)
-    Shipped sessions since that redraw: 3
+    Last map redraw:                    2026-09-15 (the Beerio stats-layer session, before its own work)
+    Shipped sessions since that redraw: 0
     Redraw due at:                      3
 
     THE RULE, applied to the two numbers above and to nothing else:
@@ -137,6 +137,41 @@ anyone's memory of how many sessions have happened.
         standing-rule violation on who may complete a tournament. THEY ARE LOGGED AS BUGS
         RATHER THAN AS PROGRAM STEPS on purpose: if the program stalls after session 2,
         these still read as things that are wrong with the app today.
+      - ZONE 1 TOOK NOTHING, 36 ITEMS UNCHANGED, AND IT IS THE FIRST PASS SINCE 2026-08-22
+        THAT ZONE HAS NOT GROWN. Three (NEW) tags aged out on schedule (the signed-out cue,
+        the overlay probe, the QR). This is a finding rather than an oversight: all three
+        sessions since the last redraw were PACK work and BUG work, so the foundation zone
+        had nothing to take. Its slack measures 426, which is EXACTLY what the 08-30 raise
+        was sized to leave, so that raise is still unspent and row 1 owes nothing.
+      - ZONE 2 TOOK TWO, both (NEW), 29 to 31: MP7 with the two MP6 corrections and Tag
+        Battle, and Smash team battles across all four formats. 1160 of slack.
+      - ZONE 3 CHANGED FOR THE FIRST TIME IN SEVEN PASSES, 5 to 6, and the change is
+        structural rather than a swap. Beerio takes slot 1 as a four-session PROGRAM and
+        the existing three renumber, so the heavier stroke now covers FOUR items; the
+        colours line in MAP PROTOCOL stops saying "the first three" in this same commit,
+        because a constant the queue can contradict is the same trap as the conclusion
+        sentence this block used to carry.
+      - ZONE 4 IS 11 TO 12, ON THREE MOVES RATHER THAN ONE. Smash 2v2 team battles left by
+        SHIPPING, and the team-battles session deferred two items out of itself on purpose
+        (the solo-versus-team stats split, and making a handicap visible). Beerio leaving
+        for zone 3 is invisible here, because it arrived in FEATURES after the last redraw
+        and was therefore never drawn there at all.
+      - ZONE 5 WENT 16 TO 21, THE BIGGEST SINGLE GROWTH THIS ZONE HAS EVER TAKEN, and
+        every part of it is a rule working. One OPEN flipped to FIXED and is drawn with
+        its UNFIXED half on the item (the television asks before it changes hands; a
+        declined write is still recorded nowhere). One new OPEN came out of the
+        team-battles session measuring its own TV. FOUR came out of scoping the Beerio
+        program, none of which any earlier pass could have drawn. And Mario Party's ladder
+        entry carries the 08-30 correction rather than the original number: it is over at
+        FOUR, its own roster cap, not at the eight first reported. Eight OPEN, ten Watch,
+        three FIXED, with the two 08-28 sweep fixes on their SECOND and last appearance.
+      - ROW 2 GREW, 1200 -> 1560, AND ROW 1 DID NOT MOVE WITH IT. Only zone 5 was over, by
+        62px, measured by reading the generated file back: 1262 of content in 1200. Sized
+        in PASSES rather than items, the rule the 08-30 raise wrote down: this pass cost
+        zone 5 five items at 58px each, so a pass costs about 290, and +360 leaves 298,
+        one more pass at the rate this zone is actually moving. Zone 4 and zone 6 were
+        raised with it, which is not optional: the 2026-08-02 stage 2 pass raised two of
+        the three and left IDEAS behind, and only the generated-file check caught it.
 
     What the 2026-08-30 pass changed, kept for the arithmetic the next raise will need:
       - ZONE 1 TOOK THREE, all (NEW), 33 to 36: the signed-out cue getting a surface (and
@@ -261,7 +296,7 @@ anyone's memory of how many sessions have happened.
       - ZONES 3 AND 6 ARE UNCHANGED. Nothing left NEXT UP, so the numbered three are still
         Poker's tournament format, Smash Tournament and Party games.
     Zone heights checked against their contents by reading the generated file back, not
-    by hand. Canvas 1560x4470; panorama camera 1600x4520.
+    by hand. Canvas 1560x5330; panorama camera 1600x5380.
 
 ## MAP PROTOCOL
 How and when the Excalidraw project map gets redrawn. Written so any session reproduces
@@ -294,7 +329,7 @@ another reference section does not change the map; adding or renaming one of the
 above does, and must update this table in the same commit.
 
 **Layout (fixed, so redraws are stable):** 3 columns x 2 rows. Columns at x=40, 560, 1080,
-each 480 wide. Row 1 at y=95 (height 3650), row 2 at y=3770 (height 1200). Zone header text
+each 480 wide. Row 1 at y=95 (height 3650), row 2 at y=3770 (height 1560). Zone header text
 15px below zone top, fontSize 22. Items 440 wide, 40 tall, 46px step, first item 50px below
 zone top; give a taller box (52-70) to any item whose label wraps past one line. Row 1 grew
 from 540 to 730 on 2026-07-27 (SHIPPED FOUNDATION reached 14 items and overflowed its
@@ -347,7 +382,15 @@ repair) and needed 920px of its 840. Row 2 also MOVED, 1720 to 2070, because row
 the columns stay aligned. AND AGAIN on 2026-08-19, 1020 to 1200: zone 5 reached 17 and was
 the first zone to be measured genuinely OVER since 2026-08-03, by 10px, which is the smallest
 overflow this file has recorded and would have been invisible to anyone sizing by eye. Row 2
-moved 2070 to 2270 with row 1.
+moved 2070 to 2270 with row 1. AND AGAIN on 2026-09-15, 1200 to 1560, for zone 5's
+BIGGEST SINGLE GROWTH: 16 items to 21, which is 1262px of content in 1200 and OVER by 62.
+Sized in PASSES rather than items, the rule the 08-30 raise established: this pass cost
+zone 5 five items at 58px each, so a pass costs about 290, and +360 leaves 298 — one more
+pass at the rate the zone is actually moving. ROW 1 DID NOT MOVE WITH IT, which is the
+first time a row-2 raise has stood alone, and the reason is worth writing down: row 2 is
+the BOTTOM row, so raising it pushes nothing, whereas raising row 1 drags row 2 down to
+stay aligned. Row 1's own zones were all under (zone 1 took NOTHING this pass and kept the
+426px the 08-30 raise was sized to leave), so it stayed where it was.
 A ZONE THAT SHRINKS DOES NOT SHRINK ITS ROW, and 2026-08-04 is the first pass where that
 came up: zone 5 dropped four aged-out FIXED items and needs 572px of its 840. The height
 stays, because the queue below it (a pack into zone 2, four items into zone 3) will refill
@@ -364,8 +407,8 @@ whatever NEXT UP numbers, not a constant, and the two move together in one commi
 items in zones 1-2 get #c3fae8 + "(NEW)" until the next redraw.
 
 **Cameras:** open 600x450 on the title, then 800x600 per zone in reading order (1-6), close
-on a panorama covering the full canvas (1600x5020 at the current zone heights; the canvas
-itself measures 1560x4970, read off the generated file rather than assumed. This line read
+on a panorama covering the full canvas (1600x5380 at the current zone heights; the canvas
+itself measures 1560x5330, read off the generated file rather than assumed. This line read
 2410 for four passes after the heights it describes had moved, which is why a redraw checks
 it against the file). Title fontSize 30 at y=15, subtitle 18 at y=56 with the month/year.
 

@@ -12,50 +12,65 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const TITLE = "GameNight OS — Project Map";
-const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
-// Redrawn 2026-08-30, because the counter read 3. THE REDRAW WENT FIRST, before
-// this session's own work, which is what the counter is for: MP7, the two MP6
-// data corrections and Tag Battle are NOT in this drawing and increment the
-// counter in their own commit. Same arrangement as every pass since 08-17.
+const SUBTITLE = "September 2026 · source of truth: BACKLOG.md";
+// Redrawn 2026-09-15, because the counter read 3. THE REDRAW WENT FIRST, before
+// this session's own work, the arrangement every pass since 08-17 has used: the
+// tournament summary kind this session adds to the stats layer is NOT in this
+// drawing and increments the counter in its own commit.
 // This pass:
-//   - ZONE 1 TOOK THREE, all (NEW), 33 to 36: the signed-out cue plus the sweep
-//     learning to see it, the tv-fit overlay probe, and one QR on every TV with
-//     the phone page behind it. The help modal and the help button cue lost
-//     their (NEW) on schedule.
-//   - ZONE 5 WENT 14 TO 16, AND EVERY PART OF THAT IS A RULE WORKING. Two Watch
-//     traps CLOSED on 08-28 and are drawn FIXED, the first of their two
-//     appearances: text-decoration-line and the four border widths. A third
-//     NARROWED rather than closing — the box-model trap is now padding only,
-//     and its entry says in as many words not to close it by momentum because
-//     the border half did. And TWO NEW OPEN BUGS went in that no earlier pass
-//     could have drawn, both found 08-30 by the QR session's own harness work:
-//     Smash and Mario Party have never been in tv-fit and have no ladder (Mario
-//     Party is over at EIGHT boards, an ordinary night), and the bracket TV
-//     clips 317px HORIZONTALLY in Arcade at one case. Four OPEN, ten Watch, two
-//     FIXED.
-//   - ROW 1 GREW, 3150 -> 3650, THE THIRD CONSECUTIVE RAISE DRIVEN BY ZONE 1,
-//     and the first where that zone was measured genuinely OVER rather than
-//     merely tight: three items put it at 3319 against a 3245 bottom, over by
-//     74. THE LAST RAISE WAS NOT ENOUGH AND THAT IS THE POINT OF RECORDING IT.
-//     08-28 added 300 on the reasoning that "310 is about two more items", and
-//     the very next pass took three. So this one is sized against the MEASURED
-//     RATE instead: zone 1 has taken three, then two, then three items in
-//     consecutive passes, and a zone-1 item is 136px with its gap, so a pass
-//     costs about 408. +500 leaves 426, which is one more pass at that rate
-//     rather than a guess at an item count. Row 2 moved 3270 -> 3770 to stay
-//     aligned; its heights did not change, because no row-2 zone is over
-//     (zone 5 has 228 of its 1200).
-//   - ZONES 2, 3, 4 AND 6 ARE UNCHANGED, at 29, 5, 11 and 9. NEXT UP still
-//     holds the same numbered three, which is now SIX sessions running with
-//     nothing shipped out of the queue: every one was work James brought
-//     directly. The QR session was raised and answered entirely between two
-//     redraws, so it was never drawn in zone 3 and is drawn only in zone 1.
-//     Zone 2 has 1408 of slack, which matters because THIS session's own work
-//     lands there next pass.
-//   - THE RECONCILE WALKED git log AND FOUND NO DRIFT. All ten commits since
-//     3735c7f belong to three sessions (the signed-out cue 08-28/29, the
-//     overlay probe 08-29, the QR pass 08-29/30) and every one wrote itself up.
-//   - Canvas 1560x4970, read off the generated file. Panorama camera 1600x5020.
+//   - THE RECONCILE WALKED git log AND FOUND DRIFT, only the second time it has
+//     (the first was 08-23, which is why the step walks the log at all). All 24
+//     commits since d75e17f belong to three sessions and all three wrote
+//     themselves up, but TWO landed AFTER their session's BACKLOG commit and
+//     neither amended it: 7a89e4e (the team-battles review pass, whose finding
+//     was a comment asserting a rule that never fires) and 675d91e
+//     (createPackRuntime throwing on a pack key the registry does not know).
+//     Neither changes a number any zone draws, which is the point worth
+//     recording: the cost of that drift was the record, not the map.
+//   - ZONE 1 TOOK NOTHING, 36 items unchanged, THE FIRST PASS SINCE 2026-08-22
+//     IT HAS NOT GROWN. Three (NEW) tags aged out on schedule. That is a
+//     finding rather than an oversight: all three sessions since the last
+//     redraw were pack work and bug work, so zone 1 had nothing to take, and
+//     its 426px of slack is EXACTLY what the 08-30 raise was sized to leave.
+//     Measured rather than assumed, by reading the generated file back.
+//   - ZONE 2 TOOK TWO, both (NEW), 29 to 31: MP7 with the two MP6 corrections
+//     and Tag Battle, and Smash team battles across all four formats. 1160 of
+//     slack, so nothing is owed here for several passes.
+//   - ZONE 3 CHANGED FOR THE FIRST TIME IN SEVEN PASSES, 5 to 6. Beerio takes
+//     slot 1 as a FOUR-SESSION PROGRAM, moved in from FEATURES rather than
+//     raised in a session, and Poker, Smash Tournament and Party games
+//     renumber to 2, 3 and 4. The heavier stroke is no longer "the first
+//     three": it is whatever NEXT UP numbers, and BACKLOG's colours line says
+//     so in the same commit.
+//   - ZONE 4 IS 11 TO 12 ON THREE MOVES, not one: Smash 2v2 team battles left
+//     by SHIPPING, and the team-battles session deferred two items out of
+//     itself on purpose (the solo-vs-team stats split, and making a handicap
+//     visible). Beerio leaving for zone 3 is not visible here, because it
+//     arrived in FEATURES after the last redraw and was never drawn.
+//   - ZONE 5 WENT 16 TO 21, THE BIGGEST SINGLE GROWTH THIS ZONE HAS TAKEN.
+//     One OPEN flipped to FIXED (the TV now asks before it changes hands, with
+//     its unfixed half named on the item), one new OPEN came out of the
+//     team-battles session's TV measurements, and FOUR came out of scoping the
+//     Beerio program. The 08-30 correction to Mario Party's ladder is carried
+//     too: it is over at FOUR, its own roster cap, not at the eight the
+//     original measurement reported. Eight OPEN, ten Watch, three FIXED (the
+//     two 08-28 sweep fixes are on their SECOND and last appearance).
+//   - ROW 2 GREW, 1200 -> 1560, AND ROW 1 DID NOT MOVE. Only zone 5 was over,
+//     by 62px (1262 of content in 1200), measured by reading the generated
+//     file back. Sized in PASSES rather than items, as 08-30 established: this
+//     pass cost zone 5 five items at 58px each, so a pass costs about 290, and
+//     +360 leaves 298 -- one more pass at the rate this zone is actually
+//     moving. Row 1 stays at 3650 because no zone in it is over and zone 1
+//     took nothing, so row 2 stays at y=3770 and nothing needed realigning.
+//   - Canvas 1560x5330, read off the generated file. Panorama camera 1600x5380.
+//
+// The 2026-08-30 pass, kept short: zone 1 took three (NEW), 33 to 36 (the
+// signed-out cue, the tv-fit overlay probe, one QR on every TV); zone 5 went 14
+// to 16 with two Watch traps closing and two new OPEN TV overflows; row 1 grew
+// 3150 -> 3650, the third consecutive raise driven by zone 1 and the first ever
+// made against a zone measured genuinely OVER rather than merely tight (three
+// items put it at 3319 against a 3245 bottom). That raise is where SIZE A RAISE
+// IN PASSES, NOT IN ITEMS comes from. Canvas 1560x4970.
 //
 // The 2026-08-28 pass, kept short: zone 1 took two (NEW), 31 to 33 (the help
 // modal, the help button cue); zone 5 took one, 13 to 14; row 1 grew 2850 ->
@@ -121,7 +136,7 @@ const SUBTITLE = "August 2026 · source of truth: BACKLOG.md";
 // (row 1 860 -> 920).
 
 // Layout constants from MAP PROTOCOL: 3 cols x 2 rows, cols at x=40/560/1080
-// each 480 wide, row 1 y=95 h=3650, row 2 y=3770 h=1200. Items 440x40, 46px
+// each 480 wide, row 1 y=95 h=3650, row 2 y=3770 h=1560. Items 440x40, 46px
 // step, first 50px below zone top; taller boxes for wrapping labels.
 const ZONES = [
   {
@@ -161,9 +176,9 @@ const ZONES = [
       { t: "THE NIGHT'S DETAILS GET PINNED: the read view becomes the card the edit view already was, and an accent edge that sets its OWN width, because Tabletop's card border is 0px", h: 130 },
       { t: "A HELP MODAL OVER WHATEVER SCREEN YOU ARE ON: five sections, opened by a search param so the Back gesture closes it natively, and lazy because the budget gate refused it in the entry chunk", h: 130 },
       { t: "THE HELP BUTTON ASKS TO BE NOTICED, ONCE: gold on a first visit only, and a reduced-motion branch that KEEPS the colour, because here the motion is the message", h: 106 },
-      { t: "THE SIGNED-OUT CUE GETS A SURFACE, AND THE SWEEP LEARNS TO SEE WHY IT DID NOT: a border COLOUR on a zero-width border paints nothing, and TRACKED_PROPS gains the four border widths and text-decoration-line (NEW)", bg: "#c3fae8", h: 130 },
-      { t: "tv-fit CAN ASK WHERE A FIXED OVERLAY COULD GO, AND THE ANSWER WAS NOWHERE: four corner rectangles per case, one render each, and no corner clear at any size in either theme (NEW)", bg: "#c3fae8", h: 130 },
-      { t: "ONE QR ON EVERY TV, AND A PHONE PAGE BEHIND IT: laid out rather than overlaid, one more child on a row every pack already had, a white plate whose quiet zone is measured, and a page a guest can read (NEW)", bg: "#c3fae8", h: 130 },
+      { t: "THE SIGNED-OUT CUE GETS A SURFACE, AND THE SWEEP LEARNS TO SEE WHY IT DID NOT: a border COLOUR on a zero-width border paints nothing, and TRACKED_PROPS gains the four border widths and text-decoration-line", h: 130 },
+      { t: "tv-fit CAN ASK WHERE A FIXED OVERLAY COULD GO, AND THE ANSWER WAS NOWHERE: four corner rectangles per case, one render each, and no corner clear at any size in either theme", h: 130 },
+      { t: "ONE QR ON EVERY TV, AND A PHONE PAGE BEHIND IT: laid out rather than overlaid, one more child on a row every pack already had, a white plate whose quiet zone is measured, and a page a guest can read", h: 130 },
     ],
   },
   {
@@ -199,26 +214,30 @@ const ZONES = [
       { t: "TWO HOST DEVICES ON ONE BEERIO ROOM: the host page reads the room back instead of only writing it. A once-on-mount adopt made to repeat", h: 106 },
       { t: "A VOTER CAN CHANGE THEIR NICKNAME, ALL NIGHT: the crowd name box stops being one-shot, and a rename cannot move a row", h: 88 },
       { t: "A CASINO IS THE DEFAULT BANK on every cash pack: the setup screen and the runtime fallback both moved, minPlayers stops reading bank type, and poker's dead picker goes", h: 106 },
+      { t: "MARIO PARTY 7, TWO MP6 CORRECTIONS, AND TAG BATTLE 2v2: a sixth title, and a team board whose ONE star total per SIDE is written to every member and split on read (NEW)", bg: "#c3fae8", h: 106 },
+      { t: "SMASH TEAM BATTLES, ALL FOUR FORMATS: sides all the way through, Smashdown standings per SIDE because mercy provably stops working per player, and the normalize hook the pack never had (NEW)", bg: "#c3fae8", h: 130 },
     ],
   },
   {
     x: 1080, y: 95, h: 3650,
     title: "NEXT UP (queued)", zoneBg: "#fff3bf", header: "#b45309", itemBg: "#ffd8a8",
     items: [
-      { t: "1. POKER, THE TOURNAMENT FORMAT: blind levels are a wall clock shared across devices, which is a live-sync problem rather than a money one", sw: 2, h: 70 },
-      { t: "2. Smash Tournament format (bracket + fighters)", sw: 2, h: 52 },
-      { t: "3. Party games (Board Game plus a side)", sw: 2, h: 52 },
+      { t: "1. BEERIO BECOMES A REAL PACK: a FOUR-SESSION program. Tournament rows in the stats layer, then the engine into shared with a row per 1v1 match, then the client cutover, then the Hall of Fame import", sw: 2, h: 88 },
+      { t: "2. POKER, THE TOURNAMENT FORMAT: blind levels are a wall clock shared across devices, which is a live-sync problem rather than a money one", sw: 2, h: 70 },
+      { t: "3. Smash Tournament format (bracket + fighters)", sw: 2, h: 52 },
+      { t: "4. Party games (Board Game plus a side)", sw: 2, h: 52 },
       { t: "Tabletop theme STAGE 4: the remaining EIGHT packs. Mechanism settled, casino tints settled, per-pack now (LAST, James 08-04)", h: 70 },
       { t: "More packs: darts" },
     ],
   },
   {
-    x: 40, y: 3770, h: 1200,
+    x: 40, y: 3770, h: 1560,
     title: "FEATURES TO ADD", zoneBg: "#dbe4ff", header: "#2563eb", itemBg: "#a5d8ff",
     items: [
       { t: "FIX OR DELETE A COMPLETED RESULT: a question to answer before a screen", h: 52 },
       { t: "LOVERS (CUPID): two roles at once and a second win condition", h: 52 },
-      { t: "Smash 2v2 team battles (the bracket's half of this shipped 08-18)", h: 52 },
+      { t: "Smash solo-vs-team stats split on the pack panel (Mario Kart and Mario Party both have theirs)", h: 52 },
+      { t: "MAKE A HANDICAP VISIBLE: a 2v1 is a real result and no screen says so", h: 52 },
       { t: "Co-op titles (Pandemic): one side, everybody on it, win together", h: 52 },
       { t: "Revisit the modifier wall's cut at three (the room exists now)", h: 52 },
       { t: "Single active pack + bounce everyone to the hub (TV half shipped)", h: 52 },
@@ -230,13 +249,17 @@ const ZONES = [
     ],
   },
   {
-    x: 560, y: 3770, h: 1200,
+    x: 560, y: 3770, h: 1560,
     title: "BUG FIXES", zoneBg: "#ffc9c9", header: "#b91c1c", itemBg: "#ffc9c9",
     items: [
-      { t: "OPEN: SMASH AND MARIO PARTY do not fit 1080p and never had a ladder; MP is over at EIGHT boards", h: 52 },
+      { t: "OPEN: SMASH AND MARIO PARTY do not fit 1080p and never had a ladder; MP is over at FOUR, its own roster CAP", h: 52 },
+      { t: "OPEN: SMASH'S TEAM TV cases are over, and so is its Smashdown at the only count it can reach", h: 52 },
       { t: "OPEN: the bracket TV clips 317px HORIZONTALLY, Arcade only, at 8 pairs mid", h: 52 },
-      { t: "OPEN: a late write to an ABANDONED session steals the TV off the game being played (touch-recency's cost)", h: 52 },
       { t: "OPEN: Casino Run's TV has the same back-button blind spot the money board had", h: 52 },
+      { t: "OPEN: a Beerio RERUN can vanish from stats: one client-built key the same seed reproduces on the same day", h: 52 },
+      { t: "OPEN: an UNDONE Beerio final double-counts, and the first row is never retracted", h: 52 },
+      { t: "OPEN: PUT /api/sessions/:code is PUBLIC and unauthenticated; any 4-char code overwrites a live night", h: 52 },
+      { t: "OPEN: /beerio-complete takes any crew MEMBER, where standing rule 1 says hosts only", h: 52 },
       { t: "Watch: cold delivery to new recipients while domain warms", bg: "#fff3bf", h: 52 },
       { t: "Watch: countLastPlace IN list grows without bound", bg: "#fff3bf", h: 52 },
       { t: "Watch: ws hub broadcasts everything to everyone (no rooms)", bg: "#fff3bf", h: 52 },
@@ -247,12 +270,13 @@ const ZONES = [
       { t: "Watch: a word in a COMMENT can add a Tailwind utility to the shipped stylesheet", bg: "#fff3bf", h: 52 },
       { t: "Watch: judge a tiling texture at the PAINTED size; felt-variance scored a lattice higher", bg: "#fff3bf", h: 52 },
       { t: "Watch: Bevan overflows the stats tile on .gn-h2 at 390px (display face needs a width budget)", bg: "#fff3bf", h: 52 },
+      { t: "FIXED 09-05: the TV ASKS before it changes hands, and 'no' cancels the write; a decline is still not recorded", bg: "#b2f2bb", h: 52 },
       { t: "FIXED 08-28: the sweep tracks text-decoration-LINE, and the rules filter had to learn the word too", bg: "#b2f2bb", h: 52 },
       { t: "FIXED 08-28: the sweep tracks all four border WIDTHS, after the gap shipped the same bug twice", bg: "#b2f2bb", h: 52 },
     ],
   },
   {
-    x: 1080, y: 3770, h: 1200,
+    x: 1080, y: 3770, h: 1560,
     title: "IDEAS — NOT SOLIDIFIED", zoneBg: "#e5dbff", header: "#6d28d9", itemBg: "#d0bfff",
     items: [
       { t: "Draft night mode (snake drafts, TV board)" },
