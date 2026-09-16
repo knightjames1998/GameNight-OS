@@ -22,14 +22,19 @@
 //   - `feedAgg` / `finishAgg`      REAL. Exported, pure, run here.
 //   - `rollupRecap`                REAL. Exported, pure, run here.
 //   - `meetingOutcome` / streaks   REAL. Exported, pure, run here.
-//   - the crew leaderboard's FORMAT BUCKETS, its PER-GAME COUNTS, and the
-//     rivalry's MEETING MAP are loops INSIDE route handlers, so they cannot be
-//     called without a database. What those three loops actually decide,
-//     row by row, is one question: "is this row a summary, and therefore
-//     skipped?", and that predicate IS exported and IS run here, over every
-//     row of the fixture. So the pin is the DECISION each loop makes on each
-//     row, which is precisely the thing this session is about to change, and
-//     `SKIP_DECISIONS` below is the table of it.
+//   - the FORMAT BUCKETS and the PER-GAME COUNTS  REAL, from part 8 down.
+//     They were NOT when this file was first written: both were loops inside
+//     the crew-stats route handler, so neither could be called without a
+//     database, and the pin was the skip DECISION instead. They were extracted
+//     to `formatBuckets` and `countResults` later in the same session, once the
+//     surfaces commit had changed both of them more than anything else in the
+//     file with no test to change alongside. Part 8 says so in full.
+//   - the rivalry's MEETING MAP is still a loop inside a route handler and is
+//     still not directly callable. What it decides, row by row, is one
+//     question: "is this row a summary, and therefore skipped?" That predicate
+//     IS exported and IS run here over every row of the fixture, so the pin is
+//     the DECISION, and `SKIP_DECISIONS` below is the table of it. The pairing
+//     and outcome halves either side of that decision ARE run, in part 3.
 //
 // No database anywhere near this file: every pinned value is pure once its
 // input is in hand, the same split partner-stats-baseline.test.ts uses.
@@ -38,12 +43,16 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BEERIO_TOURNAMENT_LABEL, isSeriesSummary, isSummaryRow } from "@gamenight/shared";
 import {
+  countResults,
   feedAgg,
   finishAgg,
+  formatBuckets,
   meetingOutcome,
   meetingStreaks,
   newAgg,
   rankPlayers,
+  type CountRow,
+  type CrewRow,
   type Rankable,
 } from "../src/stats.js";
 import { rollupRecap } from "../src/events.js";
@@ -138,11 +147,12 @@ test("BASELINE: finishAgg stays sync and query-free", () => {
 
 // ---------- part 2: what every reader decides about every row ----------
 //
-// The format buckets (stats.ts:93), the per-game counts (stats.ts:168), the
-// meeting map (stats.ts:1116) and the recap (events.ts:646) each ask one
-// question of each row before counting it: is this a summary of rows already
-// in the ledger? They all ask it the same way today, by calling the same
-// predicate, which is what makes this table the honest pin for all four.
+// The format buckets, the per-game counts, the meeting map and the recap each
+// ask one question of each row before counting it: is this a summary of rows
+// already in the ledger? They all ask it through the same classifier, which is
+// what makes this table the honest pin for the one of the four that is still
+// only reachable through a route (the meeting map). The other three are run
+// directly, in parts 4 and 8.
 
 /** matchId -> is this row skipped by the four tallies that live outside feedAgg. */
 const SKIP_DECISIONS: [string, boolean][] = [
@@ -514,4 +524,120 @@ test("RANK: a row with games is ordered exactly as it was before", () => {
     ranked(rows),
     "the tail cannot reorder rows whose first three fields differ",
   );
+});
+
+// ---------- part 8: the two tallies that live outside feedAgg ----------
+//
+// ADDED 2026-09-15, AFTER THE REST OF THIS FILE, AND THE REASON IS WORTH
+// RECORDING RATHER THAN TIDYING AWAY. The brief for this session asked for the
+// per-format buckets and the per-game counts to be captured by RUNNING the
+// code, like everything else here. They could not be: both were loops INSIDE
+// the crew-stats route handler, so the only way to exercise either was to stand
+// up a database, and the baseline settled for pinning the skip DECISION each
+// loop makes on each row instead.
+//
+// That was honest but thin, and it aged badly inside the same session: the
+// commit that fixed the surfaces changed those two loops more than anything
+// else in the file, and neither had a test to change with them. So they are
+// `formatBuckets` and `countResults` now, pure and exported for exactly the
+// reason `feedAgg` is, and what follows is what they actually print.
+
+const asCrew = (r: LedgerRow): CrewRow => ({
+  matchId: r.matchId,
+  userId: r.userId,
+  displayName: r.displayName,
+  gameName: r.gameName,
+  format: r.format,
+  label: r.label,
+  isWinner: r.isWinner,
+});
+
+/** One row per MATCH, the way the completed-matches query returns them. */
+const asCounts = (rows: readonly LedgerRow[]): CountRow[] => {
+  const seen = new Map<string, CountRow>();
+  for (const r of rows) if (!seen.has(r.matchId)) seen.set(r.matchId, { gameName: r.gameName, label: r.label });
+  return [...seen.values()];
+};
+
+const fmtJson = (rows: readonly LedgerRow[]) => JSON.stringify([...formatBuckets(rows.map(asCrew)).entries()]);
+const cntJson = (rows: readonly LedgerRow[]) => {
+  const c = countResults(asCounts(rows));
+  return JSON.stringify({
+    resultsByGame: [...c.resultsByGame.entries()],
+    heldByGame: [...c.heldByGame.entries()],
+    results: c.results,
+    held: c.held,
+  });
+};
+
+/**
+ * Captured by running `formatBuckets` over the fixture. NOTE WHAT IS NOT IN IT:
+ * Smash Bros reads 3 in its smashdown bucket, not 4. The series summary carries
+ * that same format by design, so a bucket that forgot to skip it would count
+ * the series as a fourth battle and hand its winner a third win.
+ */
+const PINNED_FORMATS_BEFORE = '[["Smash Bros",[{"format":"smashdown","played":3,"players":[{"name":"Ari","wins":2,"played":3},{"name":"Bo","wins":1,"played":3}]}]],["Mario Kart 8",[{"format":"other","played":1,"players":[{"name":"Bo","wins":1,"played":1},{"name":"Ari","wins":0,"played":1}]}]],["Beerio Kart",[{"format":"other","played":2,"players":[{"name":"Ari","wins":1,"played":2},{"name":"Bo","wins":1,"played":2},{"name":"Cy","wins":0,"played":2}]}]],["Ping Pong",[{"format":"bestof","played":1,"players":[{"name":"Ari","wins":1,"played":1},{"name":"Bo","wins":0,"played":1}]}]],["Mario Party",[{"format":"board","played":1,"players":[{"name":"Bo","wins":1,"played":1},{"name":"Ari","wins":0,"played":1}]}]]]';
+
+test("BASELINE: the crew leaderboard's per-format buckets", () => {
+  assert.equal(fmtJson(LEDGER), PINNED_FORMATS_BEFORE);
+});
+
+/** Captured by running `countResults` over the same rows. */
+const PINNED_COUNTS_BEFORE = '{"resultsByGame":[["Smash Bros",3],["Mario Kart 8",1],["Beerio Kart",2],["Ping Pong",1],["Mario Party",1]],"heldByGame":[],"results":8,"held":0}';
+
+test("BASELINE: the per-game result counts, with no tournament anywhere yet", () => {
+  assert.equal(cntJson(LEDGER), PINNED_COUNTS_BEFORE);
+});
+
+/**
+ * After the relabel. Beerio's "other" bucket goes 2 to 1: the bracket night
+ * leaves, the Grand Prix night stays. THE BUCKET DOES NOT VANISH HERE, and this
+ * fixture is the kinder case on purpose. A crew with a GP night keeps it; a crew
+ * whose Beerio history is nothing but brackets loses it entirely, and that is
+ * right rather than a loss: the section it feeds is headed "Wins by format" and
+ * a tournament is not a format. The client gates that section on a non-empty
+ * list, so it disappears instead of rendering empty, and the count below is
+ * what reports the tournaments.
+ */
+const PINNED_FORMATS_AFTER = '[["Smash Bros",[{"format":"smashdown","played":3,"players":[{"name":"Ari","wins":2,"played":3},{"name":"Bo","wins":1,"played":3}]}]],["Mario Kart 8",[{"format":"other","played":1,"players":[{"name":"Bo","wins":1,"played":1},{"name":"Ari","wins":0,"played":1}]}]],["Beerio Kart",[{"format":"other","played":1,"players":[{"name":"Bo","wins":1,"played":1},{"name":"Ari","wins":0,"played":1},{"name":"Cy","wins":0,"played":1}]}]],["Ping Pong",[{"format":"bestof","played":1,"players":[{"name":"Ari","wins":1,"played":1},{"name":"Bo","wins":0,"played":1}]}]],["Mario Party",[{"format":"board","played":1,"players":[{"name":"Bo","wins":1,"played":1},{"name":"Ari","wins":0,"played":1}]}]]]';
+
+test("AFTER: the bracket night leaves the format buckets and the GP night stays", () => {
+  assert.equal(fmtJson(LEDGER_RELABELED), PINNED_FORMATS_AFTER);
+  // Also as its own assertion, so a failure names the bucket rather than
+  // pointing at a long string.
+  const beerio = formatBuckets(LEDGER_RELABELED.map(asCrew)).get("Beerio Kart")!;
+  assert.deepEqual(beerio.map((f) => [f.format, f.played]), [["other", 1]]);
+});
+
+/**
+ * AND THE COUNT THAT KEEPS THE TAB FROM READING ZERO. Beerio's results go 2 to
+ * 1 and its held count 0 to 1, so the header has something true to print. The
+ * totals move together: 8 results and 0 held becomes 7 and 1.
+ */
+const PINNED_COUNTS_AFTER = '{"resultsByGame":[["Smash Bros",3],["Mario Kart 8",1],["Beerio Kart",1],["Ping Pong",1],["Mario Party",1]],"heldByGame":[["Beerio Kart",1]],"results":7,"held":1}';
+
+test("AFTER: a relabeled night moves from results to tournaments held, not into nothing", () => {
+  assert.equal(cntJson(LEDGER_RELABELED), PINNED_COUNTS_AFTER);
+  const c = countResults(asCounts(LEDGER_RELABELED));
+  assert.equal(c.results + c.held, 8, "no night was lost, only recategorised");
+  assert.equal(c.heldByGame.get("Beerio Kart"), 1);
+  assert.equal(c.resultsByGame.get("Beerio Kart"), 1, "the Grand Prix night is still a result");
+});
+
+test("a series summary is in NEITHER count, and its battles are in the first", () => {
+  // Deliberate, and stated because "neither" reads like an omission. The
+  // battles are already counted as results, so the night is represented, and
+  // the Smash panel reports series separately off its own rows. A series that
+  // landed in `held` would put a Smashdown set on the tournament line.
+  const c = countResults(asCounts(LEDGER));
+  assert.equal(c.resultsByGame.get("Smash Bros"), 3, "three battles, not four");
+  assert.equal(c.heldByGame.has("Smash Bros"), false);
+});
+
+test("both tallies handle an EMPTY ledger, which had never been asked", () => {
+  // Negative control. Neither of these could be called at all until they were
+  // extracted, so "what does it do with nothing" was an open question.
+  assert.equal(formatBuckets([]).size, 0);
+  const c = countResults([]);
+  assert.deepEqual([c.results, c.held, c.resultsByGame.size, c.heldByGame.size], [0, 0, 0, 0]);
 });

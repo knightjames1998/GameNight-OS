@@ -35,6 +35,133 @@ import { requireAuth, type AuthedRequest } from "./auth.js";
 export const statsRouter = Router();
 statsRouter.use(requireAuth);
 
+/**
+ * One row as the crew-stats query selects it, narrowed to what the two
+ * tallies below actually read. Structural, so the query's row satisfies it.
+ */
+export interface CrewRow {
+  matchId: string;
+  userId: string;
+  displayName: string;
+  gameName: string | null;
+  format: string | null;
+  label: string | null;
+  isWinner: boolean;
+}
+
+/** One format's split within one game, as the crew leaderboard renders it. */
+export interface FormatSplit {
+  format: string;
+  /** Count of results (matches/races/sets/boards) played in this format. */
+  played: number;
+  players: { name: string; wins: number; played: number }[];
+}
+
+/**
+ * Per-game, per-format, per-player wins, so the stats screen can split a pack
+ * into its formats (Free Play / Best Of / KOTH / Grand Prix / FFA). Rows with
+ * no format tag (legacy, or brackets) bucket under "other".
+ *
+ * SUMMARY ROWS ARE SKIPPED, AND THAT MEANS ANY SUMMARY (audited 2026-09-15).
+ * A series summary carries format "smashdown" like the battles it summarizes,
+ * so without this the Smashdown bucket counts each series as an extra unit
+ * played and credits its winner twice. A Beerio tournament row is the same
+ * mistake in a different bucket: it would add a unit to whatever format it
+ * carries, on top of the 1v1 matches it summarizes. This tally counts things
+ * that were PLAYED, and neither kind of summary was played.
+ *
+ * The format ORDER comes from the shared ledger-format registry, which is also
+ * where the client reads its labels. It used to be a local array of seven keys,
+ * six short of what the packs actually write, and `indexOf` returning -1 for
+ * the six sorted every one of them ABOVE "free" rather than below "other".
+ *
+ * EXTRACTED FROM THE ROUTE 2026-09-15 so it can be run by a test. It was a
+ * loop inside the handler, which meant the only way to exercise it was to stand
+ * up a database, so the session that taught this file about a second kind of
+ * summary row could not pin it. Same reasoning as newAgg / feedAgg / finishAgg:
+ * the failure is silent, because a bucket that counts one row too many still
+ * renders a perfectly ordinary looking panel.
+ */
+export function formatBuckets(rows: readonly CrewRow[]): Map<string, FormatSplit[]> {
+  type FmtCell = { name: string; wins: number; played: number };
+  type FmtBucket = { byUser: Map<string, FmtCell>; matchIds: Set<string> };
+  const fmtByGame = new Map<string, Map<string, FmtBucket>>();
+  for (const r of rows) {
+    if (isSummaryRow(r.label)) continue;
+    const game = r.gameName ?? "Unknown";
+    const fmt = r.format ?? "other";
+    const byFmt = fmtByGame.get(game) ?? new Map<string, FmtBucket>();
+    fmtByGame.set(game, byFmt);
+    const bucket = byFmt.get(fmt) ?? { byUser: new Map<string, FmtCell>(), matchIds: new Set<string>() };
+    byFmt.set(fmt, bucket);
+    bucket.matchIds.add(r.matchId);
+    const cell = bucket.byUser.get(r.userId) ?? { name: r.displayName, wins: 0, played: 0 };
+    cell.played++;
+    if (r.isWinner) cell.wins++;
+    bucket.byUser.set(r.userId, cell);
+  }
+  const out = new Map<string, FormatSplit[]>();
+  for (const [game, byFmt] of fmtByGame) {
+    out.set(
+      game,
+      [...byFmt.entries()]
+        .sort((a, b) => formatOrderIndex(a[0]) - formatOrderIndex(b[0]))
+        .map(([format, bucket]) => ({
+          format,
+          played: bucket.matchIds.size,
+          players: [...bucket.byUser.values()].sort((a, b) => b.wins - a.wins || b.played - a.played),
+        })),
+    );
+  }
+  return out;
+}
+
+/** One completed match, narrowed to what the headline counts read. */
+export interface CountRow {
+  gameName: string | null;
+  label: string | null;
+}
+
+/**
+ * The two headline counts, per game and in total: RESULTS (things that were
+ * played) and TOURNAMENTS HELD (summary rows of the tournament kind).
+ *
+ * TWO NUMBERS RATHER THAN ONE, and the reason is the whole session's premise: a
+ * tournament is not a game, so folding it into the results count would be the
+ * phantom-game bug wearing a different hat, and dropping it would leave a pack
+ * whose history is nothing but tournaments printing "0 results" over a full
+ * leaderboard. That second failure is not hypothetical: a legacy Beerio bracket
+ * night is ONE row, and after the relabel that row is a summary.
+ *
+ * A SERIES SUMMARY IS IN NEITHER COUNT, which is deliberate rather than an
+ * oversight. Its battles are already counted as results, so the night is
+ * represented; the Smash panel reports series separately off its own rows.
+ *
+ * EXTRACTED FROM THE ROUTE 2026-09-15 for the same reason as `formatBuckets`.
+ */
+export function countResults(rows: readonly CountRow[]): {
+  resultsByGame: Map<string, number>;
+  heldByGame: Map<string, number>;
+  results: number;
+  held: number;
+} {
+  const resultsByGame = new Map<string, number>();
+  const heldByGame = new Map<string, number>();
+  let results = 0;
+  let held = 0;
+  for (const t of rows) {
+    const g = t.gameName ?? "Unknown";
+    if (summaryKind(t.label) === "tournament") {
+      heldByGame.set(g, (heldByGame.get(g) ?? 0) + 1);
+      held++;
+    } else if (!isSummaryRow(t.label)) {
+      resultsByGame.set(g, (resultsByGame.get(g) ?? 0) + 1);
+      results++;
+    }
+  }
+  return { resultsByGame, heldByGame, results, held };
+}
+
 /** The shape `rankPlayers` needs. Structural, so any finished row satisfies it. */
 export interface Rankable {
   wins: number;
@@ -121,50 +248,8 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
     .leftJoin(games, eq(matches.gameId, games.id))
     .where(and(eq(matchParticipants.groupId, groupId), eq(matches.status, "completed")));
 
-  // Per-game, per-format, per-player wins so the stats screen can split a
-  // pack into its formats (Free Play / Best Of / KOTH / Grand Prix / FFA).
-  // Rows with no format tag (legacy, or brackets) bucket under "Other".
-  type FmtCell = { name: string; wins: number; played: number };
-  type FmtBucket = { byUser: Map<string, FmtCell>; matchIds: Set<string> };
-  const fmtByGame = new Map<string, Map<string, FmtBucket>>();
-  for (const r of rows) {
-    // AUDITED 2026-09-15: this means ANY SUMMARY, not Smash's series.
-    // A series summary carries format "smashdown" like the battles it
-    // summarizes, so without this the Smashdown bucket would count each
-    // series as an extra unit played and credit its winner twice. A Beerio
-    // tournament row is the same shape of mistake in a different bucket: it
-    // would add a unit to whatever format it carries on top of the 1v1 matches
-    // it summarizes. This bucket counts things that were PLAYED, and neither
-    // kind of summary was played.
-    if (isSummaryRow(r.label)) continue;
-    const game = r.gameName ?? "Unknown";
-    const fmt = r.format ?? "other";
-    const byFmt = fmtByGame.get(game) ?? new Map<string, FmtBucket>();
-    fmtByGame.set(game, byFmt);
-    const bucket = byFmt.get(fmt) ?? { byUser: new Map<string, FmtCell>(), matchIds: new Set<string>() };
-    byFmt.set(fmt, bucket);
-    bucket.matchIds.add(r.matchId);
-    const cell = bucket.byUser.get(r.userId) ?? { name: r.displayName, wins: 0, played: 0 };
-    cell.played++;
-    if (r.isWinner) cell.wins++;
-    bucket.byUser.set(r.userId, cell);
-  }
-  // The order comes from the shared ledger-format registry, which is also where
-  // the client reads its labels. This used to be a local array of seven keys,
-  // six short of what the packs actually write, and `indexOf` returning -1 for
-  // the six sorted every one of them ABOVE "free" rather than below "other".
-  const formatsFor = (game: string) => {
-    const byFmt = fmtByGame.get(game);
-    if (!byFmt) return [];
-    return [...byFmt.entries()]
-      .sort((a, b) => formatOrderIndex(a[0]) - formatOrderIndex(b[0]))
-      .map(([format, bucket]) => ({
-        format,
-        // Count of results (matches/races/sets/boards) played in this format.
-        played: bucket.matchIds.size,
-        players: [...bucket.byUser.values()].sort((a, b) => b.wins - a.wins || b.played - a.played),
-      }));
-  };
+  const fmtByGame = formatBuckets(rows);
+  const formatsFor = (game: string) => fmtByGame.get(game) ?? [];
 
   const byUser = new Map<string, Row>();
   for (const r of rows) {
@@ -222,26 +307,12 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
     .leftJoin(games, eq(matches.gameId, games.id))
     .where(and(eq(matches.groupId, groupId), eq(matches.status, "completed")));
 
-  const tournamentRows = completedRows.filter((t) => !isSummaryRow(t.label));
-
-  const heldByGame = new Map<string, number>();
-  for (const t of completedRows) {
-    if (summaryKind(t.label) !== "tournament") continue;
-    const g = t.gameName ?? "Unknown";
-    heldByGame.set(g, (heldByGame.get(g) ?? 0) + 1);
-  }
-  const tournamentsHeld = [...heldByGame.values()].reduce((n, v) => n + v, 0);
-
-  const countByGame = new Map<string, number>();
-  for (const t of tournamentRows) {
-    const g = t.gameName ?? "Unknown";
-    countByGame.set(g, (countByGame.get(g) ?? 0) + 1);
-  }
+  const { resultsByGame, heldByGame, results, held: tournamentsHeld } = countResults(completedRows);
 
   const games_ = [...perGame.entries()]
     .map(([name, bucket]) => ({
       name,
-      tournaments: countByGame.get(name) ?? 0,
+      tournaments: resultsByGame.get(name) ?? 0,
       // Tournaments HELD in this game, a different question from the line
       // above: that one counts results, and has since long before either word
       // meant anything specific here.
@@ -257,7 +328,7 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
         a.name.localeCompare(b.name),
     );
 
-  res.json({ tournaments: tournamentRows.length, tournamentsHeld, leaderboard, games: games_ });
+  res.json({ tournaments: results, tournamentsHeld, leaderboard, games: games_ });
 });
 
 // ---------- Profiles + rivalry (reads only, no schema change) ----------
