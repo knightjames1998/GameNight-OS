@@ -26,6 +26,9 @@ import {
   summaryKind,
   SUMMARY_LABELS,
 } from "@gamenight/shared";
+// Reached across to on purpose: the rule it enforces is about the ledger, and
+// a second copy of it on the server would be the drift this file is about.
+import { ledgerLabelText } from "../../web/src/formats.js";
 
 // ---------- the labels themselves ----------
 
@@ -95,4 +98,34 @@ test("isSeriesSummary stayed narrow, and isSummaryRow is the general question", 
   assert.equal(isSummaryRow(BEERIO_TOURNAMENT_LABEL), true);
   assert.equal(isSummaryRow("bo3"), false);
   assert.equal(isSummaryRow(null), false);
+});
+
+// ---------- the copy a label turns into on a screen ----------
+//
+// `ledgerLabelText` lives in apps/web/src/formats.ts, the client's one door
+// onto ledger vocabulary, and is tested here because the rule it enforces is
+// about the LEDGER rather than about React: a label is an identifier, and an
+// identifier is not copy.
+
+test("a summary label never reaches a screen as its raw self", () => {
+  // The bug this closes, exactly: EventLivePage printed `matches.label`
+  // straight through, so the moment the relabel ran, every old Beerio night
+  // would have read "Beerio Kart - beerio_tournament".
+  assert.equal(ledgerLabelText(BEERIO_TOURNAMENT_LABEL), "Tournament");
+  // A series row is never a line of its own anywhere, so anything that reaches
+  // here with one is asking about a row it should not be showing. Null, not a
+  // word, so the caller renders nothing rather than something wrong.
+  assert.equal(ledgerLabelText(SERIES_LABEL), null);
+});
+
+test("every other label still passes through untouched", () => {
+  // The regression a careless fix causes. These labels ARE copy: a board name
+  // and a cup are what the host chose, and the packs that store them have
+  // always printed them.
+  assert.equal(ledgerLabelText("Peach's Birthday Cake"), "Peach's Birthday Cake");
+  assert.equal(ledgerLabelText("bo3"), "bo3");
+  assert.equal(ledgerLabelText("gp2"), "gp2");
+  assert.equal(ledgerLabelText("Tournament"), "Tournament", "a generic bracket's own label is unchanged");
+  assert.equal(ledgerLabelText(null), null);
+  assert.equal(ledgerLabelText(undefined), null);
 });

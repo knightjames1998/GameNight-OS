@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { BracketMatchView, BracketSlot, BracketView, EventRecap } from "./api";
 import { packEmoji } from "@gamenight/shared";
-import { FORMAT_UNIT, formatLabel } from "./formats";
+import { FORMAT_UNIT, formatLabel, ledgerLabelText } from "./formats";
 
 // The recap card, third generation of the Beerio Kart canvas-to-JPG
 // pipeline: draw offscreen at 2x, toBlob as JPEG, share via the Web Share
@@ -310,6 +310,14 @@ export function drawRecapCard(view: BracketView): HTMLCanvasElement {
  */
 function humanizeLabel(label: string | null): string | null {
   if (!label) return null;
+  // The summary labels first, via the shared helper: they are identifiers
+  // rather than copy, and the fall-through at the bottom of this function
+  // would print one verbatim. No current caller reaches here with one (a
+  // tournament row carries no format, and the three branches below are all
+  // keyed on one), which is exactly why it is worth closing now rather than
+  // after a fourth branch is added.
+  const summary = ledgerLabelText(label);
+  if (summary !== label) return summary;
   if (label === "bo1") return "Free play";
   const bo = /^bo(\d+)$/.exec(label);
   if (bo) return `Best of ${bo[1]}`;

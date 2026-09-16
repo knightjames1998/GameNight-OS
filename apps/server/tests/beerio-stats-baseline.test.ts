@@ -37,7 +37,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BEERIO_TOURNAMENT_LABEL, isSeriesSummary, isSummaryRow } from "@gamenight/shared";
-import { feedAgg, finishAgg, meetingOutcome, meetingStreaks, newAgg } from "../src/stats.js";
+import {
+  feedAgg,
+  finishAgg,
+  meetingOutcome,
+  meetingStreaks,
+  newAgg,
+  rankPlayers,
+  type Rankable,
+} from "../src/stats.js";
 import { rollupRecap } from "../src/events.js";
 import {
   asMeetingSide,
@@ -432,5 +440,78 @@ test("AFTER: the recap keeps every Beerio night, and differs ONLY by the raw lab
     beerio.map((x) => x.label),
     [BEERIO_TOURNAMENT_LABEL, null],
     "the bracket night carries the label, the Grand Prix night does not",
+  );
+});
+
+// ---------- part 7: the order the crew leaderboard puts them in ----------
+//
+// `rankPlayers` is exported for the same reason `feedAgg` is: the failure is
+// silent. A leaderboard in the wrong order still renders, still looks like a
+// leaderboard, and nothing errors anywhere.
+
+const ranked = (rows: Rankable[]) => rankPlayers(rows.map((r, i) => ({ ...r, id: `p${i}` }))).map((r) => r.id);
+
+test("RANK: a tab with no games at all is ordered by titles, not by insertion", () => {
+  // THE CASE THAT MADE THIS NECESSARY. Every Beerio crew that only ever ran
+  // brackets looks exactly like this after the relabel: wins, winRate and
+  // played all zero for everybody, so the three comparisons that used to be
+  // the whole comparator all tie and the order was whatever the aggregation
+  // map happened to iterate. A two-time champion listed third for no reason.
+  const zero = { wins: 0, winRate: 0, played: 0 };
+  assert.deepEqual(
+    ranked([
+      { ...zero, tournaments: { titles: 0, played: 3, best: 3 } }, // p0, Cal
+      { ...zero, tournaments: { titles: 2, played: 3, best: 1 } }, // p1, Ann
+      { ...zero, tournaments: { titles: 1, played: 3, best: 1 } }, // p2, Ben
+    ]),
+    ["p1", "p2", "p0"],
+  );
+});
+
+test("RANK: equal titles break on tournaments entered, then on best finish", () => {
+  const zero = { wins: 0, winRate: 0, played: 0 };
+  assert.deepEqual(
+    ranked([
+      { ...zero, tournaments: { titles: 1, played: 2, best: 1 } },
+      { ...zero, tournaments: { titles: 1, played: 9, best: 1 } },
+    ]),
+    ["p1", "p0"],
+    "more entered is a longer record at the same title count",
+  );
+  assert.deepEqual(
+    ranked([
+      { ...zero, tournaments: { titles: 0, played: 4, best: 4 } },
+      { ...zero, tournaments: { titles: 0, played: 4, best: 2 } },
+    ]),
+    ["p1", "p0"],
+    "best finish is ASCENDING: #2 beats #4",
+  );
+  assert.deepEqual(
+    ranked([
+      { ...zero, tournaments: { titles: 0, played: 4, best: null } },
+      { ...zero, tournaments: { titles: 0, played: 4, best: 4 } },
+    ]),
+    ["p1", "p0"],
+    "never placed sorts behind anyone who has",
+  );
+});
+
+test("RANK: a row with games is ordered exactly as it was before", () => {
+  // The regression guard. The tournament tail is only reached once the first
+  // three comparisons tie, so a leaderboard with any games in it must come out
+  // in the same order it always did, tournaments present or not.
+  const rows: Rankable[] = [
+    { wins: 1, winRate: 0.2, played: 5 },
+    { wins: 4, winRate: 0.4, played: 10, tournaments: { titles: 0, played: 1, best: 4 } },
+    { wins: 4, winRate: 0.8, played: 5 },
+    { wins: 2, winRate: 0.5, played: 4, tournaments: { titles: 9, played: 9, best: 1 } },
+  ];
+  assert.deepEqual(ranked(rows), ["p2", "p1", "p3", "p0"]);
+  // And the same list with every tournament stripped comes out identically,
+  // which is the claim stated as an experiment rather than as a sentence.
+  assert.deepEqual(
+    ranked(rows.map(({ tournaments, ...rest }) => rest)),
+    ranked(rows),
+    "the tail cannot reorder rows whose first three fields differ",
   );
 });

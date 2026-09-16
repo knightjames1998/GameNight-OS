@@ -35,6 +35,46 @@ import { requireAuth, type AuthedRequest } from "./auth.js";
 export const statsRouter = Router();
 statsRouter.use(requireAuth);
 
+/** The shape `rankPlayers` needs. Structural, so any finished row satisfies it. */
+export interface Rankable {
+  wins: number;
+  winRate: number;
+  played: number;
+  tournaments?: { titles: number; played: number; best: number | null };
+}
+
+/**
+ * The crew leaderboard's order: most wins first, ties broken by win rate, then
+ * by who showed up more, and then, since 2026-09-15, by TITLES, tournaments
+ * entered, and best finish at one.
+ *
+ * THE TOURNAMENT TAIL IS NOT DECORATION. On a tab whose rows have no games at
+ * all it is the ONLY thing that orders them: a crew whose Beerio history is
+ * nothing but bracket nights has `wins`, `winRate` and `played` at zero for
+ * every player once those nights are labelled tournaments, so the first three
+ * comparisons all tie and the order falls back to whatever the map happened to
+ * iterate. A two-time champion listed third for no reason. The tail changes
+ * nothing for a row that has games, because it is only reached once the three
+ * before it have tied.
+ *
+ * EXPORTED FOR THE TESTS, like newAgg / feedAgg / finishAgg above it and for
+ * the same reason: the failure is silent. A leaderboard in the wrong order
+ * still renders, still looks like a leaderboard, and nothing errors.
+ */
+export function rankPlayers<T extends Rankable>(list: T[]): T[] {
+  return [...list].sort(
+    (a, b) =>
+      b.wins - a.wins ||
+      b.winRate - a.winRate ||
+      b.played - a.played ||
+      (b.tournaments?.titles ?? 0) - (a.tournaments?.titles ?? 0) ||
+      (b.tournaments?.played ?? 0) - (a.tournaments?.played ?? 0) ||
+      // Best finish last, and ASCENDING: #1 beats #3. A null has never placed
+      // at all, so it sorts behind everyone who has.
+      (a.tournaments?.best ?? Infinity) - (b.tournaments?.best ?? Infinity),
+  );
+}
+
 /**
  * One player's bucket on the crew leaderboard. The tallying itself is the
  * shared Agg the profile views use, so the crew page and a profile can never
@@ -141,11 +181,8 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
     displayName: r.displayName,
     ...finishAgg(r.agg),
   });
-  // Most wins first; ties broken by win rate, then by who showed up more.
-  const rank = <T extends { wins: number; winRate: number; played: number }>(list: T[]) =>
-    [...list].sort((a, b) => b.wins - a.wins || b.winRate - a.winRate || b.played - a.played);
 
-  const leaderboard = rank([...byUser.values()].map(finish));
+  const leaderboard = rankPlayers([...byUser.values()].map(finish));
 
   // Same aggregation, one bucket per game: the stats screen splits by mode.
   const perGame = new Map<string, Map<string, Row>>();
@@ -164,20 +201,36 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
   // Every completed match in the crew, which is what the headline count and
   // the per-game ordering are built from.
   //
-  // AUDITED 2026-09-15: this means ANY SUMMARY, not Smash's series. Neither
-  // kind is a thing that was played; both are a description of things that
-  // were. **THE BEERIO TAB IS THE CASE TO WATCH HERE** and it is handled in
-  // the commit that surfaces tournaments rather than left to chance: this
-  // count is what the crew leaderboard prints as a pack's headline, so a
-  // Beerio night that is nothing BUT a tournament row would make the tab read
-  // zero unless the tournament count is put back beside it.
-  const tournamentRows = (
-    await db
-      .select({ id: matches.id, gameName: games.name, label: matches.label })
-      .from(matches)
-      .leftJoin(games, eq(matches.gameId, games.id))
-      .where(and(eq(matches.groupId, groupId), eq(matches.status, "completed")))
-  ).filter((t) => !isSummaryRow(t.label));
+  // AUDITED 2026-09-15: the exclusion means ANY SUMMARY, not Smash's series.
+  // Neither kind is a thing that was played; both are a description of things
+  // that were. **BUT A SUMMARY THAT IS DROPPED HERE AND COUNTED NOWHERE ELSE
+  // MAKES A TAB READ ZERO**, so tournaments are counted separately rather than
+  // simply filtered away.
+  //
+  // THE FAILURE THAT PREVENTS, said plainly because it is not hypothetical: a
+  // legacy Beerio BRACKET night is ONE row, and after the relabel that row is
+  // a summary, so the filter below removes it. A crew whose Beerio history is
+  // nothing but bracket nights would keep its tab (the per-player buckets come
+  // off the participant rows, which are untouched) and print "0 results of
+  // Beerio Kart" over a full leaderboard. The count comes back BESIDE the
+  // other one rather than folded into it: a tournament is not a game, which is
+  // this whole session's premise, so the header carries both numbers or it
+  // lies about one of them.
+  const completedRows = await db
+    .select({ id: matches.id, gameName: games.name, label: matches.label })
+    .from(matches)
+    .leftJoin(games, eq(matches.gameId, games.id))
+    .where(and(eq(matches.groupId, groupId), eq(matches.status, "completed")));
+
+  const tournamentRows = completedRows.filter((t) => !isSummaryRow(t.label));
+
+  const heldByGame = new Map<string, number>();
+  for (const t of completedRows) {
+    if (summaryKind(t.label) !== "tournament") continue;
+    const g = t.gameName ?? "Unknown";
+    heldByGame.set(g, (heldByGame.get(g) ?? 0) + 1);
+  }
+  const tournamentsHeld = [...heldByGame.values()].reduce((n, v) => n + v, 0);
 
   const countByGame = new Map<string, number>();
   for (const t of tournamentRows) {
@@ -189,12 +242,22 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
     .map(([name, bucket]) => ({
       name,
       tournaments: countByGame.get(name) ?? 0,
-      leaderboard: rank([...bucket.values()].map(finish)),
+      // Tournaments HELD in this game, a different question from the line
+      // above: that one counts results, and has since long before either word
+      // meant anything specific here.
+      tournamentsHeld: heldByGame.get(name) ?? 0,
+      leaderboard: rankPlayers([...bucket.values()].map(finish)),
       formats: formatsFor(name),
     }))
-    .sort((a, b) => b.tournaments - a.tournaments || a.name.localeCompare(b.name));
+    // Ordered on the two TOGETHER, so a pack that only ever runs tournaments
+    // does not sink to the end of the tab strip on a count of zero.
+    .sort(
+      (a, b) =>
+        b.tournaments + b.tournamentsHeld - (a.tournaments + a.tournamentsHeld) ||
+        a.name.localeCompare(b.name),
+    );
 
-  res.json({ tournaments: tournamentRows.length, leaderboard, games: games_ });
+  res.json({ tournaments: tournamentRows.length, tournamentsHeld, leaderboard, games: games_ });
 });
 
 // ---------- Profiles + rivalry (reads only, no schema change) ----------

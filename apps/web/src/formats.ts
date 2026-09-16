@@ -17,6 +17,8 @@
 // and `formatUnit` from "./formats" or "../formats", and a shim costs nothing
 // next to touching six files to say the same thing.
 
+import { summaryKind } from "@gamenight/shared";
+
 export {
   FORMAT_ORDER,
   LEDGER_FORMATS,
@@ -50,3 +52,30 @@ export const FORMAT_LABEL: Record<string, string> = Object.fromEntries(
 export const FORMAT_UNIT: Record<string, string> = Object.fromEntries(
   LEDGER_FORMATS.flatMap((f) => (f.unit ? [[f.key, f.unit]] : [])),
 );
+
+/**
+ * A raw `matches.label` turned into something a person can read, or null when
+ * there is nothing worth printing.
+ *
+ * ADDED 2026-09-15, AND IT EXISTS BECAUSE A LEDGER LABEL IS NOT COPY. Most
+ * labels happen to read fine on a screen (a board name, a cup, bo3), which is
+ * why several surfaces have always printed the field straight through. The
+ * summary labels do not: `beerio_tournament` is an identifier, chosen to be
+ * stable in a database forever, and the moment the one-off relabel ran, the
+ * live event page would have printed "Beerio Kart - beerio_tournament" over
+ * every old Beerio night.
+ *
+ * So the two kinds get answers rather than passthrough:
+ *   - a TOURNAMENT says so, because "Tournament" is the true and useful word
+ *     for what that night was, and it is what the night reads as everywhere
+ *     else on the screen.
+ *   - a SERIES returns null, because a series row is never a line of its own
+ *     anywhere (the recap drops it into its battles), so anything that reaches
+ *     this with one is asking about a row it should not be showing.
+ */
+export function ledgerLabelText(label: string | null | undefined): string | null {
+  const kind = summaryKind(label);
+  if (kind === "tournament") return "Tournament";
+  if (kind === "series") return null;
+  return label ?? null;
+}

@@ -471,6 +471,9 @@ interface HomeStats {
   avgPlacement: number | null;
   nightsPlayed?: number;
   form?: FormStats;
+  series?: { wins: number; played: number };
+  /** Tournaments entered and titles won. Absent on an older payload. */
+  tournaments?: { titles: number; played: number; best: number | null; avgPlacement: number | null };
 }
 
 function StatsButton() {
@@ -516,7 +519,12 @@ function StatsButton() {
           {/* Streak, best streak, nights and the last-five pips, all of it. This
               is the stats page's own component, unmodified; `series` is left off
               because a Smashdown tile is a fourth cell in a third of a row. */}
-          <FormStatsCard form={stats!.form} nightsPlayed={stats!.nightsPlayed} />
+          <FormStatsCard
+            form={stats!.form}
+            nightsPlayed={stats!.nightsPlayed}
+            series={stats!.series}
+            tournaments={stats!.tournaments}
+          />
 
           {/* ATTENDANCE IS DELIBERATELY NOT HERE, and it is a LENGTH call rather
               than a value one. `ShowUpRecord` measured 117px on a phone and

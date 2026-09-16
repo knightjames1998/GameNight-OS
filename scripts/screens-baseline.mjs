@@ -290,11 +290,43 @@ const bgStats = {
   ],
   mostPlayed: { title: "Catan", games: 4 },
 };
-const groupStats = {
-  tournaments: 7, leaderboard: [],
-  games: [{ name: "Board Game", tournaments: 7, formats: [], leaderboard: [
+let groupStats = {
+  tournaments: 7, tournamentsHeld: 0, leaderboard: [],
+  games: [{ name: "Board Game", tournaments: 7, tournamentsHeld: 0, formats: [], leaderboard: [
     { userId: "u0", displayName: "Ann", played: 7, wins: 3, best: 1, winRate: 0.43, avgPlacement: 1.9, byGame: [] },
   ] }],
+};
+
+// A BEERIO LEADERBOARD WHOSE HISTORY IS NOTHING BUT TOURNAMENTS, added
+// 2026-09-15. This is the exact shape a crew has after the one-off relabel if
+// it only ever ran bracket nights: every Beerio row is a summary, so the
+// RESULTS count is zero and the tab would have read "0 results of Beerio Kart"
+// over a full leaderboard. Kept as its own payload rather than bolted onto the
+// one above, so the Board Game panel's recorded screens are untouched and this
+// case is legible on its own.
+//
+// Ann won two of the three, Ben came second twice, and Cal has entered three
+// and never placed better than third, which is the whole point of keeping the
+// placement: without it Cal's Beerio history would be a blank.
+const beerioRows = [
+    { userId: "u0", displayName: "Ann", played: 0, wins: 0, best: null, winRate: 0, avgPlacement: null, byGame: [],
+      nightsPlayed: 3, tournaments: { titles: 2, played: 3, best: 1, avgPlacement: 1.33 },
+      form: { currentStreak: 0, longestStreak: 0, currentLossStreak: 0, longestLossStreak: 0, last5: [], tracked: 0 } },
+    { userId: "u1", displayName: "Ben", played: 0, wins: 0, best: null, winRate: 0, avgPlacement: null, byGame: [],
+      nightsPlayed: 3, tournaments: { titles: 1, played: 3, best: 1, avgPlacement: 1.67 },
+      form: { currentStreak: 0, longestStreak: 0, currentLossStreak: 0, longestLossStreak: 0, last5: [], tracked: 0 } },
+    { userId: "u2", displayName: "Cal", played: 0, wins: 0, best: null, winRate: 0, avgPlacement: null, byGame: [],
+      nightsPlayed: 3, tournaments: { titles: 0, played: 3, best: 3, avgPlacement: 3 },
+      form: { currentStreak: 0, longestStreak: 0, currentLossStreak: 0, longestLossStreak: 0, last5: [], tracked: 0 } },
+];
+// The top-level list is the SAME rows, because the server builds it from the
+// participant rows and a tournament row has those. An empty one here would
+// have made the screen show its "nothing recorded yet" empty state over a
+// crew with three tournaments in it, which is a stub artefact rather than
+// anything the server can produce.
+const beerioStats = {
+  tournaments: 0, tournamentsHeld: 3, leaderboard: beerioRows,
+  games: [{ name: "Beerio Kart", tournaments: 0, tournamentsHeld: 3, formats: [], leaderboard: beerioRows }],
 };
 
 let msgId = 0;
@@ -455,6 +487,21 @@ async function main() {
   await evalJs(`(() => { const t=[...document.querySelectorAll('button.gn-tab')].find(b=>b.textContent.trim()==='Board Game'); if(t) t.click(); return !!t; })()`);
   await sleep(900);
   snap.bgPanel = await text();
+
+  // ---- the crew leaderboard for a crew whose Beerio history is all tournaments ----
+  // The screen the 2026-09-15 relabel is most likely to break. Both views are
+  // recorded: the All tab, whose header has to count the tournaments the
+  // results count cannot see, and the Beerio tab itself.
+  {
+    const saved = groupStats;
+    groupStats = beerioStats;
+    await goto(`${ORIGIN}/g/g1/stats`);
+    snap.beerioLeaderboardAll = await text();
+    await evalJs(`(() => { const t=[...document.querySelectorAll('button.gn-tab')].find(b=>b.textContent.trim()==='Beerio Kart'); if(t) t.click(); return !!t; })()`);
+    await sleep(900);
+    snap.beerioLeaderboard = await text();
+    groupStats = saved;
+  }
 
   // ---- Card Table: setup, a live Euchre night in pairs, its TV ----
   ctPayload = null;
@@ -700,8 +747,15 @@ async function main() {
   if (COMPARE) {
     const want = JSON.parse(readFileSync(OUT, "utf8"));
     const got = JSON.parse(out);
-    const diffs = Object.keys(want).filter((k) => JSON.stringify(want[k]) !== JSON.stringify(got[k]));
-    if (diffs.length === 0) console.log(`screens UNCHANGED against the baseline (${Object.keys(want).length} snapshots)`);
+    // KEYS FROM BOTH SIDES, not just the baseline's. It compared `want`'s keys
+    // alone until 2026-09-15, so a snapshot ADDED to this file was reported as
+    // "UNCHANGED" on the very run that introduced it and, worse, a snapshot
+    // silently DROPPED from the recorder would have read unchanged forever
+    // after. A harness that cannot see a missing case is the same trap as a
+    // test that cannot fail, which this file's own header is about.
+    const keys = [...new Set([...Object.keys(want), ...Object.keys(got)])].sort();
+    const diffs = keys.filter((k) => JSON.stringify(want[k]) !== JSON.stringify(got[k]));
+    if (diffs.length === 0) console.log(`screens UNCHANGED against the baseline (${keys.length} snapshots)`);
     else {
       console.log("SCREENS CHANGED in: " + diffs.join(", "));
       for (const k of diffs) console.log(`\n--- ${k} baseline ---\n${JSON.stringify(want[k], null, 1)}\n--- ${k} now ---\n${JSON.stringify(got[k], null, 1)}`);

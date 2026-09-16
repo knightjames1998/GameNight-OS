@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { PACK_WS_TYPES, SESSION_PACKS } from "@gamenight/shared";
 import { api, type EventRecap, type EventTv, type LifetimeStanding } from "../api";
+import { ledgerLabelText } from "../formats";
 import BackButton from "../BackButton";
 import { useLiveRefetch } from "../useLiveUpdates";
 
@@ -256,7 +257,13 @@ function WhatWasPlayed({ recap }: { recap: EventRecap }) {
           >
             <p className="font-bold truncate">
               {s.gameName}
-              {s.label ? ` · ${s.label}` : ""}
+              {/* NEVER THE RAW FIELD. `matches.label` is a ledger identifier
+                  and only happens to read well for the packs that store a
+                  board or a cup in it; a summary label is a database string.
+                  This line printed it straight through until 2026-09-15, when
+                  the relabel would have made every old Beerio night read
+                  "Beerio Kart · beerio_tournament". */}
+              {ledgerLabelText(s.label) ? ` · ${ledgerLabelText(s.label)}` : ""}
             </p>
             <p className="gn-hint mt-1" style={{ fontSize: "12px" }}>
               {s.matches} {s.matches === 1 ? "game" : "games"}

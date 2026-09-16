@@ -30,6 +30,8 @@ interface SideStats {
   form?: FormStats;
   nightsPlayed?: number;
   series?: { wins: number; played: number };
+  /** Tournaments entered and titles won. Absent on an older payload. */
+  tournaments?: { titles: number; played: number; best: number | null; avgPlacement: number | null };
   placements?: PlacementStats;
   history?: HistoryStats;
   bestGame?: GameExtreme | null;
@@ -242,7 +244,12 @@ function Profile({ stats, title, subtitle }: { stats: SideStats; title: string; 
         </>
       )}
       {stats.played > 0 && (
-        <FormStatsCard form={stats.form} nightsPlayed={stats.nightsPlayed} series={stats.series} />
+        <FormStatsCard
+          form={stats.form}
+          nightsPlayed={stats.nightsPlayed}
+          series={stats.series}
+          tournaments={stats.tournaments}
+        />
       )}
       <ShowUpRecord a={stats.attendance} />
       {stats.played > 0 && <CharacterStatsCard characters={stats.characters} />}
@@ -491,6 +498,21 @@ function Compare({ r, variant = "core" }: { r: Rivalry; variant?: "core" | "deep
     // two people who never touched Smashdown reads exactly as it did before.
     if ((r.me.series?.played ?? 0) + (r.them.series?.played ?? 0) > 0) {
       add("series won", r.me.series?.wins, r.them.series?.wins, String);
+    }
+    // TITLES ON THEIR OWN ROW, under the same hide-at-zero rule, and never
+    // merged with the row above. This is also where a relabeled Beerio night
+    // comes BACK to a rivalry page: the night stops producing a head-to-head
+    // meeting, because comparing two racers' placements across a whole night
+    // never was one, and it reappears here as what it actually is.
+    if ((r.me.tournaments?.played ?? 0) + (r.them.tournaments?.played ?? 0) > 0) {
+      add("titles", r.me.tournaments?.titles, r.them.tournaments?.titles, String);
+      add(
+        "best finish at one",
+        r.me.tournaments?.best,
+        r.them.tournaments?.best,
+        (n) => `#${n}`,
+        true,
+      );
     }
     add("games a night", r.me.history?.gamesPerNight, r.them.history?.gamesPerNight, (n) => n.toFixed(1));
     add("characters", r.me.characters?.distinctCharacters, r.them.characters?.distinctCharacters, String);

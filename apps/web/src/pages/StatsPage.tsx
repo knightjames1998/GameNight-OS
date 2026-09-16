@@ -30,6 +30,8 @@ interface StatRow {
   nightsPlayed?: number;
   /** Smashdown series won / played; absent for a crew that has none. */
   series?: { wins: number; played: number };
+  /** Tournaments entered and titles won. Absent on an older payload. */
+  tournaments?: { titles: number; played: number; best: number | null; avgPlacement: number | null };
 }
 
 interface FormatStat {
@@ -40,6 +42,12 @@ interface FormatStat {
 interface GameStats {
   name: string;
   tournaments: number;
+  /**
+   * Tournaments HELD in this game: one per summary row, which is a different
+   * number from `tournaments` above (that one counts results). Optional
+   * because an installed PWA can be running a bundle older than the server.
+   */
+  tournamentsHeld?: number;
   leaderboard: StatRow[];
   formats: FormatStat[];
 }
@@ -47,6 +55,7 @@ interface GameStats {
 
 interface StatsView {
   tournaments: number;
+  tournamentsHeld?: number;
   leaderboard: StatRow[];
   games: GameStats[];
 }
@@ -193,6 +202,10 @@ function PlayerRows({
     <ul className="space-y-2">
       {rows.map((r, i) => {
         const expanded = open === r.userId;
+        // A row with NO games but at least one tournament. Kept as one flag
+        // rather than repeated down the row, so the headline and the subline
+        // can never disagree about which story they are telling.
+        const titlesOnly = r.played === 0 && (r.tournaments?.played ?? 0) > 0;
         const top = i === 0;
         return (
           <li key={r.userId} className={top ? "gn-champ" : "gn-card"} style={{ padding: 0 }}>
@@ -212,14 +225,47 @@ function PlayerRows({
                   </span>
                 </span>
                 <span className="text-sm shrink-0 flex items-baseline gap-1">
-                  <span className="font-bold">{r.wins}</span>
-                  <span className="gn-hint">{r.wins === 1 ? "win" : "wins"}</span>
+                  {/* TITLES ARE THE HEADLINE WHEN THERE ARE NO GAMES TO COUNT,
+                      which is every Beerio crew that only ever ran brackets
+                      once their nights are labelled tournaments. "0 wins"
+                      beside a player who has won two of them is the night
+                      disappearing off the screen, which is the one thing the
+                      relabel is not allowed to do. Any row with a single game
+                      in it reads exactly as it always has. */}
+                  <span className="font-bold">{titlesOnly ? r.tournaments!.titles : r.wins}</span>
+                  <span className="gn-hint">
+                    {titlesOnly
+                      ? r.tournaments!.titles === 1
+                        ? "title"
+                        : "titles"
+                      : r.wins === 1
+                      ? "win"
+                      : "wins"}
+                  </span>
                   <Caret open={expanded} />
                 </span>
               </div>
               <div className="gn-hint mt-1" style={{ fontSize: "12px", paddingLeft: "30px" }}>
-                {r.played} played &middot; {pct(r.winRate)} win rate
-                {r.avgPlacement !== null && ` · avg finish ${r.avgPlacement.toFixed(1)}`}
+                {titlesOnly ? (
+                  // No games, so "0 played · 0% win rate" is three true
+                  // statements that add up to a false impression. Say what
+                  // there IS instead: how many were entered, and how they went.
+                  <>
+                    {r.tournaments!.played} {r.tournaments!.played === 1 ? "tournament" : "tournaments"}
+                    {r.tournaments!.best !== null && ` · best finish #${r.tournaments!.best}`}
+                    {r.tournaments!.avgPlacement !== null &&
+                      ` · avg finish ${r.tournaments!.avgPlacement.toFixed(1)}`}
+                  </>
+                ) : (
+                  <>
+                    {r.played} played &middot; {pct(r.winRate)} win rate
+                    {r.avgPlacement !== null && ` · avg finish ${r.avgPlacement.toFixed(1)}`}
+                    {r.tournaments && r.tournaments.played > 0 &&
+                      ` · ${r.tournaments.titles}/${r.tournaments.played} ${
+                        r.tournaments.titles === 1 ? "title" : "titles"
+                      }`}
+                  </>
+                )}
                 {extras?.get(r.userId)}
               </div>
             </button>
@@ -1375,6 +1421,11 @@ export default function StatsPage() {
   const active = tab ? stats?.games.find((g) => g.name === tab) : null;
   const shown = active ? active.leaderboard : stats?.leaderboard;
   const count = active ? active.tournaments : stats?.tournaments ?? 0;
+  // Tournaments held, counted apart from results because they are not results.
+  // The header below prints both when both exist and neither when neither
+  // does, so a pack whose whole history is tournaments never reads zero.
+  const held = (active ? active.tournamentsHeld : stats?.tournamentsHeld) ?? 0;
+  const heldText = held ? `${held} ${held === 1 ? "tournament" : "tournaments"}` : "";
 
   return (
     <main className="gn-app">
@@ -1407,7 +1458,12 @@ export default function StatsPage() {
                 ? `${count} board ${count === 1 ? "game" : "games"}`
                 : tab === CARD_TABLE_GAME_NAME
                 ? `${count} card ${count === 1 ? "game" : "games"}`
-                : `${count} ${count === 1 ? "result" : "results"}${active ? ` of ${active.name}` : " across all game modes"}`}
+                : count === 0 && held
+                ? // A pack whose history is nothing but tournaments, which is
+                  // every Beerio crew that only ever ran brackets. "0 results"
+                  // over a full leaderboard was the bug this branch exists for.
+                  `${heldText}${active ? ` of ${active.name}` : " across all game modes"}`
+                : `${count} ${count === 1 ? "result" : "results"}${active ? ` of ${active.name}` : " across all game modes"}${heldText ? ` · ${heldText}` : ""}`}
             </p>
           )}
         </div>

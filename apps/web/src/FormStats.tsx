@@ -84,6 +84,7 @@ export default function FormStatsCard({
   form,
   nightsPlayed,
   series,
+  tournaments,
 }: {
   form?: FormStats;
   nightsPlayed?: number;
@@ -93,6 +94,12 @@ export default function FormStatsCard({
    * rather than a permanent "0 series" tile.
    */
   series?: { wins: number; played: number };
+  /**
+   * Tournaments entered and TITLES won, the word every surface uses for
+   * winning one. Same hide-at-zero rule as `series`, and deliberately a
+   * separate prop rather than a second field on it.
+   */
+  tournaments?: { titles: number; played: number; best: number | null; avgPlacement: number | null };
 }) {
   if (!form || form.tracked === 0) return null;
   const { currentStreak, longestStreak, last5 } = form;
@@ -111,6 +118,17 @@ export default function FormStatsCard({
         {nightsPlayed !== undefined && <Cell n={String(nightsPlayed)} label="nights" />}
         {series && series.played > 0 && (
           <Cell n={`${series.wins}/${series.played}`} label="series won" />
+        )}
+        {/* TITLES, never folded into the cell above. A Smashdown set and a
+            bracket night are different things to have won, and one cell
+            claiming both would be the lie the split in stats.ts exists to
+            prevent. The cell hides itself at zero, exactly as that one does,
+            so a crew that has never run a tournament gains no empty tile. */}
+        {tournaments && tournaments.played > 0 && (
+          <Cell
+            n={`${tournaments.titles}/${tournaments.played}`}
+            label={tournaments.titles === 1 ? "title won" : "titles won"}
+          />
         )}
       </div>
       {last5.length > 0 && (
