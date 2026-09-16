@@ -36,7 +36,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isSeriesSummary } from "@gamenight/shared";
+import { BEERIO_TOURNAMENT_LABEL, isSeriesSummary, isSummaryRow } from "@gamenight/shared";
 import { feedAgg, finishAgg, meetingOutcome, meetingStreaks, newAgg } from "../src/stats.js";
 import { rollupRecap } from "../src/events.js";
 import {
@@ -44,6 +44,7 @@ import {
   asRecap,
   asResult,
   LEDGER,
+  LEDGER_RELABELED,
   type LedgerRow,
 } from "./result-fixture.js";
 
@@ -68,6 +69,15 @@ const fed = (userId: string) => {
  * function, so a change here is a change to what every member of every crew
  * reads about themselves. Update one only with a reason in the commit message.
  *
+ * EDITED ONCE, ON 2026-09-15, AND THE DIFF WAS READ RATHER THAN REFRESHED
+ * UNTIL GREEN. All three gained the key
+ * `"tournaments":{"titles":0,"played":0,"best":null,"avgPlacement":null}` and
+ * nothing else: each was compared field by field against the string captured
+ * before `finishAgg` learned the word, and the comparison found one key added,
+ * none removed, none changed, and the order of every existing key preserved.
+ * Zeroes on all three because no row in `LEDGER` carries the label. The
+ * counters actually move in `LEDGER_RELABELED`, below.
+ *
  * ARI plays all five nights. Eight games and one series is the claim: the
  * series summary counts as a series and not as a ninth game, and BOTH Beerio
  * nights count as games, because on 2026-09-15 nothing in the ledger says
@@ -75,7 +85,7 @@ const fed = (userId: string) => {
  * it must not.
  */
 const PINNED_ARI =
-  '{"played":8,"wins":4,"best":1,"winRate":0.5,"avgPlacement":1.5,"byGame":[{"name":"Smash Bros","played":3,"wins":2},{"name":"Beerio Kart","played":2,"wins":1},{"name":"Mario Kart 8","played":1,"wins":0},{"name":"Ping Pong","played":1,"wins":1},{"name":"Mario Party","played":1,"wins":0}],"characters":{"byCharacter":[{"name":"Fox","played":3,"wins":2,"winRate":0.6666666666666666,"bestPlacement":1,"avgPlacement":1.3333333333333333}],"mostPlayed":"Fox","best":"Fox","minGamesForBest":3,"distinctCharacters":1},"form":{"currentStreak":0,"longestStreak":1,"currentLossStreak":1,"longestLossStreak":1,"last5":[{"isWinner":false,"placement":2},{"isWinner":true,"placement":1},{"isWinner":false,"placement":2},{"isWinner":true,"placement":1},{"isWinner":false,"placement":2}],"tracked":8},"series":{"wins":1,"played":1},"nightsPlayed":5}';
+  '{"played":8,"wins":4,"best":1,"winRate":0.5,"avgPlacement":1.5,"byGame":[{"name":"Smash Bros","played":3,"wins":2},{"name":"Beerio Kart","played":2,"wins":1},{"name":"Mario Kart 8","played":1,"wins":0},{"name":"Ping Pong","played":1,"wins":1},{"name":"Mario Party","played":1,"wins":0}],"characters":{"byCharacter":[{"name":"Fox","played":3,"wins":2,"winRate":0.6666666666666666,"bestPlacement":1,"avgPlacement":1.3333333333333333}],"mostPlayed":"Fox","best":"Fox","minGamesForBest":3,"distinctCharacters":1},"form":{"currentStreak":0,"longestStreak":1,"currentLossStreak":1,"longestLossStreak":1,"last5":[{"isWinner":false,"placement":2},{"isWinner":true,"placement":1},{"isWinner":false,"placement":2},{"isWinner":true,"placement":1},{"isWinner":false,"placement":2}],"tracked":8},"series":{"wins":1,"played":1},"tournaments":{"titles":0,"played":0,"best":null,"avgPlacement":null},"nightsPlayed":5}';
 
 test("BASELINE: finishAgg over the fixture ledger is byte-identical to the pin", () => {
   assert.equal(JSON.stringify(finishAgg(fed("u1"))), PINNED_ARI);
@@ -87,7 +97,7 @@ test("BASELINE: finishAgg over the fixture ledger is byte-identical to the pin",
  * rather than cancelling out.
  */
 const PINNED_BO =
-  '{"played":8,"wins":4,"best":1,"winRate":0.5,"avgPlacement":1.5,"byGame":[{"name":"Smash Bros","played":3,"wins":1},{"name":"Beerio Kart","played":2,"wins":1},{"name":"Mario Kart 8","played":1,"wins":1},{"name":"Ping Pong","played":1,"wins":0},{"name":"Mario Party","played":1,"wins":1}],"characters":{"byCharacter":[{"name":"Kirby","played":3,"wins":1,"winRate":0.3333333333333333,"bestPlacement":1,"avgPlacement":1.6666666666666667}],"mostPlayed":"Kirby","best":"Kirby","minGamesForBest":3,"distinctCharacters":1},"form":{"currentStreak":1,"longestStreak":1,"currentLossStreak":0,"longestLossStreak":1,"last5":[{"isWinner":true,"placement":1},{"isWinner":false,"placement":2},{"isWinner":true,"placement":1},{"isWinner":false,"placement":2},{"isWinner":true,"placement":1}],"tracked":8},"series":{"wins":0,"played":1},"nightsPlayed":5}';
+  '{"played":8,"wins":4,"best":1,"winRate":0.5,"avgPlacement":1.5,"byGame":[{"name":"Smash Bros","played":3,"wins":1},{"name":"Beerio Kart","played":2,"wins":1},{"name":"Mario Kart 8","played":1,"wins":1},{"name":"Ping Pong","played":1,"wins":0},{"name":"Mario Party","played":1,"wins":1}],"characters":{"byCharacter":[{"name":"Kirby","played":3,"wins":1,"winRate":0.3333333333333333,"bestPlacement":1,"avgPlacement":1.6666666666666667}],"mostPlayed":"Kirby","best":"Kirby","minGamesForBest":3,"distinctCharacters":1},"form":{"currentStreak":1,"longestStreak":1,"currentLossStreak":0,"longestLossStreak":1,"last5":[{"isWinner":true,"placement":1},{"isWinner":false,"placement":2},{"isWinner":true,"placement":1},{"isWinner":false,"placement":2},{"isWinner":true,"placement":1}],"tracked":8},"series":{"wins":0,"played":1},"tournaments":{"titles":0,"played":0,"best":null,"avgPlacement":null},"nightsPlayed":5}';
 
 test("BASELINE: the same for the player whose two summary-shaped rows point the other way", () => {
   assert.equal(JSON.stringify(finishAgg(fed("u2"))), PINNED_BO);
@@ -105,7 +115,7 @@ test("BASELINE: the same for the player whose two summary-shaped rows point the 
  * cheapest way to see it.
  */
 const PINNED_CY =
-  '{"played":2,"wins":0,"best":3,"winRate":0,"avgPlacement":3,"byGame":[{"name":"Beerio Kart","played":2,"wins":0}],"characters":{"byCharacter":[],"mostPlayed":null,"best":null,"minGamesForBest":3,"distinctCharacters":0},"form":{"currentStreak":0,"longestStreak":0,"currentLossStreak":2,"longestLossStreak":2,"last5":[{"isWinner":false,"placement":3},{"isWinner":false,"placement":3}],"tracked":2},"series":{"wins":0,"played":0},"nightsPlayed":2}';
+  '{"played":2,"wins":0,"best":3,"winRate":0,"avgPlacement":3,"byGame":[{"name":"Beerio Kart","played":2,"wins":0}],"characters":{"byCharacter":[],"mostPlayed":null,"best":null,"minGamesForBest":3,"distinctCharacters":0},"form":{"currentStreak":0,"longestStreak":0,"currentLossStreak":2,"longestLossStreak":2,"last5":[{"isWinner":false,"placement":3},{"isWinner":false,"placement":3}],"tracked":2},"series":{"wins":0,"played":0},"tournaments":{"titles":0,"played":0,"best":null,"avgPlacement":null},"nightsPlayed":2}';
 
 test("BASELINE: the player whose whole record is Beerio nights", () => {
   assert.equal(JSON.stringify(finishAgg(fed("u3"))), PINNED_CY);
@@ -273,4 +283,154 @@ test("BASELINE: the Beerio night is its own recap line, not folded into anything
   assert.equal(beerio.sessions.length, 1);
   assert.equal(beerio.sessions[0]!.gameName, "Beerio Kart");
   assert.equal(beerio.sessions[0]!.matches, 1);
+});
+
+// ---------- part 5: the same ledger after the one-off relabel ----------
+//
+// `LEDGER_RELABELED` is `LEDGER` with the closeout SQL applied: the BRACKET
+// night's three rows carry `beerio_tournament` and every other row, the Grand
+// Prix night included, is untouched. Derived from `LEDGER` rather than written
+// out again, so the two can never drift into describing different nights.
+//
+// THIS IS THE SESSION'S ACCEPTANCE TEST, and every value below was captured by
+// running the code rather than reasoned about.
+
+const fedAfter = (userId: string) => {
+  const a = newAgg();
+  for (const r of LEDGER_RELABELED.filter((x) => x.userId === userId)) feedAgg(a, asResult(r));
+  return a;
+};
+
+/**
+ * ARI after the relabel: the bracket night leaves `played` and arrives in
+ * `tournaments` as a title, and the Grand Prix night stays a game because it
+ * is not relabeled.
+ */
+const AFTER_ARI =
+  '{"played":7,"wins":3,"best":1,"winRate":0.42857142857142855,"avgPlacement":1.5714285714285714,"byGame":[{"name":"Smash Bros","played":3,"wins":2},{"name":"Mario Kart 8","played":1,"wins":0},{"name":"Beerio Kart","played":1,"wins":0},{"name":"Ping Pong","played":1,"wins":1},{"name":"Mario Party","played":1,"wins":0}],"characters":{"byCharacter":[{"name":"Fox","played":3,"wins":2,"winRate":0.6666666666666666,"bestPlacement":1,"avgPlacement":1.3333333333333333}],"mostPlayed":"Fox","best":"Fox","minGamesForBest":3,"distinctCharacters":1},"form":{"currentStreak":0,"longestStreak":1,"currentLossStreak":1,"longestLossStreak":2,"last5":[{"isWinner":false,"placement":2},{"isWinner":true,"placement":1},{"isWinner":false,"placement":2},{"isWinner":false,"placement":2},{"isWinner":true,"placement":1}],"tracked":7},"series":{"wins":1,"played":1},"tournaments":{"titles":1,"played":1,"best":1,"avgPlacement":1},"nightsPlayed":5}';
+
+test("AFTER: the bracket night becomes a title and the Grand Prix stays a game", () => {
+  assert.equal(JSON.stringify(finishAgg(fedAfter("u1"))), AFTER_ARI);
+});
+
+/** BO came second at the bracket: no title, and the placement is kept anyway. */
+const AFTER_BO =
+  '{"played":7,"wins":4,"best":1,"winRate":0.5714285714285714,"avgPlacement":1.4285714285714286,"byGame":[{"name":"Smash Bros","played":3,"wins":1},{"name":"Mario Kart 8","played":1,"wins":1},{"name":"Beerio Kart","played":1,"wins":1},{"name":"Ping Pong","played":1,"wins":0},{"name":"Mario Party","played":1,"wins":1}],"characters":{"byCharacter":[{"name":"Kirby","played":3,"wins":1,"winRate":0.3333333333333333,"bestPlacement":1,"avgPlacement":1.6666666666666667}],"mostPlayed":"Kirby","best":"Kirby","minGamesForBest":3,"distinctCharacters":1},"form":{"currentStreak":1,"longestStreak":2,"currentLossStreak":0,"longestLossStreak":1,"last5":[{"isWinner":true,"placement":1},{"isWinner":false,"placement":2},{"isWinner":true,"placement":1},{"isWinner":true,"placement":1},{"isWinner":false,"placement":2}],"tracked":7},"series":{"wins":0,"played":1},"tournaments":{"titles":0,"played":1,"best":2,"avgPlacement":2},"nightsPlayed":5}';
+
+test("AFTER: a runner-up keeps the placement, which is what a podium history IS", () => {
+  const out = finishAgg(fedAfter("u2"));
+  assert.equal(JSON.stringify(out), AFTER_BO);
+  assert.deepEqual(out.tournaments, { titles: 0, played: 1, best: 2, avgPlacement: 2 });
+});
+
+/**
+ * CY IS THE ACCEPTANCE WITNESS, and this is the assertion the whole session was
+ * for. Cy played nothing but the two Beerio nights, so Cy is the member whose
+ * profile a careless relabel empties.
+ */
+const AFTER_CY =
+  '{"played":1,"wins":0,"best":3,"winRate":0,"avgPlacement":3,"byGame":[{"name":"Beerio Kart","played":1,"wins":0}],"characters":{"byCharacter":[],"mostPlayed":null,"best":null,"minGamesForBest":3,"distinctCharacters":0},"form":{"currentStreak":0,"longestStreak":0,"currentLossStreak":1,"longestLossStreak":1,"last5":[{"isWinner":false,"placement":3}],"tracked":1},"series":{"wins":0,"played":0},"tournaments":{"titles":0,"played":1,"best":3,"avgPlacement":3},"nightsPlayed":2}';
+
+test("AFTER: the player whose whole record is Beerio does not go blank", () => {
+  const out = finishAgg(fedAfter("u3"));
+  assert.equal(JSON.stringify(out), AFTER_CY);
+  assert.equal(out.nightsPlayed, 2, "NEITHER night disappeared");
+  assert.equal(out.tournaments.played, 1, "the bracket night is a tournament now");
+  assert.equal(out.tournaments.best, 3, "and it still remembers where Cy finished");
+  assert.equal(out.byGame.find((g) => g.name === "Beerio Kart")?.played, 1, "the GP night is still a game");
+});
+
+test("AFTER: a title never lands in the series counters, nor a series in the titles", () => {
+  // The one thing that must never happen, asserted on its own so the failure
+  // names itself. Ari won a Smashdown series AND a Beerio bracket, so a merge
+  // of the two tallies shows up here and nowhere else.
+  const ari = finishAgg(fedAfter("u1"));
+  assert.deepEqual(ari.series, { wins: 1, played: 1 }, "one Smashdown set, and only that");
+  assert.deepEqual(ari.tournaments, { titles: 1, played: 1, best: 1, avgPlacement: 1 });
+  assert.deepEqual(finishAgg(fedAfter("u2")).series, { wins: 0, played: 1 });
+});
+
+test("AFTER: finishAgg is still sync and query-free", () => {
+  const out = finishAgg(fedAfter("u1")) as unknown as { then?: unknown };
+  assert.equal(typeof out.then, "undefined");
+});
+
+// ---------- part 6: what the relabel costs, captured rather than claimed ----------
+
+const meetingsAfter = (meId: string, themId: string) => {
+  const byMatch = new Map<string, { mine?: LedgerRow; theirs?: LedgerRow }>();
+  for (const r of LEDGER_RELABELED) {
+    if (r.userId !== meId && r.userId !== themId) continue;
+    if (isSummaryRow(r.label)) continue;
+    const m = byMatch.get(r.matchId) ?? {};
+    if (r.userId === meId) m.mine = r;
+    else m.theirs = r;
+    byMatch.set(r.matchId, m);
+  }
+  return [...byMatch.entries()]
+    .filter(([, m]) => m.mine && m.theirs)
+    .map(([matchId, m]) => [matchId, meetingOutcome(asMeetingSide(m.mine!), asMeetingSide(m.theirs!))] as const);
+};
+
+test("AFTER: old bracket nights stop producing meetings, and that is the intended trade", () => {
+  // DELIBERATE, NOT A REGRESSION, and captured here so nobody has to take it on
+  // trust. Comparing two racers' placements across a whole NIGHT is not a
+  // head-to-head: they may never have raced each other at all. Eight meetings
+  // become seven, the one that goes is the bracket night, and the Grand Prix
+  // night stays because a GP genuinely IS one ranked result.
+  //
+  // New Beerio nights get REAL meetings, one per 1v1 match actually raced, from
+  // program session 2. That is the whole point of the trade.
+  assert.deepEqual(meetingsAfter("u1", "u2"), [
+    ["m1", "win"],
+    ["m2", "loss"],
+    ["m3", "win"],
+    ["m5", "loss"],
+    ["m7", "loss"],
+    ["m8", "win"],
+    ["m9", "loss"],
+  ]);
+  assert.deepEqual(meetingStreaks(meetingsAfter("u1", "u2").map(([, o]) => o)), {
+    run: -1,
+    myLongest: 1,
+    theirLongest: 2,
+  });
+});
+
+test("AFTER: two players who only ever shared Beerio nights keep the GP meeting", () => {
+  // Their two meetings become ONE rather than none, which is the distinction
+  // the `b|%` filter in the closeout SQL exists to draw.
+  assert.deepEqual(meetingsAfter("u1", "u3"), [["m7", "win"]]);
+});
+
+test("AFTER: the recap keeps every Beerio night, and differs ONLY by the raw label", () => {
+  // The surface the acceptance criterion is sharpest about. A relabeled night
+  // renders exactly as it did: its own line, its own row, nothing folded and
+  // nothing dropped.
+  const before = rollupRecap(LEDGER.map(asRecap));
+  const after = rollupRecap(LEDGER_RELABELED.map(asRecap));
+
+  assert.equal(after.totalGames, before.totalGames);
+  assert.equal(after.totalGames, 8, "the relabel costs the night nothing");
+  assert.deepEqual(after.players, before.players);
+  assert.deepEqual(after.mvp, before.mvp);
+  assert.equal(after.sessions.filter((x) => x.gameName === "Beerio Kart").length, 2);
+  assert.deepEqual(
+    after.sessions.map(({ label, ...rest }) => rest),
+    before.sessions.map(({ label, ...rest }) => rest),
+    "every field but the label is identical",
+  );
+
+  // AND THE ONE FIELD THAT DOES MOVE, asserted rather than waved past. The
+  // rollup passes `matches.label` straight through, so a relabeled night now
+  // carries the raw ledger string where it used to carry null. That is correct
+  // of the ROLLUP, which reports rows as they are; it is a problem for any
+  // SURFACE that prints the field without asking what it is, and finding that
+  // is the job of the commit after this one.
+  const beerio = after.sessions.filter((x) => x.gameName === "Beerio Kart");
+  assert.deepEqual(
+    beerio.map((x) => x.label),
+    [BEERIO_TOURNAMENT_LABEL, null],
+    "the bracket night carries the label, the Grand Prix night does not",
+  );
 });

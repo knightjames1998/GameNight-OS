@@ -306,6 +306,24 @@ interface Agg {
   // series is five games and one series.
   seriesWins: number;
   seriesPlayed: number;
+  // TOURNAMENTS ENTERED, TITLES WON, AND HOW THEY FINISHED. Fed ONLY by the
+  // TOURNAMENT summary rows, and kept entirely separate from the two fields
+  // above rather than sharing them. A Smashdown set and a Beerio title are
+  // both "a thing you won that is not a game", and that is exactly why they
+  // must not share a counter: "series won: 4" on a profile has to mean four
+  // Smashdown sets, not two sets and two bracket nights.
+  //
+  // A TOURNAMENT KEEPS ITS PLACEMENT, which is the difference from a series
+  // and the reason this is five fields rather than two. A series row records
+  // who won a set; a Beerio bracket night records where EVERY racer finished,
+  // and that podium history is the whole of what old Beerio nights carry. Lose
+  // it and a member who came second at eleven bracket nights has nothing to
+  // show for any of them.
+  tournamentTitles: number;
+  tournamentPlayed: number;
+  tournamentPlacementSum: number;
+  tournamentPlaced: number;
+  tournamentBest: number | null;
 }
 
 export function newAgg(): Agg {
@@ -326,6 +344,11 @@ export function newAgg(): Agg {
     fourthPlus: 0,
     seriesWins: 0,
     seriesPlayed: 0,
+    tournamentTitles: 0,
+    tournamentPlayed: 0,
+    tournamentPlacementSum: 0,
+    tournamentPlaced: 0,
+    tournamentBest: null,
   };
 }
 
@@ -356,11 +379,36 @@ export function feedAgg(a: Agg, r: ResultRow) {
     return;
   }
   if (kind === "tournament") {
-    // ITS OWN TALLY LANDS IN THE NEXT COMMIT, and it is deliberately not
-    // bodged into the series counters here. Falling through for now is safe
-    // and provably invisible: nothing in this app writes this label yet, and
-    // the legacy rows do not carry it until a one-off UPDATE is run, which
-    // does not happen until every surface can render the result.
+    a.tournamentPlayed++;
+    if (r.isWinner) a.tournamentTitles++;
+    const tplace = r.placement ?? 0;
+    if (tplace >= 1) {
+      a.tournamentPlacementSum += tplace;
+      a.tournamentPlaced++;
+      a.tournamentBest = a.tournamentBest === null ? tplace : Math.min(a.tournamentBest, tplace);
+    }
+    // THE NIGHT STILL COUNTS AS A NIGHT PLAYED, and this line is the one
+    // judgement call in this function. `nightsPlayed` says in its own comment
+    // that it claims "nights played" and that PLAYING A GAME IS PROOF; running
+    // a whole bracket is proof by the same standard, and a legacy Beerio night
+    // has no other row to supply it. Without this, relabelling old bracket
+    // nights would quietly remove them from every member's nights-played
+    // count, which is precisely the disappearance this session exists to
+    // prevent. It cannot double count: eventIds is a Set, so a night that also
+    // has match rows (every Beerio night from program session 2 onward) is
+    // already in it.
+    //
+    // THE COST IS `gamesPerNight`, stated rather than hidden: a night that
+    // recorded a tournament and no games adds to the denominator and nothing
+    // to the numerator, so the average dips. That is a true statement about a
+    // night on which no individual game was recorded, and it corrects itself
+    // in program session 2 when bracket nights start writing a row per match.
+    if (r.eventId) a.eventIds.add(r.eventId);
+    // NOT `byEvent`, deliberately. That map feeds the BEST NIGHT pick, which is
+    // "the night you won the most GAMES on". A title is not a game won, and
+    // letting one in would hand best-night to an evening on which nothing was
+    // recorded but a podium.
+    return;
   }
   const place = r.placement ?? 0;
   a.played++;
@@ -571,6 +619,17 @@ export function finishAgg(a: Agg) {
     // Nested so a client can render it only when there is one: a crew that has
     // never played Smashdown gets zeroes it can hide, not a new empty tile.
     series: { wins: a.seriesWins, played: a.seriesPlayed },
+    // The same shape beside it, for the same reason, and NEVER folded into it:
+    // a crew that has never run a tournament gets zeroes it can hide. TITLES
+    // rather than wins, because that is the word every surface uses for
+    // winning one, and `best` / `avgPlacement` because a tournament keeps its
+    // placement and a podium history is most of what these rows are worth.
+    tournaments: {
+      titles: a.tournamentTitles,
+      played: a.tournamentPlayed,
+      best: a.tournamentBest,
+      avgPlacement: a.tournamentPlaced ? a.tournamentPlacementSum / a.tournamentPlaced : null,
+    },
     // Distinct nights with at least one recorded game. Counted off the
     // ledger, not off attendance check-ins: this claims "nights played",
     // and playing a game is proof, whereas a night nobody confirmed

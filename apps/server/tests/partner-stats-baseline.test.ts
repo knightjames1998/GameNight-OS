@@ -95,6 +95,16 @@ const fed = () => {
  * comes out of this function, so a change here is a change to what every
  * member of every crew reads about themselves. Update it only with a reason
  * written down in the commit message.
+ *
+ * EDITED ONCE, ON 2026-09-15, WHEN THE AGGREGATION LEARNED WHAT A TOURNAMENT
+ * ROW IS, AND THE DIFF WAS READ RATHER THAN REFRESHED UNTIL GREEN. Exactly one
+ * key was added, `"tournaments"`, sitting beside `"series"` for the same
+ * reason that one is nested: a crew that has never run a tournament gets
+ * zeroes it can hide rather than a new empty tile. Nothing was removed,
+ * nothing changed value, and the order of every pre-existing key is unmoved.
+ * Zeroes here because this fixture carries no tournament row, which is itself
+ * the useful assertion: the rows that were here before this session mean
+ * exactly what they meant before it.
  */
 const PINNED_FINISH_AGG =
   '{"played":8,"wins":4,"best":1,"winRate":0.5,"avgPlacement":2.142857142857143,' +
@@ -109,6 +119,7 @@ const PINNED_FINISH_AGG =
   '{"isWinner":true,"placement":1},{"isWinner":false,"placement":5},{"isWinner":true,"placement":1}],' +
   '"tracked":8},' +
   '"series":{"wins":1,"played":1},' +
+  '"tournaments":{"titles":0,"played":0,"best":null,"avgPlacement":null},' +
   '"nightsPlayed":4}';
 
 test("finishAgg over a fed Agg is byte-identical to the pin (the crew leaderboard did not move)", () => {
@@ -125,11 +136,16 @@ test("finishAgg stays sync: it returns a value, never a promise", () => {
 
 test("the series summary is one series and zero games, not a ninth game", () => {
   // Stated separately from the pin so the failure names itself. Partner stats
-  // run their own SQL over the same rows and have to exclude the same label;
-  // if this rule ever moves, both spellings need to move together.
+  // run their own SQL over the same rows and have to exclude the same labels;
+  // if this rule ever moves, both spellings need to move together, which
+  // summary-labels.test.ts now holds them to.
   const out = finishAgg(fed());
   assert.equal(out.played, 8, "nine rows, one of them a series summary");
   assert.deepEqual(out.series, { wins: 1, played: 1 });
+  // And it is a SERIES, never a title. The two tallies were split on
+  // 2026-09-15 precisely so this fixture's Smashdown row could not drift into
+  // the other one.
+  assert.deepEqual(out.tournaments, { titles: 0, played: 0, best: null, avgPlacement: null });
 });
 
 // ---------- part 2: what a shared side means ----------

@@ -9,7 +9,7 @@
 // what a ledger row even looks like while both stay green. Same reasoning as
 // every other "this existed twice" entry in this repo's history.
 
-import { SERIES_LABEL } from "@gamenight/shared";
+import { BEERIO_LEDGER, BEERIO_TOURNAMENT_LABEL, SERIES_LABEL } from "@gamenight/shared";
 import type { ResultRow } from "../src/stats.js";
 
 let seq = 0;
@@ -184,3 +184,23 @@ export const LEDGER: LedgerRow[] = [
   ledgerRow({ matchId: "m9", userId: "u1", eventId: "e5", gameName: "Mario Party", pack: "mario_party", format: "board", label: "Peach's Birthday Cake", externalKey: "mp:e5:sk3:1", placement: 2, position: 2, playedAt: new Date("2026-08-29T21:00:00.000Z") }),
   ledgerRow({ matchId: "m9", userId: "u2", eventId: "e5", gameName: "Mario Party", pack: "mario_party", format: "board", label: "Peach's Birthday Cake", externalKey: "mp:e5:sk3:1", placement: 1, isWinner: true, position: 2, playedAt: new Date("2026-08-29T21:00:00.000Z") }),
 ];
+
+/**
+ * THE SAME LEDGER AFTER THE ONE-OFF RELABEL, and nothing else about it changed.
+ *
+ * Exactly what `UPDATE matches SET label = 'beerio_tournament' WHERE pack =
+ * 'beerio_kart' AND external_key LIKE 'b|%' AND label IS NULL` does, applied in
+ * TypeScript: the BRACKET night's three rows take the label and every other row
+ * in the fixture is untouched, including the Grand Prix night, which is what
+ * the `b|%` in that WHERE clause is for.
+ *
+ * DERIVED FROM `LEDGER` RATHER THAN WRITTEN OUT AGAIN, on purpose. The whole
+ * claim of the after-baselines is "these rows are the same rows"; two
+ * hand-maintained lists could drift and the tests would still pass while
+ * comparing two different nights.
+ */
+export const LEDGER_RELABELED: LedgerRow[] = LEDGER.map((r) =>
+  r.pack === BEERIO_LEDGER && r.externalKey?.startsWith("b|") && r.label === null
+    ? { ...r, label: BEERIO_TOURNAMENT_LABEL }
+    : r,
+);
