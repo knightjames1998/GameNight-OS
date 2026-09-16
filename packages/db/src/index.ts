@@ -5,7 +5,7 @@ import * as schema from "./schema.js";
 export * from "./schema.js";
 // Query operators re-exported so consumers never import drizzle-orm directly;
 // everything database flows through this package.
-export { eq, ne, and, or, not, gt, gte, lt, lte, isNull, isNotNull, inArray, desc, asc, sql } from "drizzle-orm";
+export { eq, ne, and, or, not, gt, gte, lt, lte, isNull, isNotNull, inArray, notInArray, desc, asc, sql } from "drizzle-orm";
 // A SELF-JOIN needs the same table twice under two names, which is what
 // `alias` is for. Re-exported here for the same reason the operators above
 // are: partner stats join match_participants to itself to find the other

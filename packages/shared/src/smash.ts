@@ -848,9 +848,21 @@ export function smashSeriesLines(
 export const SERIES_LABEL = "smashdown";
 
 /**
- * True for a ledger row that SUMMARIZES rows already in the ledger, so it must
- * never be counted as a game played. See SERIES_LABEL for why this is a
- * label and not a format.
+ * True for THIS pack's series summary row specifically. See SERIES_LABEL for
+ * why this is a label and not a format.
+ *
+ * NARROWED IN MEANING ON 2026-09-15 WITHOUT CHANGING A CHARACTER OF ITS
+ * BEHAVIOUR, which is worth a sentence because a reader will otherwise assume
+ * the general question is still asked here. It used to be the only summary
+ * label there was, so "is this a Smashdown series" and "is this a summary"
+ * had the same answer and nobody had to choose. There are two kinds now, and
+ * the general question moved to `summaryKind` in summary.ts. This one is kept
+ * for the single caller that genuinely means Smash's own series: the Smash
+ * panel's series standings, which a Beerio title has no business appearing in.
+ *
+ * IF YOU ARE ABOUT TO CALL THIS FROM SOMETHING THAT COUNTS GAMES, you want
+ * `isSummaryRow` instead. That is the distinction, and it is the whole reason
+ * both exist.
  */
 export const isSeriesSummary = (label: string | null | undefined): boolean => label === SERIES_LABEL;
 

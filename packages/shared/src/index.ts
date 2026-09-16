@@ -140,6 +140,11 @@ export * from "./bracket.js";
 export * from "./bracketboard.js";
 export * from "./series.js";
 export * from "./smash.js";
+// WHICH LEDGER ROWS DESCRIBE OTHER LEDGER ROWS. After smash.js because it
+// reads SERIES_LABEL from there; deliberately NOT inside it, because a
+// Smashdown series is one kind of summary rather than the definition of the
+// category, and every pack's results flow through this rule.
+export * from "./summary.js";
 export * from "./mariokart.js";
 export * from "./marioparty.js";
 export * from "./pingpong.js";

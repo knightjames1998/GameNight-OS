@@ -22,7 +22,7 @@ import {
 import {
   PACK_BY_LEDGER,
   GENERIC_LEDGER,
-  isSeriesSummary,
+  summaryKind,
   dueOccurrence,
   isSeriesKind,
   MAX_INTERVAL_WEEKS,
@@ -638,12 +638,36 @@ export function rollupRecap(rows: RecapRow[]) {
   >();
 
   for (const r of rows) {
+    // AUDITED 2026-09-15, AND THIS IS THE ONE SITE WHERE THE ANSWER IS NOT
+    // "ANY SUMMARY". The audit that session ran over every caller of this rule
+    // moved all of them to the shared classifier except this one, so the
+    // exception is written down rather than left looking like a miss.
+    //
     // A Smashdown SERIES row summarizes battles that are in this very list, and
     // it shares their sessionKey by design, so it would land in their unit and
     // report "won 4 of 6 games" for a five-battle series someone won three of.
     // It is dropped from the recap entirely rather than shown as its own line:
     // the series already IS the line, since all its battles group into one.
-    if (isSeriesSummary(r.label)) continue;
+    //
+    // A BEERIO TOURNAMENT ROW HAS NOTHING IN THIS LIST TO BE FOLDED INTO, and
+    // dropping it would delete the night. The other readers of this rule count
+    // GAMES PLAYED across a lifetime, where a summary is always double
+    // counting; the recap answers "what happened tonight", where a night that
+    // produced only a tournament row still happened. Every Beerio night in the
+    // ledger today is exactly that: one row, no siblings, its own line, which
+    // is how they have always rendered and how they must keep rendering after
+    // the one-off relabel.
+    //
+    // THIS BECOMES "ANY SUMMARY" THE DAY BEERIO WRITES ITS 1v1 MATCH ROWS,
+    // because then the tournament row DOES have siblings here and folding is
+    // the right answer. That is program session 2's, not this one's: there is
+    // nothing to fold yet, and a fold written against rows that do not exist
+    // could not be tested.
+    //
+    // So the question this asks is narrower than "is it a summary": it is "is
+    // it a summary of rows that are ALSO IN THIS RECAP", and today only the
+    // series is.
+    if (summaryKind(r.label) === "series") continue;
     let g = byMatch.get(r.matchId);
     if (!g) {
       g = {

@@ -36,13 +36,23 @@
 // That leaves 22 values that have no business appearing anywhere else, and the
 // two that matter most are in it: every gameName, and every wsType that is not
 // a bare pack key.
+//
+// THE SUMMARY LABELS JOINED THE SCAN ON 2026-09-15, and they belong here for
+// the same stated reason rather than by analogy. `matches.label` is a ledger
+// identifier: a summary label decides whether a row counts as a game, so
+// mistyping one does not error, it silently gives every player a phantom game
+// and the row's winner a phantom win. That is the exact failure mode the four
+// fields above have. They are scanned by the same rules (skipped if they are
+// also a pack key or a registered ledger format, which is why "smashdown" is
+// covered by formats.ts's entry rather than this one) and they come from
+// SUMMARY_LABELS, so a third kind is scanned the day it is added.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { SESSION_PACKS, SESSION_PACK_KEYS, FORMAT_ORDER } from "@gamenight/shared";
+import { SESSION_PACKS, SESSION_PACK_KEYS, FORMAT_ORDER, SUMMARY_LABELS } from "@gamenight/shared";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, "../../..");
@@ -81,7 +91,7 @@ function sources(dir: string, out: string[] = []): string[] {
 }
 
 interface Scanned {
-  field: "ledger" | "gameName" | "keyPrefix" | "wsType";
+  field: "ledger" | "gameName" | "keyPrefix" | "wsType" | "summaryLabel";
   value: string;
   pack: string;
 }
@@ -98,6 +108,15 @@ function scannedValues(): Scanned[] {
       if (out.some((o) => o.value === value)) continue;
       out.push({ field, value, pack });
     }
+  }
+  // The summary labels, under the same three skips. SERIES_LABEL drops out on
+  // the format rule ("smashdown" is a registered ledger format as well as the
+  // label, deliberately, and formats.ts says why), which leaves the Beerio
+  // tournament label as the one this actually guards.
+  for (const value of SUMMARY_LABELS) {
+    if (keys.has(value) || formats.has(value) || value.length < 4) continue;
+    if (out.some((o) => o.value === value)) continue;
+    out.push({ field: "summaryLabel", value, pack: "summary.ts" });
   }
   return out;
 }
@@ -156,6 +175,14 @@ test("the scan looks at a meaningful set of values, not an empty one", () => {
   // mario_kart and mario_party, the only two ledgers spelled unlike their key.
   assert.ok(byField("ledger") >= 2, "ledgers fell out of the scan");
   assert.ok(values.length >= 20, `only ${values.length} values scanned; there were 22 when written`);
+  // The summary labels, added 2026-09-15. One survives the skips and it is the
+  // one that matters: "smashdown" is also a registered ledger format so it is
+  // covered there, and "beerio_tournament" is covered by nothing else at all.
+  assert.equal(byField("summaryLabel"), 1, "a summary label dropped out of the scan");
+  assert.ok(
+    values.some((v) => v.field === "summaryLabel" && v.value === "beerio_tournament"),
+    "the Beerio tournament label is the summary label this scan exists to guard",
+  );
 });
 
 test("the scan can actually see an offender, and does not fire on the fix", () => {

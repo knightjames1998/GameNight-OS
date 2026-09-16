@@ -1308,6 +1308,12 @@ smashRouter.get("/groups/:id/smash-stats", requireAuth, async (req: AuthedReques
   // them in would add a phantom game per series to every player, hand the
   // series winner an extra win, and put a null character through the fighter
   // tallies. They feed one thing: series won.
+  // AUDITED 2026-09-15 AND DELIBERATELY LEFT SERIES-SPECIFIC: this is the ONE
+  // caller that means Smash's own series rather than "any summary". These are
+  // the Smash panel's SERIES STANDINGS, so a summary of some other pack's
+  // night has no business in either half of this split. `isSeriesSummary` is
+  // kept exported for exactly this, and the shared classifier is what
+  // everything else now asks.
   const seriesRows = rows.filter((r) => isSeriesSummary(r.label));
   const gameRows = rows.filter((r) => !isSeriesSummary(r.label));
 

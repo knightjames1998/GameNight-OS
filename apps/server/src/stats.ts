@@ -25,10 +25,11 @@ import {
   isNotNull,
   isNull,
   ne,
+  notInArray,
   or,
   sql,
 } from "@gamenight/db";
-import { isSeriesSummary, formatOrderIndex, SERIES_LABEL, SESSION_PACKS } from "@gamenight/shared";
+import { formatOrderIndex, isSummaryRow, summaryKind, SESSION_PACKS, SUMMARY_LABELS } from "@gamenight/shared";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 
 export const statsRouter = Router();
@@ -87,10 +88,15 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
   type FmtBucket = { byUser: Map<string, FmtCell>; matchIds: Set<string> };
   const fmtByGame = new Map<string, Map<string, FmtBucket>>();
   for (const r of rows) {
+    // AUDITED 2026-09-15: this means ANY SUMMARY, not Smash's series.
     // A series summary carries format "smashdown" like the battles it
     // summarizes, so without this the Smashdown bucket would count each
-    // series as an extra unit played and credit its winner twice.
-    if (isSeriesSummary(r.label)) continue;
+    // series as an extra unit played and credit its winner twice. A Beerio
+    // tournament row is the same shape of mistake in a different bucket: it
+    // would add a unit to whatever format it carries on top of the 1v1 matches
+    // it summarizes. This bucket counts things that were PLAYED, and neither
+    // kind of summary was played.
+    if (isSummaryRow(r.label)) continue;
     const game = r.gameName ?? "Unknown";
     const fmt = r.format ?? "other";
     const byFmt = fmtByGame.get(game) ?? new Map<string, FmtBucket>();
@@ -156,16 +162,22 @@ statsRouter.get("/groups/:id/stats", async (req: AuthedRequest, res) => {
   }
 
   // Every completed match in the crew, which is what the headline count and
-  // the per-game ordering are built from. Series summaries are dropped here
-  // too: they are not a thing that was played, they are a description of
-  // things that were.
+  // the per-game ordering are built from.
+  //
+  // AUDITED 2026-09-15: this means ANY SUMMARY, not Smash's series. Neither
+  // kind is a thing that was played; both are a description of things that
+  // were. **THE BEERIO TAB IS THE CASE TO WATCH HERE** and it is handled in
+  // the commit that surfaces tournaments rather than left to chance: this
+  // count is what the crew leaderboard prints as a pack's headline, so a
+  // Beerio night that is nothing BUT a tournament row would make the tab read
+  // zero unless the tournament count is put back beside it.
   const tournamentRows = (
     await db
       .select({ id: matches.id, gameName: games.name, label: matches.label })
       .from(matches)
       .leftJoin(games, eq(matches.gameId, games.id))
       .where(and(eq(matches.groupId, groupId), eq(matches.status, "completed")))
-  ).filter((t) => !isSeriesSummary(t.label));
+  ).filter((t) => !isSummaryRow(t.label));
 
   const countByGame = new Map<string, number>();
   for (const t of tournamentRows) {
@@ -228,11 +240,12 @@ export interface ResultRow {
   playedAt: Date | null;
   eventId: string | null;
   /**
-   * matches.label. Carried for ONE reason: a Smashdown series row summarizes
-   * battles that are already in this same result set, so it must not be
-   * counted as a game (see isSeriesSummary in the shared module). Every other
-   * label is descriptive only (a board name, a cup, bo{N}) and is ignored
-   * here, because those rows genuinely ARE the unit their games produced.
+   * matches.label. Carried for ONE reason: a SUMMARY row describes rows that
+   * are already in this same result set, so it must not be counted as a game
+   * (see `summaryKind` in the shared module). There are two kinds and they
+   * feed different tallies. Every other label is descriptive only (a board
+   * name, a cup, bo{N}) and is ignored here, because those rows genuinely ARE
+   * the unit their games produced.
    */
   label: string | null;
 }
@@ -286,9 +299,11 @@ interface Agg {
   seconds: number;
   thirds: number;
   fourthPlus: number;
-  // Series (Smashdown) won and played. Fed ONLY by the summary rows, which
-  // every other counter above skips, so the two can never double-count the
-  // same night: a five-battle series is five games and one series.
+  // Series (Smashdown) won and played. Fed ONLY by the SERIES summary rows,
+  // never by any other kind, so a player's "series won" line can never mix a
+  // Smashdown set with something that is not one. Every counter above skips
+  // them, so the two can never double-count the same night: a five-battle
+  // series is five games and one series.
   seriesWins: number;
   seriesPlayed: number;
 }
@@ -318,20 +333,34 @@ export function newAgg(): Agg {
  * Fold one ledger row into an aggregate.
  *
  * THE EXCLUSION LIVES HERE, at the top, rather than in each of the five
- * callers. A Smashdown series row is a summary of battles that are already in
- * the ledger, so counting it as a game would give every player a phantom game
- * per series and the winner a phantom win. Putting the test in the one place
- * every caller already goes through means a sixth caller inherits it instead
- * of being the one that forgets. The callers that tally OUTSIDE this function
- * (the crew leaderboard's format buckets, /me/stats' per-format and per-crew
- * rollups, the recap) each call isSeriesSummary themselves, and that is the
- * whole list.
+ * callers. A summary row describes rows that are already in the ledger, so
+ * counting it as a game would give every player a phantom game and its winner
+ * a phantom win. Putting the test in the one place every caller already goes
+ * through means a sixth caller inherits it instead of being the one that
+ * forgets. The callers that tally OUTSIDE this function (the crew
+ * leaderboard's format buckets, /me/stats' per-format and per-crew rollups,
+ * the meeting map, the recap) each ask the classifier themselves, and that is
+ * the whole list.
+ *
+ * AUDITED 2026-09-15: this means ANY SUMMARY, and it is the one site where
+ * that is not simply an exclusion, because each kind feeds a tally of its own
+ * afterwards. The kinds are switched on rather than collapsed to a boolean:
+ * a Smashdown series and a Beerio title must never land in the same counter,
+ * or a player's "series won" line silently mixes the two.
  */
 export function feedAgg(a: Agg, r: ResultRow) {
-  if (isSeriesSummary(r.label)) {
+  const kind = summaryKind(r.label);
+  if (kind === "series") {
     a.seriesPlayed++;
     if (r.isWinner) a.seriesWins++;
     return;
+  }
+  if (kind === "tournament") {
+    // ITS OWN TALLY LANDS IN THE NEXT COMMIT, and it is deliberately not
+    // bodged into the series counters here. Falling through for now is safe
+    // and provably invisible: nothing in this app writes this label yet, and
+    // the legacy rows do not carry it until a one-off UPDATE is run, which
+    // does not happen until every surface can render the result.
   }
   const place = r.placement ?? 0;
   a.played++;
@@ -1052,13 +1081,18 @@ async function partnersFor(db: Db, groupIds: string[], userId: string) {
         PARTNER_COUNTS_FACTION_GAMES
           ? undefined
           : or(isNull(games.pack), ne(games.pack, DEDUCTION_LEDGER)),
-        // THE SERIES SUMMARY EXCLUSION, the same one feedAgg applies to the
-        // aggregation. A Smashdown series row summarizes battles that are
-        // already in this same result set, so without this a series counts on
-        // top of every battle inside it and inflates the partner record. The
-        // constant is imported rather than typed out, so renaming it moves
-        // both spellings together.
-        or(isNull(matches.label), ne(matches.label, SERIES_LABEL)),
+        // THE SUMMARY EXCLUSION, the same one feedAgg applies to the
+        // aggregation, and AUDITED 2026-09-15 as meaning ANY summary. A
+        // summary row describes rows that are already in this same result set,
+        // so without this it counts on top of every row inside it and inflates
+        // the partner record.
+        //
+        // THE ONE PLACE THIS RULE IS SPELLED IN SQL RATHER THAN TYPESCRIPT,
+        // because partner stats aggregate in the database and cannot call the
+        // classifier per row. Two spellings of one rule is how the two drift,
+        // so the list comes from the shared module and summary-labels.test.ts
+        // pins that it and the classifier agree in both directions.
+        or(isNull(matches.label), notInArray(matches.label, [...SUMMARY_LABELS])),
       ),
     )
     .groupBy(them.userId, users.displayName);
@@ -1108,12 +1142,13 @@ async function buildRivalry(db: Db, groupIds: string[], meId: string, themId: st
     for (const r of rows) {
       const side = r.userId === meId ? mineAgg : theirsAgg;
       feedAgg(side, r);
-      // feedAgg skips the series summary itself, but the meeting map below is
-      // built here and would otherwise count a series as an extra head-to-head
-      // encounter on top of every battle inside it, inflating the record,
-      // breaking the meeting streak, and putting a null character through the
-      // "what each of us reaches for" tally.
-      if (isSeriesSummary(r.label)) continue;
+      // AUDITED 2026-09-15: this means ANY SUMMARY. feedAgg skips summaries
+      // itself, but the meeting map below is built here and would otherwise
+      // count one as an extra head-to-head encounter on top of every row
+      // inside it, inflating the record, breaking the meeting streak, and
+      // putting a null character through the "what each of us reaches for"
+      // tally.
+      if (isSummaryRow(r.label)) continue;
       const m = byMatch.get(r.matchId) ?? { game: r.gameName ?? "Unknown", playedAt: r.playedAt };
       const entry: Side = { p: r.placement, w: r.isWinner, character: r.character, side: r.side };
       if (r.userId === meId) m.mine = entry;
@@ -1260,9 +1295,10 @@ statsRouter.get("/me/stats", async (req: AuthedRequest, res) => {
   const byCrew = new Map<string, { groupId: string; name: string; played: number; wins: number; personal: boolean }>();
   for (const r of rows) {
     feedAgg(total, r);
-    // feedAgg skips series summaries on its own; these two tallies are the
-    // ones that live outside it, so they have to skip them here.
-    if (isSeriesSummary(r.label)) continue;
+    // AUDITED 2026-09-15: this means ANY SUMMARY. feedAgg skips them on its
+    // own; these two tallies are the ones that live outside it, so they have
+    // to skip them here.
+    if (isSummaryRow(r.label)) continue;
     if (r.format) {
       const f = byFormat.get(r.format) ?? { format: r.format, played: 0, wins: 0 };
       f.played++;
